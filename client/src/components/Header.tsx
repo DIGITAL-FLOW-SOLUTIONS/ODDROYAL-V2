@@ -1,0 +1,77 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Bell, User, Settings, ChevronDown } from "lucide-react";
+import { motion } from "framer-motion";
+
+export default function Header() {
+  const [balance] = useState(1250.50); //todo: remove mock functionality
+  const [user] = useState({ name: "John Doe", username: "johndoe" }); //todo: remove mock functionality
+
+  return (
+    <motion.header 
+      initial={{ y: -50, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className="sticky top-0 z-50 flex h-16 items-center justify-between bg-sidebar border-b border-sidebar-border px-4"
+    >
+      {/* Left section */}
+      <div className="flex items-center gap-4">
+        <SidebarTrigger data-testid="button-sidebar-toggle" />
+        <div className="flex items-center gap-2">
+          <div className="font-display text-xl font-bold text-primary">
+            PRIME<span className="text-destructive">STAKE</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Center section - Navigation */}
+      <nav className="hidden md:flex items-center gap-6">
+        <Button variant="ghost" size="sm" data-testid="link-sports" className="hover-elevate">
+          Sports
+        </Button>
+        <Button variant="ghost" size="sm" data-testid="link-live" className="hover-elevate">
+          Live Betting
+        </Button>
+        <Button variant="ghost" size="sm" data-testid="link-casino" className="hover-elevate">
+          Casino
+        </Button>
+        <Button variant="ghost" size="sm" data-testid="link-promotions" className="hover-elevate">
+          Promotions
+        </Button>
+      </nav>
+
+      {/* Right section */}
+      <div className="flex items-center gap-2">
+        {/* Balance */}
+        <div className="hidden sm:flex items-center gap-2 bg-card px-3 py-1 rounded-md border border-card-border">
+          <span className="text-sm text-muted-foreground">Balance:</span>
+          <span className="text-sm font-semibold text-chart-4" data-testid="text-balance">
+            ${balance.toFixed(2)}
+          </span>
+        </div>
+
+        {/* Notifications */}
+        <Button
+          variant="ghost"
+          size="icon"
+          data-testid="button-notifications"
+          className="hover-elevate"
+        >
+          <Bell className="h-4 w-4" />
+        </Button>
+
+        {/* User Menu */}
+        <Button
+          variant="ghost"
+          size="sm"
+          data-testid="button-user-menu"
+          className="flex items-center gap-2 hover-elevate"
+        >
+          <User className="h-4 w-4" />
+          <span className="hidden sm:inline text-sm">{user.name}</span>
+          <ChevronDown className="h-3 w-3" />
+        </Button>
+      </div>
+    </motion.header>
+  );
+}
