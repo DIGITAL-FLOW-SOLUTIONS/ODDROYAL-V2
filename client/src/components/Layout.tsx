@@ -90,21 +90,21 @@ export default function Layout({ children }: LayoutProps) {
   const childrenWithProps = children;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background">
       <SidebarProvider style={style as React.CSSProperties}>
-        <div className="flex w-full">
+        <div className="flex w-full min-h-screen">
           <SportsSidebar />
           
           <div className="flex flex-col flex-1">
             <Header />
             
             {/* Main content area with bet slip */}
-            <div className="flex">
+            <div className="flex flex-1">
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
-                className="flex-1 min-h-screen overflow-auto"
+                className="flex-1"
               >
                 {childrenWithProps}
               </motion.div>
@@ -114,9 +114,9 @@ export default function Layout({ children }: LayoutProps) {
                 initial={{ x: 100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ duration: 0.3, delay: 0.2 }}
-                className="hidden lg:flex flex-col w-80 border-l border-border bg-card"
+                className="hidden lg:block w-80 border-l border-border bg-card"
               >
-                <div className="p-4 flex-1">
+                <div className="p-4">
                   <BetSlip
                     selections={betSlipSelections}
                     onRemoveSelection={handleRemoveFromBetSlip}
@@ -124,12 +124,13 @@ export default function Layout({ children }: LayoutProps) {
                     onPlaceBet={handlePlaceBet}
                   />
                 </div>
-                {/* Footer positioned below bet slip */}
-                <Footer />
               </motion.div>
             </div>
           </div>
         </div>
+        
+        {/* Footer positioned below entire main content area - full width */}
+        <Footer />
 
         {/* Mobile bet slip toggle button */}
         {betSlipSelections.length > 0 && (
