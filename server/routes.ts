@@ -18,6 +18,7 @@ import {
   betPlacementSchema,
   currencyUtils
 } from "@shared/schema";
+import { initializeWebSocket, broadcastBetUpdate } from './websocket';
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -597,6 +598,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Initialize WebSocket server for real-time updates
+  initializeWebSocket(httpServer);
+  
   return httpServer;
 }
 
