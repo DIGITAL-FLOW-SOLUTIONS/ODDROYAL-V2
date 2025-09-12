@@ -1,0 +1,57 @@
+The current layout of the line.tsx page has a bug: the middle content is not respecting the available width between the sidebar (left) and the betslip (right). Instead of shrinking gracefully, the middle content overflows horizontally, which pushes the betslip out of view and creates a horizontal scrollbar.
+
+I need you to fix this so the layout behaves like a professional sportsbook (e.g., https://playwin.top/line/):
+
+✅ Requirements
+
+1. Grid Layout
+
+a. Use a 3-column CSS grid or flexbox layout for the main container:
+
+- Left column: sidebar (fixed width).
+- Middle column: main content (fluid, flexible width).
+- Right column: betslip (fixed width).
+
+2. Responsive Middle Content
+
+- The middle column should automatically resize to fill the available space between sidebar and betslip.
+
+- It should not overflow horizontally.
+
+- Any content wider than the middle column must hide overflow and instead rely on the arrow/carousel navigation to slide through items (like in Playwin).
+
+3. Carousels & Sliders
+
+- Ensure Popular Events and Top Leagues sections use a horizontal carousel/slider with arrows (and swipe support for mobile).
+
+- Do not let these sections stretch beyond the middle column.
+
+- Users should navigate with arrows to view more items, not by scrolling the entire page sideways.
+
+4. Betslip & Sidebar Behavior
+
+- Both the sidebar (left) and betslip (right) remain fixed in place.
+
+- Only the middle column content scrolls vertically.
+
+- Footer is revealed only after scrolling the middle column to the bottom.
+
+6. Design Consistency
+
+- Match the layout proportions of the uploaded screenshot (Playwin example).
+
+- No horizontal scrollbar should appear at any screen size.
+
+- On smaller screens, gracefully stack the layout (betslip collapses below content, etc.).
+
+⚡ Goal
+
+After your fix:
+
+- The middle content fits perfectly between sidebar and betslip.
+
+- Carousels are used properly for overflow instead of stretching content.
+
+- The horizontal scrollbar disappears completely.
+
+- Layout and behavior should mimic the Playwin screenshot provided earlier.

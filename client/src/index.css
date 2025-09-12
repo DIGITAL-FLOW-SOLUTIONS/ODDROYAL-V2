@@ -335,4 +335,59 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;  /* Safari and Chrome */
   }
+
+  /* Sportsbook 3-column grid layout */
+  .sportsbook-layout {
+    display: grid;
+    grid-template-columns: 20rem 1fr 20rem;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: 
+      "sidebar header header"
+      "sidebar main betslip"
+      "sidebar footer footer";
+  }
+
+  .sportsbook-sidebar {
+    grid-area: sidebar;
+  }
+
+  .sportsbook-header {
+    grid-area: header;
+  }
+
+  .sportsbook-main {
+    grid-area: main;
+    min-width: 0; /* Allow flexbox shrinking */
+  }
+
+  .sportsbook-betslip {
+    grid-area: betslip;
+  }
+
+  .sportsbook-footer {
+    grid-area: footer;
+  }
+
+  /* Responsive adjustments */
+  @media (max-width: 1023px) {
+    .sportsbook-layout {
+      grid-template-columns: 20rem 1fr;
+      grid-template-areas: 
+        "sidebar header"
+        "sidebar main"
+        "sidebar footer";
+    }
+  }
+
+  @media (max-width: 768px) {
+    .sportsbook-layout {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto 1fr auto;
+      grid-template-areas: 
+        "sidebar"
+        "header"
+        "main"
+        "footer";
+    }
+  }
 }

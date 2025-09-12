@@ -92,44 +92,60 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="bg-background">
       <SidebarProvider style={style as React.CSSProperties}>
-        <div className="flex w-full min-h-screen">
-          <SportsSidebar />
+        {/* 3-column grid layout: sidebar | main-content | betslip */}
+        <div className="sportsbook-layout min-h-screen">
           
-          <div className="flex flex-col flex-1">
+          {/* Sidebar - spans full height */}
+          <div className="sportsbook-sidebar">
+            <SportsSidebar />
+          </div>
+          
+          {/* Header - spans middle and right columns */}
+          <div className="sportsbook-header">
             <Header />
-            
-            {/* Main content area with bet slip */}
-            <div className="flex flex-1">
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                className="flex-1 scrollbar-hide"
-                style={{ maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }}
-              >
-                {childrenWithProps}
-              </motion.div>
-
-              {/* Bet slip - desktop */}
-              <motion.div 
-                initial={{ x: 100, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ duration: 0.3, delay: 0.2 }}
-                className="hidden lg:block w-80 bg-background sticky top-20"
-                style={{ height: 'calc(100vh - 80px)', overflowY: 'auto' }}
-              >
-                <div className="p-4">
-                  <BetSlip
-                    selections={betSlipSelections}
-                    onRemoveSelection={handleRemoveFromBetSlip}
-                    onClearAll={handleClearBetSlip}
-                    onPlaceBet={handlePlaceBet}
-                  />
-                </div>
-              </motion.div>
+          </div>
+          
+          {/* Main content - middle column only */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="sportsbook-main overflow-hidden"
+            style={{ 
+              maxHeight: 'calc(100vh - 80px)', 
+              overflowY: 'auto',
+              overflowX: 'hidden'
+            }}
+          >
+            <div className="scrollbar-hide w-full">
+              {childrenWithProps}
             </div>
-            
-            {/* Footer positioned to appear after main content */}
+          </motion.div>
+
+          {/* Bet slip - right column only, desktop */}
+          <motion.div 
+            initial={{ x: 100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
+            className="sportsbook-betslip hidden lg:block bg-background border-l border-border"
+            style={{ 
+              maxHeight: 'calc(100vh - 80px)', 
+              overflowY: 'auto',
+              overflowX: 'hidden'
+            }}
+          >
+            <div className="p-4">
+              <BetSlip
+                selections={betSlipSelections}
+                onRemoveSelection={handleRemoveFromBetSlip}
+                onClearAll={handleClearBetSlip}
+                onPlaceBet={handlePlaceBet}
+              />
+            </div>
+          </motion.div>
+          
+          {/* Footer - spans middle and right columns */}
+          <div className="sportsbook-footer">
             <Footer />
           </div>
         </div>
