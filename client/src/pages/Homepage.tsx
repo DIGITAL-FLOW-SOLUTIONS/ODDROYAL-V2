@@ -128,7 +128,7 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {featuredMatches.map((match, index) => (
+                  {featuredMatches.map((match: any, index: number) => (
                     <motion.div
                       key={match.id}
                       initial={{ opacity: 0, y: 20 }}

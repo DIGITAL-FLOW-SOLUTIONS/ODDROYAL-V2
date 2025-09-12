@@ -10,7 +10,6 @@ if (!API_TOKEN) {
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Authorization': `Bearer ${API_TOKEN}`,
     'Content-Type': 'application/json',
   },
 });
@@ -109,10 +108,10 @@ export async function getUpcomingFixtures(limit: number = 20): Promise<SportMonk
   try {
     const response = await api.get('/football/fixtures', {
       params: {
-        'filter[state_id]': '1', // Upcoming matches
-        'include': 'participants,league,state,scores',
+        'api_token': API_TOKEN,
+        'include': 'participants;league;state;scores',
         'per_page': limit,
-        'sort': 'starting_at',
+        'filters': 'fixtureStates:1', // Upcoming matches (state 1)
       },
     });
     
@@ -132,10 +131,10 @@ export async function getLiveFixtures(): Promise<SportMonksFixture[]> {
   try {
     const response = await api.get('/football/fixtures', {
       params: {
-        'filter[state_id]': '2', // Live matches
-        'include': 'participants,league,state,scores',
+        'api_token': API_TOKEN,
+        'include': 'participants;league;state;scores',
         'per_page': 50,
-        'sort': 'starting_at',
+        'filters': 'fixtureStates:2', // Live matches (state 2)
       },
     });
     
@@ -153,14 +152,15 @@ export async function getFixtureOdds(fixtureId: number): Promise<SportMonksOdds[
   }
 
   try {
-    const response = await api.get(`/football/odds/fixtures/${fixtureId}`, {
+    const response = await api.get(`/football/fixtures/${fixtureId}`, {
       params: {
-        'include': 'market',
-        'filter[market_id]': '1,2,3', // 1x2, Over/Under, Both Teams to Score
+        'api_token': API_TOKEN,
+        'include': 'odds,odds.market',
+        'filters': 'markets:1,2,3', // 1x2, Over/Under, Both Teams to Score
       },
     });
     
-    return response.data.data || [];
+    return response.data.odds || [];
   } catch (error) {
     console.error('Error fetching fixture odds:', error);
     return [];
@@ -176,9 +176,8 @@ export async function getLeagues(): Promise<any[]> {
   try {
     const response = await api.get('/football/leagues', {
       params: {
-        'filter[active]': 'true',
+        'api_token': API_TOKEN,
         'per_page': 20,
-        'sort': 'name',
       },
     });
     
