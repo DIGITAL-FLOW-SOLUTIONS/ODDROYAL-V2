@@ -92,19 +92,20 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="bg-background">
       <SidebarProvider style={style as React.CSSProperties}>
-        <div className="flex w-full h-screen">
+        <div className="flex w-full min-h-screen">
           <SportsSidebar />
           
           <div className="flex flex-col flex-1">
             <Header />
             
             {/* Main content area with bet slip */}
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1">
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
-                className="flex-1 overflow-y-auto"
+                className="flex-1"
+                style={{ maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }}
               >
                 {childrenWithProps}
               </motion.div>
@@ -114,7 +115,8 @@ export default function Layout({ children }: LayoutProps) {
                 initial={{ x: 100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ duration: 0.3, delay: 0.2 }}
-                className="hidden lg:block w-80 bg-background h-full overflow-y-auto"
+                className="hidden lg:block w-80 bg-background sticky top-20"
+                style={{ height: 'calc(100vh - 80px)', overflowY: 'auto' }}
               >
                 <div className="p-4">
                   <BetSlip
@@ -126,11 +128,11 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
               </motion.div>
             </div>
+            
+            {/* Footer positioned to appear after main content */}
+            <Footer />
           </div>
         </div>
-        
-        {/* Footer positioned outside main layout to appear after scrolling past viewport */}
-        <Footer />
       </SidebarProvider>
 
       {/* Mobile bet slip toggle button */}
