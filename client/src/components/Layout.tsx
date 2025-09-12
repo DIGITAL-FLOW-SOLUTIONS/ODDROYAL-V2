@@ -92,45 +92,49 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="bg-background">
       <SidebarProvider style={style as React.CSSProperties}>
-        <div className="flex w-full min-h-screen">
-          <SportsSidebar />
-          
-          <div className="flex flex-col flex-1">
-            <Header />
+        {/* Fixed height container for header + main content */}
+        <div className="flex w-full h-screen flex-col">
+          <div className="flex flex-1">
+            <SportsSidebar />
             
-            {/* Main content area with bet slip */}
-            <div className="flex flex-1">
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                className="flex-1"
-              >
-                {childrenWithProps}
-              </motion.div>
+            <div className="flex flex-col flex-1">
+              <Header />
+              
+              {/* Main content area with independent scrolling */}
+              <div className="flex flex-1 overflow-hidden">
+                {/* Middle content - scrollable */}
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex-1 overflow-y-auto"
+                >
+                  {childrenWithProps}
+                </motion.div>
 
-              {/* Bet slip - desktop */}
-              <motion.div 
-                initial={{ x: 100, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ duration: 0.3, delay: 0.2 }}
-                className="hidden lg:block w-80 bg-background sticky top-0 h-screen overflow-auto"
-              >
-                <div className="p-4">
-                  <BetSlip
-                    selections={betSlipSelections}
-                    onRemoveSelection={handleRemoveFromBetSlip}
-                    onClearAll={handleClearBetSlip}
-                    onPlaceBet={handlePlaceBet}
-                  />
-                </div>
-              </motion.div>
+                {/* Bet slip - fixed position, desktop only */}
+                <motion.div 
+                  initial={{ x: 100, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ duration: 0.3, delay: 0.2 }}
+                  className="hidden lg:block w-80 bg-background overflow-y-auto"
+                >
+                  <div className="p-4">
+                    <BetSlip
+                      selections={betSlipSelections}
+                      onRemoveSelection={handleRemoveFromBetSlip}
+                      onClearAll={handleClearBetSlip}
+                      onPlaceBet={handlePlaceBet}
+                    />
+                  </div>
+                </motion.div>
+              </div>
             </div>
-            
-            {/* Footer positioned inside layout to respond to sidebar state */}
-            <Footer />
           </div>
         </div>
+        
+        {/* Footer positioned below the fixed viewport */}
+        <Footer />
       </SidebarProvider>
 
       {/* Mobile bet slip toggle button */}
