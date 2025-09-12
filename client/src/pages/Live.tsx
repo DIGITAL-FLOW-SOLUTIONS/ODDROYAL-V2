@@ -1,27 +1,70 @@
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { useQuery } from "@tanstack/react-query";
 import { 
-  Search, 
+  ChevronDown,
+  ChevronUp,
   Zap,
-  Clock,
-  TrendingUp,
-  Play,
-  Users,
+  Circle,
+  // Sport icons from lucide-react
+  Gamepad2,
+  Zap as Hockey,
   Target,
-  Timer
+  Volleyball as VolleyballIcon,
+  Disc3 as Rugby
 } from "lucide-react";
+
+// Sports icons using proper lucide-react icons
+const SPORTS_ICONS = {
+  Football: Gamepad2,
+  Hockey: Hockey,
+  Tennis: Target,
+  Basketball: Circle, // Using Circle for Basketball
+  Baseball: Target,
+  Volleyball: VolleyballIcon,
+  Rugby: Rugby
+} as const;
 
 interface LiveProps {
   onAddToBetSlip?: (selection: any) => void;
 }
 
+interface LiveMatch {
+  id: string;
+  homeTeam: string;
+  awayTeam: string;
+  league: string;
+  homeScore: number;
+  awayScore: number;
+  minute: number;
+  status: string;
+  odds: {
+    "1x2": {
+      home: number;
+      draw: number;
+      away: number;
+    };
+  };
+}
+
+interface Sport {
+  id: number;
+  name: string;
+  icon: string;
+  endpoint: string;
+}
+
+interface LeagueGroup {
+  leagueName: string;
+  matches: LiveMatch[];
+}
+
 export default function Live({ onAddToBetSlip }: LiveProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSport, setSelectedSport] = useState<number>(1); // Default to Football
+  const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set(['Football']));
+  const [expandedMatches, setExpandedMatches] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update current time every second for live matches
@@ -32,18 +75,44 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch live matches from SportMonks API
-  const { data: liveMatchesData, isLoading: liveLoading } = useQuery({
-    queryKey: ['/api/fixtures/live'],
+  // Fetch sports list
+  const { data: sportsData } = useQuery({
+    queryKey: ['/api/sports'],
     queryFn: async () => {
-      const response = await fetch('/api/fixtures/live');
+      const response = await fetch('/api/sports');
+      if (!response.ok) throw new Error('Failed to fetch sports');
+      return response.json();
+    },
+  });
+
+  const sports: Sport[] = sportsData?.data || [];
+
+  // Fetch live matches for selected sport
+  const { data: liveMatchesData, isLoading: liveLoading } = useQuery({
+    queryKey: ['/api/fixtures/live', selectedSport],
+    queryFn: async () => {
+      const response = await fetch(`/api/fixtures/live?sportId=${selectedSport}`);
       if (!response.ok) throw new Error('Failed to fetch live matches');
       return response.json();
     },
     refetchInterval: 5000, // Refresh every 5 seconds for live data
   });
 
-  const liveMatches = liveMatchesData?.data || [];
+  const liveMatches: LiveMatch[] = liveMatchesData?.data || [];
+
+  // Group matches by league
+  const leagueGroups: LeagueGroup[] = liveMatches.reduce((groups, match) => {
+    const existingGroup = groups.find(g => g.leagueName === match.league);
+    if (existingGroup) {
+      existingGroup.matches.push(match);
+    } else {
+      groups.push({
+        leagueName: match.league,
+        matches: [match]
+      });
+    }
+    return groups;
+  }, [] as LeagueGroup[]);
 
   const handleLiveOddsClick = (matchId: string, market: string, type: string, odds: number, homeTeam: string, awayTeam: string) => {
     const selection = {
@@ -57,258 +126,300 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
       league: liveMatches.find(m => m.id === matchId)?.league || "Unknown",
       isLive: true
     };
-    onAddToBetSlip(selection);
+    onAddToBetSlip?.(selection);
     console.log("Added live selection to bet slip:", selection);
   };
 
-  const filteredMatches = liveMatches.filter(match => 
-    searchQuery === "" || 
-    match.homeTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    match.awayTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    match.league.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const toggleLeague = (leagueName: string) => {
+    const newExpanded = new Set(expandedLeagues);
+    if (newExpanded.has(leagueName)) {
+      newExpanded.delete(leagueName);
+    } else {
+      newExpanded.add(leagueName);
+    }
+    setExpandedLeagues(newExpanded);
+  };
+
+  const toggleMatchExpansion = (matchId: string) => {
+    const newExpanded = new Set(expandedMatches);
+    if (newExpanded.has(matchId)) {
+      newExpanded.delete(matchId);
+    } else {
+      newExpanded.add(matchId);
+    }
+    setExpandedMatches(newExpanded);
+  };
+
+  const getSportIcon = (sportName: string) => {
+    return SPORTS_ICONS[sportName as keyof typeof SPORTS_ICONS] || Gamepad2;
+  };
 
   return (
-    <div className="flex-1 p-4 space-y-6">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-4"
-      >
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Zap className="h-6 w-6 text-destructive animate-pulse" />
-              <h1 className="text-2xl font-display font-bold">Live Betting</h1>
-              <div className="w-3 h-3 bg-destructive rounded-full animate-pulse" />
+    <div className="flex-1 bg-card text-card-foreground">
+      {/* Top Sports Tabs */}
+      <div className="flex items-center gap-1 p-2 bg-sidebar border-b border-sidebar-border overflow-x-auto">
+        {sports.map((sport) => (
+          <Button
+            key={sport.id}
+            variant={selectedSport === sport.id ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setSelectedSport(sport.id)}
+            data-testid={`button-sport-${sport.name.toLowerCase()}`}
+            className={`flex flex-col items-center gap-1 min-w-[60px] ${
+              selectedSport === sport.id 
+                ? 'bg-primary text-primary-foreground' 
+                : ''
+            }`}
+          >
+            {(() => {
+              const IconComponent = getSportIcon(sport.name);
+              return <IconComponent className="h-5 w-5" />;
+            })()}
+            <span className="text-xs font-medium">{sport.name}</span>
+          </Button>
+        ))}
+      </div>
+
+      {/* Live Matches Content */}
+      <div className="flex-1 overflow-auto">
+        {liveLoading ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="text-center">
+              <Zap className="h-8 w-8 text-destructive animate-pulse mx-auto mb-2" />
+              <p className="text-muted-foreground">Loading live matches...</p>
             </div>
           </div>
-          
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search live matches..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                data-testid="input-search-live"
-                className="pl-10 w-64"
-              />
+        ) : leagueGroups.length === 0 ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="text-center">
+              <Circle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-muted-foreground">No live matches available</p>
+              <p className="text-sm text-muted-foreground/70">Check back during match times</p>
             </div>
           </div>
-        </div>
-
-        {/* Live stats bar */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="bg-destructive/10 border-destructive/20">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-destructive">{liveMatches.length}</div>
-              <div className="text-xs text-muted-foreground">Live Matches</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-chart-4/10 border-chart-4/20">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-chart-4">156</div>
-              <div className="text-xs text-muted-foreground">Live Markets</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-accent/10 border-accent/20">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-accent-foreground">89%</div>
-              <div className="text-xs text-muted-foreground">Uptime Today</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-primary/10 border-primary/20">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-primary">1,234</div>
-              <div className="text-xs text-muted-foreground">Active Bettors</div>
-            </CardContent>
-          </Card>
-        </div>
-      </motion.div>
-
-      {/* Live matches */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="space-y-4"
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Play className="h-4 w-4 text-destructive" />
-            Live Matches
-          </h2>
-          <Badge variant="destructive" data-testid="text-live-count">
-            {filteredMatches.length} Live
-          </Badge>
-        </div>
-
-        <div className="space-y-4">
-          {filteredMatches.map((match, index) => (
-            <motion.div
-              key={match.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Card className="border-destructive/20 bg-gradient-to-r from-card to-destructive/5">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
+        ) : (
+          <div className="space-y-1">
+            {leagueGroups.map((group) => {
+              const isExpanded = expandedLeagues.has(group.leagueName);
+              
+              return (
+                <div key={group.leagueName} className="bg-card">
+                  {/* League Header */}
+                  <div
+                    onClick={() => toggleLeague(group.leagueName)}
+                    className="flex items-center justify-between p-3 bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90 transition-colors"
+                    data-testid={`button-league-${group.leagueName.replace(/\s+/g, '-').toLowerCase()}`}
+                  >
                     <div className="flex items-center gap-3">
-                      <Badge variant="destructive" className="animate-pulse" data-testid={`status-${match.id}`}>
-                        LIVE {match.minute}' {match.status}
+                      {(() => {
+                        const IconComponent = getSportIcon(sports.find(s => s.id === selectedSport)?.name || 'Football');
+                        return <IconComponent className="h-5 w-5" />;
+                      })()}
+                      <span className="font-semibold">{group.leagueName}</span>
+                      <Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground">
+                        {group.matches.length}
                       </Badge>
-                      <Badge variant="outline" className="text-xs">{match.league}</Badge>
                     </div>
-                    <div className="text-xs text-muted-foreground">{match.venue}</div>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  {/* Score display */}
-                  <div className="flex items-center justify-center py-4 bg-card border border-card-border rounded-lg">
-                    <div className="text-center flex-1">
-                      <div className="font-semibold text-lg" data-testid={`text-home-team-${match.id}`}>
-                        {match.homeTeam}
+                    <div className="flex items-center gap-6">
+                      {/* Odds Headers */}
+                      <div className="flex items-center gap-4 text-sm font-medium">
+                        <span className="w-6 text-center">1</span>
+                        <span className="w-6 text-center">X</span>
+                        <span className="w-6 text-center">2</span>
                       </div>
-                      <div className="text-3xl font-bold text-destructive mt-2" data-testid={`text-home-score-${match.id}`}>
-                        {match.homeScore}
-                      </div>
-                    </div>
-                    <div className="px-4">
-                      <div className="text-2xl font-bold text-muted-foreground">-</div>
-                    </div>
-                    <div className="text-center flex-1">
-                      <div className="font-semibold text-lg" data-testid={`text-away-team-${match.id}`}>
-                        {match.awayTeam}
-                      </div>
-                      <div className="text-3xl font-bold text-destructive mt-2" data-testid={`text-away-score-${match.id}`}>
-                        {match.awayScore}
-                      </div>
+                      {isExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
                     </div>
                   </div>
 
-                  {/* Live stats */}
-                  <div className="grid grid-cols-3 gap-4 text-xs">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1 mb-1">
-                        <Users className="h-3 w-3" />
-                        Possession
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>{match.possession.home}%</span>
-                        <span>{match.possession.away}%</span>
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1 mb-1">
-                        <Target className="h-3 w-3" />
-                        Shots
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>{match.shots.home}</span>
-                        <span>{match.shots.away}</span>
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1 mb-1">
-                        <TrendingUp className="h-3 w-3" />
-                        Corners
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>{match.corners.home}</span>
-                        <span>{match.corners.away}</span>
-                      </div>
-                    </div>
-                  </div>
+                  {/* League Matches */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {group.matches.map((match) => {
+                          const isMatchExpanded = expandedMatches.has(match.id);
+                          
+                          return (
+                            <div key={match.id} className="border-b border-border/50 last:border-b-0">
+                              {/* Match Row */}
+                              <div
+                                onClick={() => toggleMatchExpansion(match.id)}
+                                className="flex items-center justify-between p-3 hover:bg-sidebar/30 cursor-pointer transition-colors"
+                                data-testid={`button-match-${match.id}`}
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant="destructive" className="animate-pulse text-xs">
+                                          LIVE {match.minute}'
+                                        </Badge>
+                                        <span className="text-sm font-medium text-destructive">
+                                          {match.homeScore} - {match.awayScore}
+                                        </span>
+                                      </div>
+                                      <div className="mt-1 space-y-0.5">
+                                        <div className="text-sm font-medium truncate" data-testid={`text-home-team-${match.id}`}>
+                                          {match.homeTeam}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground truncate" data-testid={`text-away-team-${match.id}`}>
+                                          {match.awayTeam}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* Odds Buttons */}
+                                <div className="flex items-center gap-2 ml-4">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleLiveOddsClick(match.id, "1x2", "home", match.odds["1x2"].home, match.homeTeam, match.awayTeam);
+                                    }}
+                                    data-testid={`button-odds-home-${match.id}`}
+                                    className="text-xs font-semibold min-w-[48px]"
+                                  >
+                                    {match.odds["1x2"].home.toFixed(2)}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleLiveOddsClick(match.id, "1x2", "draw", match.odds["1x2"].draw, match.homeTeam, match.awayTeam);
+                                    }}
+                                    data-testid={`button-odds-draw-${match.id}`}
+                                    className="text-xs font-semibold min-w-[48px]"
+                                  >
+                                    {match.odds["1x2"].draw.toFixed(2)}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleLiveOddsClick(match.id, "1x2", "away", match.odds["1x2"].away, match.homeTeam, match.awayTeam);
+                                    }}
+                                    data-testid={`button-odds-away-${match.id}`}
+                                    className="text-xs font-semibold min-w-[48px]"
+                                  >
+                                    {match.odds["1x2"].away.toFixed(2)}
+                                  </Button>
+                                  {isMatchExpanded ? (
+                                    <ChevronUp className="h-3 w-3 ml-2" />
+                                  ) : (
+                                    <ChevronDown className="h-3 w-3 ml-2" />
+                                  )}
+                                </div>
+                              </div>
 
-                  {/* Live odds */}
-                  <div className="space-y-3">
-                    {/* Match Result */}
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                        <Timer className="h-3 w-3" />
-                        Match Result (Live)
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleLiveOddsClick(match.id, "1x2", "home", match.odds["1x2"].home, match.homeTeam, match.awayTeam)}
-                          data-testid={`button-live-odds-home-${match.id}`}
-                          className="flex flex-col gap-1 h-auto py-2 hover-elevate bg-destructive/5"
-                        >
-                          <span className="text-xs text-muted-foreground">1</span>
-                          <span className="font-semibold text-destructive">{match.odds["1x2"].home.toFixed(2)}</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleLiveOddsClick(match.id, "1x2", "draw", match.odds["1x2"].draw, match.homeTeam, match.awayTeam)}
-                          data-testid={`button-live-odds-draw-${match.id}`}
-                          className="flex flex-col gap-1 h-auto py-2 hover-elevate bg-destructive/5"
-                        >
-                          <span className="text-xs text-muted-foreground">X</span>
-                          <span className="font-semibold text-destructive">{match.odds["1x2"].draw.toFixed(2)}</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleLiveOddsClick(match.id, "1x2", "away", match.odds["1x2"].away, match.homeTeam, match.awayTeam)}
-                          data-testid={`button-live-odds-away-${match.id}`}
-                          className="flex flex-col gap-1 h-auto py-2 hover-elevate bg-destructive/5"
-                        >
-                          <span className="text-xs text-muted-foreground">2</span>
-                          <span className="font-semibold text-destructive">{match.odds["1x2"].away.toFixed(2)}</span>
-                        </Button>
-                      </div>
-                    </div>
+                              {/* Expandable Match Details */}
+                              <AnimatePresence>
+                                {isMatchExpanded && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="bg-sidebar/20"
+                                  >
+                                    <div className="p-4 space-y-3 border-t border-border/30">
+                                      <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+                                        Additional Markets
+                                      </div>
+                                      
+                                      {/* Over/Under Market */}
+                                      <div>
+                                        <div className="text-sm font-medium mb-2">Total Goals (Over/Under 2.5)</div>
+                                        <div className="flex gap-2">
+                                          <Button
+                                            variant="outline"
+                                            size="default"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleLiveOddsClick(match.id, "over_under", "over", 1.95, match.homeTeam, match.awayTeam);
+                                            }}
+                                            data-testid={`button-over-${match.id}`}
+                                            className="flex flex-col gap-1"
+                                          >
+                                            <span className="text-xs text-muted-foreground">Over 2.5</span>
+                                            <span className="font-semibold">1.95</span>
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="default"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleLiveOddsClick(match.id, "over_under", "under", 2.05, match.homeTeam, match.awayTeam);
+                                            }}
+                                            data-testid={`button-under-${match.id}`}
+                                            className="flex flex-col gap-1"
+                                          >
+                                            <span className="text-xs text-muted-foreground">Under 2.5</span>
+                                            <span className="font-semibold">2.05</span>
+                                          </Button>
+                                        </div>
+                                      </div>
 
-                    {/* Next Goal */}
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-2">Next Goal</div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleLiveOddsClick(match.id, "nextgoal", "home", match.odds.nextgoal.home, match.homeTeam, match.awayTeam)}
-                          data-testid={`button-next-goal-home-${match.id}`}
-                          className="flex flex-col gap-1 h-auto py-2 hover-elevate"
-                        >
-                          <span className="text-xs text-muted-foreground">{match.homeTeam}</span>
-                          <span className="font-semibold">{match.odds.nextgoal.home.toFixed(2)}</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleLiveOddsClick(match.id, "nextgoal", "away", match.odds.nextgoal.away, match.homeTeam, match.awayTeam)}
-                          data-testid={`button-next-goal-away-${match.id}`}
-                          className="flex flex-col gap-1 h-auto py-2 hover-elevate"
-                        >
-                          <span className="text-xs text-muted-foreground">{match.awayTeam}</span>
-                          <span className="font-semibold">{match.odds.nextgoal.away.toFixed(2)}</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleLiveOddsClick(match.id, "nextgoal", "none", match.odds.nextgoal.none, match.homeTeam, match.awayTeam)}
-                          data-testid={`button-next-goal-none-${match.id}`}
-                          className="flex flex-col gap-1 h-auto py-2 hover-elevate"
-                        >
-                          <span className="text-xs text-muted-foreground">No Goal</span>
-                          <span className="font-semibold">{match.odds.nextgoal.none.toFixed(2)}</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+                                      {/* Both Teams to Score */}
+                                      <div>
+                                        <div className="text-sm font-medium mb-2">Both Teams to Score</div>
+                                        <div className="flex gap-2">
+                                          <Button
+                                            variant="outline"
+                                            size="default"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleLiveOddsClick(match.id, "btts", "yes", 1.88, match.homeTeam, match.awayTeam);
+                                            }}
+                                            data-testid={`button-btts-yes-${match.id}`}
+                                            className="flex flex-col gap-1"
+                                          >
+                                            <span className="text-xs text-muted-foreground">Yes</span>
+                                            <span className="font-semibold">1.88</span>
+                                          </Button>
+                                          <Button
+                                            variant="outline"
+                                            size="default"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleLiveOddsClick(match.id, "btts", "no", 2.12, match.homeTeam, match.awayTeam);
+                                            }}
+                                            data-testid={`button-btts-no-${match.id}`}
+                                            className="flex flex-col gap-1"
+                                          >
+                                            <span className="text-xs text-muted-foreground">No</span>
+                                            <span className="font-semibold">2.12</span>
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          );
+                        })}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

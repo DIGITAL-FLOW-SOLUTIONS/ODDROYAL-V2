@@ -260,10 +260,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get live football fixtures
+  // Get live fixtures (by sport)
   app.get("/api/fixtures/live", async (req, res) => {
     try {
-      const fixtures = await getLiveFixtures();
+      const sportId = req.query.sportId ? parseInt(req.query.sportId as string) : undefined;
+      const fixtures = await getLiveFixtures(sportId);
       
       // Transform SportMonks data to our format
       const transformedFixtures = fixtures.map(transformLiveFixture);
@@ -278,6 +279,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         error: 'Failed to fetch live fixtures' 
+      });
+    }
+  });
+
+  // Get sports list
+  app.get("/api/sports", async (req, res) => {
+    try {
+      const { getSports } = await import("./sportmonks");
+      const sports = await getSports();
+      
+      res.json({ 
+        success: true, 
+        data: sports 
+      });
+    } catch (error) {
+      console.error('Error fetching sports:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to fetch sports' 
       });
     }
   });

@@ -122,14 +122,15 @@ export async function getUpcomingFixtures(limit: number = 20): Promise<SportMonk
   }
 }
 
-// Get live fixtures
-export async function getLiveFixtures(): Promise<SportMonksFixture[]> {
+// Get live fixtures by sport
+export async function getLiveFixtures(sportId?: number): Promise<SportMonksFixture[]> {
   if (!API_TOKEN) {
-    return getMockLiveFixtures();
+    return getMockLiveFixtures(sportId);
   }
 
   try {
-    const response = await api.get('/football/fixtures', {
+    const sportEndpoint = getSportEndpoint(sportId);
+    const response = await api.get(`/${sportEndpoint}/fixtures`, {
       params: {
         'api_token': API_TOKEN,
         'include': 'participants;league;state;scores',
@@ -141,8 +142,34 @@ export async function getLiveFixtures(): Promise<SportMonksFixture[]> {
     return response.data.data || [];
   } catch (error) {
     console.error('Error fetching live fixtures:', error);
-    return getMockLiveFixtures();
+    return getMockLiveFixtures(sportId);
   }
+}
+
+// Get sports list
+export async function getSports(): Promise<any[]> {
+  return [
+    { id: 1, name: 'Football', icon: 'Football', endpoint: 'football' },
+    { id: 3, name: 'Hockey', icon: 'Hockey', endpoint: 'ice-hockey' },
+    { id: 5, name: 'Tennis', icon: 'Tennis', endpoint: 'tennis' },
+    { id: 2, name: 'Basketball', icon: 'Basketball', endpoint: 'basketball' },
+    { id: 4, name: 'Baseball', icon: 'Baseball', endpoint: 'baseball' },
+    { id: 6, name: 'Volleyball', icon: 'Volleyball', endpoint: 'volleyball' },
+    { id: 7, name: 'Rugby', icon: 'Rugby', endpoint: 'rugby' },
+  ];
+}
+
+function getSportEndpoint(sportId?: number): string {
+  const sportMap: { [key: number]: string } = {
+    1: 'football',
+    2: 'basketball', 
+    3: 'ice-hockey',
+    4: 'baseball',
+    5: 'tennis',
+    6: 'volleyball',
+    7: 'rugby'
+  };
+  return sportMap[sportId || 1] || 'football';
 }
 
 // Get odds for a fixture
@@ -257,7 +284,7 @@ function getMockUpcomingFixtures(): SportMonksFixture[] {
   ];
 }
 
-function getMockLiveFixtures(): SportMonksFixture[] {
+function getMockLiveFixtures(sportId?: number): SportMonksFixture[] {
   return [
     {
       id: 2,
