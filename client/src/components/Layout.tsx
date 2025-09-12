@@ -128,59 +128,59 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </div>
         </div>
-        
-        {/* Footer positioned below entire main content area - full width */}
-        <Footer />
-
-        {/* Mobile bet slip toggle button */}
-        {betSlipSelections.length > 0 && (
-          <div className="lg:hidden fixed bottom-4 right-4 z-40">
-            <Button
-              onClick={() => setIsBetSlipVisible(!isBetSlipVisible)}
-              data-testid="button-mobile-bet-slip-toggle"
-              className="rounded-full w-14 h-14 shadow-lg hover-elevate"
-            >
-              <ShoppingCart className="h-5 w-5" />
-              <span className="absolute -top-2 -right-2 bg-destructive text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
-                {betSlipSelections.length}
-              </span>
-            </Button>
-          </div>
-        )}
-
-        {/* Mobile bet slip modal */}
-        {isBetSlipVisible && (
-          <div className="lg:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm">
-            <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="absolute bottom-0 left-0 right-0 bg-card border-t border-border rounded-t-xl max-h-[80vh] overflow-auto"
-            >
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold">Bet Slip</h3>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsBetSlipVisible(false)}
-                    data-testid="button-close-mobile-bet-slip"
-                  >
-                    Close
-                  </Button>
-                </div>
-                <BetSlip
-                  selections={betSlipSelections}
-                  onRemoveSelection={handleRemoveFromBetSlip}
-                  onClearAll={handleClearBetSlip}
-                  onPlaceBet={handlePlaceBet}
-                />
-              </div>
-            </motion.div>
-          </div>
-        )}
       </SidebarProvider>
+      
+      {/* Footer positioned below entire page - spans full width */}
+      <Footer />
+
+      {/* Mobile bet slip toggle button */}
+      {betSlipSelections.length > 0 && (
+        <div className="lg:hidden fixed bottom-4 right-4 z-40">
+          <Button
+            onClick={() => setIsBetSlipVisible(!isBetSlipVisible)}
+            data-testid="button-mobile-bet-slip-toggle"
+            className="rounded-full w-14 h-14 shadow-lg hover-elevate"
+          >
+            <ShoppingCart className="h-5 w-5" />
+            <span className="absolute -top-2 -right-2 bg-destructive text-white text-xs rounded-full w-6 h-6 flex items-center justify-center">
+              {betSlipSelections.length}
+            </span>
+          </Button>
+        </div>
+      )}
+
+      {/* Mobile bet slip modal */}
+      {isBetSlipVisible && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm">
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="absolute bottom-0 left-0 right-0 bg-card border-t border-border rounded-t-xl max-h-[80vh] overflow-auto"
+          >
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Bet Slip</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsBetSlipVisible(false)}
+                  data-testid="button-close-mobile-bet-slip"
+                >
+                  Close
+                </Button>
+              </div>
+              <BetSlip
+                selections={betSlipSelections}
+                onRemoveSelection={handleRemoveFromBetSlip}
+                onClearAll={handleClearBetSlip}
+                onPlaceBet={handlePlaceBet}
+              />
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
