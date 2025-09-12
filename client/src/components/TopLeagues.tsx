@@ -139,9 +139,10 @@ export default function TopLeagues({
 
       <div
         ref={scrollRef}
-        className="flex gap-3 overflow-x-auto scrollbar-hide pb-2"
+        className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 max-w-full"
         onScroll={checkScrollPosition}
         data-testid="top-leagues-carousel"
+        style={{ width: '100%', maxWidth: '100%' }}
       >
         {/* All Leagues option */}
         <motion.div

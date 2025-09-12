@@ -261,9 +261,10 @@ export default function PopularEvents({
 
       <div
         ref={scrollRef}
-        className="flex gap-4 overflow-x-auto scrollbar-hide pb-2"
+        className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 max-w-full"
         onScroll={checkScrollPosition}
         data-testid="popular-events-carousel"
+        style={{ width: '100%', maxWidth: '100%' }}
       >
         {renderContent()}
       </div>
