@@ -50,7 +50,11 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     },
     additionalMarkets: (() => {
       const idStr = String(match.id);
-      const seed = [...idStr].reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0), 0) >>> 0;
+      let seed = 0;
+      for (let i = 0; i < idStr.length; i++) {
+        seed = ((seed << 5) - seed) + idStr.charCodeAt(i);
+        seed = seed >>> 0; // Convert to 32bit unsigned integer
+      }
       return 50 + (seed % 150);
     })(), // Stable additional markets count based on match ID
   }));
@@ -89,7 +93,11 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         },
         additionalMarkets: (() => {
           const idStr = String(match.id);
-          const seed = [...idStr].reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0), 0) >>> 0;
+          let seed = 0;
+          for (let i = 0; i < idStr.length; i++) {
+            seed = ((seed << 5) - seed) + idStr.charCodeAt(i);
+            seed = seed >>> 0; // Convert to 32bit unsigned integer
+          }
           return 20 + (seed % 80);
         })(), // Stable count based on match ID
       });
@@ -142,7 +150,8 @@ export default function Line({ onAddToBetSlip }: LineProps) {
       );
 
   return (
-    <div className="flex-1 p-4 space-y-8">
+    <div className="w-full max-w-none overflow-hidden">
+      <div className="p-4 space-y-8">
       {/* Hero Banner - Top promotional slider */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -203,6 +212,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
           onAddToFavorites={handleAddToFavorites}
         />
       </motion.div>
+      </div>
     </div>
   );
 }
