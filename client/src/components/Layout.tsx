@@ -92,44 +92,41 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-background">
       <SidebarProvider style={style as React.CSSProperties}>
-        <div className="flex h-screen w-full">
+        <div className="flex w-full">
           <SportsSidebar />
           
-          <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex flex-col flex-1">
             <Header />
             
-            <div className="flex flex-col flex-1 overflow-hidden">
-              {/* Main content area with bet slip */}
-              <div className="flex flex-1 overflow-hidden">
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex-1 overflow-auto"
-                >
-                  {childrenWithProps}
-                </motion.div>
+            {/* Main content area with bet slip */}
+            <div className="flex">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="flex-1 min-h-screen overflow-auto"
+              >
+                {childrenWithProps}
+              </motion.div>
 
-                {/* Bet slip - desktop */}
-                <motion.div 
-                  initial={{ x: 100, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.2 }}
-                  className="hidden lg:block w-80 border-l border-border bg-card overflow-auto"
-                >
-                  <div className="p-4">
-                    <BetSlip
-                      selections={betSlipSelections}
-                      onRemoveSelection={handleRemoveFromBetSlip}
-                      onClearAll={handleClearBetSlip}
-                      onPlaceBet={handlePlaceBet}
-                    />
-                  </div>
-                </motion.div>
-              </div>
-              
-              {/* Footer spans full width below both content and bet slip */}
-              <Footer />
+              {/* Bet slip - desktop */}
+              <motion.div 
+                initial={{ x: 100, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+                className="hidden lg:flex flex-col w-80 border-l border-border bg-card"
+              >
+                <div className="p-4 flex-1">
+                  <BetSlip
+                    selections={betSlipSelections}
+                    onRemoveSelection={handleRemoveFromBetSlip}
+                    onClearAll={handleClearBetSlip}
+                    onPlaceBet={handlePlaceBet}
+                  />
+                </div>
+                {/* Footer positioned below bet slip */}
+                <Footer />
+              </motion.div>
             </div>
           </div>
         </div>
