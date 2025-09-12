@@ -114,7 +114,7 @@ export default function Layout({ children }: LayoutProps) {
                 initial={{ x: 100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ duration: 0.3, delay: 0.2 }}
-                className="hidden lg:block w-80 bg-background"
+                className="hidden lg:block w-80 bg-background sticky top-0 h-screen overflow-auto"
               >
                 <div className="p-4">
                   <BetSlip
