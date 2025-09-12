@@ -1,5 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import bcrypt from "bcryptjs";
+import { randomUUID } from "crypto";
 import { storage } from "./storage";
 import { 
   getUpcomingFixtures, 
@@ -8,11 +10,228 @@ import {
   getLeagues,
   SportMonksFixture 
 } from "./sportmonks";
+import { 
+  insertUserSchema, 
+  insertBetSchema, 
+  insertBetSelectionSchema, 
+  insertFavoriteSchema 
+} from "@shared/schema";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "OK", timestamp: new Date().toISOString() });
+  });
+
+  // Authentication Routes
+  
+  // User Registration
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const validatedData = insertUserSchema.extend({
+        confirmPassword: z.string().min(6)
+      }).refine(
+        (data) => data.password === data.confirmPassword,
+        { message: "Passwords don't match", path: ["confirmPassword"] }
+      ).parse(req.body);
+      
+      // Check if user already exists
+      const existingUserByUsername = await storage.getUserByUsername(validatedData.username);
+      const existingUserByEmail = await storage.getUserByEmail(validatedData.email);
+      
+      if (existingUserByUsername) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Username already exists" 
+        });
+      }
+      
+      if (existingUserByEmail) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Email already exists" 
+        });
+      }
+      
+      // Hash password
+      const hashedPassword = await bcrypt.hash(validatedData.password, 12);
+      
+      // Create user
+      const user = await storage.createUser({
+        username: validatedData.username,
+        email: validatedData.email,
+        password: hashedPassword,
+        firstName: validatedData.firstName,
+        lastName: validatedData.lastName
+      });
+      
+      // Create session
+      const sessionToken = randomUUID();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      await storage.createSession(
+        user.id, 
+        sessionToken, 
+        expiresAt, 
+        req.ip,
+        req.get('User-Agent')
+      );
+      
+      // Return user (without password) and session
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ 
+        success: true, 
+        data: { 
+          user: userWithoutPassword, 
+          sessionToken 
+        } 
+      });
+      
+    } catch (error) {
+      console.error('Registration error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Validation failed",
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ 
+        success: false, 
+        error: "Registration failed" 
+      });
+    }
+  });
+  
+  // User Login
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { username, password } = z.object({
+        username: z.string().min(1),
+        password: z.string().min(1)
+      }).parse(req.body);
+      
+      // Find user by username or email
+      const user = await storage.getUserByUsername(username) || 
+                   await storage.getUserByEmail(username);
+      
+      if (!user || !user.isActive) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "Invalid credentials" 
+        });
+      }
+      
+      // Verify password
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "Invalid credentials" 
+        });
+      }
+      
+      // Create session
+      const sessionToken = randomUUID();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      await storage.createSession(
+        user.id, 
+        sessionToken, 
+        expiresAt, 
+        req.ip,
+        req.get('User-Agent')
+      );
+      
+      // Return user (without password) and session
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ 
+        success: true, 
+        data: { 
+          user: userWithoutPassword, 
+          sessionToken 
+        } 
+      });
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Invalid request data" 
+        });
+      }
+      res.status(500).json({ 
+        success: false, 
+        error: "Login failed" 
+      });
+    }
+  });
+  
+  // User Logout
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      const { sessionToken } = z.object({
+        sessionToken: z.string()
+      }).parse(req.body);
+      
+      await storage.deleteSession(sessionToken);
+      
+      res.json({ 
+        success: true, 
+        message: "Logged out successfully" 
+      });
+      
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Logout failed" 
+      });
+    }
+  });
+  
+  // Get Current User (validate session)
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      const sessionToken = req.headers.authorization?.replace('Bearer ', '');
+      
+      if (!sessionToken) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "No session token provided" 
+        });
+      }
+      
+      const session = await storage.getSession(sessionToken);
+      if (!session || session.expiresAt < new Date()) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "Invalid or expired session" 
+        });
+      }
+      
+      const user = await storage.getUser(session.userId);
+      if (!user || !user.isActive) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "User not found or inactive" 
+        });
+      }
+      
+      // Return user without password
+      const { password: _, ...userWithoutPassword } = user;
+      res.json({ 
+        success: true, 
+        data: userWithoutPassword 
+      });
+      
+    } catch (error) {
+      console.error('Get user error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to get user" 
+      });
+    }
   });
 
   // Get upcoming football fixtures
@@ -100,6 +319,304 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         error: 'Failed to fetch leagues' 
+      });
+    }
+  });
+  
+  // Helper middleware to authenticate requests
+  async function authenticateUser(req: any, res: any, next: any) {
+    try {
+      const sessionToken = req.headers.authorization?.replace('Bearer ', '');
+      
+      if (!sessionToken) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "Authentication required" 
+        });
+      }
+      
+      const session = await storage.getSession(sessionToken);
+      if (!session || session.expiresAt < new Date()) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "Invalid or expired session" 
+        });
+      }
+      
+      const user = await storage.getUser(session.userId);
+      if (!user || !user.isActive) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "User not found or inactive" 
+        });
+      }
+      
+      req.user = user;
+      next();
+      
+    } catch (error) {
+      console.error('Authentication error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Authentication failed" 
+      });
+    }
+  }
+
+  // Betting Routes (Protected)
+  
+  // Place a bet
+  app.post("/api/bets", authenticateUser, async (req: any, res) => {
+    try {
+      const validatedData = z.object({
+        type: z.enum(['single', 'express', 'system']),
+        totalStake: z.string().regex(/^\d+(\.\d{2})?$/),
+        selections: z.array(z.object({
+          fixtureId: z.string(),
+          homeTeam: z.string(),
+          awayTeam: z.string(),
+          league: z.string(),
+          market: z.string(),
+          selection: z.string(),
+          odds: z.string().regex(/^\d+(\.\d{4})?$/)
+        }))
+      }).parse(req.body);
+      
+      // Validate user has sufficient balance
+      const user = req.user;
+      const stakeAmount = parseFloat(validatedData.totalStake);
+      const userBalance = parseFloat(user.balance);
+      
+      if (stakeAmount > userBalance) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Insufficient balance" 
+        });
+      }
+      
+      // Calculate total odds
+      const totalOdds = validatedData.selections.reduce((acc, selection) => 
+        acc * parseFloat(selection.odds), 1
+      );
+      
+      const potentialWinnings = stakeAmount * totalOdds;
+      
+      // Create bet
+      const bet = await storage.createBet({
+        userId: user.id,
+        type: validatedData.type,
+        totalStake: validatedData.totalStake,
+        potentialWinnings: potentialWinnings.toFixed(2),
+        totalOdds: totalOdds.toFixed(4)
+      });
+      
+      // Create bet selections
+      const selections = [];
+      for (const selectionData of validatedData.selections) {
+        const selection = await storage.createBetSelection({
+          betId: bet.id,
+          fixtureId: selectionData.fixtureId,
+          homeTeam: selectionData.homeTeam,
+          awayTeam: selectionData.awayTeam,
+          league: selectionData.league,
+          market: selectionData.market,
+          selection: selectionData.selection,
+          odds: selectionData.odds
+        });
+        selections.push(selection);
+      }
+      
+      // Update user balance (deduct stake)
+      const newBalance = (userBalance - stakeAmount).toFixed(2);
+      await storage.updateUserBalance(user.id, newBalance);
+      
+      // Create transaction record
+      await storage.createTransaction({
+        userId: user.id,
+        type: 'bet_stake',
+        amount: `-${validatedData.totalStake}`,
+        balanceBefore: user.balance,
+        balanceAfter: newBalance,
+        reference: bet.id,
+        description: `Bet placed: ${bet.type} bet with ${selections.length} selection(s)`
+      });
+      
+      res.json({ 
+        success: true, 
+        data: { 
+          bet, 
+          selections,
+          newBalance 
+        } 
+      });
+      
+    } catch (error) {
+      console.error('Place bet error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Invalid bet data",
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to place bet" 
+      });
+    }
+  });
+  
+  // Get user's bets
+  app.get("/api/bets", authenticateUser, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const bets = await storage.getUserBets(req.user.id, limit);
+      
+      // Get selections for each bet
+      const betsWithSelections = [];
+      for (const bet of bets) {
+        const selections = await storage.getBetSelections(bet.id);
+        betsWithSelections.push({ ...bet, selections });
+      }
+      
+      res.json({ 
+        success: true, 
+        data: betsWithSelections 
+      });
+      
+    } catch (error) {
+      console.error('Get bets error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to get bets" 
+      });
+    }
+  });
+  
+  // Get specific bet details
+  app.get("/api/bets/:id", authenticateUser, async (req: any, res) => {
+    try {
+      const bet = await storage.getBet(req.params.id);
+      
+      if (!bet || bet.userId !== req.user.id) {
+        return res.status(404).json({ 
+          success: false, 
+          error: "Bet not found" 
+        });
+      }
+      
+      const selections = await storage.getBetSelections(bet.id);
+      
+      res.json({ 
+        success: true, 
+        data: { ...bet, selections } 
+      });
+      
+    } catch (error) {
+      console.error('Get bet error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to get bet" 
+      });
+    }
+  });
+  
+  // Favorites Routes (Protected)
+  
+  // Add favorite
+  app.post("/api/favorites", authenticateUser, async (req: any, res) => {
+    try {
+      const validatedData = insertFavoriteSchema.parse(req.body);
+      
+      const favorite = await storage.addFavorite({
+        userId: req.user.id,
+        ...validatedData
+      });
+      
+      res.json({ 
+        success: true, 
+        data: favorite 
+      });
+      
+    } catch (error) {
+      console.error('Add favorite error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Invalid favorite data",
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to add favorite" 
+      });
+    }
+  });
+  
+  // Get user favorites
+  app.get("/api/favorites", authenticateUser, async (req: any, res) => {
+    try {
+      const favorites = await storage.getUserFavorites(req.user.id);
+      
+      res.json({ 
+        success: true, 
+        data: favorites 
+      });
+      
+    } catch (error) {
+      console.error('Get favorites error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to get favorites" 
+      });
+    }
+  });
+  
+  // Remove favorite
+  app.delete("/api/favorites/:entityId", authenticateUser, async (req: any, res) => {
+    try {
+      const success = await storage.removeFavorite(req.user.id, req.params.entityId);
+      
+      if (!success) {
+        return res.status(404).json({ 
+          success: false, 
+          error: "Favorite not found" 
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Favorite removed successfully" 
+      });
+      
+    } catch (error) {
+      console.error('Remove favorite error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to remove favorite" 
+      });
+    }
+  });
+  
+  // User Account Routes (Protected)
+  
+  // Get user transactions
+  app.get("/api/transactions", authenticateUser, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const transactions = await storage.getUserTransactions(req.user.id, limit);
+      
+      res.json({ 
+        success: true, 
+        data: transactions 
+      });
+      
+    } catch (error) {
+      console.error('Get transactions error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to get transactions" 
       });
     }
   });
