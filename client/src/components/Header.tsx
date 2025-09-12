@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, User, Settings, ChevronDown } from "lucide-react";
+import { Bell, User, Settings, ChevronDown, Sun, Moon } from "lucide-react";
 import { motion } from "framer-motion";
+import { useTheme } from "@/components/ThemeProvider";
 
 export default function Header() {
   const [balance] = useState(1250.50); //todo: remove mock functionality
   const [user] = useState({ name: "John Doe", username: "johndoe" }); //todo: remove mock functionality
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <motion.header 
@@ -36,8 +38,31 @@ export default function Header() {
         <Button variant="ghost" size="sm" asChild data-testid="link-live" className="hover-elevate">
           <Link href="/live">Live</Link>
         </Button>
-        <Button variant="ghost" size="sm" data-testid="link-promotions" className="hover-elevate">
-          Promotions
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={toggleTheme}
+          data-testid="button-theme-toggle" 
+          className="hover-elevate relative"
+        >
+          <motion.div
+            initial={false}
+            animate={{ 
+              rotate: theme === "dark" ? 0 : 180,
+              scale: theme === "dark" ? 1 : 0.8
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="absolute"
+          >
+            {theme === "dark" ? (
+              <Moon className="h-4 w-4" />
+            ) : (
+              <Sun className="h-4 w-4" />
+            )}
+          </motion.div>
+          <span className="ml-6 text-sm">
+            {theme === "dark" ? "Dark" : "Light"}
+          </span>
         </Button>
       </nav>
 
