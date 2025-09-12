@@ -1,0 +1,354 @@
+import axios from 'axios';
+
+const API_BASE_URL = 'https://api.sportmonks.com/v3';
+const API_TOKEN = process.env.SPORTMONKS_API_TOKEN;
+
+if (!API_TOKEN) {
+  console.warn('SportMonks API token not found. Using mock data.');
+}
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Authorization': `Bearer ${API_TOKEN}`,
+    'Content-Type': 'application/json',
+  },
+});
+
+export interface SportMonksFixture {
+  id: number;
+  name: string;
+  starting_at: string;
+  result_info: string | null;
+  leg: string;
+  details: string | null;
+  length: number;
+  placeholder: boolean;
+  has_odds: boolean;
+  participants: Array<{
+    id: number;
+    sport_id: number;
+    country_id: number;
+    venue_id: number;
+    gender: string;
+    name: string;
+    short_code: string;
+    image_path: string;
+    founded: number;
+    type: string;
+    placeholder: boolean;
+    last_played_at: string;
+    meta: {
+      location: string;
+      winner: boolean;
+      position: number;
+    };
+  }>;
+  state: {
+    id: number;
+    state: string;
+    name: string;
+    short_name: string;
+    developer_name: string;
+  };
+  league: {
+    id: number;
+    sport_id: number;
+    country_id: number;
+    name: string;
+    active: boolean;
+    short_code: string;
+    image_path: string;
+    type: string;
+    sub_type: string;
+    last_played_at: string;
+  };
+  scores: Array<{
+    id: number;
+    fixture_id: number;
+    type_id: number;
+    participant_id: number;
+    score: {
+      goals: number;
+      participant: string;
+    };
+    description: string;
+  }>;
+}
+
+export interface SportMonksOdds {
+  id: number;
+  fixture_id: number;
+  market_id: number;
+  bookmaker_id: number;
+  label: string;
+  value: string;
+  handicap: string | null;
+  total: string | null;
+  winning: boolean;
+  stopped: boolean;
+  last_update: {
+    date: string;
+    timezone_type: number;
+    timezone: string;
+  };
+  market: {
+    id: number;
+    name: string;
+    developer_name: string;
+    has_winning_calculations: boolean;
+  };
+}
+
+// Get upcoming fixtures
+export async function getUpcomingFixtures(limit: number = 20): Promise<SportMonksFixture[]> {
+  if (!API_TOKEN) {
+    return getMockUpcomingFixtures();
+  }
+
+  try {
+    const response = await api.get('/football/fixtures', {
+      params: {
+        'filter[state_id]': '1', // Upcoming matches
+        'include': 'participants,league,state,scores',
+        'per_page': limit,
+        'sort': 'starting_at',
+      },
+    });
+    
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching upcoming fixtures:', error);
+    return getMockUpcomingFixtures();
+  }
+}
+
+// Get live fixtures
+export async function getLiveFixtures(): Promise<SportMonksFixture[]> {
+  if (!API_TOKEN) {
+    return getMockLiveFixtures();
+  }
+
+  try {
+    const response = await api.get('/football/fixtures', {
+      params: {
+        'filter[state_id]': '2', // Live matches
+        'include': 'participants,league,state,scores',
+        'per_page': 50,
+        'sort': 'starting_at',
+      },
+    });
+    
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching live fixtures:', error);
+    return getMockLiveFixtures();
+  }
+}
+
+// Get odds for a fixture
+export async function getFixtureOdds(fixtureId: number): Promise<SportMonksOdds[]> {
+  if (!API_TOKEN) {
+    return [];
+  }
+
+  try {
+    const response = await api.get(`/football/odds/fixtures/${fixtureId}`, {
+      params: {
+        'include': 'market',
+        'filter[market_id]': '1,2,3', // 1x2, Over/Under, Both Teams to Score
+      },
+    });
+    
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching fixture odds:', error);
+    return [];
+  }
+}
+
+// Get leagues
+export async function getLeagues(): Promise<any[]> {
+  if (!API_TOKEN) {
+    return getMockLeagues();
+  }
+
+  try {
+    const response = await api.get('/football/leagues', {
+      params: {
+        'filter[active]': 'true',
+        'per_page': 20,
+        'sort': 'name',
+      },
+    });
+    
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching leagues:', error);
+    return getMockLeagues();
+  }
+}
+
+// Mock data fallbacks
+function getMockUpcomingFixtures(): SportMonksFixture[] {
+  return [
+    {
+      id: 1,
+      name: "Manchester United vs Liverpool",
+      starting_at: "2024-01-16T15:00:00Z",
+      result_info: null,
+      leg: "1/1",
+      details: null,
+      length: 90,
+      placeholder: false,
+      has_odds: true,
+      participants: [
+        {
+          id: 1,
+          sport_id: 1,
+          country_id: 17,
+          venue_id: 1,
+          gender: "male",
+          name: "Manchester United",
+          short_code: "MUN",
+          image_path: "",
+          founded: 1878,
+          type: "domestic",
+          placeholder: false,
+          last_played_at: "2024-01-10T20:00:00Z",
+          meta: { location: "home", winner: false, position: 1 }
+        },
+        {
+          id: 2,
+          sport_id: 1,
+          country_id: 17,
+          venue_id: 1,
+          gender: "male",
+          name: "Liverpool",
+          short_code: "LIV",
+          image_path: "",
+          founded: 1892,
+          type: "domestic",
+          placeholder: false,
+          last_played_at: "2024-01-10T17:30:00Z",
+          meta: { location: "away", winner: false, position: 2 }
+        }
+      ],
+      state: {
+        id: 1,
+        state: "NS",
+        name: "Not Started",
+        short_name: "NS",
+        developer_name: "NOT_STARTED"
+      },
+      league: {
+        id: 8,
+        sport_id: 1,
+        country_id: 17,
+        name: "Premier League",
+        active: true,
+        short_code: "EPL",
+        image_path: "",
+        type: "league",
+        sub_type: "domestic",
+        last_played_at: "2024-01-10T20:00:00Z"
+      },
+      scores: []
+    }
+  ];
+}
+
+function getMockLiveFixtures(): SportMonksFixture[] {
+  return [
+    {
+      id: 2,
+      name: "Real Madrid vs Barcelona",
+      starting_at: "2024-01-15T20:00:00Z",
+      result_info: "2-1",
+      leg: "1/1",
+      details: null,
+      length: 90,
+      placeholder: false,
+      has_odds: true,
+      participants: [
+        {
+          id: 3,
+          sport_id: 1,
+          country_id: 15,
+          venue_id: 2,
+          gender: "male",
+          name: "Real Madrid",
+          short_code: "RMA",
+          image_path: "",
+          founded: 1902,
+          type: "domestic",
+          placeholder: false,
+          last_played_at: "2024-01-15T20:00:00Z",
+          meta: { location: "home", winner: false, position: 1 }
+        },
+        {
+          id: 4,
+          sport_id: 1,
+          country_id: 15,
+          venue_id: 2,
+          gender: "male",
+          name: "Barcelona",
+          short_code: "BAR",
+          image_path: "",
+          founded: 1899,
+          type: "domestic",
+          placeholder: false,
+          last_played_at: "2024-01-15T20:00:00Z",
+          meta: { location: "away", winner: false, position: 2 }
+        }
+      ],
+      state: {
+        id: 2,
+        state: "LIVE",
+        name: "Live",
+        short_name: "LIVE",
+        developer_name: "INPLAY_1ST_HALF"
+      },
+      league: {
+        id: 564,
+        sport_id: 1,
+        country_id: 15,
+        name: "La Liga",
+        active: true,
+        short_code: "LL",
+        image_path: "",
+        type: "league",
+        sub_type: "domestic",
+        last_played_at: "2024-01-15T20:00:00Z"
+      },
+      scores: [
+        {
+          id: 1,
+          fixture_id: 2,
+          type_id: 1525,
+          participant_id: 3,
+          score: { goals: 2, participant: "Real Madrid" },
+          description: "current"
+        },
+        {
+          id: 2,
+          fixture_id: 2,
+          type_id: 1525,
+          participant_id: 4,
+          score: { goals: 1, participant: "Barcelona" },
+          description: "current"
+        }
+      ]
+    }
+  ];
+}
+
+function getMockLeagues(): any[] {
+  return [
+    { id: 8, name: "Premier League", country: { name: "England" }, active: true },
+    { id: 564, name: "La Liga", country: { name: "Spain" }, active: true },
+    { id: 82, name: "Bundesliga", country: { name: "Germany" }, active: true },
+    { id: 384, name: "Serie A", country: { name: "Italy" }, active: true },
+    { id: 301, name: "Ligue 1", country: { name: "France" }, active: true },
+  ];
+}

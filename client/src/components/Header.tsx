@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Bell, User, Settings, ChevronDown } from "lucide-react";
@@ -26,14 +27,14 @@ export default function Header() {
 
       {/* Center section - Navigation */}
       <nav className="hidden md:flex items-center gap-6">
-        <Button variant="ghost" size="sm" data-testid="link-sports" className="hover-elevate">
-          Sports
+        <Button variant="ghost" size="sm" asChild data-testid="link-homepage" className="hover-elevate">
+          <Link href="/">Home</Link>
         </Button>
-        <Button variant="ghost" size="sm" data-testid="link-live" className="hover-elevate">
-          Live Betting
+        <Button variant="ghost" size="sm" asChild data-testid="link-line" className="hover-elevate">
+          <Link href="/line">Pre-match</Link>
         </Button>
-        <Button variant="ghost" size="sm" data-testid="link-casino" className="hover-elevate">
-          Casino
+        <Button variant="ghost" size="sm" asChild data-testid="link-live" className="hover-elevate">
+          <Link href="/live">Live</Link>
         </Button>
         <Button variant="ghost" size="sm" data-testid="link-promotions" className="hover-elevate">
           Promotions
