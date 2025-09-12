@@ -22,13 +22,36 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUserBalance(userId: string, newBalance: string): Promise<User | undefined>;
+  updateUserBalance(userId: string, newBalanceCents: number): Promise<User | undefined>;
   
   // Bet operations
   createBet(bet: InsertBet & { userId: string }): Promise<Bet>;
   getBet(id: string): Promise<Bet | undefined>;
   getUserBets(userId: string, limit?: number): Promise<Bet[]>;
-  updateBetStatus(betId: string, status: string, actualWinnings?: string): Promise<Bet | undefined>;
+  updateBetStatus(betId: string, status: string, actualWinningsCents?: number): Promise<Bet | undefined>;
+  
+  // Atomic bet placement - ensures transaction integrity
+  placeBetAtomic(params: {
+    userId: string;
+    betType: 'single' | 'express' | 'system';
+    totalStakeCents: number;
+    selections: Array<{
+      fixtureId: string;
+      homeTeam: string;
+      awayTeam: string;
+      league: string;
+      market: string;
+      selection: string;
+      odds: string;
+    }>;
+  }): Promise<{
+    success: boolean;
+    bet?: Bet;
+    selections?: BetSelection[];
+    user?: User;
+    transaction?: Transaction;
+    error?: string;
+  }>;
   
   // Bet selection operations
   createBetSelection(selection: InsertBetSelection): Promise<BetSelection>;
@@ -92,7 +115,7 @@ export class MemStorage implements IStorage {
       id,
       firstName: insertUser.firstName || null,
       lastName: insertUser.lastName || null,
-      balance: '0.00',
+      balance: 0, // Start with 0 cents
       isActive: true,
       createdAt: now,
       updatedAt: now
@@ -101,11 +124,15 @@ export class MemStorage implements IStorage {
     return user;
   }
 
-  async updateUserBalance(userId: string, newBalance: string): Promise<User | undefined> {
+  async updateUserBalance(userId: string, newBalanceCents: number): Promise<User | undefined> {
     const user = this.users.get(userId);
     if (!user) return undefined;
     
-    const updatedUser = { ...user, balance: newBalance, updatedAt: new Date() };
+    if (newBalanceCents < 0) {
+      throw new Error('Balance cannot be negative');
+    }
+    
+    const updatedUser = { ...user, balance: newBalanceCents, updatedAt: new Date() };
     this.users.set(userId, updatedUser);
     return updatedUser;
   }
@@ -120,7 +147,7 @@ export class MemStorage implements IStorage {
       status: 'pending',
       placedAt: now,
       settledAt: null,
-      actualWinnings: '0.00'
+      actualWinnings: 0 // Start with 0 cents
     };
     this.bets.set(id, newBet);
     return newBet;
@@ -137,7 +164,7 @@ export class MemStorage implements IStorage {
       .slice(0, limit);
   }
 
-  async updateBetStatus(betId: string, status: string, actualWinnings?: string): Promise<Bet | undefined> {
+  async updateBetStatus(betId: string, status: string, actualWinningsCents?: number): Promise<Bet | undefined> {
     const bet = this.bets.get(betId);
     if (!bet) return undefined;
     
@@ -145,7 +172,7 @@ export class MemStorage implements IStorage {
       ...bet, 
       status, 
       settledAt: new Date(),
-      actualWinnings: actualWinnings || bet.actualWinnings
+      actualWinnings: actualWinningsCents ?? bet.actualWinnings
     };
     this.bets.set(betId, updatedBet);
     return updatedBet;
@@ -263,6 +290,108 @@ export class MemStorage implements IStorage {
       return true;
     }
     return false;
+  }
+
+  // Atomic bet placement - ensures transaction integrity
+  async placeBetAtomic(params: {
+    userId: string;
+    betType: 'single' | 'express' | 'system';
+    totalStakeCents: number;
+    selections: Array<{
+      fixtureId: string;
+      homeTeam: string;
+      awayTeam: string;
+      league: string;
+      market: string;
+      selection: string;
+      odds: string;
+    }>;
+  }): Promise<{
+    success: boolean;
+    bet?: Bet;
+    selections?: BetSelection[];
+    user?: User;
+    transaction?: Transaction;
+    error?: string;
+  }> {
+    try {
+      // Get user and validate balance
+      const user = this.users.get(params.userId);
+      if (!user || !user.isActive) {
+        return { success: false, error: 'User not found or inactive' };
+      }
+
+      if (user.balance < params.totalStakeCents) {
+        return { success: false, error: 'Insufficient balance' };
+      }
+
+      // Calculate total odds and potential winnings
+      const totalOdds = params.selections.reduce((acc, selection) => 
+        acc * parseFloat(selection.odds), 1
+      );
+      
+      if (totalOdds < 1.01 || totalOdds > 10000) {
+        return { success: false, error: 'Invalid total odds' };
+      }
+
+      const potentialWinningsCents = Math.round(params.totalStakeCents * totalOdds);
+      
+      // Create bet record
+      const bet = await this.createBet({
+        userId: params.userId,
+        type: params.betType,
+        totalStake: params.totalStakeCents,
+        potentialWinnings: potentialWinningsCents,
+        totalOdds: totalOdds.toFixed(4)
+      });
+
+      // Create bet selections
+      const selections: BetSelection[] = [];
+      for (const selectionData of params.selections) {
+        const selection = await this.createBetSelection({
+          betId: bet.id,
+          ...selectionData
+        });
+        selections.push(selection);
+      }
+
+      // Update user balance (deduct stake)
+      const newBalanceCents = user.balance - params.totalStakeCents;
+      const updatedUser = await this.updateUserBalance(params.userId, newBalanceCents);
+      
+      if (!updatedUser) {
+        // Rollback: remove bet and selections
+        this.bets.delete(bet.id);
+        selections.forEach(s => this.betSelections.delete(s.id));
+        return { success: false, error: 'Failed to update user balance' };
+      }
+
+      // Create transaction record
+      const transaction = await this.createTransaction({
+        userId: params.userId,
+        type: 'bet_stake',
+        amount: -params.totalStakeCents,
+        balanceBefore: user.balance,
+        balanceAfter: newBalanceCents,
+        reference: bet.id,
+        description: `Bet placed: ${bet.type} bet with ${selections.length} selection(s)`
+      });
+
+      return {
+        success: true,
+        bet,
+        selections,
+        user: updatedUser,
+        transaction
+      };
+
+    } catch (error) {
+      console.error('Atomic bet placement error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
   }
 }
 

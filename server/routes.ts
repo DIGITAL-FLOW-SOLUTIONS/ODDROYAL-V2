@@ -14,7 +14,9 @@ import {
   insertUserSchema, 
   insertBetSchema, 
   insertBetSelectionSchema, 
-  insertFavoriteSchema 
+  insertFavoriteSchema,
+  betPlacementSchema,
+  currencyUtils
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -365,88 +367,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Betting Routes (Protected)
   
-  // Place a bet
+  // Place a bet with atomic transaction integrity
   app.post("/api/bets", authenticateUser, async (req: any, res) => {
     try {
-      const validatedData = z.object({
-        type: z.enum(['single', 'express', 'system']),
-        totalStake: z.string().regex(/^\d+(\.\d{2})?$/),
-        selections: z.array(z.object({
-          fixtureId: z.string(),
-          homeTeam: z.string(),
-          awayTeam: z.string(),
-          league: z.string(),
-          market: z.string(),
-          selection: z.string(),
-          odds: z.string().regex(/^\d+(\.\d{4})?$/)
-        }))
-      }).parse(req.body);
+      // Validate request data using shared schema with comprehensive business rules
+      const validatedData = betPlacementSchema.parse(req.body);
       
-      // Validate user has sufficient balance
       const user = req.user;
-      const stakeAmount = parseFloat(validatedData.totalStake);
-      const userBalance = parseFloat(user.balance);
       
-      if (stakeAmount > userBalance) {
+      // Validate user account status
+      if (!user || !user.isActive) {
+        return res.status(403).json({ 
+          success: false, 
+          error: "Account is not active" 
+        });
+      }
+
+      // Use atomic bet placement to ensure transaction integrity
+      const result = await storage.placeBetAtomic({
+        userId: user.id,
+        betType: validatedData.type,
+        totalStakeCents: validatedData.totalStake, // Already converted to cents by schema
+        selections: validatedData.selections
+      });
+      
+      if (!result.success) {
         return res.status(400).json({ 
           success: false, 
-          error: "Insufficient balance" 
+          error: result.error 
         });
       }
       
-      // Calculate total odds
-      const totalOdds = validatedData.selections.reduce((acc, selection) => 
-        acc * parseFloat(selection.odds), 1
-      );
-      
-      const potentialWinnings = stakeAmount * totalOdds;
-      
-      // Create bet
-      const bet = await storage.createBet({
-        userId: user.id,
-        type: validatedData.type,
-        totalStake: validatedData.totalStake,
-        potentialWinnings: potentialWinnings.toFixed(2),
-        totalOdds: totalOdds.toFixed(4)
-      });
-      
-      // Create bet selections
-      const selections = [];
-      for (const selectionData of validatedData.selections) {
-        const selection = await storage.createBetSelection({
-          betId: bet.id,
-          fixtureId: selectionData.fixtureId,
-          homeTeam: selectionData.homeTeam,
-          awayTeam: selectionData.awayTeam,
-          league: selectionData.league,
-          market: selectionData.market,
-          selection: selectionData.selection,
-          odds: selectionData.odds
-        });
-        selections.push(selection);
-      }
-      
-      // Update user balance (deduct stake)
-      const newBalance = (userBalance - stakeAmount).toFixed(2);
-      await storage.updateUserBalance(user.id, newBalance);
-      
-      // Create transaction record
-      await storage.createTransaction({
-        userId: user.id,
-        type: 'bet_stake',
-        amount: `-${validatedData.totalStake}`,
-        balanceBefore: user.balance,
-        balanceAfter: newBalance,
-        reference: bet.id,
-        description: `Bet placed: ${bet.type} bet with ${selections.length} selection(s)`
-      });
-      
+      // Return formatted response with currency conversion
       res.json({ 
         success: true, 
         data: { 
-          bet, 
-          selections,
-          newBalance 
+          bet: {
+            ...result.bet!,
+            totalStake: currencyUtils.formatCurrency(result.bet!.totalStake),
+            potentialWinnings: currencyUtils.formatCurrency(result.bet!.potentialWinnings),
+            actualWinnings: currencyUtils.formatCurrency(result.bet!.actualWinnings)
+          },
+          selections: result.selections,
+          user: {
+            ...result.user!,
+            balance: currencyUtils.formatCurrency(result.user!.balance)
+          },
+          transaction: {
+            ...result.transaction!,
+            amount: currencyUtils.formatCurrency(Math.abs(result.transaction!.amount)),
+            balanceBefore: currencyUtils.formatCurrency(result.transaction!.balanceBefore),
+            balanceAfter: currencyUtils.formatCurrency(result.transaction!.balanceAfter)
+          }
         } 
       });
       
@@ -456,7 +428,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ 
           success: false, 
           error: "Invalid bet data",
-          details: error.errors 
+          details: error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
         });
       }
       res.status(500).json({ 
