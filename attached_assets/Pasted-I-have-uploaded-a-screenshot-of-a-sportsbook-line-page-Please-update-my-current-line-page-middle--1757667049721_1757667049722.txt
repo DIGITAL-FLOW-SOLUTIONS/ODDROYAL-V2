@@ -1,0 +1,107 @@
+I have uploaded a screenshot of a sportsbook “line” page. Please update my current line page middle main content so that it matches the design, purpose, and functionality in the uploaded screenshot. Use SportMonks API for data (fixtures, odds, and leagues) and implement the following sections step by step:
+
+1. Hero Banner / Promotional Slider
+
+Add a banner carousel at the top of the middle column.
+
+It should automatically slide through promotional images (just placeholders for now).
+
+Include a headline + subheadline + CTA button (e.g., “Accumulator Bets – Multiply the win”).
+
+Design must be bold, high contrast, and occupy full width of the middle column.
+
+2. Popular Events Section
+
+Create a horizontal carousel of cards for popular matches.
+
+Each card should include:
+
+SportMonks fixture data (team names, competition).
+
+Kickoff time and date.
+
+Team logos (from SportMonks API).
+
+Odds for 1 / X / 2 displayed clearly.
+
+A footer showing the number of additional markets (e.g., “+216”).
+
+Add arrow navigation (left/right) so users can slide to see more cards.
+
+3. Top Leagues Section
+
+Below Popular Events, add a slider of league logos and names.
+
+Use SportMonks API to fetch top leagues (e.g., Champions League, La Liga, Premier League).
+
+Each logo + league name should be a clickable shortcut that filters fixtures below.
+
+Add horizontal scroll with arrow navigation (left/right).
+
+4. Football Matches (Prematch Listing)
+
+Display football matches grouped by league.
+
+Use SportMonks prematch fixtures:
+
+League Row: league logo + name (collapsible accordion).
+
+Inside the league: list all fixtures. Each fixture row should show:
+
+Match time.
+
+Team names with logos.
+
+1 / X / 2 odds in aligned columns.
+
+A favorite/star icon for users to save matches.
+
+Style it as a clean table/grid with consistent odds alignment.
+
+Odds should be clickable to add selections to the betslip (already implemented).
+
+5. Other Sports (Expandable Sections)
+
+After Football, include accordion panels for other sports: Hockey, Tennis, Basketball, Baseball, etc.
+
+Each panel when expanded should fetch and display fixtures + odds in the same table layout as football.
+
+Keep them collapsed by default to maintain focus on football.
+
+6. Design & UX Requirements
+
+Follow the visual hierarchy from the screenshot:
+
+Banner → Popular Events → Top Leagues → Football Matches → Other Sports.
+
+Ensure smooth scrolling inside the middle content only, not the entire page.
+
+Make odds buttons consistent and clickable.
+
+Carousels must be responsive (swipe for mobile, arrows for desktop).
+
+Accordions must open/close smoothly.
+
+7. API Integration
+
+Use SportMonks API for:
+
+Fixtures (prematch).
+
+Leagues & competitions.
+
+Team logos.
+
+Odds (1, X, 2).
+
+Ensure live API data is displayed dynamically, not static placeholders (except banner images which can be static).
+
+8. Final Goal
+
+By the end:
+
+The middle content should look and behave exactly like the uploaded screenshot.
+
+Users land on the page → see promotional banner → browse popular events → jump into top leagues → scroll fixtures.
+
+The design should be clean, modern, and fully interactive.
