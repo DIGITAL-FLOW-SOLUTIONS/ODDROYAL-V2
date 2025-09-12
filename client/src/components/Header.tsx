@@ -53,26 +53,25 @@ export default function Header() {
         {/* Theme Toggle */}
         <Button 
           variant="ghost" 
-          size="sm" 
+          size="icon" 
           onClick={toggleTheme}
           data-testid="button-theme-toggle" 
-          className="hover-elevate flex items-center gap-2"
+          className="hover-elevate"
         >
           <motion.div
             initial={false}
             animate={{ 
-              rotate: theme === "dark" ? 0 : 180,
-              scale: theme === "dark" ? 1 : 0.8
+              rotate: theme === "dark" ? 180 : 0,
+              scale: theme === "dark" ? 0.8 : 1
             }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
             {theme === "dark" ? (
-              <Moon className="h-4 w-4" />
-            ) : (
               <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
             )}
           </motion.div>
-          <span className="md:hidden text-sm">Theme</span>
         </Button>
 
         {/* Notifications */}
