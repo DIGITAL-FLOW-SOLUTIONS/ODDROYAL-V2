@@ -38,32 +38,6 @@ export default function Header() {
         <Button variant="ghost" size="sm" asChild data-testid="link-live" className="hover-elevate">
           <Link href="/live">Live</Link>
         </Button>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={toggleTheme}
-          data-testid="button-theme-toggle" 
-          className="hover-elevate relative"
-        >
-          <motion.div
-            initial={false}
-            animate={{ 
-              rotate: theme === "dark" ? 0 : 180,
-              scale: theme === "dark" ? 1 : 0.8
-            }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="absolute"
-          >
-            {theme === "dark" ? (
-              <Moon className="h-4 w-4" />
-            ) : (
-              <Sun className="h-4 w-4" />
-            )}
-          </motion.div>
-          <span className="ml-6 text-sm">
-            {theme === "dark" ? "Dark" : "Light"}
-          </span>
-        </Button>
       </nav>
 
       {/* Right section */}
@@ -75,6 +49,31 @@ export default function Header() {
             ${balance.toFixed(2)}
           </span>
         </div>
+
+        {/* Theme Toggle */}
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={toggleTheme}
+          data-testid="button-theme-toggle" 
+          className="hover-elevate flex items-center gap-2"
+        >
+          <motion.div
+            initial={false}
+            animate={{ 
+              rotate: theme === "dark" ? 0 : 180,
+              scale: theme === "dark" ? 1 : 0.8
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            {theme === "dark" ? (
+              <Moon className="h-4 w-4" />
+            ) : (
+              <Sun className="h-4 w-4" />
+            )}
+          </motion.div>
+          <span className="md:hidden text-sm">Theme</span>
+        </Button>
 
         {/* Notifications */}
         <Button
