@@ -28,7 +28,10 @@ import {
   ChevronRight,
   Home,
   Calendar,
-  PlayCircle
+  PlayCircle,
+  Crown,
+  Shield,
+  Flag
 } from "lucide-react";
 
 export default function SportsSidebar() {
@@ -152,6 +155,48 @@ export default function SportsSidebar() {
                   </SidebarMenuItem>
                 </motion.div>
               </Collapsible>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Top Leagues */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground">
+            Top Leagues
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {[
+                { id: "uefa-champions", name: "UEFA Champions League", icon: Crown },
+                { id: "egypt-premier", name: "Egypt Premier League", icon: Flag },
+                { id: "russia-premier", name: "Russia Premier League", icon: Flag },
+                { id: "spain-la-liga", name: "Spain La Liga", icon: Flag },
+                { id: "uefa-europa", name: "UEFA Europa League", icon: Shield },
+                { id: "copa-libertadores", name: "Copa Libertadores", icon: Trophy },
+                { id: "england-premier", name: "England Premier League", icon: Flag },
+                { id: "poland-ekstraklasa", name: "Poland Ekstraklasa", icon: Flag },
+              ].map((league, index) => (
+                <motion.div
+                  key={league.id}
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.15 + index * 0.03 }}
+                >
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      data-testid={`link-league-${league.id}`}
+                      className="hover-elevate"
+                    >
+                      <Link href={`/league/${league.id}`}>
+                        <league.icon className="h-4 w-4" />
+                        <span className="flex-1 text-sm">{league.name}</span>
+                        <ChevronRight className="h-3 w-3" />
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </motion.div>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
