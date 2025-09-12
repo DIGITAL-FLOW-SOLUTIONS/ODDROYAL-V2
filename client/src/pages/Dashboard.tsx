@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +63,8 @@ interface Favorite {
 }
 
 function Dashboard() {
+  const [, setLocation] = useLocation();
+  
   const { data: userProfile } = useQuery<UserProfile>({
     queryKey: ['/api/auth/me'],
     enabled: !!localStorage.getItem('authToken')
@@ -88,7 +91,7 @@ function Dashboard() {
         <Card>
           <CardContent className="p-6 text-center">
             <h2 className="text-2xl font-bold mb-4">Please log in to view your dashboard</h2>
-            <Button data-testid="button-login">
+            <Button onClick={() => setLocation('/login')} data-testid="button-login">
               Go to Login
             </Button>
           </CardContent>

@@ -52,10 +52,8 @@ function Login() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginRequest): Promise<AuthResponse> => {
-      return await apiRequest('/api/auth/login', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      const response = await apiRequest('POST', '/api/auth/login', data);
+      return await response.json();
     },
     onSuccess: (response) => {
       if (response.success) {
@@ -78,10 +76,8 @@ function Login() {
 
   const registerMutation = useMutation({
     mutationFn: async (data: RegisterRequest): Promise<AuthResponse> => {
-      return await apiRequest('/api/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      const response = await apiRequest('POST', '/api/auth/register', data);
+      return await response.json();
     },
     onSuccess: (response) => {
       if (response.success) {

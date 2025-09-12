@@ -407,7 +407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ...result.bet!,
             totalStake: currencyUtils.formatCurrency(result.bet!.totalStake),
             potentialWinnings: currencyUtils.formatCurrency(result.bet!.potentialWinnings),
-            actualWinnings: currencyUtils.formatCurrency(result.bet!.actualWinnings)
+            actualWinnings: result.bet!.actualWinnings ? currencyUtils.formatCurrency(result.bet!.actualWinnings) : null
           },
           selections: result.selections,
           user: {
