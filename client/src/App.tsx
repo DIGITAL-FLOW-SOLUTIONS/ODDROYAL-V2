@@ -8,6 +8,8 @@ import Layout from "@/components/Layout";
 import Homepage from "@/pages/Homepage";
 import Line from "@/pages/Line";
 import Live from "@/pages/Live";
+import Dashboard from "@/pages/Dashboard";
+import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -16,6 +18,8 @@ function Router() {
       <Route path="/" component={() => <Layout><Homepage /></Layout>} />
       <Route path="/line" component={() => <Layout><Line /></Layout>} />
       <Route path="/live" component={() => <Layout><Live /></Layout>} />
+      <Route path="/dashboard" component={() => <Layout><Dashboard /></Layout>} />
+      <Route path="/login" component={() => <Layout><Login /></Layout>} />
       <Route>
         <NotFound />
       </Route>
