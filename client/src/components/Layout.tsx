@@ -104,7 +104,7 @@ export default function Layout({ children }: LayoutProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
-                className="flex-1"
+                className="flex-1 scrollbar-hide"
                 style={{ maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }}
               >
                 {childrenWithProps}
