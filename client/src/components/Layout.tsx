@@ -126,12 +126,12 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
               </motion.div>
             </div>
+            
+            {/* Footer positioned inside layout to respond to sidebar state */}
+            <Footer />
           </div>
         </div>
       </SidebarProvider>
-      
-      {/* Footer positioned below entire page - spans full width */}
-      <Footer />
 
       {/* Mobile bet slip toggle button */}
       {betSlipSelections.length > 0 && (
