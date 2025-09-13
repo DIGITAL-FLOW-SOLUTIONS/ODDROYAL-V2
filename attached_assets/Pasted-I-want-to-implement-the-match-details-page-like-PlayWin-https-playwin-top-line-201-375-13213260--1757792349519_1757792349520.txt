@@ -1,0 +1,99 @@
+I want to implement the match details page (like PlayWin: https://playwin.top/line/201/375/13213260) that loads when a user clicks on a match (either from the line page or the live page).
+
+🔹 Important Notes
+
+Do not modify the Top Navigation Bar, Left Sidebar, or Betslip when building this pages — use what the project already implemented.
+
+Focus on implementing the Center Main Section (markets & odds) and the Right Match Info Card (win probability + past meetings) that will be placed on top of the betslip as per the screenshot.
+
+Design and functionality should closely match PlayWin’s layout and interaction as shown in this reference screenshot uploaded here. Link: https://playwin.top/line/201/375/13213260
+.
+
+✅ Center Main Section (Markets & Odds)
+
+When a user clicks a match:
+
+Fetch all available markets for that match using the SportMonks API:
+
+odds/bookmakers/markets endpoint.
+
+Include markets like: 1X2, Double Chance, Totals, Handicap, Both Teams to Score, Correct Score, Half/Full Time, Result + BTTS, Player Props (if available) designed as in the screenshot.
+
+Structure them into categories:
+
+Main Markets (always expanded): Winner (1X2), Double Chance, Totals (Over/Under), Handicap.
+
+Additional Markets (collapsible dropdowns):
+
+Goals (in halves, both teams, last goal, time of goal, etc.)
+
+Correct Score
+
+Team Specials (Win to Nil, Clean Sheet, Individual Totals, Penalty)
+
+Combination Markets (Result + BTTS, Double Chance + BTTS)
+
+Player Specials (Anytime scorer, first scorer, etc. if SportMonks provides).
+
+For each market:
+
+Display outcomes in a table-like grid, odds in decimal format.
+
+Odds update live (SportMonks provides odds updates via fixtures & bookmakers endpoints).
+
+✅ Right Match Info Card
+
+Win Probability
+
+Calculate from odds implied probability: probability = 1 / odds.
+
+Normalize so Brentford + Draw + Chelsea = 100%.
+
+Display as horizontal bars with percentage values.
+
+Previous Meetings
+
+Use SportMonks head-to-head endpoint: fixtures/head2head/{team1Id}/{team2Id}.
+
+Show last 5 meetings with results summary (W/D/L for each team).
+
+Other Match Details
+
+Show match timer (live clock if in-play).
+
+Venue, date, kickoff time (from fixtures endpoint).
+
+✅ Functionality Details
+
+Odds should auto-refresh every 15–30 seconds using SportMonks live data updates.
+
+Markets should be collapsible (accordion style).
+
+Odds format must remain decimal (SportMonks default).
+
+When a user clicks an odd, it should add the selection to the existing Betslip logic (do not rebuild Betslip, just connect odds selection events to it).
+
+✅ Technical Guidance
+
+API Calls:
+
+GET /fixtures/{fixture_id}?include=odds,localTeam,visitorTeam,stats,head2head
+
+GET /odds/fixtures/{fixture_id}
+
+Use the fixture_id from the match clicked in Line/Live pages to fetch market details.
+
+Store responses in state (React/Next.js: useState + useEffect) or equivalent framework logic.
+
+Design: replicate the PlayWin odds table UI — blue collapsible headers, neatly aligned odds, grid layout.
+
+👉 Final Goal:
+When a user clicks a match, they should be taken to a dedicated page with:
+
+Center: detailed odds markets (structured, expandable).
+
+Right: match info card (probabilities + H2H stats).
+
+Odds should be clickable and go to Betslip.
+
+The layout and functionality should mirror PlayWin’s reference page, but powered by SportMonks API data.
