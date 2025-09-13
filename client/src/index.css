@@ -374,6 +374,16 @@
     grid-area: footer;
   }
 
+  /* Adjust padding for page content inside main area when sidebar is collapsed */
+  .sportsbook-main > * > * {
+    transition: padding-left 200ms ease-linear;
+  }
+
+  /* When sidebar is collapsed, reduce left padding of page content to allow it to expand */
+  .sportsbook-layout:has([data-state="collapsed"]) .sportsbook-main > * > * {
+    padding-left: 0.25rem !important;
+  }
+
   /* Responsive adjustments */
   @media (max-width: 1023px) {
     .sportsbook-layout {
