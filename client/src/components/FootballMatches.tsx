@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,7 @@ export default function FootballMatches({
   onOddsClick, 
   onAddToFavorites 
 }: FootballMatchesProps) {
+  const [, setLocation] = useLocation();
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>(
     leagues.reduce((acc, league, index) => ({
       ...acc,
@@ -73,6 +75,10 @@ export default function FootballMatches({
       const odds = type === 'home' ? match.odds.home : type === 'draw' ? match.odds.draw : match.odds.away;
       onOddsClick(match.id, '1x2', type, odds);
     }
+  };
+
+  const handleMatchClick = (matchId: string) => {
+    setLocation(`/match/${matchId}`);
   };
 
   if (isLoading) {
@@ -183,7 +189,8 @@ export default function FootballMatches({
                             animate={{ opacity: 1, height: "auto" }}
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ delay: matchIndex * 0.05 }}
-                            className="grid grid-cols-12 gap-2 py-4 border-b border-border last:border-b-0 hover:bg-accent/30 transition-colors"
+                            onClick={() => handleMatchClick(match.id)}
+                            className="grid grid-cols-12 gap-2 py-4 border-b border-border last:border-b-0 hover:bg-accent/30 transition-colors cursor-pointer"
                             data-testid={`match-row-${match.id}`}
                           >
                             {/* Time */}
@@ -227,7 +234,10 @@ export default function FootballMatches({
                                   variant="ghost"
                                   size="icon"
                                   className="h-4 w-4 hover-elevate"
-                                  onClick={() => onAddToFavorites?.(match.id)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAddToFavorites?.(match.id);
+                                  }}
                                   data-testid={`favorite-${match.id}`}
                                 >
                                   <Star className="h-3 w-3" />
@@ -247,7 +257,10 @@ export default function FootballMatches({
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleOddsClick(match, 'home')}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOddsClick(match, 'home');
+                                    }}
                                     className="w-full h-8 text-xs font-semibold hover-elevate"
                                     data-testid={`odds-home-${match.id}`}
                                   >
@@ -259,7 +272,10 @@ export default function FootballMatches({
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleOddsClick(match, 'draw')}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOddsClick(match, 'draw');
+                                    }}
                                     className="w-full h-8 text-xs font-semibold hover-elevate"
                                     data-testid={`odds-draw-${match.id}`}
                                   >
@@ -271,7 +287,10 @@ export default function FootballMatches({
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleOddsClick(match, 'away')}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOddsClick(match, 'away');
+                                    }}
                                     className="w-full h-8 text-xs font-semibold hover-elevate"
                                     data-testid={`odds-away-${match.id}`}
                                   >
