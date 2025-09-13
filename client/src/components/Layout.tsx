@@ -82,7 +82,7 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const style = {
-    "--sidebar-width": "20rem",
+    "--sidebar-width": "18rem",
     "--sidebar-width-icon": "4rem",
   };
 
