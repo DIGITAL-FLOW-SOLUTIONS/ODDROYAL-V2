@@ -63,7 +63,7 @@ interface LeagueGroup {
 
 export default function Live({ onAddToBetSlip }: LiveProps) {
   const [selectedSport, setSelectedSport] = useState<number>(1); // Default to Football
-  const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set(['Football']));
+  const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set());
   const [expandedMatches, setExpandedMatches] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -113,6 +113,14 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
     }
     return groups;
   }, [] as LeagueGroup[]);
+
+  // Auto-expand all leagues to show live matches by default
+  useEffect(() => {
+    if (leagueGroups.length > 0) {
+      const allLeagueNames = new Set(leagueGroups.map(group => group.leagueName));
+      setExpandedLeagues(allLeagueNames);
+    }
+  }, [leagueGroups.length, leagueGroups.map(g => g.leagueName).join(',')]);
 
   const handleLiveOddsClick = (matchId: string, market: string, type: string, odds: number, homeTeam: string, awayTeam: string) => {
     const selection = {
