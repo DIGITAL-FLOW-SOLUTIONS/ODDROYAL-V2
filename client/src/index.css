@@ -339,12 +339,18 @@
   /* Sportsbook 3-column grid layout */
   .sportsbook-layout {
     display: grid;
-    grid-template-columns: 20rem 1fr 20rem;
+    grid-template-columns: var(--sidebar-width) 1fr 20rem;
     grid-template-rows: auto 1fr auto;
     grid-template-areas: 
       "sidebar header header"
       "sidebar main betslip"
       "sidebar footer footer";
+    transition: grid-template-columns 200ms ease-linear;
+  }
+
+  /* When sidebar is collapsed, reduce its width to icon size */
+  .sportsbook-layout:has([data-state="collapsed"]) {
+    grid-template-columns: var(--sidebar-width-icon) 1fr 20rem;
   }
 
   .sportsbook-sidebar {
@@ -371,11 +377,16 @@
   /* Responsive adjustments */
   @media (max-width: 1023px) {
     .sportsbook-layout {
-      grid-template-columns: 20rem 1fr;
+      grid-template-columns: var(--sidebar-width) 1fr;
       grid-template-areas: 
         "sidebar header"
         "sidebar main"
         "sidebar footer";
+    }
+    
+    /* When sidebar is collapsed on tablet view */
+    .sportsbook-layout:has([data-state="collapsed"]) {
+      grid-template-columns: var(--sidebar-width-icon) 1fr;
     }
   }
 
