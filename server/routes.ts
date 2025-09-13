@@ -325,6 +325,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get individual fixture details
+  app.get("/api/fixtures/:id", async (req, res) => {
+    try {
+      const fixtureId = req.params.id;
+      if (!fixtureId) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Fixture ID is required' 
+        });
+      }
+
+      // First check if fixture exists in upcoming fixtures
+      const upcomingFixtures = await getUpcomingFixtures(100); // Get more to ensure we find it
+      const fixture = upcomingFixtures.find((f: SportMonksFixture) => f.id.toString() === fixtureId);
+      
+      if (!fixture) {
+        // If not in upcoming, check live fixtures
+        const { getLiveFootballFixtures } = await import("./sportmonks");
+        const liveFixtures = await getLiveFootballFixtures();
+        const liveFixture = liveFixtures.find((f: SportMonksFixture) => f.id.toString() === fixtureId);
+        
+        if (!liveFixture) {
+          return res.status(404).json({ 
+            success: false, 
+            error: 'Match not found' 
+          });
+        }
+        
+        // Transform live fixture data
+        const transformedLiveFixture = transformLiveFixture(liveFixture);
+        return res.json({ success: true, data: transformedLiveFixture });
+      }
+      
+      // Transform upcoming fixture data
+      const transformedFixture = transformFixture(fixture);
+      res.json({ success: true, data: transformedFixture });
+      
+    } catch (error) {
+      console.error('Error fetching fixture details:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to fetch fixture details' 
+      });
+    }
+  });
+
   // Get odds for a specific fixture
   app.get("/api/fixtures/:id/odds", async (req, res) => {
     try {
