@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
+import bannerImage from "@assets/banner-live_1757761750950.jpg";
 import { 
   ChevronDown,
   ChevronUp,
@@ -142,14 +143,21 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
 
   return (
     <div className="flex-1 bg-card text-card-foreground">
+      {/* Banner */}
+      <div className="w-full">
+        <img 
+          src={bannerImage} 
+          alt="Prime Stake Super Bonus - Quick Payouts, Best Odds, High Bonuses, No Fee Payments"
+          className="w-full h-auto object-cover max-h-16 sm:max-h-20 md:max-h-24 lg:max-h-28"
+          data-testid="banner-live"
+        />
+      </div>
+
       {/* Live Football Header */}
       <div className="flex items-center gap-2 p-3 bg-sidebar border-b border-sidebar-border">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
           <h2 className="text-lg font-semibold text-foreground">Live Football</h2>
-        </div>
-        <div className="text-xs text-muted-foreground ml-auto">
-          Updates every 5 seconds
         </div>
       </div>
 
