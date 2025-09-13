@@ -47,6 +47,15 @@ interface LiveMatch {
       draw: number;
       away: number;
     };
+    totalgoals?: {
+      over35?: number;
+      under35?: number;
+    };
+    nextgoal?: {
+      home?: number;
+      away?: number;
+      none?: number;
+    };
   };
 }
 
@@ -317,71 +326,98 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                         Additional Markets
                                       </div>
                                       
-                                      {/* Over/Under Market */}
-                                      <div>
-                                        <div className="text-sm font-medium mb-2">Total Goals (Over/Under 2.5)</div>
-                                        <div className="flex gap-2">
-                                          <Button
-                                            variant="outline"
-                                            size="default"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleLiveOddsClick(match.id, "over_under", "over", 1.95, match.homeTeam, match.awayTeam);
-                                            }}
-                                            data-testid={`button-over-${match.id}`}
-                                            className="flex flex-col gap-1"
-                                          >
-                                            <span className="text-xs text-muted-foreground">Over 2.5</span>
-                                            <span className="font-semibold">1.95</span>
-                                          </Button>
-                                          <Button
-                                            variant="outline"
-                                            size="default"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleLiveOddsClick(match.id, "over_under", "under", 2.05, match.homeTeam, match.awayTeam);
-                                            }}
-                                            data-testid={`button-under-${match.id}`}
-                                            className="flex flex-col gap-1"
-                                          >
-                                            <span className="text-xs text-muted-foreground">Under 2.5</span>
-                                            <span className="font-semibold">2.05</span>
-                                          </Button>
+                                      {/* Over/Under Market - Only show if real odds available */}
+                                      {match.odds.totalgoals && (
+                                        <div>
+                                          <div className="text-sm font-medium mb-2">Total Goals (Over/Under 2.5)</div>
+                                          <div className="flex gap-2">
+                                            {match.odds.totalgoals?.over35 && (
+                                              <Button
+                                                variant="outline"
+                                                size="default"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleLiveOddsClick(match.id, "over_under", "over", match.odds.totalgoals!.over35!, match.homeTeam, match.awayTeam);
+                                                }}
+                                                data-testid={`button-over-${match.id}`}
+                                                className="flex flex-col gap-1"
+                                              >
+                                                <span className="text-xs text-muted-foreground">Over 2.5</span>
+                                                <span className="font-semibold">{match.odds.totalgoals!.over35!.toFixed(2)}</span>
+                                              </Button>
+                                            )}
+                                            {match.odds.totalgoals?.under35 && (
+                                              <Button
+                                                variant="outline"
+                                                size="default"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleLiveOddsClick(match.id, "over_under", "under", match.odds.totalgoals!.under35!, match.homeTeam, match.awayTeam);
+                                                }}
+                                                data-testid={`button-under-${match.id}`}
+                                                className="flex flex-col gap-1"
+                                              >
+                                                <span className="text-xs text-muted-foreground">Under 2.5</span>
+                                                <span className="font-semibold">{match.odds.totalgoals!.under35!.toFixed(2)}</span>
+                                              </Button>
+                                            )}
+                                          </div>
                                         </div>
-                                      </div>
+                                      )}
 
-                                      {/* Both Teams to Score */}
-                                      <div>
-                                        <div className="text-sm font-medium mb-2">Both Teams to Score</div>
-                                        <div className="flex gap-2">
-                                          <Button
-                                            variant="outline"
-                                            size="default"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleLiveOddsClick(match.id, "btts", "yes", 1.88, match.homeTeam, match.awayTeam);
-                                            }}
-                                            data-testid={`button-btts-yes-${match.id}`}
-                                            className="flex flex-col gap-1"
-                                          >
-                                            <span className="text-xs text-muted-foreground">Yes</span>
-                                            <span className="font-semibold">1.88</span>
-                                          </Button>
-                                          <Button
-                                            variant="outline"
-                                            size="default"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleLiveOddsClick(match.id, "btts", "no", 2.12, match.homeTeam, match.awayTeam);
-                                            }}
-                                            data-testid={`button-btts-no-${match.id}`}
-                                            className="flex flex-col gap-1"
-                                          >
-                                            <span className="text-xs text-muted-foreground">No</span>
-                                            <span className="font-semibold">2.12</span>
-                                          </Button>
+                                      {/* Next Goal Market - Only show if real odds available */}
+                                      {match.odds.nextgoal && (
+                                        <div>
+                                          <div className="text-sm font-medium mb-2">Next Goal</div>
+                                          <div className="flex gap-2">
+                                            {match.odds.nextgoal?.home && (
+                                              <Button
+                                                variant="outline"
+                                                size="default"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleLiveOddsClick(match.id, "next_goal", "home", match.odds.nextgoal!.home!, match.homeTeam, match.awayTeam);
+                                                }}
+                                                data-testid={`button-next-goal-home-${match.id}`}
+                                                className="flex flex-col gap-1"
+                                              >
+                                                <span className="text-xs text-muted-foreground">Home</span>
+                                                <span className="font-semibold">{match.odds.nextgoal!.home!.toFixed(2)}</span>
+                                              </Button>
+                                            )}
+                                            {match.odds.nextgoal?.away && (
+                                              <Button
+                                                variant="outline"
+                                                size="default"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleLiveOddsClick(match.id, "next_goal", "away", match.odds.nextgoal!.away!, match.homeTeam, match.awayTeam);
+                                                }}
+                                                data-testid={`button-next-goal-away-${match.id}`}
+                                                className="flex flex-col gap-1"
+                                              >
+                                                <span className="text-xs text-muted-foreground">Away</span>
+                                                <span className="font-semibold">{match.odds.nextgoal!.away!.toFixed(2)}</span>
+                                              </Button>
+                                            )}
+                                            {match.odds.nextgoal?.none && (
+                                              <Button
+                                                variant="outline"
+                                                size="default"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleLiveOddsClick(match.id, "next_goal", "none", match.odds.nextgoal!.none!, match.homeTeam, match.awayTeam);
+                                                }}
+                                                data-testid={`button-next-goal-none-${match.id}`}
+                                                className="flex flex-col gap-1"
+                                              >
+                                                <span className="text-xs text-muted-foreground">No Goal</span>
+                                                <span className="font-semibold">{match.odds.nextgoal!.none!.toFixed(2)}</span>
+                                              </Button>
+                                            )}
+                                          </div>
                                         </div>
-                                      </div>
+                                      )}
                                     </div>
                                   </motion.div>
                                 )}

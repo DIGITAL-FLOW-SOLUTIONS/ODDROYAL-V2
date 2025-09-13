@@ -29,7 +29,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
 
   const upcomingMatches = upcomingMatchesData?.data || [];
 
-  // Transform API data for Popular Events
+  // Transform API data for Popular Events - only use real data
   const popularMatches = upcomingMatches.slice(0, 6).map((match: any) => ({
     id: match.id,
     homeTeam: {
@@ -43,20 +43,12 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     kickoffTime: match.kickoffTime || match.kickoff,
     league: match.league,
     venue: match.venue,
-    odds: {
-      home: match.markets?.["1x2"]?.home || 1.85,
-      draw: match.markets?.["1x2"]?.draw || 3.20,
-      away: match.markets?.["1x2"]?.away || 2.10,
-    },
-    additionalMarkets: (() => {
-      const idStr = String(match.id);
-      let seed = 0;
-      for (let i = 0; i < idStr.length; i++) {
-        seed = ((seed << 5) - seed) + idStr.charCodeAt(i);
-        seed = seed >>> 0; // Convert to 32bit unsigned integer
-      }
-      return 50 + (seed % 150);
-    })(), // Stable additional markets count based on match ID
+    odds: match.markets?.["1x2"] ? {
+      home: match.markets["1x2"].home,
+      draw: match.markets["1x2"].draw,
+      away: match.markets["1x2"].away,
+    } : null,
+    additionalMarkets: match.markets ? Object.keys(match.markets).length - 1 : 0, // Real markets count minus main 1x2
   }));
 
   // Group matches by league for Football section
@@ -86,20 +78,12 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         },
         kickoffTime: match.kickoffTime || match.kickoff,
         venue: match.venue,
-        odds: {
-          home: match.markets?.["1x2"]?.home || 1.85,
-          draw: match.markets?.["1x2"]?.draw || 3.20,
-          away: match.markets?.["1x2"]?.away || 2.10,
-        },
-        additionalMarkets: (() => {
-          const idStr = String(match.id);
-          let seed = 0;
-          for (let i = 0; i < idStr.length; i++) {
-            seed = ((seed << 5) - seed) + idStr.charCodeAt(i);
-            seed = seed >>> 0; // Convert to 32bit unsigned integer
-          }
-          return 20 + (seed % 80);
-        })(), // Stable count based on match ID
+        odds: match.markets?.["1x2"] ? {
+          home: match.markets["1x2"].home,
+          draw: match.markets["1x2"].draw,
+          away: match.markets["1x2"].away,
+        } : null,
+        additionalMarkets: match.markets ? Object.keys(match.markets).length - 1 : 0, // Real markets count minus main 1x2
       });
     });
 

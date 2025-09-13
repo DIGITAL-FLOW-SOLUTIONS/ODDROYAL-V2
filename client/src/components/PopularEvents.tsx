@@ -80,7 +80,7 @@ export default function PopularEvents({
   };
 
   const handleOddsClick = (match: PopularMatch, type: string) => {
-    if (onOddsClick) {
+    if (onOddsClick && match.odds) {
       const odds = type === 'home' ? match.odds.home : type === 'draw' ? match.odds.draw : match.odds.away;
       onOddsClick(match.id, '1x2', type, odds);
     }
@@ -180,39 +180,41 @@ export default function PopularEvents({
                 </div>
               </div>
 
-              {/* Odds */}
-              <div className="grid grid-cols-3 gap-2 mt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleOddsClick(match, 'home')}
-                  className="flex flex-col gap-1 h-auto py-2 hover-elevate"
-                  data-testid={`button-odds-home-${match.id}`}
-                >
-                  <span className="text-xs text-muted-foreground">1</span>
-                  <span className="font-semibold">{match.odds.home.toFixed(2)}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleOddsClick(match, 'draw')}
-                  className="flex flex-col gap-1 h-auto py-2 hover-elevate"
-                  data-testid={`button-odds-draw-${match.id}`}
-                >
-                  <span className="text-xs text-muted-foreground">X</span>
-                  <span className="font-semibold">{match.odds.draw.toFixed(2)}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleOddsClick(match, 'away')}
-                  className="flex flex-col gap-1 h-auto py-2 hover-elevate"
-                  data-testid={`button-odds-away-${match.id}`}
-                >
-                  <span className="text-xs text-muted-foreground">2</span>
-                  <span className="font-semibold">{match.odds.away.toFixed(2)}</span>
-                </Button>
-              </div>
+              {/* Odds - Only show if odds are available */}
+              {match.odds && (
+                <div className="grid grid-cols-3 gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOddsClick(match, 'home')}
+                    className="flex flex-col gap-1 h-auto py-2 hover-elevate"
+                    data-testid={`button-odds-home-${match.id}`}
+                  >
+                    <span className="text-xs text-muted-foreground">1</span>
+                    <span className="font-semibold">{match.odds.home.toFixed(2)}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOddsClick(match, 'draw')}
+                    className="flex flex-col gap-1 h-auto py-2 hover-elevate"
+                    data-testid={`button-odds-draw-${match.id}`}
+                  >
+                    <span className="text-xs text-muted-foreground">X</span>
+                    <span className="font-semibold">{match.odds.draw.toFixed(2)}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOddsClick(match, 'away')}
+                    className="flex flex-col gap-1 h-auto py-2 hover-elevate"
+                    data-testid={`button-odds-away-${match.id}`}
+                  >
+                    <span className="text-xs text-muted-foreground">2</span>
+                    <span className="font-semibold">{match.odds.away.toFixed(2)}</span>
+                  </Button>
+                </div>
+              )}
 
               {/* Additional markets footer */}
               <div className="flex items-center justify-center pt-2 border-t border-border">

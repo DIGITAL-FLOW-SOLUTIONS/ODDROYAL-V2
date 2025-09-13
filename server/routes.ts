@@ -667,35 +667,8 @@ function transformFixture(fixture: SportMonksFixture) {
     status: 'upcoming' as const,
     league: fixture.league?.name || 'Unknown League',
     venue: 'Stadium', // SportMonks doesn't include venue in basic fixture data
-    odds: {
-      home: 2.10 + Math.random() * 0.5, // Mock odds - would need separate API call
-      draw: 3.20 + Math.random() * 0.5,
-      away: 3.50 + Math.random() * 0.5
-    },
-    markets: {
-      "1x2": { 
-        home: 2.10 + Math.random() * 0.5, 
-        draw: 3.20 + Math.random() * 0.5, 
-        away: 3.50 + Math.random() * 0.5 
-      },
-      "ou": { 
-        over25: 1.85 + Math.random() * 0.3, 
-        under25: 1.95 + Math.random() * 0.3 
-      },
-      "btts": { 
-        yes: 1.80 + Math.random() * 0.3, 
-        no: 2.00 + Math.random() * 0.3 
-      },
-      "handicap": { 
-        home: 1.90 + Math.random() * 0.3, 
-        away: 1.90 + Math.random() * 0.3 
-      },
-      "correctscore": { 
-        "1-0": 8.50 + Math.random() * 2, 
-        "2-1": 9.00 + Math.random() * 2, 
-        "0-0": 12.00 + Math.random() * 3 
-      }
-    }
+    // Odds would need to be fetched separately from SportMonks odds endpoint
+    // Only include if real odds are available from API
   };
 }
 
@@ -723,33 +696,7 @@ function transformLiveFixture(fixture: SportMonksFixture) {
     minute: minute > 0 ? minute : 1,
     status: minute > 45 && minute <= 60 ? 'HT' : minute > 90 ? 'FT' : '1st Half',
     venue: 'Stadium',
-    possession: { 
-      home: 45 + Math.floor(Math.random() * 20), 
-      away: 35 + Math.floor(Math.random() * 20) 
-    },
-    corners: { 
-      home: Math.floor(Math.random() * 8), 
-      away: Math.floor(Math.random() * 8) 
-    },
-    shots: { 
-      home: Math.floor(Math.random() * 15) + 1, 
-      away: Math.floor(Math.random() * 15) + 1 
-    },
-    odds: {
-      "1x2": { 
-        home: 1.75 + Math.random() * 0.5, 
-        draw: 3.50 + Math.random() * 1, 
-        away: 4.20 + Math.random() * 1.5 
-      },
-      "nextgoal": { 
-        home: 2.10 + Math.random() * 0.5, 
-        away: 3.20 + Math.random() * 0.8, 
-        none: 4.50 + Math.random() * 1 
-      },
-      "totalgoals": { 
-        over35: 2.40 + Math.random() * 0.3, 
-        under35: 1.55 + Math.random() * 0.3 
-      }
-    }
+    // Live statistics and odds would come from SportMonks API if available
+    // Odds would need to be fetched separately from SportMonks odds endpoint
   };
 }

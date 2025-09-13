@@ -69,7 +69,7 @@ export default function FootballMatches({
   };
 
   const handleOddsClick = (match: Match, type: string) => {
-    if (onOddsClick) {
+    if (onOddsClick && match.odds) {
       const odds = type === 'home' ? match.odds.home : type === 'draw' ? match.odds.draw : match.odds.away;
       onOddsClick(match.id, '1x2', type, odds);
     }
@@ -240,42 +240,50 @@ export default function FootballMatches({
                               </div>
                             </div>
 
-                            {/* Odds columns */}
-                            <div className="col-span-2 flex items-center justify-center">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOddsClick(match, 'home')}
-                                className="w-full h-8 text-xs font-semibold hover-elevate"
-                                data-testid={`odds-home-${match.id}`}
-                              >
-                                {match.odds.home.toFixed(2)}
-                              </Button>
-                            </div>
+                            {/* Odds columns - Only show if odds are available */}
+                            {match.odds ? (
+                              <>
+                                <div className="col-span-2 flex items-center justify-center">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleOddsClick(match, 'home')}
+                                    className="w-full h-8 text-xs font-semibold hover-elevate"
+                                    data-testid={`odds-home-${match.id}`}
+                                  >
+                                    {match.odds.home.toFixed(2)}
+                                  </Button>
+                                </div>
 
-                            <div className="col-span-2 flex items-center justify-center">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOddsClick(match, 'draw')}
-                                className="w-full h-8 text-xs font-semibold hover-elevate"
-                                data-testid={`odds-draw-${match.id}`}
-                              >
-                                {match.odds.draw.toFixed(2)}
-                              </Button>
-                            </div>
+                                <div className="col-span-2 flex items-center justify-center">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleOddsClick(match, 'draw')}
+                                    className="w-full h-8 text-xs font-semibold hover-elevate"
+                                    data-testid={`odds-draw-${match.id}`}
+                                  >
+                                    {match.odds.draw.toFixed(2)}
+                                  </Button>
+                                </div>
 
-                            <div className="col-span-2 flex items-center justify-center">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOddsClick(match, 'away')}
-                                className="w-full h-8 text-xs font-semibold hover-elevate"
-                                data-testid={`odds-away-${match.id}`}
-                              >
-                                {match.odds.away.toFixed(2)}
-                              </Button>
-                            </div>
+                                <div className="col-span-2 flex items-center justify-center">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleOddsClick(match, 'away')}
+                                    className="w-full h-8 text-xs font-semibold hover-elevate"
+                                    data-testid={`odds-away-${match.id}`}
+                                  >
+                                    {match.odds.away.toFixed(2)}
+                                  </Button>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="col-span-6 flex items-center justify-center text-sm text-muted-foreground">
+                                Odds not available
+                              </div>
+                            )}
                           </motion.div>
                         ))}
                       </AnimatePresence>
