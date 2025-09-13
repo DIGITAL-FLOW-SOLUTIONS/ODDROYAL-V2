@@ -110,7 +110,7 @@ export default function Layout({ children }: LayoutProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
-            className="sportsbook-main overflow-hidden"
+            className="sportsbook-main overflow-hidden scrollbar-hide"
             style={{ 
               maxHeight: 'calc(100vh - 80px)', 
               overflowY: 'auto',
@@ -127,7 +127,7 @@ export default function Layout({ children }: LayoutProps) {
             initial={{ x: 100, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.3, delay: 0.2 }}
-            className="sportsbook-betslip hidden lg:block bg-background border-l border-border"
+            className="sportsbook-betslip hidden lg:block bg-background border-l border-border scrollbar-hide"
             style={{ 
               maxHeight: 'calc(100vh - 80px)', 
               overflowY: 'auto',
