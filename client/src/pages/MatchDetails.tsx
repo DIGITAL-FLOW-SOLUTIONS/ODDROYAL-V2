@@ -60,6 +60,30 @@ interface HeadToHeadMatch {
   competition: string;
 }
 
+interface SportMonksOdds {
+  id: number;
+  fixture_id: number;
+  market_id: number;
+  bookmaker_id: number;
+  label: string;
+  value: string;
+  handicap: string | null;
+  total: string | null;
+  winning: boolean;
+  stopped: boolean;
+  last_update: {
+    date: string;
+    timezone_type: number;
+    timezone: string;
+  };
+  market: {
+    id: number;
+    name: string;
+    developer_name: string;
+    has_winning_calculations: boolean;
+  };
+}
+
 const MARKET_CATEGORIES = {
   main: "Main Markets",
   goals: "Goals",
@@ -67,6 +91,84 @@ const MARKET_CATEGORIES = {
   teamSpecials: "Team Specials",
   combination: "Combination Markets",
   player: "Player Specials"
+};
+
+// Transform SportMonks odds data into our Market format
+const transformOddsToMarkets = (oddsData: SportMonksOdds[]): Market[] => {
+  if (!oddsData || oddsData.length === 0) {
+    // Return mock data for development when no real data is available
+    return [
+      {
+        id: "1x2",
+        name: "Match Winner",
+        category: "main",
+        outcomes: [
+          { id: "home", name: "Home", odds: 2.15 },
+          { id: "draw", name: "Draw", odds: 3.40 },
+          { id: "away", name: "Away", odds: 3.20 }
+        ]
+      },
+      {
+        id: "over-under",
+        name: "Total Goals",
+        category: "main", 
+        outcomes: [
+          { id: "over-2.5", name: "Over 2.5", odds: 1.85 },
+          { id: "under-2.5", name: "Under 2.5", odds: 1.95 }
+        ]
+      },
+      {
+        id: "both-teams-score",
+        name: "Both Teams to Score",
+        category: "goals",
+        outcomes: [
+          { id: "yes", name: "Yes", odds: 1.70 },
+          { id: "no", name: "No", odds: 2.10 }
+        ]
+      }
+    ];
+  }
+
+  // Group odds by market
+  const marketGroups = oddsData.reduce((acc, odd) => {
+    const marketId = odd.market.id.toString();
+    if (!acc[marketId]) {
+      acc[marketId] = {
+        id: marketId,
+        name: odd.market.name,
+        category: getMarketCategory(odd.market.name),
+        outcomes: []
+      };
+    }
+    
+    acc[marketId].outcomes.push({
+      id: odd.id.toString(),
+      name: odd.label,
+      odds: parseFloat(odd.value)
+    });
+    
+    return acc;
+  }, {} as Record<string, Market>);
+
+  return Object.values(marketGroups);
+};
+
+// Determine market category based on market name
+const getMarketCategory = (marketName: string): string => {
+  const name = marketName.toLowerCase();
+  if (name.includes('winner') || name.includes('1x2') || name.includes('result')) {
+    return 'main';
+  }
+  if (name.includes('goal') || name.includes('over') || name.includes('under') || name.includes('score')) {
+    return 'goals';
+  }
+  if (name.includes('correct score')) {
+    return 'correctScore';
+  }
+  if (name.includes('player')) {
+    return 'player';
+  }
+  return 'main';
 };
 
 export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
@@ -101,7 +203,9 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
   });
 
   const match: MatchDetails | null = matchData?.data || null;
-  const markets: Market[] = oddsData?.data || [];
+  
+  // Transform SportMonks odds data into Market format
+  const markets: Market[] = transformOddsToMarkets(oddsData?.data || []);
 
   // Mock data for development - will be replaced with real API data
   const mockWinProbability: WinProbability = {
@@ -182,7 +286,8 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
       odds,
       homeTeam: match.homeTeam.name,
       awayTeam: match.awayTeam.name,
-      league: match.league
+      league: match.league,
+      isLive: match.status === 'live'
     };
     
     onAddToBetSlip(selection);

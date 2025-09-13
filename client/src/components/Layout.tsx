@@ -11,7 +11,7 @@ import { ShoppingCart } from "lucide-react";
 interface BetSelection {
   id: string;
   matchId: string;
-  type: "home" | "draw" | "away";
+  type: string; // Changed from "home" | "draw" | "away" to string to support all market types
   odds: number;
   homeTeam: string;
   awayTeam: string;

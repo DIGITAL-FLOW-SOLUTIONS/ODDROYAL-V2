@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,8 +38,11 @@ interface MatchCardProps {
 
 export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
   const [isFavorite, setIsFavorite] = useState(match.isFavorite || false);
+  const [, setLocation] = useLocation();
 
-  const handleAddToBetSlip = (type: "home" | "draw" | "away", odds: number) => {
+  const handleAddToBetSlip = (type: "home" | "draw" | "away", odds: number, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent navigation when clicking odds buttons
+    
     const selection = {
       id: `${match.id}-${type}`,
       matchId: match.id,
@@ -53,9 +57,14 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
     console.log("Added to bet slip:", selection);
   };
 
-  const toggleFavorite = () => {
+  const toggleFavorite = (event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent navigation when clicking favorite button
     setIsFavorite(!isFavorite);
     console.log("Toggled favorite for match:", match.id);
+  };
+
+  const handleCardClick = () => {
+    setLocation(`/match/${match.id}`);
   };
 
   const formatTime = (timeString: string) => {
@@ -73,7 +82,11 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
       whileHover={{ scale: 1.01 }}
       transition={{ duration: 0.2 }}
     >
-      <Card className="hover-elevate" data-testid={`card-match-${match.id}`}>
+      <Card 
+        className="hover-elevate cursor-pointer" 
+        data-testid={`card-match-${match.id}`}
+        onClick={handleCardClick}
+      >
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -134,7 +147,7 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleAddToBetSlip("home", match.odds.home)}
+              onClick={(e) => handleAddToBetSlip("home", match.odds.home, e)}
               data-testid={`button-odds-home-${match.id}`}
               className="flex flex-col gap-1 h-auto py-2 hover-elevate"
             >
@@ -146,7 +159,7 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleAddToBetSlip("draw", match.odds.draw!)}
+                onClick={(e) => handleAddToBetSlip("draw", match.odds.draw!, e)}
                 data-testid={`button-odds-draw-${match.id}`}
                 className="flex flex-col gap-1 h-auto py-2 hover-elevate"
               >
@@ -158,7 +171,7 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleAddToBetSlip("away", match.odds.away)}
+              onClick={(e) => handleAddToBetSlip("away", match.odds.away, e)}
               data-testid={`button-odds-away-${match.id}`}
               className="flex flex-col gap-1 h-auto py-2 hover-elevate"
             >
