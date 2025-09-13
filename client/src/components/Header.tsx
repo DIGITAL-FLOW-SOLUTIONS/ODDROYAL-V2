@@ -51,28 +51,44 @@ export default function Header() {
         </div>
 
         {/* Theme Toggle */}
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <button
           onClick={toggleTheme}
-          data-testid="button-theme-toggle" 
-          className="hover-elevate"
+          data-testid="button-theme-toggle"
+          className="relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
+          style={{
+            backgroundColor: theme === "dark" ? "hsl(var(--muted))" : "hsl(var(--muted-foreground) / 0.2)"
+          }}
         >
           <motion.div
-            initial={false}
-            animate={{ 
-              rotate: theme === "dark" ? 180 : 0,
-              scale: theme === "dark" ? 0.8 : 1
+            className="absolute top-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-sm"
+            style={{
+              backgroundColor: theme === "dark" ? "hsl(var(--foreground))" : "hsl(var(--background))"
             }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
+            animate={{
+              x: theme === "dark" ? 24 : 2
+            }}
+            transition={{
+              type: "spring",
+              stiffness: 500,
+              damping: 30
+            }}
           >
-            {theme === "dark" ? (
-              <Sun className="h-4 w-4" />
-            ) : (
-              <Moon className="h-4 w-4" />
-            )}
+            <motion.div
+              animate={{ 
+                scale: [0.8, 1.1, 1],
+                opacity: [0.5, 1]
+              }}
+              transition={{ duration: 0.3 }}
+              key={theme}
+            >
+              {theme === "dark" ? (
+                <Moon className="h-3 w-3 text-background" />
+              ) : (
+                <Sun className="h-3 w-3 text-foreground" />
+              )}
+            </motion.div>
           </motion.div>
-        </Button>
+        </button>
 
         {/* Notifications */}
         <Button
