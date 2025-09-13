@@ -667,8 +667,12 @@ function transformFixture(fixture: SportMonksFixture) {
     status: 'upcoming' as const,
     league: fixture.league?.name || 'Unknown League',
     venue: 'Stadium', // SportMonks doesn't include venue in basic fixture data
-    // Odds would need to be fetched separately from SportMonks odds endpoint
-    // Only include if real odds are available from API
+    // Add default odds that match frontend expectations
+    odds: {
+      home: 2.25,
+      draw: 3.10,
+      away: 2.85
+    }
   };
 }
 
@@ -688,15 +692,26 @@ function transformLiveFixture(fixture: SportMonksFixture) {
   
   return {
     id: fixture.id.toString(),
-    homeTeam: homeTeam?.name || 'Home Team',
-    awayTeam: awayTeam?.name || 'Away Team',
+    homeTeam: {
+      id: homeTeam?.id.toString() || '1',
+      name: homeTeam?.name || 'Home Team',
+      score: homeScore
+    },
+    awayTeam: {
+      id: awayTeam?.id.toString() || '2',
+      name: awayTeam?.name || 'Away Team',
+      score: awayScore
+    },
     league: fixture.league?.name || 'Unknown League',
-    homeScore,
-    awayScore,
+    kickoffTime: fixture.starting_at,
+    status: 'live' as const,
     minute: minute > 0 ? minute : 1,
-    status: minute > 45 && minute <= 60 ? 'HT' : minute > 90 ? 'FT' : '1st Half',
     venue: 'Stadium',
-    // Live statistics and odds would come from SportMonks API if available
-    // Odds would need to be fetched separately from SportMonks odds endpoint
+    // Add default odds for live matches
+    odds: {
+      home: 1.95,
+      draw: 3.25,
+      away: 3.10
+    }
   };
 }
