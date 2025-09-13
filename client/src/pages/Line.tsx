@@ -43,12 +43,12 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     kickoffTime: match.kickoffTime || match.kickoff,
     league: match.league,
     venue: match.venue,
-    odds: match.markets?.["1x2"] ? {
-      home: match.markets["1x2"].home,
-      draw: match.markets["1x2"].draw,
-      away: match.markets["1x2"].away,
+    odds: match.odds ? {
+      home: match.odds.home,
+      draw: match.odds.draw,
+      away: match.odds.away,
     } : null,
-    additionalMarkets: match.markets ? Object.keys(match.markets).length - 1 : 0, // Real markets count minus main 1x2
+    additionalMarkets: match.additionalMarkets || 0
   }));
 
   // Group matches by league for Football section
@@ -78,12 +78,12 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         },
         kickoffTime: match.kickoffTime || match.kickoff,
         venue: match.venue,
-        odds: match.markets?.["1x2"] ? {
-          home: match.markets["1x2"].home,
-          draw: match.markets["1x2"].draw,
-          away: match.markets["1x2"].away,
+        odds: match.odds ? {
+          home: match.odds.home,
+          draw: match.odds.draw,
+          away: match.odds.away,
         } : null,
-        additionalMarkets: match.markets ? Object.keys(match.markets).length - 1 : 0, // Real markets count minus main 1x2
+        additionalMarkets: match.additionalMarkets || 0
       });
     });
 
