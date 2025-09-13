@@ -384,11 +384,6 @@
     overflow: hidden;
   }
 
-  .sportsbook-layout:has([data-state="collapsed"]) .sportsbook-header,
-  .sportsbook-layout:has([data-state="collapsed"]) .sportsbook-main,
-  .sportsbook-layout:has([data-state="collapsed"]) .sportsbook-footer {
-    grid-column: 1 / -1;
-  }
 
   /* Responsive adjustments */
   @media (max-width: 1023px) {
