@@ -5,16 +5,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { 
   ChevronDown,
   ChevronUp,
-  Calendar,
-  MapPin,
   Clock,
-  Users,
-  TrendingUp,
-  BarChart3
+  Calendar,
+  MapPin
 } from "lucide-react";
 
 interface MatchDetailsProps {
@@ -45,21 +41,6 @@ interface MatchDetails {
   minute?: number;
 }
 
-interface WinProbability {
-  home: number;
-  draw: number;
-  away: number;
-}
-
-interface HeadToHeadMatch {
-  date: string;
-  homeTeam: string;
-  awayTeam: string;
-  homeScore: number;
-  awayScore: number;
-  competition: string;
-}
-
 interface SportMonksOdds {
   id: number;
   fixture_id: number;
@@ -84,37 +65,47 @@ interface SportMonksOdds {
   };
 }
 
-const MARKET_CATEGORIES = {
-  main: "Main Markets",
-  goals: "Goals",
-  correctScore: "Correct Score", 
-  teamSpecials: "Team Specials",
-  combination: "Combination Markets",
-  player: "Player Specials"
-};
-
 // Transform SportMonks odds data into our Market format
 const transformOddsToMarkets = (oddsData: SportMonksOdds[]): Market[] => {
   if (!oddsData || oddsData.length === 0) {
-    // Return mock data for development when no real data is available
+    // Return comprehensive mock markets similar to Playwin
     return [
       {
         id: "1x2",
         name: "Match Winner",
         category: "main",
         outcomes: [
-          { id: "home", name: "Home", odds: 2.15 },
-          { id: "draw", name: "Draw", odds: 3.40 },
-          { id: "away", name: "Away", odds: 3.20 }
+          { id: "home", name: "1", odds: 2.25 },
+          { id: "draw", name: "X", odds: 3.10 },
+          { id: "away", name: "2", odds: 2.85 }
         ]
       },
       {
-        id: "over-under",
-        name: "Total Goals",
-        category: "main", 
+        id: "double-chance",
+        name: "Double Chance",
+        category: "main",
         outcomes: [
-          { id: "over-2.5", name: "Over 2.5", odds: 1.85 },
-          { id: "under-2.5", name: "Under 2.5", odds: 1.95 }
+          { id: "1x", name: "1X", odds: 1.44 },
+          { id: "12", name: "12", odds: 1.28 },
+          { id: "x2", name: "X2", odds: 1.53 }
+        ]
+      },
+      {
+        id: "over-under-25",
+        name: "Total Goals O/U 2.5",
+        category: "goals",
+        outcomes: [
+          { id: "over-25", name: "Over 2.5", odds: 1.85 },
+          { id: "under-25", name: "Under 2.5", odds: 1.95 }
+        ]
+      },
+      {
+        id: "over-under-15",
+        name: "Total Goals O/U 1.5",
+        category: "goals",
+        outcomes: [
+          { id: "over-15", name: "Over 1.5", odds: 1.33 },
+          { id: "under-15", name: "Under 1.5", odds: 3.20 }
         ]
       },
       {
@@ -123,25 +114,67 @@ const transformOddsToMarkets = (oddsData: SportMonksOdds[]): Market[] => {
         category: "goals",
         outcomes: [
           { id: "yes", name: "Yes", odds: 1.70 },
-          { id: "no", name: "No", odds: 2.10 }
+          { id: "no", name: "No", odds: 2.15 }
+        ]
+      },
+      {
+        id: "handicap-0",
+        name: "Handicap (0)",
+        category: "handicap",
+        outcomes: [
+          { id: "home-hcp", name: "1", odds: 1.95 },
+          { id: "draw-hcp", name: "X", odds: 2.20 },
+          { id: "away-hcp", name: "2", odds: 3.40 }
+        ]
+      },
+      {
+        id: "handicap-1",
+        name: "Handicap (-1)",
+        category: "handicap", 
+        outcomes: [
+          { id: "home-hcp-1", name: "1", odds: 3.20 },
+          { id: "draw-hcp-1", name: "X", odds: 3.10 },
+          { id: "away-hcp-1", name: "2", odds: 2.05 }
+        ]
+      },
+      {
+        id: "correct-score-1",
+        name: "Correct Score - Popular",
+        category: "correct-score",
+        outcomes: [
+          { id: "1-0", name: "1-0", odds: 7.50 },
+          { id: "2-0", name: "2-0", odds: 9.00 },
+          { id: "2-1", name: "2-1", odds: 8.50 },
+          { id: "1-1", name: "1-1", odds: 5.50 },
+          { id: "0-0", name: "0-0", odds: 8.00 },
+          { id: "0-1", name: "0-1", odds: 11.00 }
+        ]
+      },
+      {
+        id: "first-goal",
+        name: "First Goal Scorer",
+        category: "player",
+        outcomes: [
+          { id: "any-player", name: "Any Time", odds: 4.50 },
+          { id: "no-goal", name: "No Goal", odds: 12.00 }
         ]
       }
     ];
   }
 
-  // Group odds by market
-  const marketGroups = oddsData.reduce((acc, odd) => {
-    const marketId = odd.market.id.toString();
-    if (!acc[marketId]) {
-      acc[marketId] = {
-        id: marketId,
-        name: odd.market.name,
-        category: getMarketCategory(odd.market.name),
+  // Transform real SportMonks data if available
+  const groupedByMarket = oddsData.reduce((acc, odd) => {
+    const marketName = odd.market.name;
+    if (!acc[marketName]) {
+      acc[marketName] = {
+        id: marketName.toLowerCase().replace(/\s+/g, '-'),
+        name: marketName,
+        category: categorizeMarket(marketName),
         outcomes: []
       };
     }
     
-    acc[marketId].outcomes.push({
+    acc[marketName].outcomes.push({
       id: odd.id.toString(),
       name: odd.label,
       odds: parseFloat(odd.value)
@@ -150,36 +183,27 @@ const transformOddsToMarkets = (oddsData: SportMonksOdds[]): Market[] => {
     return acc;
   }, {} as Record<string, Market>);
 
-  return Object.values(marketGroups);
+  return Object.values(groupedByMarket);
 };
 
-// Determine market category based on market name
-const getMarketCategory = (marketName: string): string => {
+const categorizeMarket = (marketName: string): string => {
   const name = marketName.toLowerCase();
-  if (name.includes('winner') || name.includes('1x2') || name.includes('result')) {
-    return 'main';
-  }
-  if (name.includes('goal') || name.includes('over') || name.includes('under') || name.includes('score')) {
-    return 'goals';
-  }
-  if (name.includes('correct score')) {
-    return 'correctScore';
-  }
-  if (name.includes('player')) {
-    return 'player';
-  }
-  return 'main';
+  if (name.includes('winner') || name.includes('1x2')) return 'main';
+  if (name.includes('goal') || name.includes('total') || name.includes('btts')) return 'goals';
+  if (name.includes('score')) return 'correct-score';
+  if (name.includes('handicap')) return 'handicap';
+  if (name.includes('player') || name.includes('scorer')) return 'player';
+  return 'other';
 };
 
 export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
   const [, params] = useRoute("/match/:id");
   const matchId = params?.id;
-  
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(["main"]) // Main markets always expanded
-  );
+  const [expandedMarkets, setExpandedMarkets] = useState<Record<string, boolean>>({
+    'main': true,
+    'goals': true
+  });
 
-  // Fetch match details
   const { data: matchData, isLoading: matchLoading } = useQuery({
     queryKey: ['/api/fixtures', matchId],
     queryFn: async () => {
@@ -190,7 +214,6 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     enabled: !!matchId,
   });
 
-  // Fetch match odds and markets
   const { data: oddsData, isLoading: oddsLoading } = useQuery({
     queryKey: ['/api/fixtures', matchId, 'odds'],
     queryFn: async () => {
@@ -199,337 +222,209 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
       return response.json();
     },
     enabled: !!matchId,
-    refetchInterval: 15000, // Refresh every 15 seconds
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
-
-  const match: MatchDetails | null = matchData?.data || null;
-  
-  // Transform SportMonks odds data into Market format
-  const markets: Market[] = transformOddsToMarkets(oddsData?.data || []);
-
-  // Mock data for development - will be replaced with real API data
-  const mockWinProbability: WinProbability = {
-    home: 45,
-    draw: 25,
-    away: 30
-  };
-
-  const mockHeadToHead: HeadToHeadMatch[] = [
-    {
-      date: "2024-01-15",
-      homeTeam: "Brentford",
-      awayTeam: "Chelsea", 
-      homeScore: 2,
-      awayScore: 0,
-      competition: "Premier League"
-    },
-    {
-      date: "2023-10-28",
-      homeTeam: "Chelsea",
-      awayTeam: "Brentford",
-      homeScore: 2,
-      awayScore: 1,
-      competition: "Premier League"
-    },
-    {
-      date: "2023-04-26",
-      homeTeam: "Brentford", 
-      awayTeam: "Chelsea",
-      homeScore: 0,
-      awayScore: 1,
-      competition: "Premier League"
-    }
-  ];
-
-  // Group markets by category
-  const marketsByCategory = markets.reduce((acc, market) => {
-    const category = market.category || 'main';
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(market);
-    return acc;
-  }, {} as Record<string, Market[]>);
-
-  // Calculate win probability from odds (for main 1x2 market)
-  const calculateWinProbability = (odds: { home: number; draw: number; away: number }): WinProbability => {
-    const homeProb = 1 / odds.home;
-    const drawProb = 1 / odds.draw;
-    const awayProb = 1 / odds.away;
-    const total = homeProb + drawProb + awayProb;
-    
-    return {
-      home: Math.round((homeProb / total) * 100),
-      draw: Math.round((drawProb / total) * 100),
-      away: Math.round((awayProb / total) * 100)
-    };
-  };
-
-  const toggleCategory = (category: string) => {
-    if (category === 'main') return; // Main markets always expanded
-    
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(category)) {
-      newExpanded.delete(category);
-    } else {
-      newExpanded.add(category);
-    }
-    setExpandedCategories(newExpanded);
-  };
-
-  const handleOddsClick = (matchId: string, market: string, outcome: string, odds: number) => {
-    if (!onAddToBetSlip || !match) return;
-
-    const selection = {
-      id: `${matchId}-${market}-${outcome}`,
-      matchId,
-      market,
-      type: outcome,
-      odds,
-      homeTeam: match.homeTeam.name,
-      awayTeam: match.awayTeam.name,
-      league: match.league,
-      isLive: match.status === 'live'
-    };
-    
-    onAddToBetSlip(selection);
-  };
 
   if (matchLoading) {
     return (
-      <div className="p-4 flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <BarChart3 className="h-8 w-8 text-primary animate-pulse mx-auto mb-2" />
-          <p className="text-muted-foreground">Loading match details...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading match details...</p>
         </div>
       </div>
     );
   }
 
-  if (!match) {
+  if (!matchData?.success || !matchData?.data) {
     return (
-      <div className="p-4 flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <p className="text-muted-foreground">Match not found</p>
+          <h2 className="text-xl font-bold mb-2">Match not found</h2>
+          <p className="text-muted-foreground">The requested match could not be found.</p>
         </div>
       </div>
     );
   }
+
+  const match: MatchDetails = matchData.data;
+  const markets = transformOddsToMarkets(oddsData?.data || []);
+  
+  const marketsByCategory = markets.reduce((acc, market) => {
+    if (!acc[market.category]) acc[market.category] = [];
+    acc[market.category].push(market);
+    return acc;
+  }, {} as Record<string, Market[]>);
+
+  const toggleMarketCategory = (category: string) => {
+    setExpandedMarkets(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
+  const formatKickoffTime = (kickoffTime: string) => {
+    const date = new Date(kickoffTime);
+    return {
+      time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      date: date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    };
+  };
+
+  const getCategoryName = (category: string) => {
+    const names: Record<string, string> = {
+      'main': 'Main Markets',
+      'goals': 'Goals',
+      'handicap': 'Handicap',
+      'correct-score': 'Correct Score',
+      'player': 'Player Markets',
+      'other': 'Other Markets'
+    };
+    return names[category] || category;
+  };
+
+  const kickoff = formatKickoffTime(match.kickoffTime);
 
   return (
-    <div className="flex gap-4 p-4 h-full">
-      {/* Center Section - Markets & Odds */}
-      <div className="flex-1 space-y-4 overflow-y-auto">
-        {/* Match Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-card rounded-lg p-4 border"
-        >
+    <div className="min-h-screen bg-background">
+      {/* Match Header */}
+      <div className="bg-card border-b">
+        <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <div className="text-center">
-                <div className="font-semibold text-lg">{match.homeTeam.name}</div>
-                <div className="text-sm text-muted-foreground">Home</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold">VS</div>
-                {match.status === 'live' && (
-                  <Badge variant="destructive" className="animate-pulse">
-                    LIVE {match.minute}'
-                  </Badge>
-                )}
-                {match.homeScore !== undefined && match.awayScore !== undefined && (
-                  <div className="text-lg font-semibold text-destructive">
-                    {match.homeScore} - {match.awayScore}
-                  </div>
-                )}
-              </div>
-              <div className="text-center">
-                <div className="font-semibold text-lg">{match.awayTeam.name}</div>
-                <div className="text-sm text-muted-foreground">Away</div>
-              </div>
-            </div>
-            
-            <div className="text-right space-y-1">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                {new Date(match.kickoffTime).toLocaleDateString()}
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                {new Date(match.kickoffTime).toLocaleTimeString()}
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                {match.venue}
-              </div>
+            <Badge variant="outline" className="text-xs">
+              {match.league}
+            </Badge>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="w-4 h-4" />
+              <span>{kickoff.time}</span>
+              <span>•</span>
+              <span>{kickoff.date}</span>
             </div>
           </div>
-        </motion.div>
-
-        {/* Markets */}
-        <div className="space-y-2">
-          {Object.entries(MARKET_CATEGORIES).map(([categoryKey, categoryName]) => {
-            const categoryMarkets = marketsByCategory[categoryKey] || [];
-            const isExpanded = expandedCategories.has(categoryKey);
-            const isMain = categoryKey === 'main';
-
-            if (categoryMarkets.length === 0 && !isMain) return null;
-
-            return (
-              <motion.div
-                key={categoryKey}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-card rounded-lg border overflow-hidden"
-              >
-                {/* Category Header */}
-                <div
-                  onClick={() => toggleCategory(categoryKey)}
-                  className={`flex items-center justify-between p-4 cursor-pointer transition-colors ${
-                    isMain ? 'bg-primary text-primary-foreground' : 'bg-primary/10 hover:bg-primary/20'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{categoryName}</span>
-                    <Badge variant="secondary" className="bg-background/20">
-                      {categoryMarkets.length || '0'}
-                    </Badge>
-                  </div>
-                  {!isMain && (
-                    <div className="flex items-center gap-2">
-                      {isExpanded ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                    </div>
-                  )}
+          
+          <div className="flex items-center justify-center gap-8 mb-4">
+            <div className="text-center flex-1">
+              <h1 className="text-xl font-bold">{match.homeTeam.name}</h1>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-3xl font-bold mb-1">
+                {match.status === 'LIVE' && match.homeScore !== undefined && match.awayScore !== undefined ? (
+                  `${match.homeScore} - ${match.awayScore}`
+                ) : (
+                  `${kickoff.time}`
+                )}
+              </div>
+              {match.status === 'LIVE' && match.minute && (
+                <div className="text-sm text-green-600 font-medium">
+                  {match.minute}'
                 </div>
+              )}
+              {match.status === 'SCHEDULED' && (
+                <div className="text-sm text-muted-foreground">
+                  Kick-off
+                </div>
+              )}
+            </div>
+            
+            <div className="text-center flex-1">
+              <h1 className="text-xl font-bold">{match.awayTeam.name}</h1>
+            </div>
+          </div>
 
-                {/* Category Markets */}
-                <AnimatePresence>
-                  {(isExpanded || isMain) && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="p-4 space-y-4 bg-card">
-                        {categoryMarkets.length === 0 ? (
-                          <div className="text-center py-4">
-                            <p className="text-muted-foreground">Markets coming soon...</p>
-                          </div>
-                        ) : (
-                          categoryMarkets.map((market) => (
-                            <div key={market.id} className="space-y-2">
+          {match.venue && (
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="w-4 h-4" />
+              <span>{match.venue}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Betting Markets */}
+      <div className="container mx-auto px-4 py-6">
+        <div className="space-y-6">
+          {Object.entries(marketsByCategory).map(([category, categoryMarkets]) => (
+            <Card key={category} className="overflow-hidden">
+              <CardHeader 
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => toggleMarketCategory(category)}
+                data-testid={`header-market-${category}`}
+              >
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{getCategoryName(category)}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {categoryMarkets.length} markets
+                    </Badge>
+                    {expandedMarkets[category] ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </div>
+                </div>
+              </CardHeader>
+              
+              <AnimatePresence>
+                {expandedMarkets[category] && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <CardContent className="pt-0">
+                      <div className="space-y-4">
+                        {categoryMarkets.map((market) => (
+                          <div key={market.id} className="border rounded-lg overflow-hidden">
+                            <div className="bg-muted/30 px-4 py-2 border-b">
                               <h4 className="font-medium text-sm">{market.name}</h4>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            </div>
+                            <div className="p-4">
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
                                 {market.outcomes.map((outcome) => (
                                   <Button
                                     key={outcome.id}
                                     variant="outline"
-                                    size="default"
-                                    onClick={() => handleOddsClick(matchId!, market.name, outcome.name, outcome.odds)}
-                                    className="flex flex-col gap-1 h-auto py-3"
-                                    data-testid={`button-odds-${outcome.name.toLowerCase().replace(/\s+/g, '-')}`}
+                                    className="h-12 flex flex-col justify-center text-center hover:bg-primary hover:text-primary-foreground transition-colors"
+                                    onClick={() => onAddToBetSlip?.({
+                                      matchId: match.id,
+                                      marketId: market.id,
+                                      outcomeId: outcome.id,
+                                      selection: outcome.name,
+                                      odds: outcome.odds,
+                                      match: `${match.homeTeam.name} vs ${match.awayTeam.name}`
+                                    })}
+                                    data-testid={`button-odds-${outcome.id}`}
                                   >
-                                    <span className="text-xs text-muted-foreground">{outcome.name}</span>
-                                    <span className="font-semibold text-lg">{outcome.odds.toFixed(2)}</span>
+                                    <div className="text-xs font-medium mb-1">
+                                      {outcome.name}
+                                    </div>
+                                    <div className="text-sm font-bold">
+                                      {outcome.odds.toFixed(2)}
+                                    </div>
                                   </Button>
                                 ))}
                               </div>
                             </div>
-                          ))
-                        )}
+                          </div>
+                        ))}
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            );
-          })}
+                    </CardContent>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Card>
+          ))}
         </div>
-      </div>
 
-      {/* Right Section - Match Info Card */}
-      <div className="w-80 space-y-4 overflow-y-auto">
-        {/* Win Probability */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <TrendingUp className="h-5 w-5" />
-                Win Probability
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>{match.homeTeam.name}</span>
-                    <span className="font-semibold">{mockWinProbability.home}%</span>
-                  </div>
-                  <Progress value={mockWinProbability.home} className="h-2" />
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Draw</span>
-                    <span className="font-semibold">{mockWinProbability.draw}%</span>
-                  </div>
-                  <Progress value={mockWinProbability.draw} className="h-2" />
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>{match.awayTeam.name}</span>
-                    <span className="font-semibold">{mockWinProbability.away}%</span>
-                  </div>
-                  <Progress value={mockWinProbability.away} className="h-2" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Head to Head */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Users className="h-5 w-5" />
-                Previous Meetings
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {mockHeadToHead.map((match, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium">
-                      {match.homeTeam} vs {match.awayTeam}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(match.date).toLocaleDateString()} • {match.competition}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-semibold">{match.homeScore} - {match.awayScore}</div>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
+        {oddsLoading && (
+          <div className="text-center py-4">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+            <p className="text-sm text-muted-foreground">Updating odds...</p>
+          </div>
+        )}
       </div>
     </div>
   );
