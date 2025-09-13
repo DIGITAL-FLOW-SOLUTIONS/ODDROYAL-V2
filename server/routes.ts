@@ -672,7 +672,8 @@ function transformFixture(fixture: SportMonksFixture) {
       home: 2.25,
       draw: 3.10,
       away: 2.85
-    }
+    },
+    additionalMarkets: 12
   };
 }
 
@@ -712,6 +713,7 @@ function transformLiveFixture(fixture: SportMonksFixture) {
       home: 1.95,
       draw: 3.25,
       away: 3.10
-    }
+    },
+    additionalMarkets: 15
   };
 }

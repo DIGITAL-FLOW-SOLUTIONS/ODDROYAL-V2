@@ -197,22 +197,22 @@ function getSportEndpoint(sportId?: number): string {
   return sportMap[sportId || 1] || 'football';
 }
 
-// Get odds for a fixture
+// Get odds for a fixture  
 export async function getFixtureOdds(fixtureId: number): Promise<SportMonksOdds[]> {
   if (!API_TOKEN) {
     return [];
   }
 
   try {
-    const response = await api.get(`/football/fixtures/${fixtureId}`, {
+    const response = await api.get(`/football/odds`, {
       params: {
         'api_token': API_TOKEN,
-        'include': 'odds,odds.market',
-        'filters': 'markets:1,2,3', // 1x2, Over/Under, Both Teams to Score
+        'include': 'market',
+        'filters': `fixtures:${fixtureId};markets:1,2,3`, // 1x2, Over/Under, Both Teams to Score for specific fixture
       },
     });
     
-    return response.data.odds || [];
+    return response.data.data || [];
   } catch (error) {
     console.error('Error fetching fixture odds:', error);
     return [];
