@@ -49,12 +49,6 @@ interface LiveMatch {
   };
 }
 
-interface Sport {
-  id: number;
-  name: string;
-  icon: string;
-  endpoint: string;
-}
 
 interface LeagueGroup {
   leagueName: string;
@@ -62,7 +56,6 @@ interface LeagueGroup {
 }
 
 export default function Live({ onAddToBetSlip }: LiveProps) {
-  const [selectedSport, setSelectedSport] = useState<number>(1); // Default to Football
   const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set());
   const [expandedMatches, setExpandedMatches] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -75,23 +68,11 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch sports list
-  const { data: sportsData } = useQuery({
-    queryKey: ['/api/sports'],
-    queryFn: async () => {
-      const response = await fetch('/api/sports');
-      if (!response.ok) throw new Error('Failed to fetch sports');
-      return response.json();
-    },
-  });
-
-  const sports: Sport[] = sportsData?.data || [];
-
-  // Fetch live matches for selected sport
+  // Fetch live Football matches only (no sport toggle needed)
   const { data: liveMatchesData, isLoading: liveLoading } = useQuery({
-    queryKey: ['/api/fixtures/live', selectedSport],
+    queryKey: ['/api/fixtures/live/football'],
     queryFn: async () => {
-      const response = await fetch(`/api/fixtures/live?sportId=${selectedSport}`);
+      const response = await fetch('/api/fixtures/live/football');
       if (!response.ok) throw new Error('Failed to fetch live matches');
       return response.json();
     },
@@ -116,11 +97,11 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
 
   // Auto-expand all leagues to show live matches by default
   useEffect(() => {
-    if (leagueGroups.length > 0) {
+    if (leagueGroups.length > 0 && expandedLeagues.size === 0) {
       const allLeagueNames = new Set(leagueGroups.map(group => group.leagueName));
       setExpandedLeagues(allLeagueNames);
     }
-  }, [leagueGroups.length, leagueGroups.map(g => g.leagueName).join(',')]);
+  }, [leagueGroups, expandedLeagues.size]);
 
   const handleLiveOddsClick = (matchId: string, market: string, type: string, odds: number, homeTeam: string, awayTeam: string) => {
     const selection = {
@@ -158,34 +139,18 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
     setExpandedMatches(newExpanded);
   };
 
-  const getSportIcon = (sportName: string) => {
-    return SPORTS_ICONS[sportName as keyof typeof SPORTS_ICONS] || Gamepad2;
-  };
 
   return (
     <div className="flex-1 bg-card text-card-foreground">
-      {/* Top Sports Tabs */}
-      <div className="flex items-center gap-1 p-2 bg-sidebar border-b border-sidebar-border overflow-x-auto">
-        {sports.map((sport) => (
-          <Button
-            key={sport.id}
-            variant={selectedSport === sport.id ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setSelectedSport(sport.id)}
-            data-testid={`button-sport-${sport.name.toLowerCase()}`}
-            className={`flex flex-col items-center gap-1 min-w-[60px] ${
-              selectedSport === sport.id 
-                ? 'bg-primary text-primary-foreground' 
-                : ''
-            }`}
-          >
-            {(() => {
-              const IconComponent = getSportIcon(sport.name);
-              return <IconComponent className="h-5 w-5" />;
-            })()}
-            <span className="text-xs font-medium">{sport.name}</span>
-          </Button>
-        ))}
+      {/* Live Football Header */}
+      <div className="flex items-center gap-2 p-3 bg-sidebar border-b border-sidebar-border">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+          <h2 className="text-lg font-semibold text-foreground">Live Football</h2>
+        </div>
+        <div className="text-xs text-muted-foreground ml-auto">
+          Updates every 5 seconds
+        </div>
       </div>
 
       {/* Live Matches Content */}
@@ -219,10 +184,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                     data-testid={`button-league-${group.leagueName.replace(/\s+/g, '-').toLowerCase()}`}
                   >
                     <div className="flex items-center gap-3">
-                      {(() => {
-                        const IconComponent = getSportIcon(sports.find(s => s.id === selectedSport)?.name || 'Football');
-                        return <IconComponent className="h-5 w-5" />;
-                      })()}
+                      <Gamepad2 className="h-5 w-5" />
                       <span className="font-semibold">{group.leagueName}</span>
                       <Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground">
                         {group.matches.length}

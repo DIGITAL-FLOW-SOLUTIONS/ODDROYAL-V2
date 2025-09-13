@@ -283,6 +283,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get live Football fixtures only (no mock data)
+  app.get("/api/fixtures/live/football", async (req, res) => {
+    try {
+      const { getLiveFootballFixtures } = await import("./sportmonks");
+      const fixtures = await getLiveFootballFixtures();
+      
+      // Transform SportMonks data to our format
+      const transformedFixtures = fixtures.map(transformLiveFixture);
+      
+      res.json({ 
+        success: true, 
+        data: transformedFixtures,
+        count: transformedFixtures.length 
+      });
+    } catch (error) {
+      console.error('Error fetching live football fixtures:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to fetch live football fixtures' 
+      });
+    }
+  });
+
   // Get sports list
   app.get("/api/sports", async (req, res) => {
     try {

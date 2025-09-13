@@ -146,6 +146,31 @@ export async function getLiveFixtures(sportId?: number): Promise<SportMonksFixtu
   }
 }
 
+// Get live Football fixtures only (no mock data fallback)
+export async function getLiveFootballFixtures(): Promise<SportMonksFixture[]> {
+  if (!API_TOKEN) {
+    console.warn('SportMonks API token not found. No live football data available.');
+    return [];
+  }
+
+  try {
+    const response = await api.get('/football/fixtures', {
+      params: {
+        'api_token': API_TOKEN,
+        'include': 'participants;league;state;scores',
+        'per_page': 50,
+        'filters': 'fixtureStates:2', // Live matches (state 2)
+      },
+    });
+    
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching live football fixtures:', error);
+    // Return empty array instead of mock data to ensure only real data is shown
+    return [];
+  }
+}
+
 // Get sports list
 export async function getSports(): Promise<any[]> {
   return [
