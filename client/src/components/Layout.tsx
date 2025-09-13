@@ -175,7 +175,7 @@ export default function Layout({ children }: LayoutProps) {
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="absolute bottom-0 left-0 right-0 bg-card border-t border-border rounded-t-xl max-h-[80vh] overflow-auto"
+            className="absolute bottom-0 left-0 right-0 bg-card border-t border-border rounded-t-xl max-h-[80vh] overflow-auto scrollbar-hide"
           >
             <div className="p-4">
               <div className="flex items-center justify-between mb-4">

@@ -162,7 +162,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
       </div>
 
       {/* Live Matches Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto scrollbar-hide">
         {liveLoading ? (
           <div className="flex items-center justify-center p-8">
             <div className="text-center">
