@@ -87,7 +87,9 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   // Create children with props by providing context
-  const childrenWithProps = children;
+  const childrenWithProps = React.cloneElement(children as React.ReactElement, {
+    onAddToBetSlip: handleAddToBetSlip
+  });
 
   return (
     <div className="bg-background">
