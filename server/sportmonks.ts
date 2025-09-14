@@ -1,10 +1,15 @@
 import axios from 'axios';
 
 const API_BASE_URL = 'https://api.sportmonks.com/v3';
-const API_TOKEN = process.env.SPORTMONKS_API_TOKEN;
+let warnedAboutMissingToken = false;
 
-if (!API_TOKEN) {
-  console.warn('SportMonks API token not found. Using mock data.');
+function getApiToken(): string | undefined {
+  const token = process.env.SPORTMONKS_API_TOKEN;
+  if (!token && !warnedAboutMissingToken) {
+    console.warn('SportMonks API token not found. Using mock data.');
+    warnedAboutMissingToken = true;
+  }
+  return token;
 }
 
 const api = axios.create({
@@ -101,14 +106,15 @@ export interface SportMonksOdds {
 
 // Get upcoming fixtures
 export async function getUpcomingFixtures(limit: number = 20): Promise<SportMonksFixture[]> {
-  if (!API_TOKEN) {
+  const token = getApiToken();
+  if (!token) {
     return getMockUpcomingFixtures();
   }
 
   try {
     const response = await api.get('/football/fixtures', {
       params: {
-        'api_token': API_TOKEN,
+        'api_token': token,
         'include': 'participants;league;state;scores',
         'per_page': limit,
         'filters': 'fixtureStates:1', // Upcoming matches (state 1)
@@ -124,7 +130,8 @@ export async function getUpcomingFixtures(limit: number = 20): Promise<SportMonk
 
 // Get live fixtures by sport
 export async function getLiveFixtures(sportId?: number): Promise<SportMonksFixture[]> {
-  if (!API_TOKEN) {
+  const token = getApiToken();
+  if (!token) {
     return getMockLiveFixtures(sportId);
   }
 
@@ -132,7 +139,7 @@ export async function getLiveFixtures(sportId?: number): Promise<SportMonksFixtu
     const sportEndpoint = getSportEndpoint(sportId);
     const response = await api.get(`/${sportEndpoint}/fixtures`, {
       params: {
-        'api_token': API_TOKEN,
+        'api_token': token,
         'include': 'participants;league;state;scores',
         'per_page': 50,
         'filters': 'fixtureStates:2', // Live matches (state 2)
@@ -148,7 +155,8 @@ export async function getLiveFixtures(sportId?: number): Promise<SportMonksFixtu
 
 // Get live Football fixtures only (no mock data fallback)
 export async function getLiveFootballFixtures(): Promise<SportMonksFixture[]> {
-  if (!API_TOKEN) {
+  const token = getApiToken();
+  if (!token) {
     console.warn('SportMonks API token not found. No live football data available.');
     return [];
   }
@@ -156,7 +164,7 @@ export async function getLiveFootballFixtures(): Promise<SportMonksFixture[]> {
   try {
     const response = await api.get('/football/fixtures', {
       params: {
-        'api_token': API_TOKEN,
+        'api_token': token,
         'include': 'participants;league;state;scores',
         'per_page': 50,
         'filters': 'fixtureStates:2', // Live matches (state 2)
@@ -199,14 +207,15 @@ function getSportEndpoint(sportId?: number): string {
 
 // Get odds for a fixture  
 export async function getFixtureOdds(fixtureId: number): Promise<SportMonksOdds[]> {
-  if (!API_TOKEN) {
+  const token = getApiToken();
+  if (!token) {
     return [];
   }
 
   try {
     const response = await api.get(`/football/odds`, {
       params: {
-        'api_token': API_TOKEN,
+        'api_token': token,
         'include': 'market',
         'filters': `fixtures:${fixtureId};markets:1,2,3`, // 1x2, Over/Under, Both Teams to Score for specific fixture
       },
@@ -221,14 +230,15 @@ export async function getFixtureOdds(fixtureId: number): Promise<SportMonksOdds[
 
 // Get leagues
 export async function getLeagues(): Promise<any[]> {
-  if (!API_TOKEN) {
+  const token = getApiToken();
+  if (!token) {
     return getMockLeagues();
   }
 
   try {
     const response = await api.get('/football/leagues', {
       params: {
-        'api_token': API_TOKEN,
+        'api_token': token,
         'per_page': 20,
       },
     });
