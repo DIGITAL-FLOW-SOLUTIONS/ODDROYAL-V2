@@ -18,60 +18,9 @@ interface TopLeaguesProps {
   onLeagueSelect?: (leagueId: string) => void;
 }
 
-const defaultLeagues: League[] = [
-  {
-    id: "champions-league",
-    name: "UEFA Champions League",
-    icon: Crown,
-    country: "Europe",
-    matchCount: 32,
-  },
-  {
-    id: "premier-league",
-    name: "Premier League",
-    icon: Flag,
-    country: "England", 
-    matchCount: 89,
-  },
-  {
-    id: "la-liga",
-    name: "La Liga",
-    icon: Flag,
-    country: "Spain",
-    matchCount: 76,
-  },
-  {
-    id: "bundesliga",
-    name: "Bundesliga", 
-    icon: Flag,
-    country: "Germany",
-    matchCount: 54,
-  },
-  {
-    id: "serie-a",
-    name: "Serie A",
-    icon: Flag, 
-    country: "Italy",
-    matchCount: 67,
-  },
-  {
-    id: "ligue-1",
-    name: "Ligue 1",
-    icon: Flag,
-    country: "France", 
-    matchCount: 43,
-  },
-  {
-    id: "europa-league",
-    name: "UEFA Europa League",
-    icon: Shield,
-    country: "Europe",
-    matchCount: 24,
-  },
-];
 
 export default function TopLeagues({ 
-  leagues = defaultLeagues, 
+  leagues = [], 
   selectedLeague = "all",
   onLeagueSelect 
 }: TopLeaguesProps) {

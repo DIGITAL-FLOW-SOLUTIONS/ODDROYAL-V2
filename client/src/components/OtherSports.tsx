@@ -40,88 +40,9 @@ interface OtherSportsProps {
   onAddToFavorites?: (matchId: string) => void;
 }
 
-const defaultSports: Sport[] = [
-  {
-    id: "tennis",
-    name: "Tennis",
-    icon: Target,
-    hasDrawOdds: false,
-    matches: [
-      {
-        id: "tennis-1",
-        homeTeam: { name: "Rafael Nadal" },
-        awayTeam: { name: "Novak Djokovic" },
-        kickoffTime: "2024-12-15T14:00:00Z",
-        venue: "Roland Garros",
-        odds: { home: 2.1, away: 1.8 },
-        additionalMarkets: 45,
-      },
-      {
-        id: "tennis-2", 
-        homeTeam: { name: "Carlos Alcaraz" },
-        awayTeam: { name: "Jannik Sinner" },
-        kickoffTime: "2024-12-15T16:30:00Z",
-        venue: "Wimbledon",
-        odds: { home: 1.9, away: 1.9 },
-        additionalMarkets: 38,
-      },
-    ],
-  },
-  {
-    id: "basketball",
-    name: "Basketball", 
-    icon: Zap,
-    hasDrawOdds: false,
-    matches: [
-      {
-        id: "basketball-1",
-        homeTeam: { name: "Los Angeles Lakers" },
-        awayTeam: { name: "Boston Celtics" },
-        kickoffTime: "2024-12-15T20:00:00Z",
-        venue: "Staples Center",
-        odds: { home: 1.85, away: 1.95 },
-        additionalMarkets: 67,
-      },
-    ],
-  },
-  {
-    id: "hockey",
-    name: "Hockey",
-    icon: TrendingUp,
-    hasDrawOdds: true,
-    matches: [
-      {
-        id: "hockey-1",
-        homeTeam: { name: "Toronto Maple Leafs" },
-        awayTeam: { name: "Montreal Canadiens" },
-        kickoffTime: "2024-12-15T19:00:00Z",
-        venue: "Scotiabank Arena",
-        odds: { home: 2.2, draw: 3.8, away: 2.9 },
-        additionalMarkets: 52,
-      },
-    ],
-  },
-  {
-    id: "baseball",
-    name: "Baseball",
-    icon: Globe,
-    hasDrawOdds: false,
-    matches: [
-      {
-        id: "baseball-1",
-        homeTeam: { name: "New York Yankees" },
-        awayTeam: { name: "Boston Red Sox" },
-        kickoffTime: "2024-12-15T18:00:00Z",
-        venue: "Yankee Stadium",
-        odds: { home: 1.75, away: 2.05 },
-        additionalMarkets: 43,
-      },
-    ],
-  },
-];
 
 export default function OtherSports({ 
-  sports = defaultSports, 
+  sports = [], 
   onOddsClick, 
   onAddToFavorites 
 }: OtherSportsProps) {
