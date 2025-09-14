@@ -10,7 +10,8 @@ import {
   ChevronUp,
   Clock,
   Calendar,
-  MapPin
+  MapPin,
+  Star
 } from "lucide-react";
 
 interface MatchDetailsProps {
@@ -196,6 +197,39 @@ const categorizeMarket = (marketName: string): string => {
   return 'other';
 };
 
+// Countdown timer hook - moved outside component to avoid hooks order violation
+const useCountdown = (targetDate: string) => {
+  const [timeLeft, setTimeLeft] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date().getTime();
+      const target = new Date(targetDate).getTime();
+      const difference = target - now;
+
+      if (difference > 0) {
+        setTimeLeft({
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+          minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+          seconds: Math.floor((difference % (1000 * 60)) / 1000)
+        });
+      } else {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [targetDate]);
+
+  return timeLeft;
+};
+
 export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
   const [, params] = useRoute("/match/:id");
   const matchId = params?.id;
@@ -224,6 +258,9 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     enabled: !!matchId,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  // Call countdown hook before any early returns to maintain hooks order
+  const countdown = useCountdown(matchData?.data?.kickoffTime || new Date().toISOString());
 
   if (matchLoading) {
     return (
@@ -287,55 +324,104 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Match Header */}
-      <div className="bg-card border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <Badge variant="outline" className="text-xs">
-              {match.league}
-            </Badge>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Clock className="w-4 h-4" />
-              <span>{kickoff.time}</span>
-              <span>•</span>
-              <span>{kickoff.date}</span>
+      {/* Match Header with Football Field Background */}
+      <div className="relative bg-gradient-to-b from-green-600 to-green-700 text-white overflow-hidden">
+        {/* Football field pattern overlay */}
+        <div className="absolute inset-0 opacity-20">
+          <svg width="100%" height="100%" viewBox="0 0 200 100" className="absolute inset-0 w-full h-full">
+            {/* Field lines */}
+            <rect x="0" y="0" width="200" height="100" fill="none" stroke="white" strokeWidth="0.5"/>
+            <line x1="100" y1="0" x2="100" y2="100" stroke="white" strokeWidth="0.5"/>
+            <circle cx="100" cy="50" r="15" fill="none" stroke="white" strokeWidth="0.5"/>
+            <rect x="0" y="25" width="20" height="50" fill="none" stroke="white" strokeWidth="0.5"/>
+            <rect x="180" y="25" width="20" height="50" fill="none" stroke="white" strokeWidth="0.5"/>
+            <rect x="0" y="35" width="8" height="30" fill="none" stroke="white" strokeWidth="0.5"/>
+            <rect x="192" y="35" width="8" height="30" fill="none" stroke="white" strokeWidth="0.5"/>
+          </svg>
+        </div>
+        
+        <div className="relative container mx-auto px-4 py-8">
+          {/* League and Action Icons */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <Star className="w-4 h-4 text-purple-400" />
+              <span className="text-sm font-medium">Football. England. {match.league}</span>
+              <Star className="w-4 h-4 text-yellow-400" />
             </div>
-          </div>
-          
-          <div className="flex items-center justify-center gap-8 mb-4">
-            <div className="text-center flex-1">
-              <h1 className="text-xl font-bold">{match.homeTeam.name}</h1>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-3xl font-bold mb-1">
-                {match.status === 'LIVE' && match.homeScore !== undefined && match.awayScore !== undefined ? (
-                  `${match.homeScore} - ${match.awayScore}`
-                ) : (
-                  `${kickoff.time}`
-                )}
-              </div>
-              {match.status === 'LIVE' && match.minute && (
-                <div className="text-sm text-green-600 font-medium">
-                  {match.minute}'
-                </div>
-              )}
-              {match.status === 'SCHEDULED' && (
-                <div className="text-sm text-muted-foreground">
-                  Kick-off
-                </div>
-              )}
-            </div>
-            
-            <div className="text-center flex-1">
-              <h1 className="text-xl font-bold">{match.awayTeam.name}</h1>
+            <div className="flex items-center gap-3">
+              <button className="w-8 h-8 bg-white/20 rounded hover:bg-white/30 transition-colors flex items-center justify-center">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M4 4h12v12H4z"/>
+                </svg>
+              </button>
+              <button className="w-8 h-8 bg-white/20 rounded hover:bg-white/30 transition-colors flex items-center justify-center">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M2 2h16v16H2z"/>
+                </svg>
+              </button>
             </div>
           </div>
 
-          {match.venue && (
-            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <MapPin className="w-4 h-4" />
-              <span>{match.venue}</span>
+          {/* Main Match Information */}
+          <div className="flex items-center justify-center gap-8 mb-6">
+            {/* Home Team */}
+            <div className="text-center flex-1 max-w-[150px]">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                <span className="text-xl font-bold">{match.homeTeam.name.charAt(0)}</span>
+              </div>
+              <h1 className="text-lg font-bold">{match.homeTeam.name}</h1>
+            </div>
+            
+            {/* Center - Time/Score */}
+            <div className="text-center">
+              <div className="text-4xl font-bold mb-2">
+                {match.status === 'LIVE' && match.homeScore !== undefined && match.awayScore !== undefined ? (
+                  `${match.homeScore} - ${match.awayScore}`
+                ) : (
+                  kickoff.time
+                )}
+              </div>
+              <div className="text-sm opacity-90 mb-1">{kickoff.date}</div>
+              {match.status === 'LIVE' && match.minute && (
+                <div className="text-sm bg-red-500 px-2 py-1 rounded font-medium">
+                  {match.minute}' LIVE
+                </div>
+              )}
+            </div>
+            
+            {/* Away Team */}
+            <div className="text-center flex-1 max-w-[150px]">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                <span className="text-xl font-bold">{match.awayTeam.name.charAt(0)}</span>
+              </div>
+              <h1 className="text-lg font-bold">{match.awayTeam.name}</h1>
+            </div>
+          </div>
+
+          {/* Countdown Timer */}
+          {match.status !== 'LIVE' && (
+            <div className="bg-black/30 backdrop-blur-sm rounded-lg p-4 max-w-md mx-auto">
+              <div className="flex justify-center gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold">{countdown.days.toString().padStart(2, '0')}</div>
+                  <div className="text-xs uppercase tracking-wide opacity-75">days</div>
+                </div>
+                <div className="text-2xl font-bold self-start">:</div>
+                <div>
+                  <div className="text-2xl font-bold">{countdown.hours.toString().padStart(2, '0')}</div>
+                  <div className="text-xs uppercase tracking-wide opacity-75">hours</div>
+                </div>
+                <div className="text-2xl font-bold self-start">:</div>
+                <div>
+                  <div className="text-2xl font-bold">{countdown.minutes.toString().padStart(2, '0')}</div>
+                  <div className="text-xs uppercase tracking-wide opacity-75">minutes</div>
+                </div>
+                <div className="text-2xl font-bold self-start">:</div>
+                <div>
+                  <div className="text-2xl font-bold">{countdown.seconds.toString().padStart(2, '0')}</div>
+                  <div className="text-xs uppercase tracking-wide opacity-75">seconds</div>
+                </div>
+              </div>
             </div>
           )}
         </div>
