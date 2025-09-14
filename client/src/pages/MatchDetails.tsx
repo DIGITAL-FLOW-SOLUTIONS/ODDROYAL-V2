@@ -13,7 +13,7 @@ import {
   MapPin,
   Star
 } from "lucide-react";
-import footballFieldBg from "@assets/matchbg_1757861865306.jpg";
+import footballFieldBg from "@assets/matchbg2_1757865631820.webp";
 
 interface MatchDetailsProps {
   onAddToBetSlip?: (selection: any) => void;
