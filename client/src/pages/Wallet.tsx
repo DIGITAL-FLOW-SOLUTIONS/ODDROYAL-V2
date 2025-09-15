@@ -22,15 +22,7 @@ import { currencyUtils } from "@shared/schema";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-
-interface UserProfile {
-  id: string;
-  username: string;
-  email: string;
-  balance: string;
-  isActive: boolean;
-  createdAt: string;
-}
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Transaction {
   id: string;
@@ -47,15 +39,11 @@ function Wallet() {
   const { toast } = useToast();
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
+  const { user, isAuthenticated, isLoading } = useAuth();
   
-  const { data: userProfile, isLoading } = useQuery<UserProfile>({
-    queryKey: ['/api/auth/me'],
-    enabled: !!localStorage.getItem('authToken')
-  });
-
   const { data: transactionsData = [] } = useQuery<Transaction[]>({
     queryKey: ['/api/transactions'],
-    enabled: !!localStorage.getItem('authToken')
+    enabled: isAuthenticated
   });
 
   const depositMutation = useMutation({
@@ -104,7 +92,19 @@ function Wallet() {
     }
   });
 
-  if (!userProfile && !isLoading) {
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <h2 className="text-2xl font-bold mb-4">Loading wallet...</h2>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
     return (
       <div className="container mx-auto p-6">
         <Card>
@@ -168,7 +168,7 @@ function Wallet() {
         <div className="text-right">
           <p className="text-sm text-muted-foreground">Current Balance</p>
           <p className="text-3xl font-bold text-green-600" data-testid="text-wallet-balance">
-            {userProfile ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(userProfile.balance))) : ''}
+            {user ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(user.balance))) : ''}
           </p>
         </div>
       </div>
@@ -182,7 +182,7 @@ function Wallet() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-current-balance">
-              {userProfile ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(userProfile.balance))) : ''}
+              {user ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(user.balance))) : ''}
             </div>
           </CardContent>
         </Card>
@@ -313,13 +313,13 @@ function Wallet() {
                     value={withdrawAmount}
                     onChange={(e) => setWithdrawAmount(e.target.value)}
                     min="1"
-                    max={userProfile ? userProfile.balance : "0"}
+                    max={user ? user.balance : "0"}
                     step="0.01"
                     data-testid="input-withdraw-amount"
                   />
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Available balance: {userProfile ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(userProfile.balance))) : ''}
+                  Available balance: {user ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(user.balance))) : ''}
                 </p>
                 <Button 
                   className="w-full"
@@ -328,7 +328,7 @@ function Wallet() {
                   disabled={
                     !withdrawAmount || 
                     parseFloat(withdrawAmount) <= 0 || 
-                    parseFloat(withdrawAmount) > parseFloat(userProfile?.balance || '0') ||
+                    parseFloat(withdrawAmount) > parseFloat(user?.balance || '0') ||
                     withdrawMutation.isPending
                   }
                   data-testid="button-withdraw"

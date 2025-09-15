@@ -16,15 +16,7 @@ import {
   CreditCard
 } from "lucide-react";
 import { currencyUtils } from "@shared/schema";
-
-interface UserProfile {
-  id: string;
-  username: string;
-  email: string;
-  balance: string;
-  isActive: boolean;
-  createdAt: string;
-}
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Bet {
   id: string;
@@ -64,28 +56,36 @@ interface Favorite {
 
 function Dashboard() {
   const [, setLocation] = useLocation();
+  const { user, isAuthenticated, isLoading } = useAuth();
   
-  const { data: userProfile } = useQuery<UserProfile>({
-    queryKey: ['/api/auth/me'],
-    enabled: !!localStorage.getItem('authToken')
-  });
-
   const { data: betsData = [] } = useQuery<Bet[]>({
     queryKey: ['/api/bets'],
-    enabled: !!localStorage.getItem('authToken')
+    enabled: isAuthenticated
   });
 
   const { data: transactionsData = [] } = useQuery<Transaction[]>({
     queryKey: ['/api/transactions'],
-    enabled: !!localStorage.getItem('authToken')
+    enabled: isAuthenticated
   });
 
   const { data: favoritesData = [] } = useQuery<Favorite[]>({
     queryKey: ['/api/favorites'],
-    enabled: !!localStorage.getItem('authToken')
+    enabled: isAuthenticated
   });
 
-  if (!userProfile) {
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <h2 className="text-2xl font-bold mb-4">Loading dashboard...</h2>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
     return (
       <div className="container mx-auto p-6">
         <Card>
@@ -110,12 +110,12 @@ function Dashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold" data-testid="text-dashboard-title">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {userProfile.username}</p>
+          <p className="text-muted-foreground">Welcome back, {user.username}</p>
         </div>
         <div className="text-right">
           <p className="text-sm text-muted-foreground">Account Balance</p>
           <p className="text-2xl font-bold" data-testid="text-balance">
-            {currencyUtils.formatCurrency(parseFloat(userProfile.balance))}
+            {currencyUtils.formatCurrency(parseFloat(user.balance))}
           </p>
         </div>
       </div>
@@ -454,22 +454,22 @@ function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Username</label>
-                  <p className="text-lg" data-testid="text-username">{userProfile.username}</p>
+                  <p className="text-lg" data-testid="text-username">{user.username}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Email</label>
-                  <p className="text-lg" data-testid="text-email">{userProfile.email}</p>
+                  <p className="text-lg" data-testid="text-email">{user.email}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Account Status</label>
-                  <Badge variant={userProfile.isActive ? 'default' : 'destructive'} data-testid="badge-status">
-                    {userProfile.isActive ? 'Active' : 'Inactive'}
+                  <Badge variant="default" data-testid="badge-status">
+                    Active
                   </Badge>
                 </div>
                 <div>
                   <label className="text-sm font-medium">Member Since</label>
                   <p className="text-lg" data-testid="text-member-since">
-                    {new Date(userProfile.createdAt).toLocaleDateString()}
+                    Account created
                   </p>
                 </div>
               </div>
