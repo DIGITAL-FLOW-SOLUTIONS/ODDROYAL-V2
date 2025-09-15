@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface LoginRequest {
   username: string;
@@ -21,22 +20,10 @@ interface RegisterRequest {
   confirmPassword: string;
 }
 
-interface AuthResponse {
-  success: boolean;
-  data: {
-    user: {
-      id: string;
-      username: string;
-      email: string;
-      balance: string;
-    };
-    sessionToken: string;
-  };
-}
-
 function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { login, register, loginPending, registerPending } = useAuth();
   
   const [loginData, setLoginData] = useState<LoginRequest>({
     username: "",
@@ -50,70 +37,25 @@ function Login() {
     confirmPassword: ""
   });
 
-  const loginMutation = useMutation({
-    mutationFn: async (data: LoginRequest): Promise<AuthResponse> => {
-      const response = await apiRequest('POST', '/api/auth/login', data);
-      return await response.json();
-    },
-    onSuccess: (response) => {
-      if (response.success) {
-        localStorage.setItem('authToken', response.data.sessionToken);
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${response.data.user.username}!`
-        });
-        setLocation('/dashboard');
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Login Failed",
-        description: error.message || "Invalid credentials",
-        variant: "destructive"
-      });
-    }
-  });
 
-  const registerMutation = useMutation({
-    mutationFn: async (data: RegisterRequest): Promise<AuthResponse> => {
-      const response = await apiRequest('POST', '/api/auth/register', data);
-      return await response.json();
-    },
-    onSuccess: (response) => {
-      if (response.success) {
-        localStorage.setItem('authToken', response.data.sessionToken);
-        toast({
-          title: "Registration Successful",
-          description: `Welcome to PRIMESTAKE, ${response.data.user.username}!`
-        });
-        setLocation('/dashboard');
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Registration Failed",
-        description: error.message || "Failed to create account",
-        variant: "destructive"
-      });
-    }
-  });
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    loginMutation.mutate(loginData);
+    try {
+      await login(loginData.username, loginData.password);
+      setLocation('/dashboard');
+    } catch (error) {
+      // Error handling is done in the auth context
+    }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (registerData.password !== registerData.confirmPassword) {
-      toast({
-        title: "Registration Error",
-        description: "Passwords do not match",
-        variant: "destructive"
-      });
-      return;
+    try {
+      await register(registerData.username, registerData.email, registerData.password, registerData.confirmPassword);
+      setLocation('/dashboard');
+    } catch (error) {
+      // Error handling is done in the auth context
     }
-    registerMutation.mutate(registerData);
   };
 
   return (
@@ -165,10 +107,10 @@ function Login() {
                 <Button 
                   type="submit" 
                   className="w-full"
-                  disabled={loginMutation.isPending}
+                  disabled={loginPending}
                   data-testid="button-login-submit"
                 >
-                  {loginMutation.isPending ? "Signing In..." : "Sign In"}
+                  {loginPending ? "Signing In..." : "Sign In"}
                 </Button>
               </form>
             </TabsContent>
@@ -232,10 +174,10 @@ function Login() {
                 <Button 
                   type="submit" 
                   className="w-full"
-                  disabled={registerMutation.isPending}
+                  disabled={registerPending}
                   data-testid="button-register-submit"
                 >
-                  {registerMutation.isPending ? "Creating Account..." : "Create Account"}
+                  {registerPending ? "Creating Account..." : "Create Account"}
                 </Button>
               </form>
             </TabsContent>

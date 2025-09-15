@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/contexts/AuthContext";
 import Layout from "@/components/Layout";
 import Homepage from "@/pages/Homepage";
 import Line from "@/pages/Line";
@@ -42,10 +43,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark" storageKey="primestake-theme">
         <TooltipProvider>
-          <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
-            <Router />
-            <Toaster />
-          </div>
+          <AuthProvider>
+            <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
+              <Router />
+              <Toaster />
+            </div>
+          </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

@@ -1,14 +1,20 @@
-import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, User, Settings, ChevronDown, Sun, Moon } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Bell, User, Settings, ChevronDown, Sun, Moon, LogOut, Wallet, BarChart, History } from "lucide-react";
 import { motion } from "framer-motion";
 import { useTheme } from "@/components/ThemeProvider";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Header() {
-  const [balance] = useState(1250.50); //todo: remove mock functionality
-  const [user] = useState({ name: "John Doe", username: "johndoe" }); //todo: remove mock functionality
+  const { user, isAuthenticated, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -42,13 +48,15 @@ export default function Header() {
 
       {/* Right section */}
       <div className="flex items-center gap-2">
-        {/* Balance */}
-        <div className="hidden sm:flex items-center gap-2 bg-card px-3 py-1 rounded-md border border-card-border">
-          <span className="text-sm text-muted-foreground">Balance:</span>
-          <span className="text-sm font-semibold text-chart-4" data-testid="text-balance">
-            ${balance.toFixed(2)}
-          </span>
-        </div>
+        {/* Balance - Only show when authenticated */}
+        {isAuthenticated && user && (
+          <div className="hidden sm:flex items-center gap-2 bg-card px-3 py-1 rounded-md border border-card-border">
+            <span className="text-sm text-muted-foreground">Balance:</span>
+            <span className="text-sm font-semibold text-chart-4" data-testid="text-balance">
+              {user.balance}
+            </span>
+          </div>
+        )}
 
         {/* Theme Toggle */}
         <button
@@ -100,17 +108,69 @@ export default function Header() {
           <Bell className="h-4 w-4" />
         </Button>
 
-        {/* User Menu */}
-        <Button
-          variant="ghost"
-          size="sm"
-          data-testid="button-user-menu"
-          className="flex items-center gap-2 hover-elevate"
-        >
-          <User className="h-4 w-4" />
-          <span className="hidden sm:inline text-sm">{user.name}</span>
-          <ChevronDown className="h-3 w-3" />
-        </Button>
+        {/* User Menu - Show Login or User Dropdown */}
+        {isAuthenticated && user ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                data-testid="button-user-menu"
+                className="flex items-center gap-2 hover-elevate"
+              >
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline text-sm">
+                  {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.username}
+                </span>
+                <ChevronDown className="h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard" className="flex items-center gap-2">
+                  <BarChart className="h-4 w-4" />
+                  Dashboard
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/wallet" className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4" />
+                  Wallet
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/bets" className="flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Bet History
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/profile" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  Profile
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={logout} className="flex items-center gap-2 text-destructive">
+                <LogOut className="h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button
+            variant="default"
+            size="sm"
+            asChild
+            data-testid="button-login"
+            className="flex items-center gap-2"
+          >
+            <Link href="/login">
+              <User className="h-4 w-4" />
+              <span className="hidden sm:inline text-sm">Login</span>
+            </Link>
+          </Button>
+        )}
       </div>
     </motion.header>
   );
