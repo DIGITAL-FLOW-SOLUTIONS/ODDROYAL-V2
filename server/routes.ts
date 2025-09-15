@@ -221,8 +221,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Return user without password
-      const { password: _, ...userWithoutPassword } = user;
+      // Return user without password and convert balance to pounds
+      const { password: _, balance, ...userRest } = user;
+      const userWithoutPassword = {
+        ...userRest,
+        balance: currencyUtils.centsToPounds(balance).toString() // Convert cents to pounds for frontend
+      };
       res.json({ 
         success: true, 
         data: userWithoutPassword 
@@ -233,6 +237,242 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         error: "Failed to get user" 
+      });
+    }
+  });
+
+  // Profile and Wallet Routes
+  
+  // Update Profile (username/email)
+  app.patch("/api/auth/profile", async (req, res) => {
+    try {
+      const sessionToken = req.headers.authorization?.replace('Bearer ', '');
+      
+      if (!sessionToken) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "No session token provided" 
+        });
+      }
+      
+      const session = await storage.getSession(sessionToken);
+      if (!session || session.expiresAt < new Date()) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "Invalid or expired session" 
+        });
+      }
+      
+      const { username, email } = z.object({
+        username: z.string().min(1).optional(),
+        email: z.string().email().optional()
+      }).parse(req.body);
+      
+      // Check if username/email already exists for other users
+      if (username) {
+        const existingUser = await storage.getUserByUsername(username);
+        if (existingUser && existingUser.id !== session.userId) {
+          return res.status(400).json({ 
+            success: false, 
+            error: "Username already exists" 
+          });
+        }
+      }
+      
+      if (email) {
+        const existingUser = await storage.getUserByEmail(email);
+        if (existingUser && existingUser.id !== session.userId) {
+          return res.status(400).json({ 
+            success: false, 
+            error: "Email already exists" 
+          });
+        }
+      }
+      
+      // Update user profile
+      await storage.updateUserProfile(session.userId, { username, email });
+      
+      res.json({ 
+        success: true, 
+        message: "Profile updated successfully" 
+      });
+      
+    } catch (error) {
+      console.error('Profile update error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Invalid request data" 
+        });
+      }
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to update profile" 
+      });
+    }
+  });
+  
+  // Deposit funds
+  app.post("/api/wallet/deposit", async (req, res) => {
+    try {
+      const sessionToken = req.headers.authorization?.replace('Bearer ', '');
+      
+      if (!sessionToken) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "No session token provided" 
+        });
+      }
+      
+      const session = await storage.getSession(sessionToken);
+      if (!session || session.expiresAt < new Date()) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "Invalid or expired session" 
+        });
+      }
+      
+      const { amount } = z.object({
+        amount: z.string().refine(val => {
+          const num = parseFloat(val);
+          return !isNaN(num) && num > 0;
+        }, "Amount must be a positive number")
+      }).parse(req.body);
+      
+      const depositAmount = parseFloat(amount);
+      const depositAmountCents = Math.round(depositAmount * 100);
+      
+      // Get current user
+      const user = await storage.getUser(session.userId);
+      if (!user) {
+        return res.status(404).json({ 
+          success: false, 
+          error: "User not found" 
+        });
+      }
+      
+      const oldBalanceCents = user.balance;
+      const newBalanceCents = oldBalanceCents + depositAmountCents;
+      
+      // Update user balance
+      await storage.updateUserBalance(session.userId, newBalanceCents);
+      
+      // Create transaction record
+      await storage.createTransaction({
+        userId: session.userId,
+        type: 'deposit',
+        amount: depositAmountCents,
+        balanceBefore: oldBalanceCents,
+        balanceAfter: newBalanceCents,
+        description: `Deposit of ${currencyUtils.formatCurrency(depositAmount)}`
+      });
+      
+      res.json({ 
+        success: true, 
+        data: {
+          amount: depositAmount,
+          newBalance: newBalanceCents / 100
+        }
+      });
+      
+    } catch (error) {
+      console.error('Deposit error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Invalid request data" 
+        });
+      }
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to process deposit" 
+      });
+    }
+  });
+  
+  // Withdraw funds
+  app.post("/api/wallet/withdraw", async (req, res) => {
+    try {
+      const sessionToken = req.headers.authorization?.replace('Bearer ', '');
+      
+      if (!sessionToken) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "No session token provided" 
+        });
+      }
+      
+      const session = await storage.getSession(sessionToken);
+      if (!session || session.expiresAt < new Date()) {
+        return res.status(401).json({ 
+          success: false, 
+          error: "Invalid or expired session" 
+        });
+      }
+      
+      const { amount } = z.object({
+        amount: z.string().refine(val => {
+          const num = parseFloat(val);
+          return !isNaN(num) && num > 0;
+        }, "Amount must be a positive number")
+      }).parse(req.body);
+      
+      const withdrawAmount = parseFloat(amount);
+      const withdrawAmountCents = Math.round(withdrawAmount * 100);
+      
+      // Get current user
+      const user = await storage.getUser(session.userId);
+      if (!user) {
+        return res.status(404).json({ 
+          success: false, 
+          error: "User not found" 
+        });
+      }
+      
+      const oldBalanceCents = user.balance;
+      
+      // Check if user has sufficient funds
+      if (oldBalanceCents < withdrawAmountCents) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Insufficient funds" 
+        });
+      }
+      
+      const newBalanceCents = oldBalanceCents - withdrawAmountCents;
+      
+      // Update user balance
+      await storage.updateUserBalance(session.userId, newBalanceCents);
+      
+      // Create transaction record
+      await storage.createTransaction({
+        userId: session.userId,
+        type: 'withdrawal',
+        amount: -withdrawAmountCents,
+        balanceBefore: oldBalanceCents,
+        balanceAfter: newBalanceCents,
+        description: `Withdrawal of ${currencyUtils.formatCurrency(withdrawAmount)}`
+      });
+      
+      res.json({ 
+        success: true, 
+        data: {
+          amount: withdrawAmount,
+          newBalance: newBalanceCents / 100
+        }
+      });
+      
+    } catch (error) {
+      console.error('Withdrawal error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Invalid request data" 
+        });
+      }
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to process withdrawal" 
       });
     }
   });

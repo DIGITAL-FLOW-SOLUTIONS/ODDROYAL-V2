@@ -5,25 +5,31 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Calculator, DollarSign, Trash2 } from "lucide-react";
+import { X, Calculator, DollarSign, Trash2, AlertTriangle } from "lucide-react";
 import { BetSelection } from "@shared/types";
+import { betPlacementSchema } from "@shared/schema";
+import { z } from "zod";
+import { useToast } from "@/hooks/use-toast";
 
 interface BetSlipProps {
   selections: BetSelection[];
   onRemoveSelection: (id: string) => void;
   onClearAll: () => void;
   onPlaceBet: (betData: any) => void;
+  isPlacingBet?: boolean;
 }
 
 export default function BetSlip({ 
   selections, 
   onRemoveSelection, 
   onClearAll, 
-  onPlaceBet 
+  onPlaceBet,
+  isPlacingBet = false
 }: BetSlipProps) {
   const [stakes, setStakes] = useState<{ [key: string]: number }>({});
   const [expressStake, setExpressStake] = useState<number>(0);
   const [systemStake, setSystemStake] = useState<number>(0);
+  const { toast } = useToast();
 
   // Calculate potential returns
   const calculateSingleReturns = () => {
@@ -49,15 +55,20 @@ export default function BetSlip({
   };
 
   const calculateSystemReturn = () => {
-    // Simplified system bet calculation (2/3, 3/4, etc.)
-    if (selections.length < 2) return { potentialReturn: 0, profit: 0 };
+    if (selections.length < 3) return { combinations: 0, potentialReturn: 0, profit: 0 };
     
-    const combinations = selections.length >= 3 ? 3 : 1; // Simplified
+    // Calculate number of 2-fold combinations (most common system bet)
+    const combinations = (selections.length * (selections.length - 1)) / 2;
+    
+    // Calculate expected return based on simplified system bet calculation
+    // For a proper implementation, we'd need to calculate all possible combinations
+    // and their probabilities, but for now we'll use a simplified formula
     const avgOdds = selections.reduce((acc, sel) => acc + sel.odds, 0) / selections.length;
-    const potentialReturn = systemStake * Math.pow(avgOdds, 2) * combinations;
+    const estimatedSuccessRate = 0.4; // Assume 40% success rate for system bets
+    const potentialReturn = systemStake * combinations * Math.pow(avgOdds, 2) * estimatedSuccessRate;
     
     return {
-      combinations,
+      combinations: Math.floor(combinations),
       potentialReturn,
       profit: potentialReturn - systemStake
     };
@@ -68,37 +79,149 @@ export default function BetSlip({
     setStakes(prev => ({ ...prev, [selectionId]: numValue }));
   };
 
-  const handlePlaceBet = (type: "single" | "express" | "system") => {
-    let betData;
-    
-    switch (type) {
-      case "single":
-        betData = {
-          type: "single",
-          selections: calculateSingleReturns().filter(sel => sel.stake > 0),
-          totalStake: Object.values(stakes).reduce((acc, stake) => acc + stake, 0)
-        };
-        break;
-      case "express":
-        betData = {
-          type: "express",
-          selections,
-          stake: expressStake,
-          ...calculateExpressReturn()
-        };
-        break;
-      case "system":
-        betData = {
-          type: "system",
-          selections,
-          stake: systemStake,
-          ...calculateSystemReturn()
-        };
-        break;
+  const validateBetData = (betData: any) => {
+    try {
+      return betPlacementSchema.parse(betData);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const errorMessage = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
+        toast({
+          title: "Bet Validation Error",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      }
+      throw error;
     }
-    
-    onPlaceBet(betData);
-    console.log("Placed bet:", betData);
+  };
+
+  const handlePlaceBet = async (type: "single" | "express" | "system") => {
+    try {
+      switch (type) {
+        case "single":
+          // Validate that we have at least one selection with stake
+          const validSingleBets = selections.filter(sel => stakes[sel.id] && stakes[sel.id] > 0);
+          if (validSingleBets.length === 0) {
+            toast({
+              title: "No Stakes Set",
+              description: "Please set stakes for at least one selection.",
+              variant: "destructive"
+            });
+            return;
+          }
+          
+          // For single bets, place each selection with a stake as a separate bet
+          for (const sel of validSingleBets) {
+            const betData = {
+              type: "single" as const,
+              totalStake: stakes[sel.id].toFixed(2),
+              selections: [{
+                fixtureId: sel.fixtureId || sel.matchId,
+                homeTeam: sel.homeTeam,
+                awayTeam: sel.awayTeam,
+                league: sel.league,
+                market: sel.market || "1x2",
+                selection: sel.selection || sel.type,
+                odds: sel.odds.toFixed(4)
+              }]
+            };
+            
+            // Validate before sending
+            const validatedBetData = validateBetData(betData);
+            onPlaceBet(validatedBetData);
+            console.log("Placed single bet:", validatedBetData);
+            
+            // Small delay to avoid overwhelming the server
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+          break;
+          
+        case "express":
+          if (expressStake === 0) {
+            toast({
+              title: "No Stake Set",
+              description: "Please set a stake for the express bet.",
+              variant: "destructive"
+            });
+            return;
+          }
+          
+          if (selections.length < 2) {
+            toast({
+              title: "Insufficient Selections",
+              description: "Express bets require at least 2 selections.",
+              variant: "destructive"
+            });
+            return;
+          }
+          
+          const expressBetData = {
+            type: "express" as const,
+            totalStake: expressStake.toFixed(2),
+            selections: selections.map(sel => ({
+              fixtureId: sel.fixtureId || sel.matchId,
+              homeTeam: sel.homeTeam,
+              awayTeam: sel.awayTeam,
+              league: sel.league,
+              market: sel.market || "1x2",
+              selection: sel.selection || sel.type,
+              odds: sel.odds.toFixed(4)
+            }))
+          };
+          
+          // Validate before sending
+          const validatedExpressBetData = validateBetData(expressBetData);
+          onPlaceBet(validatedExpressBetData);
+          console.log("Placed express bet:", validatedExpressBetData);
+          break;
+          
+        case "system":
+          if (systemStake === 0) {
+            toast({
+              title: "No Stake Set",
+              description: "Please set a stake for the system bet.",
+              variant: "destructive"
+            });
+            return;
+          }
+          
+          if (selections.length < 3) {
+            toast({
+              title: "Insufficient Selections",
+              description: "System bets require at least 3 selections.",
+              variant: "destructive"
+            });
+            return;
+          }
+          
+          const systemBetData = {
+            type: "system" as const,
+            totalStake: systemStake.toFixed(2),
+            selections: selections.map(sel => ({
+              fixtureId: sel.fixtureId || sel.matchId,
+              homeTeam: sel.homeTeam,
+              awayTeam: sel.awayTeam,
+              league: sel.league,
+              market: sel.market || "1x2",
+              selection: sel.selection || sel.type,
+              odds: sel.odds.toFixed(4)
+            }))
+          };
+          
+          // Validate before sending
+          const validatedSystemBetData = validateBetData(systemBetData);
+          onPlaceBet(validatedSystemBetData);
+          console.log("Placed system bet:", validatedSystemBetData);
+          break;
+      }
+    } catch (error) {
+      console.error("Error placing bet:", error);
+      toast({
+        title: "Bet Placement Failed",
+        description: "Please check your selections and try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -211,12 +334,12 @@ export default function BetSlip({
               
               <Button
                 onClick={() => handlePlaceBet("single")}
-                disabled={Object.values(stakes).every(stake => stake === 0)}
+                disabled={Object.values(stakes).every(stake => stake === 0) || isPlacingBet}
                 data-testid="button-place-single-bet"
                 className="w-full hover-elevate"
               >
                 <DollarSign className="h-4 w-4 mr-2" />
-                Place Single Bets
+                {isPlacingBet ? "Placing Bet..." : "Place Single Bets"}
               </Button>
             </TabsContent>
 
@@ -275,12 +398,12 @@ export default function BetSlip({
               
               <Button
                 onClick={() => handlePlaceBet("express")}
-                disabled={expressStake === 0 || selections.length < 2}
+                disabled={expressStake === 0 || selections.length < 2 || isPlacingBet}
                 data-testid="button-place-express-bet"
                 className="w-full hover-elevate"
               >
                 <DollarSign className="h-4 w-4 mr-2" />
-                Place Express Bet
+                {isPlacingBet ? "Placing Bet..." : "Place Express Bet"}
               </Button>
             </TabsContent>
 
@@ -344,12 +467,12 @@ export default function BetSlip({
               
               <Button
                 onClick={() => handlePlaceBet("system")}
-                disabled={systemStake === 0 || selections.length < 3}
+                disabled={systemStake === 0 || selections.length < 3 || isPlacingBet}
                 data-testid="button-place-system-bet"
                 className="w-full hover-elevate"
               >
                 <DollarSign className="h-4 w-4 mr-2" />
-                Place System Bet
+                {isPlacingBet ? "Placing Bet..." : "Place System Bet"}
               </Button>
             </TabsContent>
           </Tabs>

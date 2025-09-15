@@ -22,6 +22,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUserProfile(userId: string, updates: Partial<InsertUser>): Promise<User | undefined>;
   updateUserBalance(userId: string, newBalanceCents: number): Promise<User | undefined>;
   
   // Bet operations
@@ -125,6 +126,22 @@ export class MemStorage implements IStorage {
     };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUserProfile(userId: string, updates: Partial<InsertUser>): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    
+    const updatedUser = { 
+      ...user, 
+      ...updates, 
+      id: user.id, // Ensure ID cannot be changed
+      balance: user.balance, // Ensure balance cannot be changed via profile update
+      createdAt: user.createdAt, // Ensure creation date cannot be changed
+      updatedAt: new Date() 
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
   }
 
   async updateUserBalance(userId: string, newBalanceCents: number): Promise<User | undefined> {

@@ -8,6 +8,9 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart } from "lucide-react";
 import { BetSelection } from "@shared/types";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,6 +19,8 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const [betSlipSelections, setBetSlipSelections] = useState<BetSelection[]>([]);
   const [isBetSlipVisible, setIsBetSlipVisible] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Load bet slip from localStorage on mount
   useEffect(() => {
@@ -60,60 +65,43 @@ export default function Layout({ children }: LayoutProps) {
     console.log("Cleared bet slip");
   };
 
-  const handlePlaceBet = async (betData: any) => {
-    console.log("Placing bet:", betData);
-    
-    try {
-      // Get auth token from localStorage or session (optional for now)
-      const authToken = localStorage.getItem('authToken') || 'demo-token';
-      
-      // Format bet data according to backend schema
-      const formattedBetData = {
-        type: betData.type,
-        totalStake: (betData.stake || betData.totalStake || 0).toString(),
-        selections: betData.selections ? betData.selections.map((sel: any) => ({
-          fixtureId: sel.fixtureId || sel.matchId,
-          homeTeam: sel.homeTeam,
-          awayTeam: sel.awayTeam, 
-          league: sel.league,
-          market: sel.market || "1x2",
-          selection: sel.selection || sel.type,
-          odds: sel.odds.toString()
-        })) : betSlipSelections.map((sel) => ({
-          fixtureId: sel.fixtureId || sel.matchId,
-          homeTeam: sel.homeTeam,
-          awayTeam: sel.awayTeam,
-          league: sel.league,
-          market: sel.market || "1x2", 
-          selection: sel.selection || sel.type,
-          odds: sel.odds.toString()
-        }))
-      };
-
-      console.log("Formatted bet data:", formattedBetData);
-
-      const response = await fetch('/api/bets', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify(formattedBetData)
-      });
-
-      const result = await response.json();
-
+  // Place bet mutation with proper error handling and loading states
+  const placeBetMutation = useMutation({
+    mutationFn: async (betData: any) => {
+      // BetSlip already validates and formats the data correctly
+      // Just pass it through to the backend
+      const response = await apiRequest('POST', '/api/bets', betData);
+      return await response.json();
+    },
+    onSuccess: (result) => {
       if (result.success) {
-        alert(`Bet placed successfully! Bet ID: ${result.data.bet.id}`);
+        toast({
+          title: "Bet Placed Successfully!",
+          description: `Your bet has been placed. Bet ID: ${result.data.bet.id}`,
+          variant: "default"
+        });
         setBetSlipSelections([]);
         setIsBetSlipVisible(false);
+        // Invalidate relevant queries to update user balance and bets
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/bets'] });
       } else {
-        alert(`Failed to place bet: ${result.error || 'Unknown error'}`);
+        throw new Error(result.error || 'Unknown error');
       }
-    } catch (error) {
+    },
+    onError: (error: any) => {
       console.error('Error placing bet:', error);
-      alert('Failed to place bet. Please try again.');
+      toast({
+        title: "Failed to Place Bet",
+        description: error.message || "Please check your balance and try again.",
+        variant: "destructive"
+      });
     }
+  });
+
+  const handlePlaceBet = (betData: any) => {
+    console.log("Placing bet:", betData);
+    placeBetMutation.mutate(betData);
   };
 
   const style = {
@@ -177,6 +165,7 @@ export default function Layout({ children }: LayoutProps) {
                 onRemoveSelection={handleRemoveFromBetSlip}
                 onClearAll={handleClearBetSlip}
                 onPlaceBet={handlePlaceBet}
+                isPlacingBet={placeBetMutation.isPending}
               />
             </div>
           </motion.div>
@@ -231,6 +220,7 @@ export default function Layout({ children }: LayoutProps) {
                 onRemoveSelection={handleRemoveFromBetSlip}
                 onClearAll={handleClearBetSlip}
                 onPlaceBet={handlePlaceBet}
+                isPlacingBet={placeBetMutation.isPending}
               />
             </div>
           </motion.div>
