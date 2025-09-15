@@ -58,20 +58,24 @@ function Dashboard() {
   const [, setLocation] = useLocation();
   const { user, isAuthenticated, isLoading } = useAuth();
   
-  const { data: betsData = [] } = useQuery<Bet[]>({
+  const { data: betsResponse } = useQuery<{ success: boolean; data: Bet[] }>({
     queryKey: ['/api/bets'],
     enabled: !!localStorage.getItem('authToken')
   });
 
-  const { data: transactionsData = [] } = useQuery<Transaction[]>({
+  const { data: transactionsResponse } = useQuery<{ success: boolean; data: Transaction[] }>({
     queryKey: ['/api/transactions'],
     enabled: !!localStorage.getItem('authToken')
   });
 
-  const { data: favoritesData = [] } = useQuery<Favorite[]>({
+  const { data: favoritesResponse } = useQuery<{ success: boolean; data: Favorite[] }>({
     queryKey: ['/api/favorites'],
     enabled: !!localStorage.getItem('authToken')
   });
+
+  const betsData = betsResponse?.data || [];
+  const transactionsData = transactionsResponse?.data || [];
+  const favoritesData = favoritesResponse?.data || [];
 
   if (isLoading) {
     return (

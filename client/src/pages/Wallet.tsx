@@ -41,10 +41,12 @@ function Wallet() {
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const { user, isAuthenticated, isLoading } = useAuth();
   
-  const { data: transactionsData = [] } = useQuery<Transaction[]>({
+  const { data: transactionsResponse } = useQuery<{ success: boolean; data: Transaction[] }>({
     queryKey: ['/api/transactions'],
     enabled: !!localStorage.getItem('authToken')
   });
+
+  const transactionsData = transactionsResponse?.data || [];
 
   const depositMutation = useMutation({
     mutationFn: async (amount: number) => {
@@ -131,17 +133,6 @@ function Wallet() {
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p>Loading wallet...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   const handleDeposit = () => {
     const amount = parseFloat(depositAmount);
