@@ -6,14 +6,19 @@ interface MatchResult {
   fixtureId: string;
   homeScore: number;
   awayScore: number;
+  totalGoals: number;
   status: 'finished' | 'cancelled' | 'postponed';
   winner: 'home' | 'away' | 'draw' | null;
+  matchDate: string;
+  homeTeam: string;
+  awayTeam: string;
 }
 
 interface SelectionOutcome {
   selectionId: string;
   status: 'won' | 'lost' | 'void';
   result: string;
+  odds?: number;
 }
 
 interface BetOutcome {
@@ -117,26 +122,14 @@ export class BetSettlementWorker {
   }
 
   /**
-   * Get all pending bets with their selections
+   * Get all pending bets that need settlement
    */
   private async getPendingBets(): Promise<Bet[]> {
-    // Get all pending bets from storage
-    // In MemStorage, we need to iterate through the storage maps
-    const allPendingBets: Bet[] = [];
-    
     try {
-      // Access the internal storage to get all bets
-      // This is a workaround for the in-memory storage limitation
-      const storageInstance = storage as any;
-      const allBets = Array.from(storageInstance.bets.values()) as Bet[];
-      
-      // Filter for pending bets
-      const pendingBets = allBets.filter(bet => bet.status === 'pending');
-      allPendingBets.push(...pendingBets);
-      
+      // Use the storage interface method to get pending bets
+      const pendingBets = await storage.getPendingBets();
       console.log(`Found ${pendingBets.length} pending bets across all users`);
-      return allPendingBets;
-      
+      return pendingBets;
     } catch (error) {
       console.error('Error getting pending bets:', error);
       return [];
@@ -186,65 +179,50 @@ export class BetSettlementWorker {
   }
 
   /**
-   * Fetch individual fixture result from SportMonks API
+   * Fetch individual fixture result using SportMonks module
    */
   private async fetchFixtureResult(fixtureId: string): Promise<MatchResult | null> {
     try {
       console.log(`Fetching result for fixture ${fixtureId}`);
       
-      // Get SportMonks API token from environment
-      const apiToken = process.env.SPORTMONKS_API_TOKEN;
-      if (!apiToken) {
-        console.error('SPORTMONKS_API_TOKEN not found in environment');
+      // Use the sportmonks module function
+      const result = await sportmonks.getFixtureResult(parseInt(fixtureId));
+      if (!result) {
+        console.log(`No result data for fixture ${fixtureId}`);
         return null;
       }
       
-      // Fetch fixture data from SportMonks API
-      const response = await fetch(
-        `https://api.sportmonks.com/v3/football/fixtures/${fixtureId}?api_token=${apiToken}&include=scores,state,participants`
-      );
-      
-      if (!response.ok) {
-        console.error(`API response not ok for fixture ${fixtureId}:`, response.status);
+      // If match is not settled (not finished/cancelled/postponed), return null
+      if (!result.finished) {
+        console.log(`Fixture ${fixtureId} not settled yet (status: ${result.status})`);
         return null;
       }
       
-      const result = await response.json();
-      
-      if (!result.data) {
-        console.log(`No data returned for fixture ${fixtureId}`);
-        return null;
+      // For cancelled/postponed matches, winner is null
+      let winner: 'home' | 'away' | 'draw' | null = null;
+      if (result.status === 'finished') {
+        if (result.homeScore > result.awayScore) {
+          winner = 'home';
+        } else if (result.awayScore > result.homeScore) {
+          winner = 'away';
+        } else {
+          winner = 'draw';
+        }
       }
       
-      const fixture = result.data;
+      console.log(`Fixture ${fixtureId} result: ${result.homeScore}-${result.awayScore} (${result.status}, winner: ${winner})`);
       
-      // Check if match is finished
-      const state = fixture.state?.name;
-      if (state !== 'FT' && state !== 'AET' && state !== 'PEN') {
-        console.log(`Fixture ${fixtureId} not finished yet (state: ${state})`);
-        return null; // Match not finished yet
-      }
-      
-      // Extract scores from the scores array
-      const scores = fixture.scores || [];
-      const homeScore = scores.find((s: any) => 
-        s.description === 'CURRENT' && s.score.participant === 'home'
-      )?.score?.goals || 0;
-      const awayScore = scores.find((s: any) => 
-        s.description === 'CURRENT' && s.score.participant === 'away'
-      )?.score?.goals || 0;
-      
-      console.log(`Fixture ${fixtureId} result: ${homeScore}-${awayScore} (${state})`);
-      
-      // Create MatchResult object
+      // Create MatchResult object with proper status and winner
       return {
         fixtureId,
-        homeScore,
-        awayScore,
-        totalGoals: homeScore + awayScore,
-        matchDate: fixture.starting_at,
-        homeTeam: fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home',
-        awayTeam: fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away'
+        homeScore: result.homeScore,
+        awayScore: result.awayScore,
+        totalGoals: result.homeScore + result.awayScore,
+        status: result.status as 'finished' | 'cancelled' | 'postponed', // Cast from the broader type
+        winner,
+        matchDate: result.matchDate,
+        homeTeam: result.homeTeam,
+        awayTeam: result.awayTeam
       };
       
     } catch (error) {
@@ -318,7 +296,8 @@ export class BetSettlementWorker {
         outcomes.push({
           selectionId: selection.id,
           status: 'void',
-          result: `Match ${matchResult.status}`
+          result: `Match ${matchResult.status}`,
+          odds: parseFloat(selection.odds) // Include odds for void calculations
         });
         continue;
       }
@@ -335,7 +314,7 @@ export class BetSettlementWorker {
    * Evaluate individual selection outcome based on market and result
    */
   private evaluateSelection(selection: BetSelection, matchResult: MatchResult): SelectionOutcome {
-    const { market, selection: selectionType } = selection;
+    const { market, selection: selectionType, odds } = selection;
     const { homeScore, awayScore, winner } = matchResult;
 
     let isWon = false;
@@ -364,7 +343,8 @@ export class BetSettlementWorker {
         return {
           selectionId: selection.id,
           status: 'void',
-          result: 'Next goal market not supported yet'
+          result: 'Next goal market not supported yet',
+          odds: parseFloat(odds) // Include odds for void calculations
         };
 
       default:
@@ -372,14 +352,16 @@ export class BetSettlementWorker {
         return {
           selectionId: selection.id,
           status: 'void',
-          result: 'Unknown market type'
+          result: 'Unknown market type',
+          odds: parseFloat(odds) // Include odds for void calculations
         };
     }
 
     return {
       selectionId: selection.id,
       status: isWon ? 'won' : 'lost',
-      result: resultText
+      result: resultText,
+      odds: parseFloat(odds) // Always include odds for express bet calculations
     };
   }
 
@@ -422,8 +404,8 @@ export class BetSettlementWorker {
             actualWinnings = bet.totalStake;
           } else if (nonVoidSelections.every(s => s.status === 'won')) {
             // Recalculate winnings with reduced odds
-            const combinedOdds = nonVoidSelections.reduce((acc, sel) => acc * sel.odds, 1);
-            actualWinnings = bet.totalStake * combinedOdds;
+            const combinedOdds = nonVoidSelections.reduce((acc, sel) => acc * (sel.odds || 1), 1);
+            actualWinnings = Math.round(bet.totalStake * combinedOdds); // Ensure cents
             finalStatus = 'won';
           } else {
             finalStatus = 'lost';

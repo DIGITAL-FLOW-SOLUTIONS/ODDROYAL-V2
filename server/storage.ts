@@ -71,6 +71,9 @@ export interface IStorage {
   createSession(userId: string, sessionToken: string, expiresAt: Date, ipAddress?: string, userAgent?: string): Promise<UserSession>;
   getSession(sessionToken: string): Promise<UserSession | undefined>;
   deleteSession(sessionToken: string): Promise<boolean>;
+  
+  // Settlement operations
+  getPendingBets(): Promise<Bet[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -392,6 +395,11 @@ export class MemStorage implements IStorage {
         error: error instanceof Error ? error.message : 'Unknown error' 
       };
     }
+  }
+
+  // Settlement operations
+  async getPendingBets(): Promise<Bet[]> {
+    return Array.from(this.bets.values()).filter(bet => bet.status === 'pending');
   }
 }
 

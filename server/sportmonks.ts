@@ -413,3 +413,110 @@ function getMockLeagues(): any[] {
     { id: 301, name: "Ligue 1", country: { name: "France" }, active: true },
   ];
 }
+
+// Get fixture result for settlement - returns result data with status
+export async function getFixtureResult(fixtureId: number): Promise<{
+  finished: boolean;
+  homeScore: number;
+  awayScore: number;
+  homeTeam: string;
+  awayTeam: string;
+  matchDate: string;
+  status: 'finished' | 'cancelled' | 'postponed' | 'ongoing';
+} | null> {
+  const token = getApiToken();
+  if (!token) {
+    // For mock data, return null (no finished matches)
+    return null;
+  }
+
+  try {
+    const response = await api.get(`/football/fixtures/${fixtureId}`, {
+      params: {
+        'api_token': token,
+        'include': 'participants;scores;state',
+      },
+    });
+
+    const fixture = response.data.data;
+    if (!fixture) {
+      return null;
+    }
+
+    // Get match state
+    const state = fixture.state?.name || fixture.state?.developer_name;
+    
+    // Check different match states
+    const isFinished = state === 'FT' || state === 'AET' || state === 'PEN' || state === 'FINISHED';
+    const isCancelled = state === 'CANCELLED' || state === 'ABANDONED';
+    const isPostponed = state === 'POSTPONED' || state === 'DELAYED';
+    
+    let matchStatus: 'finished' | 'cancelled' | 'postponed' | 'ongoing';
+    if (isFinished) {
+      matchStatus = 'finished';
+    } else if (isCancelled) {
+      matchStatus = 'cancelled';
+    } else if (isPostponed) {
+      matchStatus = 'postponed';
+    } else {
+      matchStatus = 'ongoing';
+    }
+    
+    // Get team names
+    const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home';
+    const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away';
+    
+    // If not finished/cancelled/postponed, return ongoing status
+    if (!isFinished && !isCancelled && !isPostponed) {
+      return {
+        finished: false,
+        homeScore: 0,
+        awayScore: 0,
+        homeTeam,
+        awayTeam,
+        matchDate: fixture.starting_at,
+        status: matchStatus
+      };
+    }
+
+    // Extract scores for finished matches
+    let homeScore = 0;
+    let awayScore = 0;
+    
+    if (isFinished) {
+      const scores = fixture.scores || [];
+      
+      // Handle both 'CURRENT' (real API) and 'current' (mock data) formats
+      // Also handle participant name vs location-based matching
+      homeScore = scores.find((s: any) => {
+        const desc = s.description?.toLowerCase();
+        const participant = s.score?.participant?.toLowerCase();
+        const isCurrentScore = desc === 'current';
+        const isHomeScore = participant === 'home' || participant === homeTeam.toLowerCase();
+        return isCurrentScore && isHomeScore;
+      })?.score?.goals || 0;
+      
+      awayScore = scores.find((s: any) => {
+        const desc = s.description?.toLowerCase();
+        const participant = s.score?.participant?.toLowerCase();
+        const isCurrentScore = desc === 'current';
+        const isAwayScore = participant === 'away' || participant === awayTeam.toLowerCase();
+        return isCurrentScore && isAwayScore;
+      })?.score?.goals || 0;
+    }
+
+    return {
+      finished: isFinished || isCancelled || isPostponed,
+      homeScore,
+      awayScore,
+      homeTeam,
+      awayTeam,
+      matchDate: fixture.starting_at,
+      status: matchStatus
+    };
+    
+  } catch (error) {
+    console.error(`Error fetching fixture result for ${fixtureId}:`, error);
+    return null;
+  }
+}
