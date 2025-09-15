@@ -6,17 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Calculator, DollarSign, Trash2 } from "lucide-react";
-
-interface BetSelection {
-  id: string;
-  matchId: string;
-  type: "home" | "draw" | "away";
-  odds: number;
-  homeTeam: string;
-  awayTeam: string;
-  league: string;
-  stake?: number;
-}
+import { BetSelection } from "@shared/types";
 
 interface BetSlipProps {
   selections: BetSelection[];
@@ -170,7 +160,7 @@ export default function BetSlip({
                           {selection.homeTeam} vs {selection.awayTeam}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {selection.league} • {selection.type === "home" ? "1" : selection.type === "draw" ? "X" : "2"}
+                          {selection.league} • {selection.selection || selection.type}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -238,7 +228,7 @@ export default function BetSlip({
                     <div key={selection.id} className="flex items-center justify-between">
                       <div className="flex-1">
                         <p className="text-sm">{selection.homeTeam} vs {selection.awayTeam}</p>
-                        <p className="text-xs text-muted-foreground">{selection.type}</p>
+                        <p className="text-xs text-muted-foreground">{selection.selection || selection.type}</p>
                       </div>
                       <Badge variant="outline" className="text-xs">
                         {selection.odds.toFixed(2)}

@@ -97,15 +97,26 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     const match = upcomingMatches.find((m: any) => m.id === matchId);
     if (!match) return;
 
+    // Create human-readable selection name
+    const getSelectionName = (market: string, type: string) => {
+      if (market === "1x2") {
+        return type === "home" ? "1" : type === "draw" ? "X" : "2";
+      }
+      return type.charAt(0).toUpperCase() + type.slice(1);
+    };
+
     const selection = {
       id: `${matchId}-${market}-${type}`,
       matchId,
-      market,
+      fixtureId: matchId, // Add fixtureId for backend compatibility
+      market: market || "1x2",
       type,
+      selection: getSelectionName(market, type),
       odds,
       homeTeam: match.homeTeam?.name || match.homeTeam,
       awayTeam: match.awayTeam?.name || match.awayTeam,
-      league: match.league || "Unknown"
+      league: match.league || "Unknown",
+      isLive: false
     };
     
     onAddToBetSlip(selection);

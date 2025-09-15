@@ -479,12 +479,17 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
                                     variant="outline"
                                     className="h-12 flex flex-col justify-center text-center hover:bg-primary hover:text-primary-foreground transition-colors"
                                     onClick={() => onAddToBetSlip?.({
+                                      id: `${match.id}-${market.id}-${outcome.id}`,
                                       matchId: match.id,
-                                      marketId: market.id,
-                                      outcomeId: outcome.id,
+                                      fixtureId: match.id,
+                                      market: market.id,
+                                      type: outcome.id,
                                       selection: outcome.name,
                                       odds: outcome.odds,
-                                      match: `${match.homeTeam.name} vs ${match.awayTeam.name}`
+                                      homeTeam: match.homeTeam.name,
+                                      awayTeam: match.awayTeam.name,
+                                      league: match.league,
+                                      isLive: match.status === 'LIVE'
                                     })}
                                     data-testid={`button-odds-${outcome.id}`}
                                   >

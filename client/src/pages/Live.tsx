@@ -114,11 +114,37 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
   }, [leagueGroups, expandedLeagues.size]);
 
   const handleLiveOddsClick = (matchId: string, market: string, type: string, odds: number, homeTeam: string, awayTeam: string) => {
+    // Create human-readable selection name
+    const getSelectionName = (market: string, type: string) => {
+      if (market === "1x2") {
+        return type === "home" ? "1" : type === "draw" ? "X" : "2";
+      }
+      if (market === "totalgoals") {
+        // Map specific total goal keys to human readable names
+        if (type === "over35") return "Over 3.5";
+        if (type === "under35") return "Under 3.5";
+        // Fallback for other potential totals
+        if (type === "over25") return "Over 2.5";
+        if (type === "under25") return "Under 2.5";
+        if (type === "over15") return "Over 1.5";
+        if (type === "under15") return "Under 1.5";
+      }
+      if (market === "nextgoal") {
+        // Map specific next goal keys to human readable names
+        if (type === "nextgoal_home") return "Home";
+        if (type === "nextgoal_away") return "Away"; 
+        if (type === "nextgoal_none") return "No Goal";
+      }
+      return type.charAt(0).toUpperCase() + type.slice(1);
+    };
+
     const selection = {
       id: `${matchId}-${market}-${type}`,
       matchId,
+      fixtureId: matchId, // Add fixtureId for backend compatibility
       market,
       type,
+      selection: getSelectionName(market, type),
       odds,
       homeTeam,
       awayTeam,
@@ -329,7 +355,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                       {/* Over/Under Market - Only show if real odds available */}
                                       {match.odds.totalgoals && (
                                         <div>
-                                          <div className="text-sm font-medium mb-2">Total Goals (Over/Under 2.5)</div>
+                                          <div className="text-sm font-medium mb-2">Total Goals (Over/Under 3.5)</div>
                                           <div className="flex gap-2">
                                             {match.odds.totalgoals?.over35 && (
                                               <Button
@@ -337,12 +363,12 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                                 size="default"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  handleLiveOddsClick(match.id, "over_under", "over", match.odds.totalgoals!.over35!, match.homeTeam, match.awayTeam);
+                                                  handleLiveOddsClick(match.id, "totalgoals", "over35", match.odds.totalgoals!.over35!, match.homeTeam, match.awayTeam);
                                                 }}
                                                 data-testid={`button-over-${match.id}`}
                                                 className="flex flex-col gap-1"
                                               >
-                                                <span className="text-xs text-muted-foreground">Over 2.5</span>
+                                                <span className="text-xs text-muted-foreground">Over 3.5</span>
                                                 <span className="font-semibold">{match.odds.totalgoals!.over35!.toFixed(2)}</span>
                                               </Button>
                                             )}
@@ -352,12 +378,12 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                                 size="default"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  handleLiveOddsClick(match.id, "over_under", "under", match.odds.totalgoals!.under35!, match.homeTeam, match.awayTeam);
+                                                  handleLiveOddsClick(match.id, "totalgoals", "under35", match.odds.totalgoals!.under35!, match.homeTeam, match.awayTeam);
                                                 }}
                                                 data-testid={`button-under-${match.id}`}
                                                 className="flex flex-col gap-1"
                                               >
-                                                <span className="text-xs text-muted-foreground">Under 2.5</span>
+                                                <span className="text-xs text-muted-foreground">Under 3.5</span>
                                                 <span className="font-semibold">{match.odds.totalgoals!.under35!.toFixed(2)}</span>
                                               </Button>
                                             )}
@@ -376,7 +402,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                                 size="default"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  handleLiveOddsClick(match.id, "next_goal", "home", match.odds.nextgoal!.home!, match.homeTeam, match.awayTeam);
+                                                  handleLiveOddsClick(match.id, "nextgoal", "nextgoal_home", match.odds.nextgoal!.home!, match.homeTeam, match.awayTeam);
                                                 }}
                                                 data-testid={`button-next-goal-home-${match.id}`}
                                                 className="flex flex-col gap-1"
@@ -391,7 +417,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                                 size="default"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  handleLiveOddsClick(match.id, "next_goal", "away", match.odds.nextgoal!.away!, match.homeTeam, match.awayTeam);
+                                                  handleLiveOddsClick(match.id, "nextgoal", "nextgoal_away", match.odds.nextgoal!.away!, match.homeTeam, match.awayTeam);
                                                 }}
                                                 data-testid={`button-next-goal-away-${match.id}`}
                                                 className="flex flex-col gap-1"
@@ -406,7 +432,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                                 size="default"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  handleLiveOddsClick(match.id, "next_goal", "none", match.odds.nextgoal!.none!, match.homeTeam, match.awayTeam);
+                                                  handleLiveOddsClick(match.id, "nextgoal", "nextgoal_none", match.odds.nextgoal!.none!, match.homeTeam, match.awayTeam);
                                                 }}
                                                 data-testid={`button-next-goal-none-${match.id}`}
                                                 className="flex flex-col gap-1"

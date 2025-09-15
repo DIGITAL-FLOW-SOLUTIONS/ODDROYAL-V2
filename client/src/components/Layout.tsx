@@ -7,18 +7,7 @@ import Footer from "@/components/Footer";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart } from "lucide-react";
-
-interface BetSelection {
-  id: string;
-  matchId: string;
-  type: string; // Changed from "home" | "draw" | "away" to string to support all market types
-  odds: number;
-  homeTeam: string;
-  awayTeam: string;
-  league: string;
-  market?: string;
-  isLive?: boolean;
-}
+import { BetSelection } from "@shared/types";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -71,14 +60,60 @@ export default function Layout({ children }: LayoutProps) {
     console.log("Cleared bet slip");
   };
 
-  const handlePlaceBet = (betData: any) => {
+  const handlePlaceBet = async (betData: any) => {
     console.log("Placing bet:", betData);
-    // Here you would integrate with the backend to place the actual bet
     
-    // For now, just show success and clear the bet slip
-    alert(`Bet placed successfully! Type: ${betData.type}, Total Stake: $${betData.stake || betData.totalStake}`);
-    setBetSlipSelections([]);
-    setIsBetSlipVisible(false);
+    try {
+      // Get auth token from localStorage or session (optional for now)
+      const authToken = localStorage.getItem('authToken') || 'demo-token';
+      
+      // Format bet data according to backend schema
+      const formattedBetData = {
+        type: betData.type,
+        totalStake: (betData.stake || betData.totalStake || 0).toString(),
+        selections: betData.selections ? betData.selections.map((sel: any) => ({
+          fixtureId: sel.fixtureId || sel.matchId,
+          homeTeam: sel.homeTeam,
+          awayTeam: sel.awayTeam, 
+          league: sel.league,
+          market: sel.market || "1x2",
+          selection: sel.selection || sel.type,
+          odds: sel.odds.toString()
+        })) : betSlipSelections.map((sel) => ({
+          fixtureId: sel.fixtureId || sel.matchId,
+          homeTeam: sel.homeTeam,
+          awayTeam: sel.awayTeam,
+          league: sel.league,
+          market: sel.market || "1x2", 
+          selection: sel.selection || sel.type,
+          odds: sel.odds.toString()
+        }))
+      };
+
+      console.log("Formatted bet data:", formattedBetData);
+
+      const response = await fetch('/api/bets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(formattedBetData)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`Bet placed successfully! Bet ID: ${result.data.bet.id}`);
+        setBetSlipSelections([]);
+        setIsBetSlipVisible(false);
+      } else {
+        alert(`Failed to place bet: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error placing bet:', error);
+      alert('Failed to place bet. Please try again.');
+    }
   };
 
   const style = {
