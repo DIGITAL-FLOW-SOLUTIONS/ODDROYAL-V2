@@ -12,6 +12,7 @@ import {
   type UserSession
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import bcrypt from "bcryptjs";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -92,6 +93,37 @@ export class MemStorage implements IStorage {
     this.userFavorites = new Map();
     this.transactions = new Map();
     this.sessions = new Map();
+    
+    // Initialize demo account for testing
+    this.initializeDemoAccount();
+  }
+
+  // Create demo account for testing
+  private async initializeDemoAccount() {
+    try {
+      const demoUsername = "demo";
+      const demoPassword = "demo123";
+      const demoEmail = "demo@primestake.com";
+      
+      // Hash password the same way as registration
+      const hashedPassword = await bcrypt.hash(demoPassword, 12);
+      
+      // Create demo user
+      const demoUser = await this.createUser({
+        username: demoUsername,
+        email: demoEmail,
+        password: hashedPassword,
+        firstName: "Demo",
+        lastName: "User"
+      });
+      
+      // Give demo user initial balance of £500 (50000 cents)
+      await this.updateUserBalance(demoUser.id, 50000);
+      
+      console.log(`Demo account created: username="${demoUsername}", password="${demoPassword}", balance=£500`);
+    } catch (error) {
+      console.error('Failed to create demo account:', error);
+    }
   }
 
   // User operations
