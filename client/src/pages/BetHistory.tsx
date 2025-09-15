@@ -18,48 +18,59 @@ import {
   Filter,
   Search,
   Download,
-  RefreshCw
+  RefreshCw,
+  ArrowUpDown,
+  AlertCircle
 } from "lucide-react";
-import { currencyUtils } from "@shared/schema";
+import { currencyUtils, type Bet, type BetSelection } from "@shared/schema";
 import { useState } from "react";
 import { addDays, format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 
-interface Bet {
-  id: string;
-  type: string;
-  totalStake: string;
-  potentialWinnings: string;
-  totalOdds: string;
-  status: string;
-  placedAt: string;
-  settledAt?: string;
-  actualWinnings?: string;
-  selections: Array<{
-    homeTeam: string;
-    awayTeam: string;
-    league: string;
-    market: string;
-    selection: string;
-    odds: string;
-    status?: string;
-  }>;
+// Using shared types from @shared/schema
+interface BetWithSelections extends Bet {
+  selections: BetSelection[];
 }
+
+type SortField = 'placedAt' | 'totalStake' | 'status' | 'type';
+type SortDirection = 'asc' | 'desc';
 
 function BetHistory() {
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [sortField, setSortField] = useState<SortField>('placedAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
     to: new Date(),
   });
   
-  const { data: betsData = [], isLoading, refetch } = useQuery<Bet[]>({
+  const { data: response, isLoading, error, refetch } = useQuery<{ success: boolean; data: BetWithSelections[] }>({
     queryKey: ['/api/bets'],
     enabled: !!localStorage.getItem('authToken')
   });
+
+  const betsData = response?.data || [];
+
+  // Show error state if API call failed
+  if (error && localStorage.getItem('authToken')) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-4">Failed to load bet history</h2>
+            <p className="text-muted-foreground mb-4">There was an error loading your betting data.</p>
+            <Button onClick={() => refetch()} data-testid="button-retry">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!localStorage.getItem('authToken')) {
     return (
@@ -76,8 +87,9 @@ function BetHistory() {
     );
   }
 
-  // Filter bets based on search and filters
-  const filteredBets = betsData.filter(bet => {
+  // Filter and sort bets
+  const filteredAndSortedBets = betsData
+    .filter(bet => {
     // Search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
@@ -111,28 +123,52 @@ function BetHistory() {
     }
 
     return true;
+  })
+  .sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortField) {
+      case 'placedAt':
+        comparison = new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime();
+        break;
+      case 'totalStake':
+        comparison = a.totalStake - b.totalStake;
+        break;
+      case 'status':
+        comparison = a.status.localeCompare(b.status);
+        break;
+      case 'type':
+        comparison = a.type.localeCompare(b.type);
+        break;
+      default:
+        comparison = 0;
+    }
+    
+    return sortDirection === 'desc' ? -comparison : comparison;
   });
 
-  // Calculate statistics
+  // Calculate statistics using proper currency handling
   const stats = {
     total: betsData.length,
     pending: betsData.filter(bet => bet.status === 'pending').length,
     won: betsData.filter(bet => bet.status === 'won').length,
     lost: betsData.filter(bet => bet.status === 'lost').length,
-    totalStaked: betsData.reduce((sum, bet) => sum + parseFloat(bet.totalStake), 0),
+    totalStaked: betsData.reduce((sum, bet) => sum + bet.totalStake, 0), // Already in cents
     totalWinnings: betsData
       .filter(bet => bet.status === 'won')
-      .reduce((sum, bet) => sum + parseFloat(bet.actualWinnings || bet.potentialWinnings), 0),
+      .reduce((sum, bet) => sum + (bet.actualWinnings || bet.potentialWinnings), 0), // Already in cents
     netProfit: betsData
       .filter(bet => bet.status !== 'pending')
       .reduce((sum, bet) => {
-        const stake = parseFloat(bet.totalStake);
-        const winnings = bet.status === 'won' ? parseFloat(bet.actualWinnings || bet.potentialWinnings) : 0;
+        const stake = bet.totalStake;
+        const winnings = bet.status === 'won' ? (bet.actualWinnings || bet.potentialWinnings) : 0;
         return sum + (winnings - stake);
       }, 0)
   };
 
-  const winRate = stats.total > 0 ? ((stats.won / (stats.won + stats.lost)) * 100) : 0;
+  // Fix win rate calculation - guard against division by zero
+  const settledBets = stats.won + stats.lost;
+  const winRate = settledBets > 0 ? ((stats.won / settledBets) * 100) : 0;
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -195,10 +231,10 @@ function BetHistory() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-staked">
-              {currencyUtils.formatCurrency(currencyUtils.poundsToCents(stats.totalStaked))}
+              {currencyUtils.formatCurrency(stats.totalStaked)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Avg: {currencyUtils.formatCurrency(currencyUtils.poundsToCents(stats.total > 0 ? stats.totalStaked / stats.total : 0))}
+              Avg: {currencyUtils.formatCurrency(stats.total > 0 ? Math.round(stats.totalStaked / stats.total) : 0)}
             </p>
           </CardContent>
         </Card>
@@ -211,7 +247,7 @@ function BetHistory() {
           <CardContent>
             <div className={`text-2xl font-bold ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="text-net-profit">
               {stats.netProfit >= 0 ? '+' : ''}
-              {currencyUtils.formatCurrency(currencyUtils.poundsToCents(Math.abs(stats.netProfit)))}
+              {currencyUtils.formatCurrency(Math.abs(stats.netProfit))}
             </div>
             <p className="text-xs text-muted-foreground">
               {stats.netProfit >= 0 ? 'Profit' : 'Loss'} to date
@@ -311,6 +347,29 @@ function BetHistory() {
                 </PopoverContent>
               </Popover>
             </div>
+
+            <div className="min-w-[150px]">
+              <label className="text-sm font-medium">Sort By</label>
+              <Select value={`${sortField}-${sortDirection}`} onValueChange={(value) => {
+                const [field, direction] = value.split('-') as [SortField, SortDirection];
+                setSortField(field);
+                setSortDirection(direction);
+              }}>
+                <SelectTrigger data-testid="select-sort">
+                  <SelectValue placeholder="Sort by..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="placedAt-desc">Date (Newest first)</SelectItem>
+                  <SelectItem value="placedAt-asc">Date (Oldest first)</SelectItem>
+                  <SelectItem value="totalStake-desc">Stake (Highest first)</SelectItem>
+                  <SelectItem value="totalStake-asc">Stake (Lowest first)</SelectItem>
+                  <SelectItem value="status-asc">Status (A-Z)</SelectItem>
+                  <SelectItem value="status-desc">Status (Z-A)</SelectItem>
+                  <SelectItem value="type-asc">Type (A-Z)</SelectItem>
+                  <SelectItem value="type-desc">Type (Z-A)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -318,7 +377,7 @@ function BetHistory() {
       {/* Bet List */}
       <Card>
         <CardHeader>
-          <CardTitle>Bet History ({filteredBets.length} results)</CardTitle>
+          <CardTitle>Bet History ({filteredAndSortedBets.length} results)</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -326,7 +385,7 @@ function BetHistory() {
               <RefreshCw className="h-6 w-6 animate-spin" />
               <span className="ml-2">Loading bets...</span>
             </div>
-          ) : filteredBets.length === 0 ? (
+          ) : filteredAndSortedBets.length === 0 ? (
             <div className="text-center py-8">
               <History className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">
@@ -344,7 +403,7 @@ function BetHistory() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredBets.map((bet) => (
+              {filteredAndSortedBets.map((bet) => (
                 <div 
                   key={bet.id} 
                   className="border rounded-lg p-4 hover-elevate transition-all duration-200" 

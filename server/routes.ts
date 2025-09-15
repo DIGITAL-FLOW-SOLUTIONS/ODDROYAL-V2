@@ -876,6 +876,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Results and Settlement endpoints
+  
+  // Get finished match results 
+  app.get("/api/results", async (req, res) => {
+    try {
+      // Since we don't have getFinishedFixtures function, we'll return empty for now
+      // In a real implementation, this would fetch from SportMonks API
+      res.json({ 
+        success: true, 
+        data: [],
+        count: 0 
+      });
+      
+    } catch (error) {
+      console.error('Error fetching match results:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to fetch match results' 
+      });
+    }
+  });
+  
+  // Get settled bet results for a user
+  app.get("/api/settlements", authenticateUser, async (req: any, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 50;
+      const status = req.query.status as string;
+      
+      // Get user's settled bets (won, lost, or cancelled)
+      const settledBets = await storage.getUserBets(req.user.id, limit);
+      const filteredBets = settledBets.filter(bet => {
+        if (status && status !== 'all') {
+          return bet.status === status;
+        }
+        return bet.status !== 'pending'; // Only settled bets
+      });
+      
+      // Get selections for each bet
+      const betsWithSelections = [];
+      for (const bet of filteredBets) {
+        const selections = await storage.getBetSelections(bet.id);
+        betsWithSelections.push({ ...bet, selections });
+      }
+      
+      res.json({ 
+        success: true, 
+        data: betsWithSelections 
+      });
+      
+    } catch (error) {
+      console.error('Get settlements error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to get settlements" 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Initialize WebSocket server for real-time updates
