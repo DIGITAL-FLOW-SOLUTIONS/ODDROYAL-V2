@@ -1,12 +1,12 @@
-import axios from 'axios';
+import axios from "axios";
 
-const API_BASE_URL = 'https://api.sportmonks.com/v3';
+const API_BASE_URL = "https://api.sportmonks.com/v3";
 let warnedAboutMissingToken = false;
 
 function getApiToken(): string | undefined {
-  const token = process.env.SPORTMONKS_API_TOKEN;
+  const token = "dtfLGFmJFxJ83SX10NkpSZTWzzwEmUZvSTjofTRdYH81MPkiivR4O3vpNLYo"; //process.env.SPORTMONKS_API_TOKEN;
   if (!token && !warnedAboutMissingToken) {
-    console.warn('SportMonks API token not found. Using mock data.');
+    console.warn("SportMonks API token not found. Using mock data.");
     warnedAboutMissingToken = true;
   }
   return token;
@@ -15,7 +15,7 @@ function getApiToken(): string | undefined {
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -105,31 +105,35 @@ export interface SportMonksOdds {
 }
 
 // Get upcoming fixtures
-export async function getUpcomingFixtures(limit: number = 20): Promise<SportMonksFixture[]> {
+export async function getUpcomingFixtures(
+  limit: number = 20,
+): Promise<SportMonksFixture[]> {
   const token = getApiToken();
   if (!token) {
     return getMockUpcomingFixtures();
   }
 
   try {
-    const response = await api.get('/football/fixtures', {
+    const response = await api.get("/football/fixtures", {
       params: {
-        'api_token': token,
-        'include': 'participants;league;state;scores',
-        'per_page': limit,
-        'filters': 'fixtureStates:1', // Upcoming matches (state 1)
+        api_token: token,
+        include: "participants;league;state;scores",
+        per_page: limit,
+        filters: "fixtureStates:1", // Upcoming matches (state 1)
       },
     });
-    
+
     return response.data.data || [];
   } catch (error) {
-    console.error('Error fetching upcoming fixtures:', error);
+    console.error("Error fetching upcoming fixtures:", error);
     return getMockUpcomingFixtures();
   }
 }
 
 // Get live fixtures by sport
-export async function getLiveFixtures(sportId?: number): Promise<SportMonksFixture[]> {
+export async function getLiveFixtures(
+  sportId?: number,
+): Promise<SportMonksFixture[]> {
   const token = getApiToken();
   if (!token) {
     return getMockLiveFixtures(sportId);
@@ -139,16 +143,16 @@ export async function getLiveFixtures(sportId?: number): Promise<SportMonksFixtu
     const sportEndpoint = getSportEndpoint(sportId);
     const response = await api.get(`/${sportEndpoint}/fixtures`, {
       params: {
-        'api_token': token,
-        'include': 'participants;league;state;scores',
-        'per_page': 50,
-        'filters': 'fixtureStates:2', // Live matches (state 2)
+        api_token: token,
+        include: "participants;league;state;scores",
+        per_page: 50,
+        filters: "fixtureStates:2", // Live matches (state 2)
       },
     });
-    
+
     return response.data.data || [];
   } catch (error) {
-    console.error('Error fetching live fixtures:', error);
+    console.error("Error fetching live fixtures:", error);
     return getMockLiveFixtures(sportId);
   }
 }
@@ -157,23 +161,25 @@ export async function getLiveFixtures(sportId?: number): Promise<SportMonksFixtu
 export async function getLiveFootballFixtures(): Promise<SportMonksFixture[]> {
   const token = getApiToken();
   if (!token) {
-    console.warn('SportMonks API token not found. No live football data available.');
+    console.warn(
+      "SportMonks API token not found. No live football data available.",
+    );
     return [];
   }
 
   try {
-    const response = await api.get('/football/fixtures', {
+    const response = await api.get("/football/fixtures", {
       params: {
-        'api_token': token,
-        'include': 'participants;league;state;scores',
-        'per_page': 50,
-        'filters': 'fixtureStates:2', // Live matches (state 2)
+        api_token: token,
+        include: "participants;league;state;scores",
+        per_page: 50,
+        filters: "fixtureStates:2", // Live matches (state 2)
       },
     });
-    
+
     return response.data.data || [];
   } catch (error) {
-    console.error('Error fetching live football fixtures:', error);
+    console.error("Error fetching live football fixtures:", error);
     // Return empty array instead of mock data to ensure only real data is shown
     return [];
   }
@@ -182,31 +188,33 @@ export async function getLiveFootballFixtures(): Promise<SportMonksFixture[]> {
 // Get sports list
 export async function getSports(): Promise<any[]> {
   return [
-    { id: 1, name: 'Football', icon: 'Football', endpoint: 'football' },
-    { id: 3, name: 'Hockey', icon: 'Hockey', endpoint: 'ice-hockey' },
-    { id: 5, name: 'Tennis', icon: 'Tennis', endpoint: 'tennis' },
-    { id: 2, name: 'Basketball', icon: 'Basketball', endpoint: 'basketball' },
-    { id: 4, name: 'Baseball', icon: 'Baseball', endpoint: 'baseball' },
-    { id: 6, name: 'Volleyball', icon: 'Volleyball', endpoint: 'volleyball' },
-    { id: 7, name: 'Rugby', icon: 'Rugby', endpoint: 'rugby' },
+    { id: 1, name: "Football", icon: "Football", endpoint: "football" },
+    { id: 3, name: "Hockey", icon: "Hockey", endpoint: "ice-hockey" },
+    { id: 5, name: "Tennis", icon: "Tennis", endpoint: "tennis" },
+    { id: 2, name: "Basketball", icon: "Basketball", endpoint: "basketball" },
+    { id: 4, name: "Baseball", icon: "Baseball", endpoint: "baseball" },
+    { id: 6, name: "Volleyball", icon: "Volleyball", endpoint: "volleyball" },
+    { id: 7, name: "Rugby", icon: "Rugby", endpoint: "rugby" },
   ];
 }
 
 function getSportEndpoint(sportId?: number): string {
   const sportMap: { [key: number]: string } = {
-    1: 'football',
-    2: 'basketball', 
-    3: 'ice-hockey',
-    4: 'baseball',
-    5: 'tennis',
-    6: 'volleyball',
-    7: 'rugby'
+    1: "football",
+    2: "basketball",
+    3: "ice-hockey",
+    4: "baseball",
+    5: "tennis",
+    6: "volleyball",
+    7: "rugby",
   };
-  return sportMap[sportId || 1] || 'football';
+  return sportMap[sportId || 1] || "football";
 }
 
-// Get odds for a fixture  
-export async function getFixtureOdds(fixtureId: number): Promise<SportMonksOdds[]> {
+// Get odds for a fixture
+export async function getFixtureOdds(
+  fixtureId: number,
+): Promise<SportMonksOdds[]> {
   const token = getApiToken();
   if (!token) {
     return [];
@@ -215,15 +223,15 @@ export async function getFixtureOdds(fixtureId: number): Promise<SportMonksOdds[
   try {
     const response = await api.get(`/football/odds`, {
       params: {
-        'api_token': token,
-        'include': 'market',
-        'filters': `fixtures:${fixtureId};markets:1,2,3`, // 1x2, Over/Under, Both Teams to Score for specific fixture
+        api_token: token,
+        include: "market",
+        filters: `fixtures:${fixtureId};markets:1,2,3`, // 1x2, Over/Under, Both Teams to Score for specific fixture
       },
     });
-    
+
     return response.data.data || [];
   } catch (error) {
-    console.error('Error fetching fixture odds:', error);
+    console.error("Error fetching fixture odds:", error);
     return [];
   }
 }
@@ -236,16 +244,16 @@ export async function getLeagues(): Promise<any[]> {
   }
 
   try {
-    const response = await api.get('/football/leagues', {
+    const response = await api.get("/football/leagues", {
       params: {
-        'api_token': token,
-        'per_page': 20,
+        api_token: token,
+        per_page: 20,
       },
     });
-    
+
     return response.data.data || [];
   } catch (error) {
-    console.error('Error fetching leagues:', error);
+    console.error("Error fetching leagues:", error);
     return getMockLeagues();
   }
 }
@@ -277,7 +285,7 @@ function getMockUpcomingFixtures(): SportMonksFixture[] {
           type: "domestic",
           placeholder: false,
           last_played_at: "2024-01-10T20:00:00Z",
-          meta: { location: "home", winner: false, position: 1 }
+          meta: { location: "home", winner: false, position: 1 },
         },
         {
           id: 2,
@@ -292,15 +300,15 @@ function getMockUpcomingFixtures(): SportMonksFixture[] {
           type: "domestic",
           placeholder: false,
           last_played_at: "2024-01-10T17:30:00Z",
-          meta: { location: "away", winner: false, position: 2 }
-        }
+          meta: { location: "away", winner: false, position: 2 },
+        },
       ],
       state: {
         id: 1,
         state: "NS",
         name: "Not Started",
         short_name: "NS",
-        developer_name: "NOT_STARTED"
+        developer_name: "NOT_STARTED",
       },
       league: {
         id: 8,
@@ -312,10 +320,10 @@ function getMockUpcomingFixtures(): SportMonksFixture[] {
         image_path: "",
         type: "league",
         sub_type: "domestic",
-        last_played_at: "2024-01-10T20:00:00Z"
+        last_played_at: "2024-01-10T20:00:00Z",
       },
-      scores: []
-    }
+      scores: [],
+    },
   ];
 }
 
@@ -345,7 +353,7 @@ function getMockLiveFixtures(sportId?: number): SportMonksFixture[] {
           type: "domestic",
           placeholder: false,
           last_played_at: "2024-01-15T20:00:00Z",
-          meta: { location: "home", winner: false, position: 1 }
+          meta: { location: "home", winner: false, position: 1 },
         },
         {
           id: 4,
@@ -360,15 +368,15 @@ function getMockLiveFixtures(sportId?: number): SportMonksFixture[] {
           type: "domestic",
           placeholder: false,
           last_played_at: "2024-01-15T20:00:00Z",
-          meta: { location: "away", winner: false, position: 2 }
-        }
+          meta: { location: "away", winner: false, position: 2 },
+        },
       ],
       state: {
         id: 2,
         state: "LIVE",
         name: "Live",
         short_name: "LIVE",
-        developer_name: "INPLAY_1ST_HALF"
+        developer_name: "INPLAY_1ST_HALF",
       },
       league: {
         id: 564,
@@ -380,7 +388,7 @@ function getMockLiveFixtures(sportId?: number): SportMonksFixture[] {
         image_path: "",
         type: "league",
         sub_type: "domestic",
-        last_played_at: "2024-01-15T20:00:00Z"
+        last_played_at: "2024-01-15T20:00:00Z",
       },
       scores: [
         {
@@ -389,7 +397,7 @@ function getMockLiveFixtures(sportId?: number): SportMonksFixture[] {
           type_id: 1525,
           participant_id: 3,
           score: { goals: 2, participant: "Real Madrid" },
-          description: "current"
+          description: "current",
         },
         {
           id: 2,
@@ -397,16 +405,21 @@ function getMockLiveFixtures(sportId?: number): SportMonksFixture[] {
           type_id: 1525,
           participant_id: 4,
           score: { goals: 1, participant: "Barcelona" },
-          description: "current"
-        }
-      ]
-    }
+          description: "current",
+        },
+      ],
+    },
   ];
 }
 
 function getMockLeagues(): any[] {
   return [
-    { id: 8, name: "Premier League", country: { name: "England" }, active: true },
+    {
+      id: 8,
+      name: "Premier League",
+      country: { name: "England" },
+      active: true,
+    },
     { id: 564, name: "La Liga", country: { name: "Spain" }, active: true },
     { id: 82, name: "Bundesliga", country: { name: "Germany" }, active: true },
     { id: 384, name: "Serie A", country: { name: "Italy" }, active: true },
@@ -422,7 +435,7 @@ export async function getFixtureResult(fixtureId: number): Promise<{
   homeTeam: string;
   awayTeam: string;
   matchDate: string;
-  status: 'finished' | 'cancelled' | 'postponed' | 'ongoing';
+  status: "finished" | "cancelled" | "postponed" | "ongoing";
 } | null> {
   const token = getApiToken();
   if (!token) {
@@ -433,8 +446,8 @@ export async function getFixtureResult(fixtureId: number): Promise<{
   try {
     const response = await api.get(`/football/fixtures/${fixtureId}`, {
       params: {
-        'api_token': token,
-        'include': 'participants;scores;state',
+        api_token: token,
+        include: "participants;scores;state",
       },
     });
 
@@ -445,27 +458,35 @@ export async function getFixtureResult(fixtureId: number): Promise<{
 
     // Get match state
     const state = fixture.state?.name || fixture.state?.developer_name;
-    
+
     // Check different match states
-    const isFinished = state === 'FT' || state === 'AET' || state === 'PEN' || state === 'FINISHED';
-    const isCancelled = state === 'CANCELLED' || state === 'ABANDONED';
-    const isPostponed = state === 'POSTPONED' || state === 'DELAYED';
-    
-    let matchStatus: 'finished' | 'cancelled' | 'postponed' | 'ongoing';
+    const isFinished =
+      state === "FT" ||
+      state === "AET" ||
+      state === "PEN" ||
+      state === "FINISHED";
+    const isCancelled = state === "CANCELLED" || state === "ABANDONED";
+    const isPostponed = state === "POSTPONED" || state === "DELAYED";
+
+    let matchStatus: "finished" | "cancelled" | "postponed" | "ongoing";
     if (isFinished) {
-      matchStatus = 'finished';
+      matchStatus = "finished";
     } else if (isCancelled) {
-      matchStatus = 'cancelled';
+      matchStatus = "cancelled";
     } else if (isPostponed) {
-      matchStatus = 'postponed';
+      matchStatus = "postponed";
     } else {
-      matchStatus = 'ongoing';
+      matchStatus = "ongoing";
     }
-    
+
     // Get team names
-    const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home';
-    const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away';
-    
+    const homeTeam =
+      fixture.participants?.find((p: any) => p.meta?.location === "home")
+        ?.name || "Home";
+    const awayTeam =
+      fixture.participants?.find((p: any) => p.meta?.location === "away")
+        ?.name || "Away";
+
     // If not finished/cancelled/postponed, return ongoing status
     if (!isFinished && !isCancelled && !isPostponed) {
       return {
@@ -475,34 +496,38 @@ export async function getFixtureResult(fixtureId: number): Promise<{
         homeTeam,
         awayTeam,
         matchDate: fixture.starting_at,
-        status: matchStatus
+        status: matchStatus,
       };
     }
 
     // Extract scores for finished matches
     let homeScore = 0;
     let awayScore = 0;
-    
+
     if (isFinished) {
       const scores = fixture.scores || [];
-      
+
       // Handle both 'CURRENT' (real API) and 'current' (mock data) formats
       // Also handle participant name vs location-based matching
-      homeScore = scores.find((s: any) => {
-        const desc = s.description?.toLowerCase();
-        const participant = s.score?.participant?.toLowerCase();
-        const isCurrentScore = desc === 'current';
-        const isHomeScore = participant === 'home' || participant === homeTeam.toLowerCase();
-        return isCurrentScore && isHomeScore;
-      })?.score?.goals || 0;
-      
-      awayScore = scores.find((s: any) => {
-        const desc = s.description?.toLowerCase();
-        const participant = s.score?.participant?.toLowerCase();
-        const isCurrentScore = desc === 'current';
-        const isAwayScore = participant === 'away' || participant === awayTeam.toLowerCase();
-        return isCurrentScore && isAwayScore;
-      })?.score?.goals || 0;
+      homeScore =
+        scores.find((s: any) => {
+          const desc = s.description?.toLowerCase();
+          const participant = s.score?.participant?.toLowerCase();
+          const isCurrentScore = desc === "current";
+          const isHomeScore =
+            participant === "home" || participant === homeTeam.toLowerCase();
+          return isCurrentScore && isHomeScore;
+        })?.score?.goals || 0;
+
+      awayScore =
+        scores.find((s: any) => {
+          const desc = s.description?.toLowerCase();
+          const participant = s.score?.participant?.toLowerCase();
+          const isCurrentScore = desc === "current";
+          const isAwayScore =
+            participant === "away" || participant === awayTeam.toLowerCase();
+          return isCurrentScore && isAwayScore;
+        })?.score?.goals || 0;
     }
 
     return {
@@ -512,9 +537,8 @@ export async function getFixtureResult(fixtureId: number): Promise<{
       homeTeam,
       awayTeam,
       matchDate: fixture.starting_at,
-      status: matchStatus
+      status: matchStatus,
     };
-    
   } catch (error) {
     console.error(`Error fetching fixture result for ${fixtureId}:`, error);
     return null;
