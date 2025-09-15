@@ -65,10 +65,11 @@ function Wallet() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
       queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+      const amountInCents = currencyUtils.poundsToCents(parseFloat(depositAmount));
       setDepositAmount('');
       toast({
         title: "Deposit Successful",
-        description: `Successfully deposited ${currencyUtils.formatCurrency(parseFloat(depositAmount))}`
+        description: `Successfully deposited ${currencyUtils.formatCurrency(amountInCents)}`
       });
     },
     onError: () => {
@@ -87,10 +88,11 @@ function Wallet() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
       queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+      const amountInCents = currencyUtils.poundsToCents(parseFloat(withdrawAmount));
       setWithdrawAmount('');
       toast({
         title: "Withdrawal Successful",
-        description: `Successfully withdrew ${currencyUtils.formatCurrency(parseFloat(withdrawAmount))}`
+        description: `Successfully withdrew ${currencyUtils.formatCurrency(amountInCents)}`
       });
     },
     onError: (error: any) => {
@@ -146,10 +148,10 @@ function Wallet() {
   const recentTransactions = transactionsData.slice(0, 10);
   const totalDeposits = transactionsData
     .filter(t => t.type === 'deposit')
-    .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    .reduce((sum, t) => sum + parseInt(t.amount), 0); // amount is in cents
   const totalWithdrawals = transactionsData
     .filter(t => t.type === 'withdrawal')
-    .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount)), 0);
+    .reduce((sum, t) => sum + Math.abs(parseInt(t.amount)), 0); // amount is in cents
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -252,7 +254,7 @@ function Wallet() {
                     onClick={() => setDepositAmount('10')}
                     data-testid="button-deposit-10"
                   >
-                    $10
+                    £10
                   </Button>
                   <Button 
                     size="sm" 
@@ -260,7 +262,7 @@ function Wallet() {
                     onClick={() => setDepositAmount('25')}
                     data-testid="button-deposit-25"
                   >
-                    $25
+                    £25
                   </Button>
                   <Button 
                     size="sm" 
@@ -268,7 +270,7 @@ function Wallet() {
                     onClick={() => setDepositAmount('50')}
                     data-testid="button-deposit-50"
                   >
-                    $50
+                    £50
                   </Button>
                   <Button 
                     size="sm" 
@@ -276,7 +278,7 @@ function Wallet() {
                     onClick={() => setDepositAmount('100')}
                     data-testid="button-deposit-100"
                   >
-                    $100
+                    £100
                   </Button>
                 </div>
                 <Button 
@@ -388,10 +390,10 @@ function Wallet() {
                           {transaction.type === 'deposit' ? '+' : 
                            transaction.type === 'withdrawal' ? '-' :
                            transaction.amount.startsWith('-') ? '' : '+'}
-                          {currencyUtils.formatCurrency(Math.abs(parseFloat(transaction.amount)))}
+                          {currencyUtils.formatCurrency(Math.abs(parseInt(transaction.amount)))}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Balance: {currencyUtils.formatCurrency(parseFloat(transaction.balanceAfter))}
+                          Balance: {currencyUtils.formatCurrency(parseInt(transaction.balanceAfter))}
                         </p>
                       </div>
                     </div>

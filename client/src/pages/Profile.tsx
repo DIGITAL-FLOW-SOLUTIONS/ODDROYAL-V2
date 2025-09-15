@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { 
   User, 
   Edit, 
@@ -19,6 +20,9 @@ import { currencyUtils } from "@shared/schema";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 interface UserProfile {
   id: string;
@@ -29,13 +33,24 @@ interface UserProfile {
   createdAt: string;
 }
 
+const profileUpdateSchema = z.object({
+  username: z.string().min(1, "Username is required").max(50, "Username must be 50 characters or less"),
+  email: z.string().email("Please enter a valid email address")
+});
+
+type ProfileUpdateForm = z.infer<typeof profileUpdateSchema>;
+
 function Profile() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({
-    username: '',
-    email: ''
+  
+  const form = useForm<ProfileUpdateForm>({
+    resolver: zodResolver(profileUpdateSchema),
+    defaultValues: {
+      username: '',
+      email: ''
+    }
   });
   
   const { data: userProfile, isLoading } = useQuery<UserProfile>({
@@ -66,6 +81,10 @@ function Profile() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
+      const sessionToken = localStorage.getItem('authToken');
+      if (sessionToken) {
+        await apiRequest('POST', '/api/auth/logout', { sessionToken });
+      }
       localStorage.removeItem('authToken');
       return Promise.resolve();
     },
@@ -107,22 +126,22 @@ function Profile() {
   }
 
   const handleEdit = () => {
-    setEditForm({
+    form.reset({
       username: userProfile?.username || '',
       email: userProfile?.email || ''
     });
     setIsEditing(true);
   };
 
-  const handleSaveProfile = () => {
+  const onSubmit = (values: ProfileUpdateForm) => {
     const changes: { username?: string; email?: string } = {};
     
-    if (editForm.username !== userProfile?.username) {
-      changes.username = editForm.username;
+    if (values.username !== userProfile?.username) {
+      changes.username = values.username;
     }
     
-    if (editForm.email !== userProfile?.email) {
-      changes.email = editForm.email;
+    if (values.email !== userProfile?.email) {
+      changes.email = values.email;
     }
     
     if (Object.keys(changes).length > 0) {
@@ -174,41 +193,53 @@ function Profile() {
             </CardHeader>
             <CardContent className="space-y-4">
               {isEditing ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium">Username</label>
-                    <Input
-                      value={editForm.username}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, username: e.target.value }))}
-                      data-testid="input-username"
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Username</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-username" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Email</label>
-                    <Input
-                      type="email"
-                      value={editForm.email}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
-                      data-testid="input-email"
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input type="email" {...field} data-testid="input-email" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button 
-                      onClick={handleSaveProfile}
-                      disabled={updateProfileMutation.isPending}
-                      data-testid="button-save-profile"
-                    >
-                      {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setIsEditing(false)}
-                      data-testid="button-cancel-edit"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
+                    <div className="flex space-x-2">
+                      <Button 
+                        type="submit"
+                        disabled={updateProfileMutation.isPending}
+                        data-testid="button-save-profile"
+                      >
+                        {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                      </Button>
+                      <Button 
+                        type="button"
+                        variant="outline" 
+                        onClick={() => setIsEditing(false)}
+                        data-testid="button-cancel-edit"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">

@@ -313,65 +313,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Deposit funds
-  app.post("/api/wallet/deposit", async (req, res) => {
+  app.post("/api/wallet/deposit", authenticateUser, async (req: any, res) => {
     try {
-      const sessionToken = req.headers.authorization?.replace('Bearer ', '');
-      
-      if (!sessionToken) {
-        return res.status(401).json({ 
-          success: false, 
-          error: "No session token provided" 
-        });
-      }
-      
-      const session = await storage.getSession(sessionToken);
-      if (!session || session.expiresAt < new Date()) {
-        return res.status(401).json({ 
-          success: false, 
-          error: "Invalid or expired session" 
-        });
-      }
-      
       const { amount } = z.object({
         amount: z.string().refine(val => {
           const num = parseFloat(val);
-          return !isNaN(num) && num > 0;
-        }, "Amount must be a positive number")
+          return !isNaN(num) && num > 0 && num <= 100000; // Max £100,000 per deposit
+        }, "Amount must be a positive number up to £100,000")
       }).parse(req.body);
       
       const depositAmount = parseFloat(amount);
-      const depositAmountCents = Math.round(depositAmount * 100);
+      const depositAmountCents = currencyUtils.poundsToCents(depositAmount);
       
-      // Get current user
-      const user = await storage.getUser(session.userId);
-      if (!user) {
-        return res.status(404).json({ 
-          success: false, 
-          error: "User not found" 
-        });
-      }
-      
-      const oldBalanceCents = user.balance;
+      const oldBalanceCents = req.user.balance;
       const newBalanceCents = oldBalanceCents + depositAmountCents;
       
       // Update user balance
-      await storage.updateUserBalance(session.userId, newBalanceCents);
+      await storage.updateUserBalance(req.user.id, newBalanceCents);
       
       // Create transaction record
       await storage.createTransaction({
-        userId: session.userId,
+        userId: req.user.id,
         type: 'deposit',
         amount: depositAmountCents,
         balanceBefore: oldBalanceCents,
         balanceAfter: newBalanceCents,
-        description: `Deposit of ${currencyUtils.formatCurrency(depositAmount)}`
+        description: `Deposit of ${currencyUtils.formatCurrency(depositAmountCents)}`
       });
       
       res.json({ 
         success: true, 
         data: {
           amount: depositAmount,
-          newBalance: newBalanceCents / 100
+          newBalance: currencyUtils.centsToPounds(newBalanceCents)
         }
       });
       
@@ -380,7 +354,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
           success: false, 
-          error: "Invalid request data" 
+          error: "Invalid request data",
+          details: error.errors
         });
       }
       res.status(500).json({ 
@@ -391,45 +366,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Withdraw funds
-  app.post("/api/wallet/withdraw", async (req, res) => {
+  app.post("/api/wallet/withdraw", authenticateUser, async (req: any, res) => {
     try {
-      const sessionToken = req.headers.authorization?.replace('Bearer ', '');
-      
-      if (!sessionToken) {
-        return res.status(401).json({ 
-          success: false, 
-          error: "No session token provided" 
-        });
-      }
-      
-      const session = await storage.getSession(sessionToken);
-      if (!session || session.expiresAt < new Date()) {
-        return res.status(401).json({ 
-          success: false, 
-          error: "Invalid or expired session" 
-        });
-      }
-      
       const { amount } = z.object({
         amount: z.string().refine(val => {
           const num = parseFloat(val);
-          return !isNaN(num) && num > 0;
-        }, "Amount must be a positive number")
+          return !isNaN(num) && num > 0 && num <= 100000; // Max £100,000 per withdrawal
+        }, "Amount must be a positive number up to £100,000")
       }).parse(req.body);
       
       const withdrawAmount = parseFloat(amount);
-      const withdrawAmountCents = Math.round(withdrawAmount * 100);
+      const withdrawAmountCents = currencyUtils.poundsToCents(withdrawAmount);
       
-      // Get current user
-      const user = await storage.getUser(session.userId);
-      if (!user) {
-        return res.status(404).json({ 
-          success: false, 
-          error: "User not found" 
-        });
-      }
-      
-      const oldBalanceCents = user.balance;
+      const oldBalanceCents = req.user.balance;
       
       // Check if user has sufficient funds
       if (oldBalanceCents < withdrawAmountCents) {
@@ -442,23 +391,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newBalanceCents = oldBalanceCents - withdrawAmountCents;
       
       // Update user balance
-      await storage.updateUserBalance(session.userId, newBalanceCents);
+      await storage.updateUserBalance(req.user.id, newBalanceCents);
       
       // Create transaction record
       await storage.createTransaction({
-        userId: session.userId,
+        userId: req.user.id,
         type: 'withdrawal',
         amount: -withdrawAmountCents,
         balanceBefore: oldBalanceCents,
         balanceAfter: newBalanceCents,
-        description: `Withdrawal of ${currencyUtils.formatCurrency(withdrawAmount)}`
+        description: `Withdrawal of ${currencyUtils.formatCurrency(withdrawAmountCents)}`
       });
       
       res.json({ 
         success: true, 
         data: {
           amount: withdrawAmount,
-          newBalance: newBalanceCents / 100
+          newBalance: currencyUtils.centsToPounds(newBalanceCents)
         }
       });
       
@@ -467,7 +416,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
           success: false, 
-          error: "Invalid request data" 
+          error: "Invalid request data",
+          details: error.errors
         });
       }
       res.status(500).json({ 
