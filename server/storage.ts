@@ -93,17 +93,26 @@ export class MemStorage implements IStorage {
     this.userFavorites = new Map();
     this.transactions = new Map();
     this.sessions = new Map();
-    
-    // Initialize demo account for testing
-    this.initializeDemoAccount();
   }
 
   // Create demo account for testing
-  private async initializeDemoAccount() {
+  async initializeDemoAccount() {
+    // Only create demo account in demo mode
+    if (process.env.DEMO_MODE !== 'true') {
+      return;
+    }
+    
     try {
       const demoUsername = "demo";
       const demoPassword = "demo123";
       const demoEmail = "demo@primestake.com";
+      
+      // Check if demo user already exists (idempotent seeding)
+      const existingUser = await this.getUserByUsername(demoUsername);
+      if (existingUser) {
+        console.log('Demo account already exists');
+        return;
+      }
       
       // Hash password the same way as registration
       const hashedPassword = await bcrypt.hash(demoPassword, 12);
@@ -120,7 +129,8 @@ export class MemStorage implements IStorage {
       // Give demo user initial balance of £500 (50000 cents)
       await this.updateUserBalance(demoUser.id, 50000);
       
-      console.log(`Demo account created: username="${demoUsername}", password="${demoPassword}", balance=£500`);
+      // Never log the password in plaintext - security issue
+      console.log('Demo account created: username="demo", balance=£500');
     } catch (error) {
       console.error('Failed to create demo account:', error);
     }

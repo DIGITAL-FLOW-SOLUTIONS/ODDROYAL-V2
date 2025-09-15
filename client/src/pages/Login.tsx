@@ -246,6 +246,26 @@ function Login() {
       <div className="text-center mt-6 text-sm text-muted-foreground">
         <p>By creating an account, you agree to our Terms of Service and Privacy Policy.</p>
       </div>
+
+      {/* Demo Account Information - Only in demo mode */}
+      {import.meta.env.VITE_DEMO_MODE === 'true' && (
+        <Card className="mt-4 border-primary/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-center text-primary">Demo Account</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="text-center text-sm text-muted-foreground space-y-1">
+              <p className="font-medium">Test the platform with our demo account:</p>
+              <div className="bg-accent/30 rounded-md p-3 mt-2">
+                <p><span className="font-medium">Username:</span> demo</p>
+                <p><span className="font-medium">Password:</span> demo123</p>
+                <p><span className="font-medium">Starting Balance:</span> £500</p>
+              </div>
+              <p className="text-xs mt-2">Use these credentials to explore all betting features</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
