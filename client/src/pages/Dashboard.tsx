@@ -60,17 +60,17 @@ function Dashboard() {
   
   const { data: betsData = [] } = useQuery<Bet[]>({
     queryKey: ['/api/bets'],
-    enabled: isAuthenticated
+    enabled: !!localStorage.getItem('authToken')
   });
 
   const { data: transactionsData = [] } = useQuery<Transaction[]>({
     queryKey: ['/api/transactions'],
-    enabled: isAuthenticated
+    enabled: !!localStorage.getItem('authToken')
   });
 
   const { data: favoritesData = [] } = useQuery<Favorite[]>({
     queryKey: ['/api/favorites'],
-    enabled: isAuthenticated
+    enabled: !!localStorage.getItem('authToken')
   });
 
   if (isLoading) {
@@ -85,7 +85,7 @@ function Dashboard() {
     );
   }
 
-  if (!isAuthenticated || !user) {
+  if (!localStorage.getItem('authToken')) {
     return (
       <div className="container mx-auto p-6">
         <Card>
@@ -94,6 +94,18 @@ function Dashboard() {
             <Button onClick={() => setLocation('/login')} data-testid="button-login">
               Go to Login
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <h2 className="text-2xl font-bold mb-4">Loading dashboard...</h2>
           </CardContent>
         </Card>
       </div>
