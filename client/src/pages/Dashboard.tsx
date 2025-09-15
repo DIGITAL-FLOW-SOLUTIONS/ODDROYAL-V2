@@ -115,7 +115,7 @@ function Dashboard() {
         <div className="text-right">
           <p className="text-sm text-muted-foreground">Account Balance</p>
           <p className="text-2xl font-bold" data-testid="text-balance">
-            {currencyUtils.formatCurrency(parseInt(userProfile.balance))}
+            {currencyUtils.formatCurrency(parseFloat(userProfile.balance))}
           </p>
         </div>
       </div>
@@ -187,61 +187,194 @@ function Dashboard() {
         </TabsList>
 
         <TabsContent value="bets" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Bets</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {betsData.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No bets placed yet</p>
-              ) : (
-                <div className="space-y-4">
-                  {betsData.slice(0, 10).map((bet) => (
-                    <div key={bet.id} className="border rounded-lg p-4" data-testid={`bet-card-${bet.id}`}>
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <Badge variant={bet.status === 'won' ? 'default' : bet.status === 'lost' ? 'destructive' : 'secondary'}>
-                            {bet.status.toUpperCase()}
-                          </Badge>
-                          <Badge variant="outline" className="ml-2">
-                            {bet.type.toUpperCase()}
-                          </Badge>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">
-                            Stake: {currencyUtils.formatCurrency(parseFloat(bet.totalStake))}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Potential: {currencyUtils.formatCurrency(parseFloat(bet.potentialWinnings))}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        {bet.selections.map((selection, index) => (
-                          <div key={index} className="text-sm">
-                            <div className="font-medium">{selection.homeTeam} vs {selection.awayTeam}</div>
-                            <div className="text-muted-foreground">
-                              {selection.league} • {selection.market}: {selection.selection} @ {selection.odds}
+          <Tabs defaultValue="active" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="active" data-testid="tab-active-bets">
+                Active Bets ({activeBets})
+              </TabsTrigger>
+              <TabsTrigger value="settled" data-testid="tab-settled-bets">
+                Settled Bets ({wonBets + betsData.filter(bet => bet.status === 'lost').length})
+              </TabsTrigger>
+              <TabsTrigger value="all" data-testid="tab-all-bets">
+                All Bets ({totalBets})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="active" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Active Bets</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {activeBets === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">No active bets</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {betsData.filter(bet => bet.status === 'pending').map((bet) => (
+                        <div key={bet.id} className="border rounded-lg p-4" data-testid={`bet-card-${bet.id}`}>
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <Badge variant="secondary">
+                                PENDING
+                              </Badge>
+                              <Badge variant="outline" className="ml-2">
+                                {bet.type.toUpperCase()}
+                              </Badge>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">
+                                Stake: {currencyUtils.formatCurrency(parseFloat(bet.totalStake))}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Potential: {currencyUtils.formatCurrency(parseFloat(bet.potentialWinnings))}
+                              </p>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                      
-                      <div className="flex justify-between items-center mt-3 pt-3 border-t">
-                        <span className="text-sm text-muted-foreground">
-                          Placed: {new Date(bet.placedAt).toLocaleDateString()}
-                        </span>
-                        <span className="font-medium">
-                          Total Odds: {bet.totalOdds}
-                        </span>
-                      </div>
+                          
+                          <div className="space-y-2">
+                            {bet.selections.map((selection, index) => (
+                              <div key={index} className="text-sm">
+                                <div className="font-medium">{selection.homeTeam} vs {selection.awayTeam}</div>
+                                <div className="text-muted-foreground">
+                                  {selection.league} • {selection.market}: {selection.selection} @ {selection.odds}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          <div className="flex justify-between items-center mt-3 pt-3 border-t">
+                            <span className="text-sm text-muted-foreground">
+                              Placed: {new Date(bet.placedAt).toLocaleDateString()}
+                            </span>
+                            <span className="font-medium">
+                              Total Odds: {bet.totalOdds}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="settled" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Settled Bets</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {betsData.filter(bet => bet.status !== 'pending').length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">No settled bets</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {betsData.filter(bet => bet.status !== 'pending').map((bet) => (
+                        <div key={bet.id} className="border rounded-lg p-4" data-testid={`bet-card-${bet.id}`}>
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <Badge variant={bet.status === 'won' ? 'default' : 'destructive'}>
+                                {bet.status.toUpperCase()}
+                              </Badge>
+                              <Badge variant="outline" className="ml-2">
+                                {bet.type.toUpperCase()}
+                              </Badge>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">
+                                Stake: {currencyUtils.formatCurrency(parseFloat(bet.totalStake))}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {bet.status === 'won' ? 'Won: ' : 'Potential: '}
+                                {currencyUtils.formatCurrency(parseFloat(bet.potentialWinnings))}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            {bet.selections.map((selection, index) => (
+                              <div key={index} className="text-sm">
+                                <div className="font-medium">{selection.homeTeam} vs {selection.awayTeam}</div>
+                                <div className="text-muted-foreground">
+                                  {selection.league} • {selection.market}: {selection.selection} @ {selection.odds}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          <div className="flex justify-between items-center mt-3 pt-3 border-t">
+                            <span className="text-sm text-muted-foreground">
+                              Placed: {new Date(bet.placedAt).toLocaleDateString()}
+                            </span>
+                            <span className="font-medium">
+                              Total Odds: {bet.totalOdds}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="all" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>All Bets</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {betsData.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">No bets placed yet</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {betsData.map((bet) => (
+                        <div key={bet.id} className="border rounded-lg p-4" data-testid={`bet-card-${bet.id}`}>
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <Badge variant={bet.status === 'won' ? 'default' : bet.status === 'lost' ? 'destructive' : 'secondary'}>
+                                {bet.status.toUpperCase()}
+                              </Badge>
+                              <Badge variant="outline" className="ml-2">
+                                {bet.type.toUpperCase()}
+                              </Badge>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">
+                                Stake: {currencyUtils.formatCurrency(parseFloat(bet.totalStake))}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                Potential: {currencyUtils.formatCurrency(parseFloat(bet.potentialWinnings))}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            {bet.selections.map((selection, index) => (
+                              <div key={index} className="text-sm">
+                                <div className="font-medium">{selection.homeTeam} vs {selection.awayTeam}</div>
+                                <div className="text-muted-foreground">
+                                  {selection.league} • {selection.market}: {selection.selection} @ {selection.odds}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          <div className="flex justify-between items-center mt-3 pt-3 border-t">
+                            <span className="text-sm text-muted-foreground">
+                              Placed: {new Date(bet.placedAt).toLocaleDateString()}
+                            </span>
+                            <span className="font-medium">
+                              Total Odds: {bet.totalOdds}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="transactions" className="space-y-4">
@@ -268,7 +401,7 @@ function Dashboard() {
                           {currencyUtils.formatCurrency(Math.abs(parseFloat(transaction.amount)))}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Balance: {currencyUtils.formatCurrency(parseInt(transaction.balanceAfter))}
+                          Balance: {currencyUtils.formatCurrency(parseFloat(transaction.balanceAfter))}
                         </p>
                       </div>
                     </div>
