@@ -40,18 +40,45 @@ export function AuthProvider({ children }: AuthProviderProps) {
     enabled: !!localStorage.getItem('authToken'),
     retry: false,
     staleTime: 5 * 60 * 1000, // Consider fresh for 5 minutes
+    queryFn: async () => {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) return null;
+      
+      const res = await fetch('/api/auth/me', {
+        credentials: "include",
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+      
+      // Return null on 401 (unauthenticated) instead of throwing
+      if (res.status === 401) {
+        return null;
+      }
+      
+      if (!res.ok) {
+        throw new Error(`${res.status}: ${res.statusText}`);
+      }
+      
+      const result = await res.json();
+      return result.success ? result.data : null;
+    }
   });
 
   // Update user state when query data changes
   useEffect(() => {
     if (userProfile) {
       setUser(userProfile);
+    } else if (userProfile === null && !isLoading) {
+      // If auth returns null (401/unauthenticated), clear the token and user
+      localStorage.removeItem('authToken');
+      setUser(null);
     } else if (error) {
-      // If auth fails, clear the token and user
+      // If there's a network error or other error, clear the token and user
       localStorage.removeItem('authToken');
       setUser(null);
     }
-  }, [userProfile, error]);
+  }, [userProfile, error, isLoading]);
 
   const loginMutation = useMutation({
     mutationFn: async ({ username, password }: { username: string; password: string }) => {
