@@ -42,7 +42,7 @@ function Login() {
     e.preventDefault();
     try {
       await login(loginData.username, loginData.password);
-      setLocation('/dashboard');
+      setLocation('/');
     } catch (error) {
       // Error handling is done in the auth context
     }
@@ -52,7 +52,7 @@ function Login() {
     e.preventDefault();
     try {
       await register(registerData.username, registerData.email, registerData.password, registerData.confirmPassword);
-      setLocation('/dashboard');
+      setLocation('/');
     } catch (error) {
       // Error handling is done in the auth context
     }
