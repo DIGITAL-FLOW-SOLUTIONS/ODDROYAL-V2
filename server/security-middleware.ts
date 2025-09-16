@@ -442,7 +442,7 @@ export class SecurityMonitoringManager {
   /**
    * Log enhanced security event
    */
-  private static async logSecurityEvent(event: {
+  static async logSecurityEvent(event: {
     eventType: string;
     adminId: string;
     ipAddress: string;
@@ -575,7 +575,7 @@ export class CSRFProtectionManager {
    */
   private static cleanupExpiredTokens(): void {
     const now = Date.now();
-    for (const [adminId, tokenData] of CSRFProtectionManager.csrfTokens.entries()) {
+    for (const [adminId, tokenData] of Array.from(CSRFProtectionManager.csrfTokens.entries())) {
       if (tokenData.expires < now) {
         CSRFProtectionManager.csrfTokens.delete(adminId);
       }

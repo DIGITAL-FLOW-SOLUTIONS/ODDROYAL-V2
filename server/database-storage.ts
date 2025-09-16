@@ -317,7 +317,7 @@ export class DatabaseStorage implements IStorage {
         eq(userFavorites.userId, userId),
         eq(userFavorites.entityId, entityId)
       ));
-    return result.rowCount > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   async getUserFavorites(userId: string): Promise<UserFavorite[]> {
@@ -374,7 +374,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(userSessions)
       .where(eq(userSessions.sessionToken, sessionToken));
-    return result.rowCount > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   async cleanupExpiredSessions(): Promise<number> {
@@ -444,7 +444,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(adminSessions)
       .where(eq(adminSessions.sessionToken, sessionToken));
-    return result.rowCount > 0;
+    return (result.rowCount || 0) > 0;
   }
 
   // ===================== AUDIT OPERATIONS =====================
@@ -673,7 +673,7 @@ export class DatabaseStorage implements IStorage {
     return { id, ...updates, updatedAt: new Date() };
   }
 
-  async getPromotions(limit: number, offset: number): Promise<{ promotions: any[], total: number }> {
+  async getPromotions(params: { limit?: number; offset?: number }): Promise<{ promotions: any[], total: number }> {
     return { promotions: [], total: 0 };
   }
 

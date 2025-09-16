@@ -545,6 +545,9 @@ export const insertAdminUserSchema = createInsertSchema(adminUsers).pick({
   role: true,
   totpSecret: true,
   ipWhitelist: true,
+  isActive: true,
+  loginAttempts: true,
+  lockedUntil: true,
 }).extend({
   role: z.enum(['superadmin', 'admin', 'risk_manager', 'finance', 'compliance', 'support']),
   password: z.string().min(8, 'Password must be at least 8 characters').optional(), // For creation

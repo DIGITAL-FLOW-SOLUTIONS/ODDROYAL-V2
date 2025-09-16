@@ -186,7 +186,7 @@ const ipAttempts = new Map<string, { count: number; resetTime: number; lockUntil
  */
 function cleanupExpiredIpAttempts() {
   const now = Date.now();
-  for (const [ip, data] of ipAttempts.entries()) {
+  for (const [ip, data] of Array.from(ipAttempts.entries())) {
     if (data.resetTime < now && (!data.lockUntil || data.lockUntil < now)) {
       ipAttempts.delete(ip);
     }
@@ -312,7 +312,7 @@ export async function adminRateLimit(req: Request, res: Response, next: NextFunc
     const { username } = req.body;
     if (username) {
       try {
-        const adminUser = await storage.getAdminUserByUsername(username);
+        const adminUser = await storage.getAdminByUsername(username);
         
         // Always increment IP attempts regardless of username validity (prevents enumeration)
         ipData.count++;
@@ -332,7 +332,10 @@ export async function adminRateLimit(req: Request, res: Response, next: NextFunc
           if (adminUser.loginAttempts >= 5) {
             // Lock the account for 15 minutes (this is checked server-side)
             const lockUntil = new Date(Date.now() + 15 * 60 * 1000);
-            await storage.updateAdminLoginAttempts(adminUser.id, adminUser.loginAttempts, lockUntil);
+            await storage.updateAdminUser(adminUser.id, { 
+              loginAttempts: adminUser.loginAttempts, 
+              lockedUntil: lockUntil 
+            });
             
             // Return generic error message (don't reveal account is locked)
             return res.status(401).json({
