@@ -2874,6 +2874,419 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // =====================================
+  // MISSING ADMIN ENDPOINTS FROM INSTRUCTION 4
+  // =====================================
+
+  // GET /api/admin/matches - list matches (filterable)
+  app.get("/api/admin/matches", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('matches:read'), 
+    async (req: any, res) => {
+      try {
+        const { limit = 50, offset = 0, status, isManual, leagueName } = req.query;
+        
+        // Get all matches with optional filters
+        let matches = await storage.getAllMatches();
+        
+        // Apply filters
+        if (status && status !== 'all') {
+          matches = matches.filter(match => match.status === status);
+        }
+        if (isManual === 'true') {
+          matches = matches.filter(match => match.isManual === true);
+        }
+        if (isManual === 'false') {
+          matches = matches.filter(match => match.isManual === false);
+        }
+        if (leagueName) {
+          matches = matches.filter(match => 
+            match.leagueName.toLowerCase().includes(leagueName.toLowerCase())
+          );
+        }
+        
+        // Apply pagination
+        const totalMatches = matches.length;
+        const paginatedMatches = matches.slice(
+          parseInt(offset), 
+          parseInt(offset) + parseInt(limit)
+        );
+        
+        res.json({
+          success: true,
+          data: {
+            matches: paginatedMatches,
+            total: totalMatches,
+            limit: parseInt(limit),
+            offset: parseInt(offset)
+          }
+        });
+      } catch (error) {
+        console.error('Get matches error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch matches'
+        });
+      }
+    }
+  );
+
+  // POST /api/admin/matches/:id/markets - create market for a match
+  app.post("/api/admin/matches/:id/markets", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('markets:create'), 
+    auditAction('create_market'),
+    async (req: any, res) => {
+      try {
+        const { id: matchId } = req.params;
+        const { key, name, type, parameter, minStakeCents, maxStakeCents, outcomes } = req.body;
+        
+        if (!key || !name || !type || !outcomes || !Array.isArray(outcomes)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Market key, name, type, and outcomes are required'
+          });
+        }
+
+        // Verify match exists
+        const match = await storage.getMatch(matchId);
+        if (!match) {
+          return res.status(404).json({
+            success: false,
+            error: 'Match not found'
+          });
+        }
+
+        // Create market
+        const market = await storage.createMarket({
+          matchId,
+          key,
+          name,
+          type,
+          parameter,
+          minStakeCents: minStakeCents || 100, // £1 default
+          maxStakeCents: maxStakeCents || 10000000, // £100k default
+          createdBy: req.adminUser.id,
+          isPublished: false
+        });
+
+        // Create market outcomes
+        for (const outcome of outcomes) {
+          await storage.createMarketOutcome({
+            marketId: market.id,
+            key: outcome.key,
+            label: outcome.label,
+            odds: outcome.odds,
+            oddsSource: 'manual',
+            updatedBy: req.adminUser.id
+          });
+        }
+
+        res.json({
+          success: true,
+          data: market,
+          message: 'Market created successfully'
+        });
+      } catch (error) {
+        console.error('Create market error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to create market'
+        });
+      }
+    }
+  );
+
+  // POST /api/admin/markets/:id/odds/bulk - bulk upload odds
+  app.post("/api/admin/markets/:id/odds/bulk", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('odds:manage'), 
+    require2FA,
+    auditAction('bulk_odds_update'),
+    async (req: any, res) => {
+      try {
+        const { id: marketId } = req.params;
+        const { odds, reason } = req.body;
+        
+        if (!odds || !Array.isArray(odds)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Odds array is required'
+          });
+        }
+
+        // Validate odds format
+        for (const oddUpdate of odds) {
+          if (!oddUpdate.outcomeKey || !oddUpdate.newOdds) {
+            return res.status(400).json({
+              success: false,
+              error: 'Each odds update must have outcomeKey and newOdds'
+            });
+          }
+          if (parseFloat(oddUpdate.newOdds) < 1.01 || parseFloat(oddUpdate.newOdds) > 1000) {
+            return res.status(400).json({
+              success: false,
+              error: 'Odds must be between 1.01 and 1000'
+            });
+          }
+        }
+
+        // Update odds in bulk
+        const updatedOutcomes = [];
+        for (const oddUpdate of odds) {
+          const outcome = await storage.updateMarketOutcomeOdds(
+            marketId,
+            oddUpdate.outcomeKey,
+            oddUpdate.newOdds,
+            req.adminUser.id,
+            reason || 'Bulk odds update'
+          );
+          if (outcome) {
+            updatedOutcomes.push(outcome);
+          }
+        }
+
+        res.json({
+          success: true,
+          data: {
+            marketId,
+            updatedOutcomes,
+            updatedCount: updatedOutcomes.length
+          },
+          message: 'Bulk odds update completed successfully'
+        });
+      } catch (error) {
+        console.error('Bulk odds update error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to update odds'
+        });
+      }
+    }
+  );
+
+  // POST /api/admin/users/:id/block - block user
+  app.post("/api/admin/users/:id/block", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('users:manage'), 
+    require2FA,
+    auditAction('block_user'),
+    async (req: any, res) => {
+      try {
+        const { id: userId } = req.params;
+        const { reason, permanent = false } = req.body;
+        
+        if (!reason) {
+          return res.status(400).json({
+            success: false,
+            error: 'Reason is required to block a user'
+          });
+        }
+
+        // Get user to verify exists
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found'
+          });
+        }
+
+        // Block user
+        await storage.updateUserProfile(userId, { isActive: false });
+
+        // Create audit log with reason
+        await storage.createAuditLog({
+          adminId: req.adminUser.id,
+          actionType: 'block_user',
+          targetType: 'user',
+          targetId: userId,
+          dataBefore: { isActive: user.isActive },
+          dataAfter: { isActive: false },
+          note: `User blocked: ${reason}${permanent ? ' (permanent)' : ''}`,
+          ipAddress: req.ip || null,
+          userAgent: req.get('User-Agent') || null,
+          success: true
+        });
+
+        res.json({
+          success: true,
+          data: { userId, blocked: true, reason },
+          message: 'User blocked successfully'
+        });
+      } catch (error) {
+        console.error('Block user error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to block user'
+        });
+      }
+    }
+  );
+
+  // POST /api/admin/users/:id/wallet/adjust - credit/debit user wallet
+  app.post("/api/admin/users/:id/wallet/adjust", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('wallets:manage'), 
+    require2FA,
+    auditAction('wallet_adjustment'),
+    async (req: any, res) => {
+      try {
+        const { id: userId } = req.params;
+        const { type, amount, reason } = req.body;
+        
+        if (!type || !amount || !reason) {
+          return res.status(400).json({
+            success: false,
+            error: 'Type (credit/debit), amount, and reason are required'
+          });
+        }
+
+        if (!['credit', 'debit'].includes(type)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Type must be either credit or debit'
+          });
+        }
+
+        const amountCents = Math.round(parseFloat(amount) * 100);
+        if (amountCents <= 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'Amount must be positive'
+          });
+        }
+
+        // Get user current balance
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found'
+          });
+        }
+
+        const oldBalanceCents = user.balance;
+        const adjustment = type === 'credit' ? amountCents : -amountCents;
+        const newBalanceCents = oldBalanceCents + adjustment;
+
+        if (newBalanceCents < 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'Insufficient balance for debit'
+          });
+        }
+
+        // Update user balance
+        await storage.updateUserBalance(userId, newBalanceCents);
+
+        // Create transaction record
+        await storage.createTransaction({
+          userId,
+          type: 'manual_adjustment',
+          amount: adjustment,
+          balanceBefore: oldBalanceCents,
+          balanceAfter: newBalanceCents,
+          reference: `admin_${req.adminUser.id}`,
+          description: `Admin ${type}: ${reason}`
+        });
+
+        // Create audit log
+        await storage.createAuditLog({
+          adminId: req.adminUser.id,
+          actionType: 'wallet_adjustment',
+          targetType: 'user',
+          targetId: userId,
+          dataBefore: { balance: oldBalanceCents },
+          dataAfter: { balance: newBalanceCents },
+          note: `Wallet ${type} of £${amount}: ${reason}`,
+          ipAddress: req.ip || null,
+          userAgent: req.get('User-Agent') || null,
+          success: true
+        });
+
+        res.json({
+          success: true,
+          data: {
+            userId,
+            type,
+            amount: parseFloat(amount),
+            oldBalance: oldBalanceCents / 100,
+            newBalance: newBalanceCents / 100,
+            reason
+          },
+          message: `Wallet ${type} completed successfully`
+        });
+      } catch (error) {
+        console.error('Wallet adjustment error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to adjust wallet'
+        });
+      }
+    }
+  );
+
+  // GET /api/admin/reports/ggr - GGR (Gross Gaming Revenue) reports
+  app.get("/api/admin/reports/ggr", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'), 
+    async (req: any, res) => {
+      try {
+        const { from, to, groupBy = 'day' } = req.query;
+        
+        if (!from || !to) {
+          return res.status(400).json({
+            success: false,
+            error: 'From and to date parameters are required'
+          });
+        }
+
+        const fromDate = new Date(from as string);
+        const toDate = new Date(to as string);
+
+        if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid date format'
+          });
+        }
+
+        // Calculate GGR (stakes minus payouts)
+        const ggrReport = await storage.calculateGGRReport({
+          startDate: fromDate,
+          endDate: toDate,
+          groupBy: groupBy as string
+        });
+
+        res.json({
+          success: true,
+          data: {
+            period: {
+              from: fromDate.toISOString(),
+              to: toDate.toISOString(),
+              groupBy
+            },
+            ...ggrReport
+          },
+          message: 'GGR report generated successfully'
+        });
+      } catch (error) {
+        console.error('GGR report error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to generate GGR report'
+        });
+      }
+    }
+  );
+
   const httpServer = createServer(app);
   
   // Initialize WebSocket server for real-time updates
