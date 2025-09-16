@@ -4,6 +4,7 @@ import AdminAuthGuard from "./AdminAuthGuard";
 import AdminLayout from "./AdminLayout";
 import AdminLogin from "./AdminLogin";
 import AdminDashboard from "./AdminDashboard";
+import AdminUserManagement from "./AdminUserManagement";
 import NotFound from "@/pages/not-found";
 
 // Admin router component
@@ -25,12 +26,7 @@ function AdminRouter() {
       <Route path="/prime-admin/users">
         <AdminAuthGuard>
           <AdminLayout>
-            <div className="p-6">
-              <h1 className="text-2xl font-bold mb-4">User Management</h1>
-              <p className="text-muted-foreground">
-                User management interface coming soon...
-              </p>
-            </div>
+            <AdminUserManagement />
           </AdminLayout>
         </AdminAuthGuard>
       </Route>
