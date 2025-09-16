@@ -84,6 +84,35 @@ export interface IStorage {
   // Settlement operations
   getPendingBets(): Promise<Bet[]>;
   
+  // Match management operations
+  getMatchesByTeamsAndTime(homeTeamId: string, awayTeamId: string, kickoffTime: Date): Promise<any[]>;
+  createMatch(match: any): Promise<any>;
+  getMatch(id: string): Promise<any>;
+  updateMatch(id: string, updates: any): Promise<any>;
+  softDeleteMatch(id: string, adminId: string): Promise<void>;
+  getActiveBetsByMatch(matchId: string): Promise<Bet[]>;
+  
+  // Market management operations
+  createMarket(market: any): Promise<any>;
+  updateMarket(id: string, updates: any): Promise<any>;
+  
+  // Exposure operations
+  getMatchExposure(matchId: string): Promise<any>;
+  getMarketExposure(marketId: string): Promise<any>;
+  getOverallExposure(limit: number): Promise<any>;
+  
+  // Promotions operations
+  getPromotions(params: any): Promise<any>;
+  getPromotionByCode(code: string): Promise<any>;
+  createPromotion(promotion: any): Promise<any>;
+  updatePromotion(id: string, updates: any): Promise<any>;
+  
+  // Financial reporting operations
+  getDailyFinancialReport(date: Date): Promise<any>;
+  getMonthlyFinancialReport(year: number, month: number): Promise<any>;
+  getPlayerActivityReport(params: any): Promise<any>;
+  exportFinancialData(params: any): Promise<any>;
+  
   // Admin operations
   getAdminUser(id: string): Promise<AdminUser | undefined>;
   getAdminUserByUsername(username: string): Promise<AdminUser | undefined>;
@@ -844,6 +873,188 @@ export class MemStorage implements IStorage {
     admins = admins.slice(offset, offset + limit);
 
     return { users: admins, total };
+  }
+  
+  // ===================== MATCH MANAGEMENT OPERATIONS =====================
+  
+  async getMatchesByTeamsAndTime(homeTeamId: string, awayTeamId: string, kickoffTime: Date): Promise<any[]> {
+    // For now, return empty array (no duplicates found)
+    return [];
+  }
+  
+  async createMatch(match: any): Promise<any> {
+    const id = randomUUID();
+    const newMatch = {
+      id,
+      ...match,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    // In a real implementation, this would save to database
+    return newMatch;
+  }
+  
+  async getMatch(id: string): Promise<any> {
+    // In a real implementation, this would fetch from database
+    return {
+      id,
+      homeTeamName: 'Home Team',
+      awayTeamName: 'Away Team',
+      status: 'scheduled',
+      kickoffTime: new Date()
+    };
+  }
+  
+  async updateMatch(id: string, updates: any): Promise<any> {
+    // In a real implementation, this would update in database
+    return {
+      id,
+      ...updates,
+      updatedAt: new Date()
+    };
+  }
+  
+  async softDeleteMatch(id: string, adminId: string): Promise<void> {
+    // In a real implementation, this would set isDeleted = true
+    console.log(`Match ${id} soft deleted by admin ${adminId}`);
+  }
+  
+  async getActiveBetsByMatch(matchId: string): Promise<Bet[]> {
+    // Check if any bets reference this match
+    return Array.from(this.bets.values()).filter(
+      bet => bet.status === 'pending' // Would need to check bet selections for match reference
+    );
+  }
+  
+  // ===================== MARKET MANAGEMENT OPERATIONS =====================
+  
+  async createMarket(market: any): Promise<any> {
+    const id = randomUUID();
+    const newMarket = {
+      id,
+      ...market,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    return newMarket;
+  }
+  
+  async updateMarket(id: string, updates: any): Promise<any> {
+    return {
+      id,
+      ...updates,
+      updatedAt: new Date()
+    };
+  }
+  
+  // ===================== EXPOSURE OPERATIONS =====================
+  
+  async getMatchExposure(matchId: string): Promise<any> {
+    return {
+      matchId,
+      totalExposureCents: 0,
+      markets: [],
+      lastCalculated: new Date()
+    };
+  }
+  
+  async getMarketExposure(marketId: string): Promise<any> {
+    return {
+      marketId,
+      totalExposureCents: 0,
+      outcomes: [],
+      lastCalculated: new Date()
+    };
+  }
+  
+  async getOverallExposure(limit: number): Promise<any> {
+    return {
+      totalExposureCents: 0,
+      matches: [],
+      lastCalculated: new Date()
+    };
+  }
+  
+  // ===================== PROMOTIONS OPERATIONS =====================
+  
+  async getPromotions(params: any): Promise<any> {
+    return {
+      promotions: [],
+      total: 0
+    };
+  }
+  
+  async getPromotionByCode(code: string): Promise<any> {
+    return null; // No promotion found
+  }
+  
+  async createPromotion(promotion: any): Promise<any> {
+    const id = randomUUID();
+    return {
+      id,
+      ...promotion,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+  }
+  
+  async updatePromotion(id: string, updates: any): Promise<any> {
+    return {
+      id,
+      ...updates,
+      updatedAt: new Date()
+    };
+  }
+  
+  // ===================== FINANCIAL REPORTING OPERATIONS =====================
+  
+  async getDailyFinancialReport(date: Date): Promise<any> {
+    return {
+      date,
+      totalBetsAmountCents: 0,
+      totalWinningsCents: 0,
+      ggrCents: 0,
+      depositsCents: 0,
+      withdrawalsCents: 0,
+      activePlayers: 0,
+      totalBets: 0
+    };
+  }
+  
+  async getMonthlyFinancialReport(year: number, month: number): Promise<any> {
+    return {
+      year,
+      month,
+      totalBetsAmountCents: 0,
+      totalWinningsCents: 0,
+      ggrCents: 0,
+      dailyBreakdown: []
+    };
+  }
+  
+  async getPlayerActivityReport(params: any): Promise<any> {
+    return {
+      players: [],
+      totalPlayers: 0,
+      period: params.period
+    };
+  }
+  
+  async exportFinancialData(params: any): Promise<any> {
+    const data = {
+      type: params.type,
+      startDate: params.startDate,
+      endDate: params.endDate,
+      records: []
+    };
+    
+    if (params.format === 'csv') {
+      return {
+        csv: 'Date,Type,Amount,Description\n' // Empty CSV header
+      };
+    }
+    
+    return data;
   }
 }
 

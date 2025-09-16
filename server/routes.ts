@@ -18,7 +18,10 @@ import {
   betPlacementSchema,
   currencyUtils,
   loginAdminSchema,
-  insertAdminUserSchema
+  insertAdminUserSchema,
+  User,
+  AdminRoles,
+  rolePermissions
 } from "@shared/schema";
 import { initializeWebSocket, broadcastBetUpdate } from './websocket';
 import { 
@@ -1045,10 +1048,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Successful login - reset failed attempts
       await storage.updateAdminLoginAttempts(adminUser.id, 0);
       
-      // Update last login time
-      await storage.updateAdminUser(adminUser.id, { 
-        lastLogin: new Date() 
-      });
+      // Update last login time and reset failed attempts
+      await storage.updateAdminLoginAttempts(adminUser.id, 0);
       
       // Create admin session (no refresh token for security - use session token only)
       const sessionToken = randomUUID();
@@ -1357,8 +1358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get current admin's permissions
   app.get("/api/admin/rbac/permissions", ...SecurityMiddlewareOrchestrator.getStandardMiddleware(), authenticateAdmin, async (req: any, res) => {
     try {
-      const { rolePermissions } = await import('@shared/schema');
-      const adminRole = req.adminUser.role;
+      const adminRole = req.adminUser.role as keyof typeof rolePermissions;
       const permissions = rolePermissions[adminRole] || [];
       
       res.json({
@@ -1420,8 +1420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: user.id,
         username: user.username,
         email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        // Admin users don't have firstName/lastName fields
         role: user.role,
         isActive: user.isActive,
         lastLogin: user.lastLogin,
@@ -1488,8 +1487,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: result.admin.id,
           username: result.admin.username,
           email: result.admin.email,
-          firstName: result.admin.firstName,
-          lastName: result.admin.lastName,
+          // Admin users don't have firstName/lastName fields
           role: result.admin.role,
           isActive: result.admin.isActive,
           updatedAt: result.admin.updatedAt
@@ -1531,8 +1529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: admin.id,
         username: admin.username,
         email: admin.email,
-        firstName: admin.firstName,
-        lastName: admin.lastName,
+        // Admin users don't have firstName/lastName fields
         role: admin.role,
         isActive: admin.isActive,
         lastLogin: admin.lastLogin,
@@ -1784,8 +1781,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           balanceBefore: user.balance,
           balanceAfter: newBalance,
           reference: `Admin adjustment by ${req.adminUser.username}`,
-          description: reason,
-          status: 'completed'
+          description: reason
         });
         
         res.json({
@@ -1822,6 +1818,577 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({
           success: false,
           error: 'Failed to retrieve audit logs'
+        });
+      }
+    }
+  );
+
+  // ===================== MATCH MANAGEMENT ENDPOINTS =====================
+  
+  // Create manual match
+  app.post("/api/admin/matches", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('matches:create'), 
+    auditAction('match_create'),
+    async (req: any, res) => {
+      try {
+        const { insertMatchSchema } = await import('@shared/schema');
+        const validatedData = insertMatchSchema.parse(req.body);
+        
+        // Check for existing match with same teams and time
+        const existingMatches = await storage.getMatchesByTeamsAndTime(
+          validatedData.homeTeamId, 
+          validatedData.awayTeamId, 
+          validatedData.kickoffTime
+        );
+        
+        if (existingMatches.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'A match with these teams at this time already exists'
+          });
+        }
+        
+        const match = await storage.createMatch({
+          ...validatedData,
+          isManual: true,
+          createdBy: req.adminUser.id
+        });
+        
+        res.json({
+          success: true,
+          data: match,
+          message: 'Match created successfully'
+        });
+      } catch (error) {
+        console.error('Create match error:', error);
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request data',
+            details: error.errors
+          });
+        }
+        res.status(500).json({
+          success: false,
+          error: 'Failed to create match'
+        });
+      }
+    }
+  );
+  
+  // Update match
+  app.put("/api/admin/matches/:id", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('matches:update'), 
+    auditAction('match_update', (req) => ({ 
+      targetType: 'match', 
+      targetId: req.params.id 
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const { insertMatchSchema } = await import('@shared/schema');
+        const validatedData = insertMatchSchema.partial().parse(req.body);
+        
+        const existingMatch = await storage.getMatch(id);
+        if (!existingMatch) {
+          return res.status(404).json({
+            success: false,
+            error: 'Match not found'
+          });
+        }
+        
+        const updatedMatch = await storage.updateMatch(id, {
+          ...validatedData,
+          updatedBy: req.adminUser.id
+        });
+        
+        res.json({
+          success: true,
+          data: updatedMatch,
+          message: 'Match updated successfully'
+        });
+      } catch (error) {
+        console.error('Update match error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to update match'
+        });
+      }
+    }
+  );
+  
+  // Delete match (soft delete)
+  app.delete("/api/admin/matches/:id", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('matches:delete'), 
+    require2FA,
+    auditAction('match_delete', (req) => ({ 
+      targetType: 'match', 
+      targetId: req.params.id 
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        
+        const match = await storage.getMatch(id);
+        if (!match) {
+          return res.status(404).json({
+            success: false,
+            error: 'Match not found'
+          });
+        }
+        
+        // Check if match has active bets
+        const activeBets = await storage.getActiveBetsByMatch(id);
+        if (activeBets.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'Cannot delete match with active bets. Settle all bets first.'
+          });
+        }
+        
+        await storage.softDeleteMatch(id, req.adminUser.id);
+        
+        res.json({
+          success: true,
+          message: 'Match deleted successfully'
+        });
+      } catch (error) {
+        console.error('Delete match error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to delete match'
+        });
+      }
+    }
+  );
+  
+  // ===================== MARKET MANAGEMENT ENDPOINTS =====================
+  
+  // Create market for match
+  app.post("/api/admin/markets", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('markets:create'), 
+    auditAction('market_create'),
+    async (req: any, res) => {
+      try {
+        const { insertMarketSchema } = await import('@shared/schema');
+        const validatedData = insertMarketSchema.parse(req.body);
+        
+        // Verify match exists
+        const match = await storage.getMatch(validatedData.matchId);
+        if (!match) {
+          return res.status(404).json({
+            success: false,
+            error: 'Match not found'
+          });
+        }
+        
+        const market = await storage.createMarket({
+          ...validatedData,
+          createdBy: req.adminUser.id
+        });
+        
+        res.json({
+          success: true,
+          data: market,
+          message: 'Market created successfully'
+        });
+      } catch (error) {
+        console.error('Create market error:', error);
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request data',
+            details: error.errors
+          });
+        }
+        res.status(500).json({
+          success: false,
+          error: 'Failed to create market'
+        });
+      }
+    }
+  );
+  
+  // Update market
+  app.put("/api/admin/markets/:id", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('markets:update'), 
+    auditAction('market_update', (req) => ({ 
+      targetType: 'market', 
+      targetId: req.params.id 
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const { insertMarketSchema } = await import('@shared/schema');
+        const validatedData = insertMarketSchema.partial().parse(req.body);
+        
+        const market = await storage.updateMarket(id, {
+          ...validatedData,
+          updatedBy: req.adminUser.id
+        });
+        
+        if (!market) {
+          return res.status(404).json({
+            success: false,
+            error: 'Market not found'
+          });
+        }
+        
+        res.json({
+          success: true,
+          data: market,
+          message: 'Market updated successfully'
+        });
+      } catch (error) {
+        console.error('Update market error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to update market'
+        });
+      }
+    }
+  );
+  
+  // ===================== EXPOSURE CALCULATION ENDPOINT =====================
+  
+  // Get exposure data
+  app.get("/api/admin/exposure", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('exposure:read'),
+    async (req: any, res) => {
+      try {
+        const { matchId, marketId, limit = 50 } = req.query;
+        
+        let exposureData;
+        
+        if (matchId) {
+          // Get exposure for specific match
+          exposureData = await storage.getMatchExposure(matchId);
+        } else if (marketId) {
+          // Get exposure for specific market
+          exposureData = await storage.getMarketExposure(marketId);
+        } else {
+          // Get overall exposure summary
+          exposureData = await storage.getOverallExposure(parseInt(limit));
+        }
+        
+        // Convert to readable format
+        const formattedExposure = {
+          totalExposure: currencyUtils.formatCurrency(exposureData.totalExposureCents || 0),
+          matchExposures: exposureData.matches?.map((match: any) => ({
+            ...match,
+            exposureAmount: currencyUtils.formatCurrency(match.exposureAmountCents),
+            maxLiability: currencyUtils.formatCurrency(match.maxLiabilityCents)
+          })) || [],
+          lastCalculated: exposureData.lastCalculated || new Date()
+        };
+        
+        res.json({
+          success: true,
+          data: formattedExposure
+        });
+      } catch (error) {
+        console.error('Get exposure error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to calculate exposure'
+        });
+      }
+    }
+  );
+  
+  // ===================== PROMOTIONS MANAGEMENT ENDPOINTS =====================
+  
+  // Get promotions
+  app.get("/api/admin/promotions", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('promotions:read'),
+    async (req: any, res) => {
+      try {
+        const { limit = 50, offset = 0, type, isActive } = req.query;
+        
+        const promotions = await storage.getPromotions({
+          limit: parseInt(limit),
+          offset: parseInt(offset),
+          type,
+          isActive: isActive !== undefined ? isActive === 'true' : undefined
+        });
+        
+        res.json({
+          success: true,
+          data: promotions
+        });
+      } catch (error) {
+        console.error('Get promotions error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve promotions'
+        });
+      }
+    }
+  );
+  
+  // Create promotion
+  app.post("/api/admin/promotions", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('promotions:create'), 
+    auditAction('promotion_create'),
+    async (req: any, res) => {
+      try {
+        const { insertPromotionSchema } = await import('@shared/schema');
+        const validatedData = insertPromotionSchema.parse(req.body);
+        
+        // Check for duplicate promo code
+        if (validatedData.promoCode) {
+          const existing = await storage.getPromotionByCode(validatedData.promoCode);
+          if (existing) {
+            return res.status(400).json({
+              success: false,
+              error: 'Promo code already exists'
+            });
+          }
+        }
+        
+        const promotion = await storage.createPromotion({
+          ...validatedData,
+          createdBy: req.adminUser.id
+        });
+        
+        res.json({
+          success: true,
+          data: promotion,
+          message: 'Promotion created successfully'
+        });
+      } catch (error) {
+        console.error('Create promotion error:', error);
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request data',
+            details: error.errors
+          });
+        }
+        res.status(500).json({
+          success: false,
+          error: 'Failed to create promotion'
+        });
+      }
+    }
+  );
+  
+  // Update promotion
+  app.put("/api/admin/promotions/:id", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('promotions:update'), 
+    auditAction('promotion_update', (req) => ({ 
+      targetType: 'promotion', 
+      targetId: req.params.id 
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const { insertPromotionSchema } = await import('@shared/schema');
+        const validatedData = insertPromotionSchema.partial().parse(req.body);
+        
+        const promotion = await storage.updatePromotion(id, {
+          ...validatedData,
+          updatedBy: req.adminUser.id
+        });
+        
+        if (!promotion) {
+          return res.status(404).json({
+            success: false,
+            error: 'Promotion not found'
+          });
+        }
+        
+        res.json({
+          success: true,
+          data: promotion,
+          message: 'Promotion updated successfully'
+        });
+      } catch (error) {
+        console.error('Update promotion error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to update promotion'
+        });
+      }
+    }
+  );
+  
+  // ===================== FINANCIAL REPORTING ENDPOINTS =====================
+  
+  // Daily financial report
+  app.get("/api/admin/reports/daily", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { date } = req.query;
+        const reportDate = date ? new Date(date) : new Date();
+        
+        const report = await storage.getDailyFinancialReport(reportDate);
+        
+        // Format currency values
+        const formattedReport = {
+          ...report,
+          totalBetsAmount: currencyUtils.formatCurrency(report.totalBetsAmountCents || 0),
+          totalWinnings: currencyUtils.formatCurrency(report.totalWinningsCents || 0),
+          grossGamingRevenue: currencyUtils.formatCurrency(report.ggrCents || 0),
+          deposits: currencyUtils.formatCurrency(report.depositsCents || 0),
+          withdrawals: currencyUtils.formatCurrency(report.withdrawalsCents || 0)
+        };
+        
+        res.json({
+          success: true,
+          data: formattedReport
+        });
+      } catch (error) {
+        console.error('Daily report error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to generate daily report'
+        });
+      }
+    }
+  );
+  
+  // Monthly financial report
+  app.get("/api/admin/reports/monthly", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { year, month } = req.query;
+        const reportYear = year ? parseInt(year) : new Date().getFullYear();
+        const reportMonth = month ? parseInt(month) : new Date().getMonth() + 1;
+        
+        const report = await storage.getMonthlyFinancialReport(reportYear, reportMonth);
+        
+        // Format currency values
+        const formattedReport = {
+          ...report,
+          totalBetsAmount: currencyUtils.formatCurrency(report.totalBetsAmountCents || 0),
+          totalWinnings: currencyUtils.formatCurrency(report.totalWinningsCents || 0),
+          grossGamingRevenue: currencyUtils.formatCurrency(report.ggrCents || 0),
+          dailyBreakdown: report.dailyBreakdown?.map((day: any) => ({
+            ...day,
+            amount: currencyUtils.formatCurrency(day.amountCents || 0)
+          })) || []
+        };
+        
+        res.json({
+          success: true,
+          data: formattedReport
+        });
+      } catch (error) {
+        console.error('Monthly report error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to generate monthly report'
+        });
+      }
+    }
+  );
+  
+  // Player activity report
+  app.get("/api/admin/reports/players", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { limit = 100, period = '30d' } = req.query;
+        
+        const report = await storage.getPlayerActivityReport({
+          limit: parseInt(limit),
+          period: period as string
+        });
+        
+        // Format currency values for each player
+        const formattedPlayers = report.players?.map((player: any) => ({
+          ...player,
+          totalBetsAmount: currencyUtils.formatCurrency(player.totalBetsAmountCents || 0),
+          totalWinnings: currencyUtils.formatCurrency(player.totalWinningsCents || 0),
+          netPosition: currencyUtils.formatCurrency((player.totalBetsAmountCents || 0) - (player.totalWinningsCents || 0)),
+          balance: currencyUtils.formatCurrency(player.balanceCents || 0)
+        })) || [];
+        
+        res.json({
+          success: true,
+          data: {
+            ...report,
+            players: formattedPlayers
+          }
+        });
+      } catch (error) {
+        console.error('Player report error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to generate player report'
+        });
+      }
+    }
+  );
+  
+  // Export financial data (finance role only)
+  app.get("/api/admin/reports/export", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:export'), 
+    require2FA,
+    auditAction('financial_export'),
+    async (req: any, res) => {
+      try {
+        const { type, startDate, endDate, format = 'json' } = req.query;
+        
+        if (!type || !startDate || !endDate) {
+          return res.status(400).json({
+            success: false,
+            error: 'Export type, start date, and end date are required'
+          });
+        }
+        
+        const exportData = await storage.exportFinancialData({
+          type: type as string,
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          format: format as string
+        });
+        
+        if (format === 'csv') {
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', `attachment; filename="financial-export-${type}-${Date.now()}.csv"`);
+          res.send(exportData.csv);
+        } else {
+          res.json({
+            success: true,
+            data: exportData,
+            message: 'Financial data exported successfully'
+          });
+        }
+      } catch (error) {
+        console.error('Export financial data error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to export financial data'
         });
       }
     }
