@@ -1,0 +1,26 @@
+**Build a Production-Grade Admin Panel `/prime-admin` for PRIMESTAKE**
+
+Implement a secure, production-ready **Admin Panel** for PRIMESTAKE available at **`/prime-admin`**. Use the existing project and integrate with current frontend, backend, DB and bet engine. This admin panel must match enterprise sportsbook standards and include UI, API endpoints, back-end processes, logging, and monitoring. Build to production quality — not MVP. Follow these instructions exactly.
+
+---
+
+## 1) High-level requirements
+- Path: **/prime-admin** (admin area separated from public frontend).
+- Authentication/Access: strict **role-based access control (RBAC)** with built-in **2FA** for all admin users; admin sessions stored server-side, with refresh/rotation and secure cookies.
+- Security: HTTPS enforcement, input validation, CSRF protection, Content-Security-Policy, rate limiting, helmet headers, audit logs (immutable), logging to file + external logging system.
+- Encryption: all secrets in `.env`, use AES-256 for any sensitive persisted fields; password hashing using `bcrypt`/`argon2`.
+- Admin roles: `superadmin`, `admin`, `risk_manager`, `finance`, `compliance`, `support`. Enforce per-route permissions.
+- Auditability: Every admin action must be logged (who, what, when, before/after state, IP).
+- Integrations: sport data (SportMonks) kept for normal ops; admin can **create & edit** matches/markets locally for internal events.
+
+---
+
+## 2) Tech stack & infra guidelines
+- Frontend: Next.js (React) admin app under `/prime-admin` routes or separate `admin` Next.js app; use Tailwind CSS (continuity with main UI), React Query for data fetching, Framer Motion for animations.
+- Backend: Node.js (Express or NestJS) with API namespace `/api/admin/*`.
+- DB: SUPABASE PostgreSQL (production).  Use Prisma or Knex for migrations/ORM.
+- Cache: Redis for sessions, rate limiting, and caching exposures/odds.
+- Background jobs: BullMQ (Redis) or Node Cron for settlement worker, retries.
+- Logging: Winston or Pino, push to external (e.g., LogDNA) in config.
+- Monitoring: Sentry for errors; Prometheus + Grafana for metrics.
+- CI/CD: GitHub Actions template for tests, lint, build, deploy.
