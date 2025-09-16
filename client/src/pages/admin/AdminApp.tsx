@@ -5,6 +5,9 @@ import AdminLayout from "./AdminLayout";
 import AdminLogin from "./AdminLogin";
 import AdminDashboard from "./AdminDashboard";
 import AdminUserManagement from "./AdminUserManagement";
+import AdminMatchesMarkets from "./AdminMatchesMarkets";
+import AdminBetManagement from "./AdminBetManagement";
+import AdminRiskExposure from "./AdminRiskExposure";
 import NotFound from "@/pages/not-found";
 
 // Admin router component
@@ -34,12 +37,7 @@ function AdminRouter() {
       <Route path="/prime-admin/bets">
         <AdminAuthGuard>
           <AdminLayout>
-            <div className="p-6">
-              <h1 className="text-2xl font-bold mb-4">Bet Management</h1>
-              <p className="text-muted-foreground">
-                Bet management interface coming soon...
-              </p>
-            </div>
+            <AdminBetManagement />
           </AdminLayout>
         </AdminAuthGuard>
       </Route>
@@ -47,12 +45,7 @@ function AdminRouter() {
       <Route path="/prime-admin/matches">
         <AdminAuthGuard>
           <AdminLayout>
-            <div className="p-6">
-              <h1 className="text-2xl font-bold mb-4">Matches & Markets</h1>
-              <p className="text-muted-foreground">
-                Matches and markets management interface coming soon...
-              </p>
-            </div>
+            <AdminMatchesMarkets />
           </AdminLayout>
         </AdminAuthGuard>
       </Route>
@@ -60,12 +53,7 @@ function AdminRouter() {
       <Route path="/prime-admin/exposure">
         <AdminAuthGuard>
           <AdminLayout>
-            <div className="p-6">
-              <h1 className="text-2xl font-bold mb-4">Risk & Exposure</h1>
-              <p className="text-muted-foreground">
-                Risk and exposure monitoring interface coming soon...
-              </p>
-            </div>
+            <AdminRiskExposure />
           </AdminLayout>
         </AdminAuthGuard>
       </Route>
