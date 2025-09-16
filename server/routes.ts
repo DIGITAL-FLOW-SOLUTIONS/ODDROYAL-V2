@@ -24,10 +24,16 @@ import { initializeWebSocket, broadcastBetUpdate } from './websocket';
 import { 
   authenticateAdmin, 
   require2FA, 
-  requirePermission, 
   auditAction, 
   adminRateLimit 
 } from './admin-middleware';
+import {
+  requirePermission,
+  requireRole,
+  requireAnyRole,
+  requireSuperadmin,
+  requireAdminLevel
+} from './rbac-middleware';
 import argon2 from "argon2";
 import speakeasy from "speakeasy";
 import qrcode from "qrcode";
@@ -1302,6 +1308,489 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // ===================== RBAC API ENDPOINTS =====================
+  
+  // Helper function to get role descriptions
+  function getRoleDescription(role: string): string {
+    const descriptions = {
+      'superadmin': 'Full system access with all permissions',
+      'admin': 'Full operational access to matches, bets, users, and reports',
+      'risk_manager': 'Risk management and exposure monitoring',
+      'finance': 'Financial operations and wallet management',
+      'compliance': 'Compliance monitoring and user oversight', 
+      'support': 'Customer support with read-only access'
+    };
+    return descriptions[role as keyof typeof descriptions] || 'No description available';
+  }
+  
+  // Get current admin's permissions
+  app.get("/api/admin/rbac/permissions", authenticateAdmin, async (req: any, res) => {
+    try {
+      const { rolePermissions } = await import('@shared/schema');
+      const adminRole = req.adminUser.role;
+      const permissions = rolePermissions[adminRole] || [];
+      
+      res.json({
+        success: true,
+        data: {
+          role: adminRole,
+          permissions,
+          isSuperadmin: adminRole === 'superadmin'
+        }
+      });
+    } catch (error) {
+      console.error('Get permissions error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve permissions'
+      });
+    }
+  });
+
+  // Get all available roles and their permissions (superadmin only)
+  app.get("/api/admin/rbac/roles", authenticateAdmin, requireSuperadmin(), auditAction('rbac_roles_view'), async (req: any, res) => {
+    try {
+      const { rolePermissions, AdminRoles } = await import('@shared/schema');
+      
+      const rolesData = Object.values(AdminRoles).map(role => ({
+        role,
+        permissions: rolePermissions[role] || [],
+        description: getRoleDescription(role)
+      }));
+      
+      res.json({
+        success: true,
+        data: rolesData
+      });
+    } catch (error) {
+      console.error('Get roles error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve roles'
+      });
+    }
+  });
+
+  // List admin users with roles (admin+ only)
+  app.get("/api/admin/users", authenticateAdmin, requireAdminLevel(), auditAction('admin_users_view'), async (req: any, res) => {
+    try {
+      const { limit = 50, offset = 0, role, search, isActive } = req.query;
+      
+      const result = await storage.searchAdminUsers({
+        query: search,
+        role,
+        isActive: isActive !== undefined ? isActive === 'true' : undefined,
+        limit: parseInt(limit),
+        offset: parseInt(offset)
+      });
+      
+      // Remove sensitive data from response
+      const safeUsers = result.users.map(user => ({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        isActive: user.isActive,
+        lastLogin: user.lastLogin,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        totpEnabled: !!user.totpSecret
+      }));
+      
+      res.json({
+        success: true,
+        data: {
+          users: safeUsers,
+          total: result.total,
+          limit: parseInt(limit),
+          offset: parseInt(offset)
+        }
+      });
+    } catch (error) {
+      console.error('List admin users error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve admin users'
+      });
+    }
+  });
+
+  // Update admin user role (superadmin only)
+  app.patch("/api/admin/users/:id/role", 
+    authenticateAdmin, 
+    requireSuperadmin(), 
+    require2FA, 
+    auditAction('admin_role_change', (req) => ({ 
+      targetType: 'admin_user', 
+      targetId: req.params.id, 
+      note: `Role change request for admin ${req.params.id}` 
+    })), 
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const { role } = z.object({
+          role: z.enum(['superadmin', 'admin', 'risk_manager', 'finance', 'compliance', 'support'])
+        }).parse(req.body);
+        
+        // Prevent self-role modification
+        if (id === req.adminUser.id) {
+          return res.status(400).json({
+            success: false,
+            error: 'Cannot modify your own role for security reasons'
+          });
+        }
+        
+        const result = await storage.updateAdminRole(id, role, req.adminUser.id);
+        
+        if (!result.success) {
+          return res.status(400).json({
+            success: false,
+            error: result.error
+          });
+        }
+        
+        // Remove sensitive data from response
+        const safeAdmin = result.admin ? {
+          id: result.admin.id,
+          username: result.admin.username,
+          email: result.admin.email,
+          firstName: result.admin.firstName,
+          lastName: result.admin.lastName,
+          role: result.admin.role,
+          isActive: result.admin.isActive,
+          updatedAt: result.admin.updatedAt
+        } : null;
+        
+        res.json({
+          success: true,
+          data: {
+            admin: safeAdmin,
+            auditLogId: result.auditLog?.id
+          },
+          message: `Admin role updated successfully to ${role}`
+        });
+      } catch (error) {
+        console.error('Update admin role error:', error);
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request data',
+            details: error.errors
+          });
+        }
+        res.status(500).json({
+          success: false,
+          error: 'Failed to update admin role'
+        });
+      }
+    }
+  );
+
+  // Get admin users by role (admin+ only)
+  app.get("/api/admin/users/role/:role", authenticateAdmin, requireAdminLevel(), async (req: any, res) => {
+    try {
+      const { role } = req.params;
+      const admins = await storage.getAdminsByRole(role);
+      
+      // Remove sensitive data from response
+      const safeAdmins = admins.map(admin => ({
+        id: admin.id,
+        username: admin.username,
+        email: admin.email,
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+        role: admin.role,
+        isActive: admin.isActive,
+        lastLogin: admin.lastLogin,
+        createdAt: admin.createdAt
+      }));
+      
+      res.json({
+        success: true,
+        data: safeAdmins
+      });
+    } catch (error) {
+      console.error('Get admins by role error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve admins by role'
+      });
+    }
+  });
+
+  // ===================== PROTECTED ADMIN BUSINESS ENDPOINTS =====================
+  
+  // Dashboard data (all authenticated admins)
+  app.get("/api/admin/dashboard", authenticateAdmin, requirePermission('dashboard:read'), async (req: any, res) => {
+    try {
+      // Get basic dashboard metrics
+      const totalUsers = Array.from((await storage as any).users.values()).length;
+      const pendingBets = await storage.getPendingBets();
+      const totalPendingBets = pendingBets.length;
+      
+      const dashboardData = {
+        metrics: {
+          totalUsers,
+          totalPendingBets,
+          timestamp: new Date()
+        },
+        recentActivity: [],
+        systemStatus: 'operational'
+      };
+      
+      res.json({
+        success: true,
+        data: dashboardData
+      });
+    } catch (error) {
+      console.error('Dashboard error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to load dashboard data'
+      });
+    }
+  });
+
+  // Bet management endpoints
+  app.get("/api/admin/bets", authenticateAdmin, requirePermission('bets:read'), async (req: any, res) => {
+    try {
+      const { limit = 50, offset = 0, status, userId } = req.query;
+      const pendingBets = await storage.getPendingBets();
+      
+      // For now, return pending bets - in a real system this would have more filtering
+      res.json({
+        success: true,
+        data: {
+          bets: pendingBets.slice(parseInt(offset), parseInt(offset) + parseInt(limit)),
+          total: pendingBets.length
+        }
+      });
+    } catch (error) {
+      console.error('Get admin bets error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve bets'
+      });
+    }
+  });
+
+  app.patch("/api/admin/bets/:id/settle", 
+    authenticateAdmin, 
+    requirePermission('bets:settle'), 
+    auditAction('bet_settlement', (req) => ({ 
+      targetType: 'bet', 
+      targetId: req.params.id, 
+      note: `Bet settlement attempt` 
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const { status, actualWinnings } = z.object({
+          status: z.enum(['won', 'lost', 'void']),
+          actualWinnings: z.number().optional()
+        }).parse(req.body);
+
+        const result = await storage.updateBetStatus(id, status, actualWinnings);
+        if (!result) {
+          return res.status(404).json({
+            success: false,
+            error: 'Bet not found'
+          });
+        }
+
+        res.json({
+          success: true,
+          data: result,
+          message: `Bet ${status} successfully`
+        });
+      } catch (error) {
+        console.error('Settle bet error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to settle bet'
+        });
+      }
+    }
+  );
+
+  // User management endpoints  
+  app.get("/api/admin/customers", authenticateAdmin, requirePermission('users:read'), async (req: any, res) => {
+    try {
+      const { limit = 50, offset = 0, search, isActive } = req.query;
+      
+      // Get all users from storage
+      const allUsers = Array.from(((await storage as any).users as Map<string, User>).values());
+      let filteredUsers = allUsers;
+      
+      // Apply filters
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filteredUsers = filteredUsers.filter(user => 
+          user.username.toLowerCase().includes(searchLower) ||
+          user.email.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      if (isActive !== undefined) {
+        filteredUsers = filteredUsers.filter(user => user.isActive === (isActive === 'true'));
+      }
+      
+      const total = filteredUsers.length;
+      const users = filteredUsers
+        .slice(parseInt(offset), parseInt(offset) + parseInt(limit))
+        .map(user => ({
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          balance: user.balance,
+          isActive: user.isActive,
+          createdAt: user.createdAt
+        }));
+      
+      res.json({
+        success: true,
+        data: { users, total }
+      });
+    } catch (error) {
+      console.error('Get customers error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to retrieve customers'
+      });
+    }
+  });
+
+  app.patch("/api/admin/customers/:id/status", 
+    authenticateAdmin, 
+    requirePermission('users:block'),
+    auditAction('user_status_change', (req) => ({ 
+      targetType: 'user', 
+      targetId: req.params.id, 
+      note: `User status change attempt` 
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const { isActive } = z.object({
+          isActive: z.boolean()
+        }).parse(req.body);
+
+        const user = await storage.getUser(id);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found'
+          });
+        }
+
+        // Update user status (simplified - in real implementation would need updateUserStatus method)
+        const updatedUser = await storage.updateUserProfile(id, { isActive } as any);
+        
+        res.json({
+          success: true,
+          data: updatedUser,
+          message: `User ${isActive ? 'activated' : 'deactivated'} successfully`
+        });
+      } catch (error) {
+        console.error('Update user status error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to update user status'
+        });
+      }
+    }
+  );
+
+  // Financial operations
+  app.patch("/api/admin/customers/:id/balance", 
+    authenticateAdmin, 
+    requirePermission('users:wallet:adjust'),
+    require2FA,
+    auditAction('balance_adjustment', (req) => ({ 
+      targetType: 'user', 
+      targetId: req.params.id, 
+      note: `Balance adjustment attempt` 
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const { amount, reason } = z.object({
+          amount: z.number(),
+          reason: z.string().min(1, 'Reason is required')
+        }).parse(req.body);
+
+        const user = await storage.getUser(id);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found'
+          });
+        }
+
+        const newBalance = user.balance + Math.round(amount * 100); // Convert to cents
+        if (newBalance < 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'Insufficient balance for adjustment'
+          });
+        }
+
+        const updatedUser = await storage.updateUserBalance(id, newBalance);
+        
+        // Create transaction record
+        await storage.createTransaction({
+          userId: id,
+          type: amount > 0 ? 'bonus' : 'adjustment',
+          amount: Math.round(amount * 100),
+          balanceBefore: user.balance,
+          balanceAfter: newBalance,
+          reference: `Admin adjustment by ${req.adminUser.username}`,
+          description: reason,
+          status: 'completed'
+        });
+        
+        res.json({
+          success: true,
+          data: updatedUser,
+          message: 'Balance adjusted successfully'
+        });
+      } catch (error) {
+        console.error('Adjust balance error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to adjust balance'
+        });
+      }
+    }
+  );
+
+  // Audit logs endpoint
+  app.get("/api/admin/audit", 
+    authenticateAdmin, 
+    requirePermission('audit:read'),
+    async (req: any, res) => {
+      try {
+        const { limit = 50, offset = 0 } = req.query;
+        const auditLogs = await storage.getAuditLogs(parseInt(limit), parseInt(offset));
+        
+        res.json({
+          success: true,
+          data: auditLogs
+        });
+      } catch (error) {
+        console.error('Get audit logs error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve audit logs'
+        });
+      }
+    }
+  );
 
   const httpServer = createServer(app);
   

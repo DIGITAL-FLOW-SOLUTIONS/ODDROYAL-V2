@@ -112,29 +112,8 @@ export function require2FA(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-/**
- * Middleware to check admin permissions
- * @param permission - The permission to check (e.g., 'users:read', 'bets:settle')
- */
-export function requirePermission(permission: string) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.adminUser) {
-      return res.status(401).json({
-        success: false,
-        error: 'Admin authentication required'
-      });
-    }
-    
-    if (!hasPermission(req.adminUser.role, permission)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Insufficient permissions for this operation'
-      });
-    }
-    
-    next();
-  };
-}
+// NOTE: requirePermission has been moved to rbac-middleware.ts for better organization
+// and to eliminate duplication. Use the RBAC middleware for all permission checks.
 
 /**
  * List of sensitive fields that should never be logged in audit trails

@@ -106,6 +106,18 @@ export interface IStorage {
   // 2FA operations
   enableAdmin2FA(adminId: string, totpSecret: string): Promise<AdminUser | undefined>;
   disableAdmin2FA(adminId: string): Promise<AdminUser | undefined>;
+  
+  // RBAC operations
+  getAdminUsers(limit?: number, offset?: number): Promise<AdminUser[]>;
+  getAdminsByRole(role: string): Promise<AdminUser[]>;
+  updateAdminRole(adminId: string, newRole: string, updatedBy: string): Promise<{ success: boolean; admin?: AdminUser; auditLog?: AuditLog; error?: string }>;
+  searchAdminUsers(params: {
+    query?: string;
+    role?: string;
+    isActive?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ users: AdminUser[]; total: number }>;
 }
 
 export class MemStorage implements IStorage {
@@ -722,6 +734,116 @@ export class MemStorage implements IStorage {
     
     this.adminUsers.set(adminId, updatedAdmin);
     return updatedAdmin;
+  }
+
+  // RBAC operations
+  async getAdminUsers(limit: number = 50, offset: number = 0): Promise<AdminUser[]> {
+    return Array.from(this.adminUsers.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(offset, offset + limit);
+  }
+
+  async getAdminsByRole(role: string): Promise<AdminUser[]> {
+    return Array.from(this.adminUsers.values())
+      .filter(admin => admin.role === role)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async updateAdminRole(adminId: string, newRole: string, updatedBy: string): Promise<{ success: boolean; admin?: AdminUser; auditLog?: AuditLog; error?: string }> {
+    const admin = this.adminUsers.get(adminId);
+    if (!admin) {
+      return { success: false, error: 'Admin user not found' };
+    }
+
+    const oldRole = admin.role;
+    
+    // Prevent self-role modification for security
+    if (adminId === updatedBy) {
+      return { success: false, error: 'Cannot modify your own role' };
+    }
+
+    // CRITICAL SECURITY SAFEGUARD: Prevent system lockout
+    // If demoting from superadmin, ensure at least one other active superadmin exists
+    if (oldRole === 'superadmin' && newRole !== 'superadmin') {
+      const activeSuperadmins = Array.from(this.adminUsers.values())
+        .filter(a => a.role === 'superadmin' && a.isActive && a.id !== adminId);
+      
+      if (activeSuperadmins.length === 0) {
+        return { 
+          success: false, 
+          error: 'Cannot demote the last active superadmin. At least one superadmin must remain to prevent system lockout.' 
+        };
+      }
+    }
+
+    // Update admin role
+    const updatedAdmin = {
+      ...admin,
+      role: newRole,
+      updatedAt: new Date()
+    };
+
+    this.adminUsers.set(adminId, updatedAdmin);
+
+    // Create audit log for role change
+    const auditLog = await this.createAuditLog({
+      adminId: updatedBy,
+      actionType: 'admin_role_change',
+      targetType: 'admin_user',
+      targetId: adminId,
+      dataBefore: { role: oldRole },
+      dataAfter: { role: newRole },
+      note: `Admin role changed from ${oldRole} to ${newRole}`,
+      ipAddress: null,
+      userAgent: null,
+      success: true,
+      errorMessage: null
+    });
+
+    return { success: true, admin: updatedAdmin, auditLog };
+  }
+
+  async searchAdminUsers(params: {
+    query?: string;
+    role?: string;
+    isActive?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ users: AdminUser[]; total: number }> {
+    let admins = Array.from(this.adminUsers.values());
+
+    // Filter by search query (username, email, first/last name)
+    if (params.query) {
+      const query = params.query.toLowerCase();
+      admins = admins.filter(admin => 
+        admin.username.toLowerCase().includes(query) ||
+        admin.email.toLowerCase().includes(query) ||
+        (admin.firstName && admin.firstName.toLowerCase().includes(query)) ||
+        (admin.lastName && admin.lastName.toLowerCase().includes(query))
+      );
+    }
+
+    // Filter by role
+    if (params.role) {
+      admins = admins.filter(admin => admin.role === params.role);
+    }
+
+    // Filter by active status
+    if (params.isActive !== undefined) {
+      admins = admins.filter(admin => admin.isActive === params.isActive);
+    }
+
+    const total = admins.length;
+    
+    // Sort by creation date (newest first)
+    admins = admins.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    // Apply pagination
+    const limit = params.limit || 50;
+    const offset = params.offset || 0;
+    admins = admins.slice(offset, offset + limit);
+
+    return { users: admins, total };
   }
 }
 
