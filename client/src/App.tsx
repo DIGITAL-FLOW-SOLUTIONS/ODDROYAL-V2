@@ -17,10 +17,16 @@ import BetHistory from "@/pages/BetHistory";
 import Results from "@/pages/Results";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
+import AdminApp from "@/pages/admin/AdminApp";
 
 function Router() {
   return (
     <Switch>
+      {/* Admin Panel Routes - Must come first to match before general routes */}
+      <Route path="/prime-admin/:rest*" component={AdminApp} />
+      <Route path="/prime-admin" component={AdminApp} />
+      
+      {/* Regular App Routes */}
       <Route path="/" component={() => <Layout><Homepage /></Layout>} />
       <Route path="/line" component={() => <Layout><Line /></Layout>} />
       <Route path="/live" component={() => <Layout><Live /></Layout>} />
@@ -31,6 +37,8 @@ function Router() {
       <Route path="/bets" component={() => <Layout><BetHistory /></Layout>} />
       <Route path="/results" component={() => <Layout><Results /></Layout>} />
       <Route path="/login" component={() => <Layout><Login /></Layout>} />
+      
+      {/* Catch all */}
       <Route>
         <NotFound />
       </Route>
