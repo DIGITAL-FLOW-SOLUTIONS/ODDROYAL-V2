@@ -16,9 +16,21 @@ import {
   insertBetSelectionSchema, 
   insertFavoriteSchema,
   betPlacementSchema,
-  currencyUtils
+  currencyUtils,
+  loginAdminSchema,
+  insertAdminUserSchema
 } from "@shared/schema";
 import { initializeWebSocket, broadcastBetUpdate } from './websocket';
+import { 
+  authenticateAdmin, 
+  require2FA, 
+  requirePermission, 
+  auditAction, 
+  adminRateLimit 
+} from './admin-middleware';
+import argon2 from "argon2";
+import speakeasy from "speakeasy";
+import qrcode from "qrcode";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -930,6 +942,363 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         error: "Failed to get settlements" 
+      });
+    }
+  });
+
+  // =====================================
+  // ADMIN AUTHENTICATION ROUTES
+  // =====================================
+  
+  // Admin Login
+  app.post("/api/admin/auth/login", adminRateLimit, auditAction('admin_login_attempt'), async (req, res) => {
+    try {
+      const validatedData = loginAdminSchema.parse(req.body);
+      
+      // Generic error response for all authentication failures (security: prevent user enumeration)
+      const genericError = () => res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+      
+      // Find admin user
+      const adminUser = await storage.getAdminUserByUsername(validatedData.username);
+      if (!adminUser || !adminUser.isActive) {
+        return genericError();
+      }
+      
+      // Check if admin is locked out (enforce internally but don't expose status)
+      if (adminUser.lockedUntil && adminUser.lockedUntil > new Date()) {
+        return genericError();
+      }
+      
+      // Verify password
+      const isPasswordValid = await argon2.verify(adminUser.passwordHash, validatedData.password);
+      if (!isPasswordValid) {
+        // Increment failed attempts
+        const attempts = adminUser.loginAttempts + 1;
+        const lockedUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : undefined;
+        await storage.updateAdminLoginAttempts(adminUser.id, attempts, lockedUntil);
+        
+        return genericError();
+      }
+      
+      // Check 2FA if enabled
+      if (adminUser.totpSecret) {
+        if (!validatedData.totpCode) {
+          return res.status(200).json({
+            success: true,
+            requiresTwoFactor: true,
+            message: 'TOTP code required'
+          });
+        }
+        
+        // Verify TOTP code
+        const isTotpValid = speakeasy.totp.verify({
+          secret: adminUser.totpSecret,
+          encoding: 'base32',
+          token: validatedData.totpCode,
+          window: 2 // Allow 2-step window for clock drift
+        });
+        
+        if (!isTotpValid) {
+          // Increment failed attempts for invalid TOTP
+          const attempts = adminUser.loginAttempts + 1;
+          const lockedUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : undefined;
+          await storage.updateAdminLoginAttempts(adminUser.id, attempts, lockedUntil);
+          
+          return genericError();
+        }
+      }
+      
+      // Successful login - reset failed attempts
+      await storage.updateAdminLoginAttempts(adminUser.id, 0);
+      
+      // Update last login time
+      await storage.updateAdminUser(adminUser.id, { 
+        lastLogin: new Date() 
+      });
+      
+      // Create admin session (no refresh token for security - use session token only)
+      const sessionToken = randomUUID();
+      const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000); // 8 hours
+      
+      const session = await storage.createAdminSession(
+        adminUser.id,
+        sessionToken,
+        expiresAt,
+        req.ip,
+        req.get('User-Agent')
+      );
+      
+      // Update session 2FA status
+      await storage.updateAdminSession(session.id, {
+        twoFactorVerified: !!adminUser.totpSecret
+      });
+      
+      // Log successful login
+      await storage.createAuditLog({
+        adminId: adminUser.id,
+        actionType: 'login',
+        targetType: null,
+        targetId: null,
+        dataBefore: null,
+        dataAfter: null,
+        note: 'Admin logged in successfully',
+        ipAddress: req.ip || null,
+        userAgent: req.get('User-Agent') || null,
+        success: true,
+        errorMessage: null
+      });
+      
+      // Return admin user (without password) and session
+      const { passwordHash: _, ...adminWithoutPassword } = adminUser;
+      res.json({
+        success: true,
+        data: {
+          admin: adminWithoutPassword,
+          sessionToken,
+          requiresTwoFactor: false
+        }
+      });
+      
+    } catch (error) {
+      console.error('Admin login error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request data',
+          details: error.errors
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: 'Login failed'
+      });
+    }
+  });
+  
+  // Admin Logout
+  app.post("/api/admin/auth/logout", authenticateAdmin, auditAction('admin_logout'), async (req: any, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const sessionToken = authHeader?.replace('Bearer ', '');
+      
+      if (sessionToken) {
+        await storage.deleteAdminSession(sessionToken);
+      }
+      
+      res.json({
+        success: true,
+        message: 'Logged out successfully'
+      });
+      
+    } catch (error) {
+      console.error('Admin logout error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Logout failed'
+      });
+    }
+  });
+  
+  // Get Current Admin User
+  app.get("/api/admin/auth/me", authenticateAdmin, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getAdminUser(req.adminUser.id);
+      if (!adminUser) {
+        return res.status(404).json({
+          success: false,
+          error: 'Admin user not found'
+        });
+      }
+      
+      // Return admin without password
+      const { passwordHash: _, ...adminWithoutPassword } = adminUser;
+      res.json({
+        success: true,
+        data: {
+          admin: adminWithoutPassword,
+          twoFactorVerified: req.adminUser.twoFactorVerified
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get admin user error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get admin user'
+      });
+    }
+  });
+  
+  // Setup 2FA (requires password verification for security)
+  app.post("/api/admin/auth/setup-2fa", authenticateAdmin, auditAction('admin_2fa_setup'), async (req: any, res) => {
+    try {
+      const { currentPassword } = z.object({
+        currentPassword: z.string().min(1, 'Current password is required')
+      }).parse(req.body);
+      
+      const adminUser = await storage.getAdminUser(req.adminUser.id);
+      if (!adminUser) {
+        return res.status(404).json({
+          success: false,
+          error: 'Admin user not found'
+        });
+      }
+      
+      // Require current password verification before allowing 2FA setup
+      const isPasswordValid = await argon2.verify(adminUser.passwordHash, currentPassword);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          error: 'Current password is incorrect'
+        });
+      }
+      
+      // Check if 2FA is already enabled
+      if (adminUser.totpSecret) {
+        return res.status(400).json({
+          success: false,
+          error: '2FA is already enabled. Disable it first to set up a new secret.'
+        });
+      }
+      
+      // Generate TOTP secret
+      const secret = speakeasy.generateSecret({
+        name: `PRIMESTAKE Admin (${adminUser.username})`,
+        issuer: 'PRIMESTAKE'
+      });
+      
+      // Generate QR code
+      const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url!);
+      
+      // Return masked secret for security - only show first and last 4 chars
+      const maskedSecret = secret.base32.substring(0, 4) + '*'.repeat(secret.base32.length - 8) + secret.base32.substring(secret.base32.length - 4);
+      
+      // Store temporary secret (not yet enabled)
+      // We'll enable it when the user verifies it
+      res.json({
+        success: true,
+        data: {
+          secret: secret.base32, // Full secret needed for initial setup only
+          qrCode: qrCodeUrl,
+          manualEntryKey: secret.base32,
+          maskedSecret // For display purposes
+        }
+      });
+      
+    } catch (error) {
+      console.error('Setup 2FA error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Current password is required',
+          details: error.errors
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: 'Failed to setup 2FA'
+      });
+    }
+  });
+  
+  // Verify and Enable 2FA
+  app.post("/api/admin/auth/verify-2fa", authenticateAdmin, auditAction('admin_2fa_enable'), async (req: any, res) => {
+    try {
+      const { secret, totpCode } = z.object({
+        secret: z.string().min(1),
+        totpCode: z.string().length(6)
+      }).parse(req.body);
+      
+      // Verify TOTP code with the provided secret
+      const isValid = speakeasy.totp.verify({
+        secret: secret,
+        encoding: 'base32',
+        token: totpCode,
+        window: 2
+      });
+      
+      if (!isValid) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid TOTP code'
+        });
+      }
+      
+      // Enable 2FA for the admin
+      await storage.enableAdmin2FA(req.adminUser.id, secret);
+      
+      res.json({
+        success: true,
+        message: 'Two-factor authentication enabled successfully'
+      });
+      
+    } catch (error) {
+      console.error('Verify 2FA error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request data'
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: 'Failed to verify 2FA'
+      });
+    }
+  });
+  
+  // Disable 2FA
+  app.post("/api/admin/auth/disable-2fa", authenticateAdmin, require2FA, auditAction('admin_2fa_disable'), async (req: any, res) => {
+    try {
+      const { totpCode } = z.object({
+        totpCode: z.string().length(6)
+      }).parse(req.body);
+      
+      const adminUser = await storage.getAdminUser(req.adminUser.id);
+      if (!adminUser || !adminUser.totpSecret) {
+        return res.status(400).json({
+          success: false,
+          error: '2FA is not enabled'
+        });
+      }
+      
+      // Verify current TOTP code before disabling
+      const isValid = speakeasy.totp.verify({
+        secret: adminUser.totpSecret,
+        encoding: 'base32',
+        token: totpCode,
+        window: 2
+      });
+      
+      if (!isValid) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid TOTP code'
+        });
+      }
+      
+      // Disable 2FA
+      await storage.disableAdmin2FA(req.adminUser.id);
+      
+      res.json({
+        success: true,
+        message: 'Two-factor authentication disabled successfully'
+      });
+      
+    } catch (error) {
+      console.error('Disable 2FA error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request data'
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: 'Failed to disable 2FA'
       });
     }
   });

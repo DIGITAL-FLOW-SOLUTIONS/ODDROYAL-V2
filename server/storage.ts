@@ -9,10 +9,17 @@ import {
   type InsertFavorite,
   type Transaction,
   type InsertTransaction,
-  type UserSession
+  type UserSession,
+  type AdminUser,
+  type InsertAdminUser,
+  type AdminSession,
+  type AuditLog,
+  type InsertAuditLog
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
+import argon2 from "argon2";
+import speakeasy from "speakeasy";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -76,6 +83,29 @@ export interface IStorage {
   
   // Settlement operations
   getPendingBets(): Promise<Bet[]>;
+  
+  // Admin operations
+  getAdminUser(id: string): Promise<AdminUser | undefined>;
+  getAdminUserByUsername(username: string): Promise<AdminUser | undefined>;
+  getAdminUserByEmail(email: string): Promise<AdminUser | undefined>;
+  createAdminUser(admin: InsertAdminUser): Promise<AdminUser>;
+  updateAdminUser(adminId: string, updates: Partial<InsertAdminUser>): Promise<AdminUser | undefined>;
+  updateAdminLoginAttempts(adminId: string, attempts: number, lockedUntil?: Date): Promise<AdminUser | undefined>;
+  
+  // Admin session operations
+  createAdminSession(adminId: string, sessionToken: string, expiresAt: Date, ipAddress?: string, userAgent?: string): Promise<AdminSession>;
+  getAdminSession(sessionToken: string): Promise<AdminSession | undefined>;
+  updateAdminSession(sessionId: string, updates: Partial<AdminSession>): Promise<AdminSession | undefined>;
+  deleteAdminSession(sessionToken: string): Promise<boolean>;
+  deleteAllAdminSessions(adminId: string): Promise<boolean>;
+  
+  // Audit operations
+  createAuditLog(auditLog: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(limit?: number, offset?: number): Promise<AuditLog[]>;
+  
+  // 2FA operations
+  enableAdmin2FA(adminId: string, totpSecret: string): Promise<AdminUser | undefined>;
+  disableAdmin2FA(adminId: string): Promise<AdminUser | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -85,6 +115,9 @@ export class MemStorage implements IStorage {
   private userFavorites: Map<string, UserFavorite>;
   private transactions: Map<string, Transaction>;
   private sessions: Map<string, UserSession>;
+  private adminUsers: Map<string, AdminUser>;
+  private adminSessions: Map<string, AdminSession>;
+  private auditLogs: Map<string, AuditLog>;
 
   constructor() {
     this.users = new Map();
@@ -93,13 +126,23 @@ export class MemStorage implements IStorage {
     this.userFavorites = new Map();
     this.transactions = new Map();
     this.sessions = new Map();
+    this.adminUsers = new Map();
+    this.adminSessions = new Map();
+    this.auditLogs = new Map();
   }
 
   // Create demo account for testing
   async initializeDemoAccount() {
-    // Only create demo account in demo mode
+    // Only create demo account in demo mode - critical security check
     if (process.env.DEMO_MODE !== 'true') {
       return;
+    }
+    
+    // Warn if demo mode is enabled in production-like environments
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('⚠️  WARNING: DEMO_MODE is enabled in production environment! This is a security risk.');
+      console.warn('⚠️  Demo accounts should never be available in production.');
+      return; // Don't create demo accounts in production
     }
     
     try {
@@ -111,28 +154,49 @@ export class MemStorage implements IStorage {
       const existingUser = await this.getUserByUsername(demoUsername);
       if (existingUser) {
         console.log('Demo account already exists');
+      } else {
+        // Hash password the same way as registration
+        const hashedPassword = await bcrypt.hash(demoPassword, 12);
+        
+        // Create demo user
+        const demoUser = await this.createUser({
+          username: demoUsername,
+          email: demoEmail,
+          password: hashedPassword,
+          firstName: "Demo",
+          lastName: "User"
+        });
+        
+        // Give demo user initial balance of £500 (50000 cents)
+        await this.updateUserBalance(demoUser.id, 50000);
+        
+        // Security: Never log credentials in plaintext
+        console.log('Demo account created successfully with initial balance');
+      }
+      
+      // Create demo admin account
+      const adminUsername = "admin";
+      const adminPassword = "admin123456"; // Strong password for admin
+      const adminEmail = "admin@primestake.com";
+      
+      // Check if demo admin already exists
+      const existingAdmin = await this.getAdminUserByUsername(adminUsername);
+      if (existingAdmin) {
+        console.log('Demo admin account already exists');
         return;
       }
       
-      // Hash password the same way as registration
-      const hashedPassword = await bcrypt.hash(demoPassword, 12);
-      
-      // Create demo user
-      const demoUser = await this.createUser({
-        username: demoUsername,
-        email: demoEmail,
-        password: hashedPassword,
-        firstName: "Demo",
-        lastName: "User"
+      // Create demo admin user
+      const demoAdmin = await this.createAdminUser({
+        username: adminUsername,
+        email: adminEmail,
+        password: adminPassword,
+        role: 'admin'
       });
       
-      // Give demo user initial balance of £500 (50000 cents)
-      await this.updateUserBalance(demoUser.id, 50000);
-      
-      // Never log the password in plaintext - security issue
-      console.log('Demo account created: username="demo", balance=£500');
+      console.log('Demo admin account created successfully');
     } catch (error) {
-      console.error('Failed to create demo account:', error);
+      console.error('Failed to create demo accounts:', error);
     }
   }
 
@@ -459,6 +523,205 @@ export class MemStorage implements IStorage {
   // Settlement operations
   async getPendingBets(): Promise<Bet[]> {
     return Array.from(this.bets.values()).filter(bet => bet.status === 'pending');
+  }
+
+  // Admin operations
+  async getAdminUser(id: string): Promise<AdminUser | undefined> {
+    return this.adminUsers.get(id);
+  }
+
+  async getAdminUserByUsername(username: string): Promise<AdminUser | undefined> {
+    return Array.from(this.adminUsers.values()).find(
+      (admin) => admin.username === username
+    );
+  }
+
+  async getAdminUserByEmail(email: string): Promise<AdminUser | undefined> {
+    return Array.from(this.adminUsers.values()).find(
+      (admin) => admin.email === email
+    );
+  }
+
+  async createAdminUser(insertAdmin: InsertAdminUser): Promise<AdminUser> {
+    const id = randomUUID();
+    const now = new Date();
+    
+    // Hash password with Argon2
+    const passwordHash = await argon2.hash(insertAdmin.password || '', {
+      type: argon2.argon2id,
+      memoryCost: 2 ** 16,
+      timeCost: 3,
+      parallelism: 1,
+    });
+    
+    const admin: AdminUser = {
+      id,
+      username: insertAdmin.username,
+      email: insertAdmin.email,
+      passwordHash,
+      role: insertAdmin.role || 'support',
+      totpSecret: insertAdmin.totpSecret || null,
+      isActive: true,
+      lastLogin: null,
+      loginAttempts: 0,
+      lockedUntil: null,
+      ipWhitelist: insertAdmin.ipWhitelist || null,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: null
+    };
+    
+    this.adminUsers.set(id, admin);
+    return admin;
+  }
+
+  async updateAdminUser(adminId: string, updates: Partial<InsertAdminUser>): Promise<AdminUser | undefined> {
+    const admin = this.adminUsers.get(adminId);
+    if (!admin) return undefined;
+    
+    const updatedAdmin = {
+      ...admin,
+      ...updates,
+      id: admin.id, // Ensure ID cannot be changed
+      createdAt: admin.createdAt, // Ensure creation date cannot be changed
+      updatedAt: new Date()
+    };
+    
+    this.adminUsers.set(adminId, updatedAdmin);
+    return updatedAdmin;
+  }
+
+  async updateAdminLoginAttempts(adminId: string, attempts: number, lockedUntil?: Date): Promise<AdminUser | undefined> {
+    const admin = this.adminUsers.get(adminId);
+    if (!admin) return undefined;
+    
+    const updatedAdmin = {
+      ...admin,
+      loginAttempts: attempts,
+      lockedUntil: lockedUntil || null,
+      updatedAt: new Date()
+    };
+    
+    this.adminUsers.set(adminId, updatedAdmin);
+    return updatedAdmin;
+  }
+
+  // Admin session operations
+  async createAdminSession(adminId: string, sessionToken: string, expiresAt: Date, ipAddress?: string, userAgent?: string): Promise<AdminSession> {
+    const id = randomUUID();
+    const now = new Date();
+    
+    const session: AdminSession = {
+      id,
+      adminId,
+      sessionToken,
+      refreshToken: '', // Deprecated - no longer used for security
+      ipAddress: ipAddress || null,
+      userAgent: userAgent || null,
+      twoFactorVerified: false,
+      expiresAt,
+      createdAt: now
+    };
+    
+    this.adminSessions.set(id, session);
+    return session;
+  }
+
+  async getAdminSession(sessionToken: string): Promise<AdminSession | undefined> {
+    return Array.from(this.adminSessions.values())
+      .find(session => session.sessionToken === sessionToken);
+  }
+
+  async updateAdminSession(sessionId: string, updates: Partial<AdminSession>): Promise<AdminSession | undefined> {
+    const session = this.adminSessions.get(sessionId);
+    if (!session) return undefined;
+    
+    const updatedSession = {
+      ...session,
+      ...updates,
+      id: session.id, // Ensure ID cannot be changed
+      createdAt: session.createdAt // Ensure creation date cannot be changed
+    };
+    
+    this.adminSessions.set(sessionId, updatedSession);
+    return updatedSession;
+  }
+
+  async deleteAdminSession(sessionToken: string): Promise<boolean> {
+    const sessions = Array.from(this.adminSessions.entries());
+    const sessionEntry = sessions.find(([_, session]) => 
+      session.sessionToken === sessionToken
+    );
+    
+    if (sessionEntry) {
+      this.adminSessions.delete(sessionEntry[0]);
+      return true;
+    }
+    return false;
+  }
+
+  async deleteAllAdminSessions(adminId: string): Promise<boolean> {
+    let deletedAny = false;
+    const sessions = Array.from(this.adminSessions.entries());
+    
+    for (const [sessionId, session] of sessions) {
+      if (session.adminId === adminId) {
+        this.adminSessions.delete(sessionId);
+        deletedAny = true;
+      }
+    }
+    
+    return deletedAny;
+  }
+
+  // Audit operations
+  async createAuditLog(insertAuditLog: InsertAuditLog): Promise<AuditLog> {
+    const id = randomUUID();
+    const now = new Date();
+    
+    const auditLog: AuditLog = {
+      id,
+      ...insertAuditLog,
+      createdAt: now
+    };
+    
+    this.auditLogs.set(id, auditLog);
+    return auditLog;
+  }
+
+  async getAuditLogs(limit: number = 50, offset: number = 0): Promise<AuditLog[]> {
+    return Array.from(this.auditLogs.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(offset, offset + limit);
+  }
+
+  // 2FA operations
+  async enableAdmin2FA(adminId: string, totpSecret: string): Promise<AdminUser | undefined> {
+    const admin = this.adminUsers.get(adminId);
+    if (!admin) return undefined;
+    
+    const updatedAdmin = {
+      ...admin,
+      totpSecret,
+      updatedAt: new Date()
+    };
+    
+    this.adminUsers.set(adminId, updatedAdmin);
+    return updatedAdmin;
+  }
+
+  async disableAdmin2FA(adminId: string): Promise<AdminUser | undefined> {
+    const admin = this.adminUsers.get(adminId);
+    if (!admin) return undefined;
+    
+    const updatedAdmin = {
+      ...admin,
+      totpSecret: null,
+      updatedAt: new Date()
+    };
+    
+    this.adminUsers.set(adminId, updatedAdmin);
+    return updatedAdmin;
   }
 }
 
