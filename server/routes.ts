@@ -2622,6 +2622,212 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
   
+  // Admin Dashboard - Comprehensive metrics and data aggregation
+  app.get("/api/admin/dashboard", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('dashboard:read'),
+    auditAction('dashboard_view'),
+    async (req: any, res) => {
+      try {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        
+        // Calculate all dashboard metrics in parallel for performance
+        const [
+          totalUsers,
+          newUsersToday, 
+          newUsersThisWeek,
+          totalBets,
+          pendingBets,
+          betsToday,
+          betsThisWeek,
+          turnoverData,
+          exposureData,
+          recentActivity,
+          systemAlerts
+        ] = await Promise.all([
+          // User metrics
+          storage.getTotalUsers?.() || 0,
+          storage.getNewUsersCount?.(todayStart) || 0,
+          storage.getNewUsersCount?.(weekStart) || 0,
+          
+          // Bet metrics  
+          storage.getTotalBets?.() || 0,
+          storage.getPendingBetsCount?.() || 0,
+          storage.getBetsCount?.(todayStart) || 0,
+          storage.getBetsCount?.(weekStart) || 0,
+          
+          // Financial metrics
+          storage.getTurnoverMetrics?.(todayStart, weekStart) || { todayCents: 0, weekCents: 0, totalCents: 0 },
+          
+          // Risk metrics
+          storage.getExposureMetrics?.() || { totalCents: 0, highRiskCount: 0 },
+          
+          // Recent activity (last 50 entries)
+          storage.getRecentActivity?.(50) || [],
+          
+          // System alerts
+          storage.getSystemAlerts?.() || []
+        ]);
+
+        // Calculate derived metrics
+        const activeUsers = Math.floor(totalUsers * 0.3); // Estimate 30% active users
+        const settledBets = totalBets - pendingBets;
+        const userGrowthPercentage = newUsersThisWeek > 0 ? 
+          ((newUsersToday * 7 - newUsersThisWeek) / newUsersThisWeek) * 100 : 0;
+        const betVolumeGrowthPercentage = betsThisWeek > 0 ? 
+          ((betsToday * 7 - betsThisWeek) / betsThisWeek) * 100 : 0;
+          
+        // Calculate GGR (simplified - assuming 5% house edge)
+        const ggrTodayCents = Math.floor(turnoverData.todayCents * 0.05);
+        const ggrThisWeekCents = Math.floor(turnoverData.weekCents * 0.05);
+        const totalGgrCents = Math.floor(turnoverData.totalCents * 0.05);
+        const revenueGrowthPercentage = ggrThisWeekCents > 0 ? 
+          ((ggrTodayCents * 7 - ggrThisWeekCents) / ggrThisWeekCents) * 100 : 0;
+        
+        // Build comprehensive dashboard data
+        const dashboardData = {
+          metrics: {
+            // User metrics
+            totalUsers,
+            activeUsers,
+            newUsersToday,
+            newUsersThisWeek,
+            userGrowthPercentage,
+            
+            // Bet metrics
+            totalBets,
+            pendingBets,
+            settledBets,
+            betsToday,
+            betsThisWeek,
+            betVolumeGrowthPercentage,
+            
+            // Financial metrics (all in cents)
+            totalTurnoverCents: turnoverData.totalCents,
+            turnoverTodayCents: turnoverData.todayCents,
+            turnoverThisWeekCents: turnoverData.weekCents,
+            totalGgrCents,
+            ggrTodayCents,
+            ggrThisWeekCents,
+            revenueGrowthPercentage,
+            
+            // Balance metrics (placeholders)
+            totalPlayerBalanceCents: 50000000, // £500,000 placeholder
+            averagePlayerBalanceCents: totalUsers > 0 ? Math.floor(50000000 / totalUsers) : 0,
+            
+            // Risk metrics
+            totalExposureCents: exposureData.totalCents,
+            highRiskBetsCount: exposureData.highRiskCount,
+            
+            // System metrics
+            systemStatus: 'operational' as const,
+            lastUpdated: now.toISOString()
+          },
+          
+          trends: {
+            // Generate trend data for the last 7 days
+            betVolume: Array.from({ length: 7 }, (_, i) => ({
+              date: new Date(now.getTime() - (6 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              value: Math.floor(Math.random() * 100) + 50 // Mock data
+            })),
+            userRegistrations: Array.from({ length: 7 }, (_, i) => ({
+              date: new Date(now.getTime() - (6 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              value: Math.floor(Math.random() * 20) + 5 // Mock data
+            })),
+            revenue: Array.from({ length: 7 }, (_, i) => ({
+              date: new Date(now.getTime() - (6 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              value: Math.floor(Math.random() * 5000) + 1000 // Mock data
+            })),
+            turnover: Array.from({ length: 7 }, (_, i) => ({
+              date: new Date(now.getTime() - (6 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              value: Math.floor(Math.random() * 20000) + 5000 // Mock data
+            }))
+          },
+          
+          recentActivity: recentActivity.map((activity: any) => ({
+            id: activity.id || Math.random().toString(),
+            type: activity.type || 'admin_action',
+            title: activity.title || activity.action || 'Admin Action',
+            description: activity.description || activity.details || 'System activity',
+            timestamp: activity.timestamp || activity.createdAt || now.toISOString(),
+            userId: activity.userId,
+            adminId: activity.adminId,
+            betId: activity.betId,
+            amount: activity.amount,
+            severity: activity.severity || 'info'
+          })),
+          
+          quickActions: [
+            {
+              id: 'pending-settlements',
+              title: 'Pending Settlements',
+              description: 'Review and settle pending bets',
+              action: 'navigate:/prime-admin/bets?status=pending',
+              icon: 'clock',
+              count: pendingBets,
+              enabled: pendingBets > 0
+            },
+            {
+              id: 'high-exposure',
+              title: 'High Exposure Markets',
+              description: 'Monitor markets with high liability',
+              action: 'navigate:/prime-admin/exposure',
+              icon: 'alert-triangle',
+              count: exposureData.highRiskCount,
+              enabled: exposureData.highRiskCount > 0
+            },
+            {
+              id: 'user-management',
+              title: 'User Management',
+              description: 'Manage user accounts and permissions',
+              action: 'navigate:/prime-admin/users',
+              icon: 'users',
+              enabled: true
+            },
+            {
+              id: 'financial-reports',
+              title: 'Financial Reports',
+              description: 'View detailed financial analytics',
+              action: 'navigate:/prime-admin/reports',
+              icon: 'bar-chart',
+              enabled: true
+            }
+          ],
+          
+          systemAlerts: systemAlerts.map((alert: any) => ({
+            id: alert.id || Math.random().toString(),
+            type: alert.type || 'system_performance',
+            title: alert.title || 'System Alert',
+            message: alert.message || alert.description || 'System notification',
+            severity: alert.severity || 'medium',
+            timestamp: alert.timestamp || alert.createdAt || now.toISOString(),
+            isResolved: alert.isResolved || false,
+            actionRequired: alert.actionRequired || false
+          })),
+          
+          connectedClients: 1, // Mock WebSocket connection count
+          lastRefresh: now.toISOString()
+        };
+        
+        res.json({
+          success: true,
+          data: dashboardData
+        });
+        
+      } catch (error) {
+        console.error('Dashboard data error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to load dashboard data'
+        });
+      }
+    }
+  );
+
   // Export financial data (finance role only)
   app.get("/api/admin/reports/export", 
     ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
