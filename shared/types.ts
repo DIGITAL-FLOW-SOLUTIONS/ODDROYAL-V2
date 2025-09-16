@@ -124,3 +124,143 @@ export interface AdminDashboardData {
   connectedClients: number; // WebSocket connections
   lastRefresh: string;
 }
+
+// Matches and Markets Management Interfaces
+export interface Match {
+  id: string;
+  externalId?: string;
+  leagueId: string;
+  leagueName: string;
+  homeTeamId: string;
+  homeTeamName: string;
+  awayTeamId: string;
+  awayTeamName: string;
+  kickoffTime: string;
+  status: 'scheduled' | 'live' | 'finished' | 'cancelled' | 'postponed';
+  homeScore?: number;
+  awayScore?: number;
+  isManual: boolean;
+  isDeleted: boolean;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  markets?: Market[];
+  marketCount?: number;
+}
+
+export interface Market {
+  id: string;
+  matchId: string;
+  key: string;
+  name: string;
+  type: '1x2' | 'totals' | 'btts' | 'handicap' | 'correct_score' | 'custom';
+  parameter?: string;
+  status: 'open' | 'closed' | 'suspended' | 'settled';
+  minStakeCents: number;
+  maxStakeCents: number;
+  maxLiabilityCents: number;
+  displayOrder: number;
+  isPublished: boolean;
+  isDeleted: boolean;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  outcomes?: MarketOutcome[];
+  margin?: number;
+  totalLiabilityCents?: number;
+}
+
+export interface MarketOutcome {
+  id: string;
+  marketId: string;
+  key: string;
+  label: string;
+  odds: number;
+  previousOdds?: number;
+  oddsSource: 'manual' | 'sportmonks' | 'automated';
+  status: 'active' | 'inactive' | 'won' | 'lost';
+  liabilityLimitCents: number;
+  displayOrder: number;
+  isDeleted: boolean;
+  updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  stakingVolumeCents?: number;
+  liabilityExposureCents?: number;
+}
+
+export interface OddsHistoryEntry {
+  id: string;
+  outcomeId: string;
+  previousOdds?: number;
+  newOdds: number;
+  source: 'manual' | 'sportmonks' | 'automated';
+  reason?: string;
+  changedBy?: string;
+  timestamp: string;
+  changedByUsername?: string;
+}
+
+export interface MatchFilters {
+  search: string;
+  sport: string;
+  status: string;
+  dateFrom: string;
+  dateTo: string;
+  leagueId: string;
+}
+
+export interface MarketTemplate {
+  type: string;
+  name: string;
+  key: string;
+  parameter?: string;
+  outcomes: Array<{
+    key: string;
+    label: string;
+    defaultOdds: number;
+  }>;
+}
+
+export interface MatchResult {
+  homeScore: number;
+  awayScore: number;
+  additionalInfo?: {
+    totalGoals?: number;
+    bothTeamsScored?: boolean;
+    winner?: 'home' | 'away' | 'draw';
+  };
+}
+
+export interface BulkOperationResult {
+  success: boolean;
+  processedCount: number;
+  errorCount: number;
+  errors?: string[];
+  message: string;
+}
+
+export interface MarketMargin {
+  percentage: number;
+  isValid: boolean;
+  recommendedAdjustment?: number;
+}
+
+export interface League {
+  id: string;
+  name: string;
+  sportType: string;
+  country: string;
+  season: string;
+  isActive: boolean;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  country: string;
+  leagueId: string;
+  logoUrl?: string;
+}
