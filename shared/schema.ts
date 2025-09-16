@@ -34,17 +34,34 @@ export const bets = pgTable("bets", {
 // Bet selections - Individual selections within a bet
 export const betSelections = pgTable("bet_selections", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  betId: varchar("bet_id").notNull().references(() => bets.id),
+  betId: varchar("bet_id").notNull().references(() => bets.id, { onDelete: 'cascade' }),
   fixtureId: text("fixture_id").notNull(),
   homeTeam: text("home_team").notNull(),
   awayTeam: text("away_team").notNull(),
   league: text("league").notNull(),
-  market: text("market").notNull(), // '1x2', 'ou', 'btts', etc.
-  selection: text("selection").notNull(), // 'home', 'away', 'draw', 'over', 'under', etc.
+  marketId: varchar("market_id").notNull(), // Foreign key to markets table
+  outcomeId: varchar("outcome_id").notNull(), // Foreign key to marketOutcomes table
+  market: text("market").notNull(), // '1x2', 'ou', 'btts', etc. (kept for backwards compatibility)
+  selection: text("selection").notNull(), // 'home', 'away', 'draw', 'over', 'under', etc. (kept for backwards compatibility)
   odds: decimal("odds", { precision: 8, scale: 4 }).notNull(),
   status: text("status").notNull().default('pending'), // 'pending', 'won', 'lost', 'void'
   result: text("result"), // Final result that determined win/loss
-});
+}, (table) => ({
+  betIdIdx: index("bet_selections_bet_id_idx").on(table.betId),
+  marketIdIdx: index("bet_selections_market_id_idx").on(table.marketId),
+  outcomeIdIdx: index("bet_selections_outcome_id_idx").on(table.outcomeId),
+  statusIdx: index("bet_selections_status_idx").on(table.status),
+  fkMarketId: foreignKey({
+    columns: [table.marketId],
+    foreignColumns: [markets.id],
+    name: 'bet_selections_market_id_fk'
+  }).onDelete('restrict').onUpdate('cascade'),
+  fkOutcomeId: foreignKey({
+    columns: [table.outcomeId],
+    foreignColumns: [marketOutcomes.id],
+    name: 'bet_selections_outcome_id_fk'
+  }).onDelete('restrict').onUpdate('cascade'),
+}));
 
 // User favorites - Teams and matches favorited by users
 export const userFavorites = pgTable("user_favorites", {
@@ -428,6 +445,8 @@ export const exposureSnapshots = pgTable("exposure_snapshots", {
   marketIdIdx: index("exposure_snapshots_market_id_idx").on(table.marketId),
   outcomeIdIdx: index("exposure_snapshots_outcome_id_idx").on(table.outcomeId),
   calculatedAtIdx: index("exposure_snapshots_calculated_at_idx").on(table.calculatedAt),
+  // Unique constraint for proper upsert behavior  
+  uniqConstraint: index("exposure_snapshots_unique").on(table.matchId, table.marketId, table.outcomeId),
 }));
 
 // Audit logs - Immutable log of all admin actions

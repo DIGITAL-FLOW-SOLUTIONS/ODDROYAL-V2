@@ -110,10 +110,10 @@ export class AdminRateLimitManager {
     },
     standardHeaders: true,
     legacyHeaders: false,
-    // Custom key generator to include admin user ID
+    // Custom key generator to include admin user ID with proper IPv6 support
     keyGenerator: (req: Request) => {
       const adminId = req.adminUser?.id || 'anonymous';
-      const ip = req.ip || req.connection.remoteAddress || 'unknown';
+      const ip = ipKeyGenerator(req.ip || req.connection.remoteAddress || 'unknown');
       return `admin:${adminId}:${ip}`;
     },
     skip: (req) => {
@@ -134,7 +134,7 @@ export class AdminRateLimitManager {
     legacyHeaders: false,
     keyGenerator: (req: Request) => {
       const adminId = req.adminUser?.id || 'anonymous';
-      const ip = req.ip || req.connection.remoteAddress || 'unknown';
+      const ip = ipKeyGenerator(req.ip || req.connection.remoteAddress || 'unknown');
       return `admin-strict:${adminId}:${ip}`;
     },
   });
@@ -151,7 +151,8 @@ export class AdminRateLimitManager {
     legacyHeaders: false,
     keyGenerator: (req: Request) => {
       const adminId = req.adminUser?.id || 'anonymous';
-      return `admin-critical:${adminId}`;
+      const ip = ipKeyGenerator(req.ip || req.connection.remoteAddress || 'unknown');
+      return `admin-critical:${adminId}:${ip}`;
     },
   });
 
@@ -163,7 +164,7 @@ export class AdminRateLimitManager {
     maxDelayMs: 5000, // Maximum delay of 5 seconds
     keyGenerator: (req: Request) => {
       const adminId = req.adminUser?.id || 'anonymous';
-      const ip = req.ip || req.connection.remoteAddress || 'unknown';
+      const ip = ipKeyGenerator(req.ip || req.connection.remoteAddress || 'unknown');
       return `admin-delay:${adminId}:${ip}`;
     },
   });

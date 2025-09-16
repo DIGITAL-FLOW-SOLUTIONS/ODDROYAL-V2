@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { settlementWorker } from "./settlement-worker";
+import { exposureEngine } from "./exposure-engine";
 import { storage } from "./storage";
 
 // Enable demo mode for development (this is not a secret, just a feature flag)
@@ -81,5 +82,8 @@ app.use((req, res, next) => {
     
     // Start the bet settlement worker
     settlementWorker.start();
+    
+    // Start exposure calculation engine
+    exposureEngine.start(1); // Update exposure cache every minute
   });
 })();

@@ -1,0 +1,391 @@
+import { db } from './db';
+import { 
+  bets, 
+  betSelections, 
+  exposureSnapshots, 
+  matches, 
+  markets, 
+  marketOutcomes 
+} from '@shared/schema';
+import { eq, and, isNull, sql } from 'drizzle-orm';
+
+/**
+ * Interface for exposure calculation results
+ */
+export interface ExposureResult {
+  outcomeId: string;
+  exposureAmountCents: number;
+  betCount: number;
+  lastUpdated: Date;
+}
+
+export interface MarketExposure {
+  marketId: string;
+  outcomes: ExposureResult[];
+  totalExposureCents: number;
+}
+
+export interface MatchExposure {
+  matchId: string;
+  markets: MarketExposure[];
+  totalExposureCents: number;
+}
+
+/**
+ * Real-time exposure calculation engine
+ * Computes liability for open bets and provides cached snapshots
+ */
+export class ExposureCalculationEngine {
+  private isCalculating = false;
+  private cacheIntervalId: NodeJS.Timeout | null = null;
+
+  /**
+   * Start the exposure calculation engine with periodic cache updates
+   */
+  start(intervalMinutes = 1): void {
+    if (this.cacheIntervalId) {
+      console.log('Exposure calculation engine already running');
+      return;
+    }
+
+    console.log(`Starting exposure calculation engine (updates every ${intervalMinutes} minutes)`);
+    
+    // Run initial calculation
+    this.updateExposureCache().catch(console.error);
+    
+    // Set up periodic updates
+    this.cacheIntervalId = setInterval(() => {
+      this.updateExposureCache().catch(console.error);
+    }, intervalMinutes * 60 * 1000);
+  }
+
+  /**
+   * Stop the exposure calculation engine
+   */
+  stop(): void {
+    if (this.cacheIntervalId) {
+      clearInterval(this.cacheIntervalId);
+      this.cacheIntervalId = null;
+      console.log('Exposure calculation engine stopped');
+    }
+  }
+
+  /**
+   * Calculate real-time exposure for a specific outcome
+   * This is the core algorithm based on the admin panel requirements
+   */
+  async calculateOutcomeExposure(outcomeId: string): Promise<ExposureResult> {
+    try {
+      // Query to calculate exposure based on the algorithm:
+      // For single bets: liability = stake * (odds - 1)
+      // For express bets: liability = (stake * odds_product_of_all_selections - stake) * contributor_share
+      // FIXED: Now using proper foreign key joins instead of string matching
+      const result = await db
+        .select({
+          exposureAmountCents: sql<number>`
+            COALESCE(SUM(
+              CASE 
+                WHEN ${bets.type} = 'single' THEN 
+                  ${bets.totalStake} * (${betSelections.odds} - 1)
+                WHEN ${bets.type} = 'express' THEN 
+                  (${bets.potentialWinnings} - ${bets.totalStake}) * 
+                  (${betSelections.odds} / ${bets.totalOdds})
+                WHEN ${bets.type} = 'system' THEN 
+                  (${bets.potentialWinnings} - ${bets.totalStake}) * 
+                  (${betSelections.odds} / ${bets.totalOdds})
+                ELSE 0
+              END
+            ), 0)
+          `,
+          betCount: sql<number>`COUNT(DISTINCT ${bets.id})`
+        })
+        .from(betSelections)
+        .innerJoin(bets, eq(betSelections.betId, bets.id))
+        .where(
+          and(
+            eq(betSelections.outcomeId, outcomeId), // Direct foreign key join - no more string matching!
+            eq(bets.status, 'pending'),
+            eq(betSelections.status, 'pending')
+          )
+        );
+
+      const exposureData = result[0];
+      
+      return {
+        outcomeId,
+        exposureAmountCents: exposureData?.exposureAmountCents || 0,
+        betCount: exposureData?.betCount || 0,
+        lastUpdated: new Date()
+      };
+    } catch (error) {
+      console.error(`Failed to calculate exposure for outcome ${outcomeId}:`, error);
+      return {
+        outcomeId,
+        exposureAmountCents: 0,
+        betCount: 0,
+        lastUpdated: new Date()
+      };
+    }
+  }
+
+  /**
+   * Calculate exposure for all outcomes in a specific market
+   */
+  async calculateMarketExposure(marketId: string): Promise<MarketExposure> {
+    try {
+      // Get all outcomes for this market
+      const outcomes = await db
+        .select()
+        .from(marketOutcomes)
+        .where(eq(marketOutcomes.marketId, marketId));
+
+      // Calculate exposure for each outcome
+      const exposureResults: ExposureResult[] = [];
+      let totalExposureCents = 0;
+
+      for (const outcome of outcomes) {
+        const exposureResult = await this.calculateOutcomeExposure(outcome.id);
+        exposureResults.push(exposureResult);
+        totalExposureCents += exposureResult.exposureAmountCents;
+      }
+
+      return {
+        marketId,
+        outcomes: exposureResults,
+        totalExposureCents
+      };
+    } catch (error) {
+      console.error(`Failed to calculate market exposure for ${marketId}:`, error);
+      return {
+        marketId,
+        outcomes: [],
+        totalExposureCents: 0
+      };
+    }
+  }
+
+  /**
+   * Calculate exposure for all markets in a specific match
+   */
+  async calculateMatchExposure(matchId: string): Promise<MatchExposure> {
+    try {
+      // Get all markets for this match
+      const matchMarkets = await db
+        .select()
+        .from(markets)
+        .where(eq(markets.matchId, matchId));
+
+      // Calculate exposure for each market
+      const marketExposures: MarketExposure[] = [];
+      let totalExposureCents = 0;
+
+      for (const market of matchMarkets) {
+        const marketExposure = await this.calculateMarketExposure(market.id);
+        marketExposures.push(marketExposure);
+        totalExposureCents += marketExposure.totalExposureCents;
+      }
+
+      return {
+        matchId,
+        markets: marketExposures,
+        totalExposureCents
+      };
+    } catch (error) {
+      console.error(`Failed to calculate match exposure for ${matchId}:`, error);
+      return {
+        matchId,
+        markets: [],
+        totalExposureCents: 0
+      };
+    }
+  }
+
+  /**
+   * Get cached exposure data from snapshots
+   */
+  async getCachedExposure(filters?: {
+    matchId?: string;
+    marketId?: string;
+    outcomeId?: string;
+  }): Promise<ExposureResult[]> {
+    try {
+      let query = db.select().from(exposureSnapshots);
+
+      if (filters) {
+        const conditions = [];
+        if (filters.matchId) {
+          conditions.push(eq(exposureSnapshots.matchId, filters.matchId));
+        }
+        if (filters.marketId) {
+          conditions.push(eq(exposureSnapshots.marketId, filters.marketId));
+        }
+        if (filters.outcomeId) {
+          conditions.push(eq(exposureSnapshots.outcomeId, filters.outcomeId));
+        }
+        
+        if (conditions.length > 0) {
+          query = query.where(and(...conditions));
+        }
+      }
+
+      const snapshots = await query
+        .orderBy(exposureSnapshots.calculatedAt)
+        .execute();
+
+      return snapshots.map((snapshot: any) => ({
+        outcomeId: snapshot.outcomeId || '',
+        exposureAmountCents: snapshot.exposureAmountCents,
+        betCount: snapshot.betCount,
+        lastUpdated: snapshot.calculatedAt
+      }));
+    } catch (error) {
+      console.error('Failed to get cached exposure:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Update exposure cache for all active matches
+   * This runs periodically to maintain performance
+   */
+  private async updateExposureCache(): Promise<void> {
+    if (this.isCalculating) {
+      console.log('Exposure calculation already in progress, skipping');
+      return;
+    }
+
+    this.isCalculating = true;
+    console.log('Updating exposure cache...');
+
+    try {
+      // Get all active matches (not finished)
+      const activeMatches = await db
+        .select()
+        .from(matches)
+        .where(eq(matches.status, 'live'));
+
+      console.log(`Found ${activeMatches.length} active matches for exposure calculation`);
+
+      // Clear old snapshots (older than 1 hour) to prevent table bloat
+      await db
+        .delete(exposureSnapshots)
+        .where(
+          sql`${exposureSnapshots.calculatedAt} < NOW() - INTERVAL '1 hour'`
+        );
+
+      // Calculate and cache exposure for each active match
+      for (const match of activeMatches) {
+        try {
+          const matchExposure = await this.calculateMatchExposure(match.id);
+          
+          // Insert or update snapshots for each outcome using proper upsert
+          for (const market of matchExposure.markets) {
+            for (const outcome of market.outcomes) {
+              if (outcome.exposureAmountCents > 0) {
+                await db
+                  .insert(exposureSnapshots)
+                  .values({
+                    matchId: match.id,
+                    marketId: market.marketId,
+                    outcomeId: outcome.outcomeId,
+                    exposureAmountCents: outcome.exposureAmountCents,
+                    betCount: outcome.betCount,
+                    calculatedAt: new Date()
+                  })
+                  .onConflictDoUpdate({
+                    target: [exposureSnapshots.matchId, exposureSnapshots.marketId, exposureSnapshots.outcomeId],
+                    set: {
+                      exposureAmountCents: outcome.exposureAmountCents,
+                      betCount: outcome.betCount,
+                      calculatedAt: new Date()
+                    }
+                  });
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to update exposure cache for match ${match.id}:`, error);
+        }
+      }
+
+      console.log('Exposure cache update completed');
+    } catch (error) {
+      console.error('Failed to update exposure cache:', error);
+    } finally {
+      this.isCalculating = false;
+    }
+  }
+
+  /**
+   * Get highest exposure matches for admin dashboard
+   */
+  async getHighExposureMatches(limit = 10): Promise<Array<{
+    matchId: string;
+    homeTeam: string;
+    awayTeam: string;
+    league: string;
+    totalExposureCents: number;
+    lastUpdated: Date;
+  }>> {
+    try {
+      const result = await db
+        .select({
+          matchId: exposureSnapshots.matchId,
+          homeTeam: matches.homeTeamName,
+          awayTeam: matches.awayTeamName,
+          league: matches.leagueName,
+          totalExposureCents: sql<number>`SUM(${exposureSnapshots.exposureAmountCents})`,
+          lastUpdated: sql<Date>`MAX(${exposureSnapshots.calculatedAt})`
+        })
+        .from(exposureSnapshots)
+        .innerJoin(matches, eq(exposureSnapshots.matchId, matches.id))
+        .groupBy(
+          exposureSnapshots.matchId,
+          matches.homeTeamName,
+          matches.awayTeamName,
+          matches.leagueName
+        )
+        .orderBy(sql`SUM(${exposureSnapshots.exposureAmountCents}) DESC`)
+        .limit(limit);
+
+      return result;
+    } catch (error) {
+      console.error('Failed to get high exposure matches:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if any market exceeds exposure thresholds
+   * Used for automatic market suspension
+   */
+  async checkExposureThresholds(thresholdCents = 100000): Promise<Array<{
+    marketId: string;
+    outcomeId: string;
+    exposureAmountCents: number;
+    exceedsThreshold: boolean;
+  }>> {
+    try {
+      const result = await db
+        .select({
+          marketId: exposureSnapshots.marketId,
+          outcomeId: exposureSnapshots.outcomeId,
+          exposureAmountCents: exposureSnapshots.exposureAmountCents,
+          exceedsThreshold: sql<boolean>`${exposureSnapshots.exposureAmountCents} > ${thresholdCents}`
+        })
+        .from(exposureSnapshots)
+        .where(
+          sql`${exposureSnapshots.exposureAmountCents} > ${thresholdCents}`
+        )
+        .orderBy(sql`${exposureSnapshots.exposureAmountCents} DESC`);
+
+      return result;
+    } catch (error) {
+      console.error('Failed to check exposure thresholds:', error);
+      return [];
+    }
+  }
+}
+
+// Export singleton instance
+export const exposureEngine = new ExposureCalculationEngine();
