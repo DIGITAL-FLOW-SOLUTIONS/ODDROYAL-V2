@@ -13,9 +13,20 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   const authToken = localStorage.getItem('authToken');
+  const adminAuthToken = localStorage.getItem('adminAuthToken');
+  const csrfToken = localStorage.getItem('adminCSRFToken');
   const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
   
-  if (authToken) {
+  // Use admin token for admin routes, regular token for user routes
+  const isAdminRoute = url.startsWith('/api/admin');
+  if (isAdminRoute && adminAuthToken) {
+    headers['Authorization'] = `Bearer ${adminAuthToken}`;
+    
+    // Add CSRF token for state-changing admin operations
+    if (method !== 'GET' && method !== 'HEAD' && csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+  } else if (!isAdminRoute && authToken) {
     headers['Authorization'] = `Bearer ${authToken}`;
   }
 
@@ -25,6 +36,46 @@ export async function apiRequest(
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+
+  await throwIfResNotOk(res);
+  return res;
+}
+
+// Admin-specific API request function with automatic CSRF token handling
+export async function adminApiRequest(
+  method: string,
+  url: string,
+  data?: unknown | undefined,
+): Promise<Response> {
+  const adminAuthToken = localStorage.getItem('adminAuthToken');
+  const csrfToken = localStorage.getItem('adminCSRFToken');
+  const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
+  
+  if (adminAuthToken) {
+    headers['Authorization'] = `Bearer ${adminAuthToken}`;
+  }
+  
+  // Add CSRF token for state-changing operations
+  if (method !== 'GET' && method !== 'HEAD' && csrfToken) {
+    headers['X-CSRF-Token'] = csrfToken;
+  }
+
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: data ? JSON.stringify(data) : undefined,
+    credentials: "include",
+  });
+
+  // Check for CSRF token errors and try to refresh
+  if (res.status === 403) {
+    const errorData = await res.json().catch(() => null);
+    if (errorData?.error?.includes('CSRF')) {
+      // Clear invalid CSRF token and let the caller handle the retry
+      localStorage.removeItem('adminCSRFToken');
+      throw new Error('CSRF_TOKEN_INVALID');
+    }
+  }
 
   await throwIfResNotOk(res);
   return res;

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, adminApiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 interface AdminUser {
@@ -32,9 +32,11 @@ interface AdminAuthContextType {
   twoFactorVerified: boolean;
   loginPending: boolean;
   requiresTwoFactor: boolean;
+  csrfToken: string | null;
   login: (username: string, password: string, totpCode?: string) => Promise<void>;
   logout: () => void;
   refreshAdmin: () => void;
+  refreshCSRFToken: () => Promise<void>;
   setup2FA: () => Promise<TwoFactorSetup>;
   verify2FA: (secret: string, totpCode: string) => Promise<void>;
   disable2FA: (totpCode: string) => Promise<void>;
@@ -50,10 +52,11 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
   const [admin, setAdmin] = useState<AdminUser | null>(null);
   const [twoFactorVerified, setTwoFactorVerified] = useState<boolean>(false);
   const [requiresTwoFactor, setRequiresTwoFactor] = useState<boolean>(false);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const { toast } = useToast();
   
   // Check if admin is authenticated on app load
-  const { data: adminProfile, isLoading, error } = useQuery<{ admin: AdminUser; twoFactorVerified: boolean }>({
+  const { data: adminProfile, isLoading, error } = useQuery<{ admin: AdminUser; twoFactorVerified: boolean; csrfToken?: string }>({
     queryKey: ['/api/admin/auth/me'],
     enabled: !!localStorage.getItem('adminAuthToken'),
     retry: false,
@@ -79,7 +82,20 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
       }
       
       const result = await res.json();
-      return result.success ? result.data : null;
+      
+      // Extract CSRF token from response headers or body
+      const csrfTokenFromHeader = res.headers.get('X-CSRF-Token');
+      const csrfTokenFromBody = result.data?.csrfToken;
+      const csrfToken = csrfTokenFromHeader || csrfTokenFromBody;
+      
+      if (csrfToken) {
+        localStorage.setItem('adminCSRFToken', csrfToken);
+      }
+      
+      return result.success ? { 
+        ...result.data, 
+        csrfToken 
+      } : null;
     }
   });
 
@@ -89,20 +105,35 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
       setAdmin(adminProfile.admin);
       setTwoFactorVerified(adminProfile.twoFactorVerified);
       setRequiresTwoFactor(false);
+      if (adminProfile.csrfToken) {
+        setCsrfToken(adminProfile.csrfToken);
+      }
     } else if (adminProfile === null && !isLoading) {
-      // If auth returns null (401/unauthenticated), clear the token and admin
+      // If auth returns null (401/unauthenticated), clear all tokens and admin state
       localStorage.removeItem('adminAuthToken');
+      localStorage.removeItem('adminCSRFToken');
       setAdmin(null);
       setTwoFactorVerified(false);
       setRequiresTwoFactor(false);
+      setCsrfToken(null);
     } else if (error) {
-      // If there's a network error or other error, clear the token and admin
+      // If there's a network error or other error, clear all tokens and admin state
       localStorage.removeItem('adminAuthToken');
+      localStorage.removeItem('adminCSRFToken');
       setAdmin(null);
       setTwoFactorVerified(false);
       setRequiresTwoFactor(false);
+      setCsrfToken(null);
     }
   }, [adminProfile, error, isLoading]);
+  
+  // Initialize CSRF token from localStorage on component mount
+  useEffect(() => {
+    const storedCsrfToken = localStorage.getItem('adminCSRFToken');
+    if (storedCsrfToken) {
+      setCsrfToken(storedCsrfToken);
+    }
+  }, []);
 
   const loginMutation = useMutation({
     mutationFn: async ({ username, password, totpCode }: { username: string; password: string; totpCode?: string }) => {
@@ -144,24 +175,59 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
     }
   });
 
+  // CSRF token refresh function
+  const refreshCSRFToken = async () => {
+    try {
+      const adminAuthToken = localStorage.getItem('adminAuthToken');
+      if (!adminAuthToken) {
+        throw new Error('No admin authentication token');
+      }
+
+      const response = await fetch('/api/admin/csrf-token', {
+        credentials: "include",
+        headers: {
+          'Authorization': `Bearer ${adminAuthToken}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to refresh CSRF token');
+      }
+
+      const result = await response.json();
+      const csrfTokenFromHeader = response.headers.get('X-CSRF-Token');
+      const csrfTokenFromBody = result.data?.csrfToken;
+      const newCsrfToken = csrfTokenFromHeader || csrfTokenFromBody;
+
+      if (newCsrfToken) {
+        localStorage.setItem('adminCSRFToken', newCsrfToken);
+        setCsrfToken(newCsrfToken);
+        return newCsrfToken;
+      }
+
+      throw new Error('No CSRF token received');
+    } catch (error) {
+      console.error('CSRF token refresh failed:', error);
+      throw error;
+    }
+  };
+
   const logoutMutation = useMutation({
     mutationFn: async () => {
       const adminAuthToken = localStorage.getItem('adminAuthToken');
       if (adminAuthToken) {
-        const response = await apiRequest('POST', '/api/admin/auth/logout', {}, {
-          headers: {
-            'Authorization': `Bearer ${adminAuthToken}`
-          }
-        });
+        const response = await adminApiRequest('POST', '/api/admin/auth/logout');
         // Don't throw on error, just clear local state
         return response;
       }
     },
     onSuccess: () => {
       localStorage.removeItem('adminAuthToken');
+      localStorage.removeItem('adminCSRFToken');
       setAdmin(null);
       setTwoFactorVerified(false);
       setRequiresTwoFactor(false);
+      setCsrfToken(null);
       queryClient.invalidateQueries({ queryKey: ['/api/admin/auth/me'] });
       queryClient.clear(); // Clear all cached data on logout
       toast({
@@ -172,9 +238,11 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
     onError: () => {
       // Even if logout API fails, clear local state
       localStorage.removeItem('adminAuthToken');
+      localStorage.removeItem('adminCSRFToken');
       setAdmin(null);
       setTwoFactorVerified(false);
       setRequiresTwoFactor(false);
+      setCsrfToken(null);
       queryClient.clear();
     }
   });
@@ -314,9 +382,11 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
     twoFactorVerified,
     loginPending: loginMutation.isPending,
     requiresTwoFactor,
+    csrfToken,
     login,
     logout,
     refreshAdmin,
+    refreshCSRFToken,
     setup2FA,
     verify2FA,
     disable2FA

@@ -34,6 +34,14 @@ import {
   requireSuperadmin,
   requireAdminLevel
 } from './rbac-middleware';
+import {
+  SecurityMiddlewareOrchestrator,
+  CSRFProtectionManager,
+  AdminRateLimitManager,
+  RequestValidationManager,
+  SecurityMonitoringManager,
+  createSecurityHeadersMiddleware
+} from './security-middleware';
 import argon2 from "argon2";
 import speakeasy from "speakeasy";
 import qrcode from "qrcode";
@@ -956,8 +964,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ADMIN AUTHENTICATION ROUTES
   // =====================================
   
+  // CSRF Token endpoint for admin users
+  app.get("/api/admin/csrf-token", ...SecurityMiddlewareOrchestrator.getCSRFProvisionMiddleware(), authenticateAdmin, async (req: any, res) => {
+    try {
+      // CSRF token is automatically added to response by CSRFProtectionManager.provideCSRFToken middleware
+      res.json({
+        success: true,
+        message: 'CSRF token provided in response'
+      });
+    } catch (error) {
+      console.error('CSRF token error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate CSRF token'
+      });
+    }
+  });
+  
   // Admin Login
-  app.post("/api/admin/auth/login", adminRateLimit, auditAction('admin_login_attempt'), async (req, res) => {
+  app.post("/api/admin/auth/login", ...SecurityMiddlewareOrchestrator.getAuthMiddleware(), adminRateLimit, auditAction('admin_login_attempt'), async (req, res) => {
     try {
       const validatedData = loginAdminSchema.parse(req.body);
       
@@ -1085,13 +1110,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Admin Logout
-  app.post("/api/admin/auth/logout", authenticateAdmin, auditAction('admin_logout'), async (req: any, res) => {
+  app.post("/api/admin/auth/logout", ...SecurityMiddlewareOrchestrator.getAuthMiddleware(), authenticateAdmin, auditAction('admin_logout'), async (req: any, res) => {
     try {
       const authHeader = req.headers.authorization;
       const sessionToken = authHeader?.replace('Bearer ', '');
       
       if (sessionToken) {
         await storage.deleteAdminSession(sessionToken);
+        
+        // Clear CSRF token for the admin user
+        if (req.adminUser?.id) {
+          CSRFProtectionManager.clearCSRFToken(req.adminUser.id);
+        }
       }
       
       res.json({
@@ -1109,7 +1139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get Current Admin User
-  app.get("/api/admin/auth/me", authenticateAdmin, async (req: any, res) => {
+  app.get("/api/admin/auth/me", ...SecurityMiddlewareOrchestrator.getCSRFProvisionMiddleware(), authenticateAdmin, async (req: any, res) => {
     try {
       const adminUser = await storage.getAdminUser(req.adminUser.id);
       if (!adminUser) {
@@ -1325,7 +1355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   // Get current admin's permissions
-  app.get("/api/admin/rbac/permissions", authenticateAdmin, async (req: any, res) => {
+  app.get("/api/admin/rbac/permissions", ...SecurityMiddlewareOrchestrator.getStandardMiddleware(), authenticateAdmin, async (req: any, res) => {
     try {
       const { rolePermissions } = await import('@shared/schema');
       const adminRole = req.adminUser.role;
@@ -1349,7 +1379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all available roles and their permissions (superadmin only)
-  app.get("/api/admin/rbac/roles", authenticateAdmin, requireSuperadmin(), auditAction('rbac_roles_view'), async (req: any, res) => {
+  app.get("/api/admin/rbac/roles", ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), authenticateAdmin, requireSuperadmin(), auditAction('rbac_roles_view'), async (req: any, res) => {
     try {
       const { rolePermissions, AdminRoles } = await import('@shared/schema');
       
@@ -1373,7 +1403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // List admin users with roles (admin+ only)
-  app.get("/api/admin/users", authenticateAdmin, requireAdminLevel(), auditAction('admin_users_view'), async (req: any, res) => {
+  app.get("/api/admin/users", ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), authenticateAdmin, requireAdminLevel(), auditAction('admin_users_view'), async (req: any, res) => {
     try {
       const { limit = 50, offset = 0, role, search, isActive } = req.query;
       
@@ -1420,6 +1450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Update admin user role (superadmin only)
   app.patch("/api/admin/users/:id/role", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
     authenticateAdmin, 
     requireSuperadmin(), 
     require2FA, 
@@ -1524,7 +1555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ===================== PROTECTED ADMIN BUSINESS ENDPOINTS =====================
   
   // Dashboard data (all authenticated admins)
-  app.get("/api/admin/dashboard", authenticateAdmin, requirePermission('dashboard:read'), async (req: any, res) => {
+  app.get("/api/admin/dashboard", ...SecurityMiddlewareOrchestrator.getStandardMiddleware(), authenticateAdmin, requirePermission('dashboard:read'), async (req: any, res) => {
     try {
       // Get basic dashboard metrics
       const totalUsers = Array.from((await storage as any).users.values()).length;
@@ -1555,7 +1586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bet management endpoints
-  app.get("/api/admin/bets", authenticateAdmin, requirePermission('bets:read'), async (req: any, res) => {
+  app.get("/api/admin/bets", ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), authenticateAdmin, requirePermission('bets:read'), async (req: any, res) => {
     try {
       const { limit = 50, offset = 0, status, userId } = req.query;
       const pendingBets = await storage.getPendingBets();
@@ -1578,6 +1609,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/admin/bets/:id/settle", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
     authenticateAdmin, 
     requirePermission('bets:settle'), 
     auditAction('bet_settlement', (req) => ({ 
@@ -1617,7 +1649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // User management endpoints  
-  app.get("/api/admin/customers", authenticateAdmin, requirePermission('users:read'), async (req: any, res) => {
+  app.get("/api/admin/customers", ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), authenticateAdmin, requirePermission('users:read'), async (req: any, res) => {
     try {
       const { limit = 50, offset = 0, search, isActive } = req.query;
       
@@ -1666,6 +1698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/admin/customers/:id/status", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
     authenticateAdmin, 
     requirePermission('users:block'),
     auditAction('user_status_change', (req) => ({ 
@@ -1708,6 +1741,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Financial operations
   app.patch("/api/admin/customers/:id/balance", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
     authenticateAdmin, 
     requirePermission('users:wallet:adjust'),
     require2FA,
@@ -1771,6 +1805,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Audit logs endpoint
   app.get("/api/admin/audit", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
     authenticateAdmin, 
     requirePermission('audit:read'),
     async (req: any, res) => {
