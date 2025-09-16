@@ -122,13 +122,26 @@ function AdminRouter() {
         </AdminAuthGuard>
       </Route>
       
-      <Route path="/prime-admin/admin-users">
+      <Route path="/prime-admin/settlement">
         <AdminAuthGuard>
           <AdminLayout>
             <div className="p-6">
-              <h1 className="text-2xl font-bold mb-4">Admin Users</h1>
+              <h1 className="text-2xl font-bold mb-4">Settlement Control & Reconciliation</h1>
               <p className="text-muted-foreground">
-                Admin user management interface coming soon...
+                Settlement control and reconciliation interface coming soon...
+              </p>
+            </div>
+          </AdminLayout>
+        </AdminAuthGuard>
+      </Route>
+      
+      <Route path="/prime-admin/security">
+        <AdminAuthGuard>
+          <AdminLayout>
+            <div className="p-6">
+              <h1 className="text-2xl font-bold mb-4">Security & Access</h1>
+              <p className="text-muted-foreground">
+                Security and access management interface coming soon...
               </p>
             </div>
           </AdminLayout>

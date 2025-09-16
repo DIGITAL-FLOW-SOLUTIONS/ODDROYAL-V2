@@ -16,6 +16,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { 
+  Breadcrumb, 
+  BreadcrumbItem, 
+  BreadcrumbLink, 
+  BreadcrumbList, 
+  BreadcrumbPage, 
+  BreadcrumbSeparator 
+} from "@/components/ui/breadcrumb";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { useTheme } from "@/components/ThemeProvider";
 import { 
@@ -92,9 +100,21 @@ const adminMenuItems = [
     permission: "audit:read"
   },
   {
+    title: "Settlement",
+    url: "/prime-admin/settlement",
+    icon: FileText,
+    permission: "bets:settle"
+  },
+  {
     title: "Settings",
     url: "/prime-admin/settings",
     icon: Settings,
+    permission: "dashboard:read"
+  },
+  {
+    title: "Security & Access",
+    url: "/prime-admin/security",
+    icon: Shield,
     permission: "dashboard:read"
   }
 ];
@@ -155,6 +175,79 @@ function ThemeToggle() {
         <Sun className="h-4 w-4" />
       )}
     </Button>
+  );
+}
+
+// Breadcrumb navigation component
+function AdminBreadcrumbs() {
+  const [location] = useLocation();
+  
+  // Define breadcrumb paths and labels
+  const breadcrumbMap: Record<string, { label: string; href?: string }> = {
+    '/prime-admin': { label: 'Dashboard' },
+    '/prime-admin/users': { label: 'User Management' },
+    '/prime-admin/bets': { label: 'Bet Management' },
+    '/prime-admin/matches': { label: 'Matches & Markets' },
+    '/prime-admin/exposure': { label: 'Risk & Exposure' },
+    '/prime-admin/promotions': { label: 'Promotions' },
+    '/prime-admin/reports': { label: 'Financial Reports' },
+    '/prime-admin/audit': { label: 'Audit Logs' },
+    '/prime-admin/settlement': { label: 'Settlement Control' },
+    '/prime-admin/settings': { label: 'Settings' },
+    '/prime-admin/security': { label: 'Security & Access' },
+  };
+
+  // Parse current path to build breadcrumbs
+  const buildBreadcrumbs = () => {
+    const segments = location.split('/').filter(Boolean);
+    const breadcrumbs = [{ label: 'Admin Panel', href: '/prime-admin' }];
+    
+    let currentPath = '';
+    segments.forEach((segment, index) => {
+      currentPath += `/${segment}`;
+      
+      // Skip first segment (prime-admin) as it's the root
+      if (index === 0) return;
+      
+      const breadcrumb = breadcrumbMap[currentPath];
+      if (breadcrumb) {
+        breadcrumbs.push({
+          label: breadcrumb.label,
+          href: index === segments.length - 1 ? undefined : currentPath
+        });
+      }
+    });
+    
+    return breadcrumbs;
+  };
+
+  const breadcrumbs = buildBreadcrumbs();
+
+  if (breadcrumbs.length <= 1) {
+    return null; // Don't show breadcrumbs for root page
+  }
+
+  return (
+    <Breadcrumb>
+      <BreadcrumbList>
+        {breadcrumbs.map((crumb, index) => (
+          <div key={crumb.href || crumb.label} className="flex items-center">
+            {index > 0 && <BreadcrumbSeparator />}
+            <BreadcrumbItem>
+              {crumb.href ? (
+                <BreadcrumbLink href={crumb.href} className="text-sm">
+                  {crumb.label}
+                </BreadcrumbLink>
+              ) : (
+                <BreadcrumbPage className="text-sm font-medium">
+                  {crumb.label}
+                </BreadcrumbPage>
+              )}
+            </BreadcrumbItem>
+          </div>
+        ))}
+      </BreadcrumbList>
+    </Breadcrumb>
   );
 }
 
@@ -283,24 +376,31 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
         <div className="flex flex-col flex-1">
           {/* Admin Header */}
-          <header className="flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger data-testid="button-admin-sidebar-toggle" />
-              <div className="hidden md:block">
-                <h1 className="text-xl font-semibold">Admin Panel</h1>
-                <p className="text-sm text-muted-foreground">
-                  Welcome back, {admin.username}
-                </p>
+          <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-4">
+                <SidebarTrigger data-testid="button-admin-sidebar-toggle" />
+                <div className="hidden md:block">
+                  <h1 className="text-xl font-semibold">Admin Panel</h1>
+                  <p className="text-sm text-muted-foreground">
+                    Welcome back, {admin.username}
+                  </p>
+                </div>
+              </div>
+            
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                {!twoFactorVerified && admin.totpSecret && (
+                  <Badge variant="destructive" className="text-xs">
+                    2FA Required
+                  </Badge>
+                )}
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              {!twoFactorVerified && admin.totpSecret && (
-                <Badge variant="destructive" className="text-xs">
-                  2FA Required
-                </Badge>
-              )}
+            {/* Breadcrumb Navigation */}
+            <div className="px-4 pb-3 border-b">
+              <AdminBreadcrumbs />
             </div>
           </header>
 
