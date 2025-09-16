@@ -1,0 +1,66 @@
+## 3) Routing & pages to implement (admin UI)
+Implement these pages under `/prime-admin` with nested navigation and breadcrumbs:
+
+1. **Dashboard (overview)**  
+   - Widgets: Real-time open bets count, daily turnover, GGR, live exposure heatmap (top markets), system alerts, recent admin actions.
+   - Live stream: recent bets & highest liability events.
+
+2. **Matches & Markets (Catalog)**  
+   - List + Search + Filters (date, league, manual vs. feed).  
+   - Actions: Create match, Edit match, Delete (soft-delete), Import from SportMonks, Sync with SportMonks.  
+   - For each match: open Markets management UI (see Market Editor below).
+
+3. **Market Editor (per match)**  
+   - Create / Edit market categories (1X2, Totals, Handicap, Correct Score, Asian lines, Custom props).  
+   - For each market outcome: set odd (decimal), status (open/closed/suspended/void), limit min/max stake, max liability per user & per market.  
+   - Bulk upload odds CSV and a UI to edit odds inline (spreadsheet-like).  
+   - “Publish” / “Unpublish” toggle to push to live.
+
+4. **Risk / Exposure**  
+   - Real-time exposure calculator: for selected match/market compute total liability (sum of potential payouts for open bets).  
+   - Filter by market, bookmaker (if used), or user segment.  
+   - Show exposure per selection (how much the book would lose if that outcome wins).  
+   - Allow temporary market limits or suspension if exposure > threshold.
+
+5. **Bet Management**  
+   - View and filter bets (open/pending/settled/refunded).  
+   - Drill-down: bet details, selections, stake, odds at placement, current status.  
+   - Actions: Force-settle (win/lose/void), manual payout, refund, reverse bet. Must require confirm + audit reason + 2FA for force actions.
+
+6. **Settlement Control & Reconciliation**  
+   - Manual and automated settlement options.  
+   - Show reconciliation view: unsettled bets vs. external results, mismatches, and ability to reprocess.  
+   - Export settlement reports (CSV/PDF).
+
+
+7. **User Management**  
+   - Full user list, search, filter, profile view.  
+   - Actions: Freeze account, Ban/unban, Adjust wallet balance (credit/debit with reason), View transaction history, Impose custom limits. 
+
+8. **Promotions & Bonus Engine**  
+   - Create / Edit promotions: free bet, deposit match, cashback, accumulator boosts.  
+   - Scheduling: start/end dates, per-user segmentation, promo code creation.  
+   - Apply promotion to user or groups.  
+   - Track promo redemptions and ROI.
+
+9. **Financials & Reporting**  
+    - Reports: Turnover, Stakes, Payouts, Gross Gaming Revenue (GGR), Net Revenue, Commission, Taxable Revenue — filterable by date range & product.  
+    - Daily/weekly/monthly exports.  
+    - Ledger & audit trail for every monetary transaction.  
+    - CSV/Excel export and scheduled email reports.
+
+10. **Audit Logs & Admin Activity**  
+    - Immutable audit log for: odds changes, bet settlements, manual payouts, user blocks, admin logins.  
+    - Searchable by admin user, action type, date.  
+    - Each log row includes before/after snapshot.
+
+11. **Settings & Config**  
+    - Risk thresholds, global min/max stake, currency config, timezone.  
+    - Integration keys (SportMonks, payment providers), with masked display and rotation instructions.  
+    - IP allowlist for admin UI and optional 2FA enforcement toggles.
+
+12. **Security & Access**  
+    - Admin user management, role assignment.  
+    - 2FA setup (TOTP) during admin account creation.  
+    - IP whitelist option per role.  
+    - Session management: invalidate sessions, view active sessions.
