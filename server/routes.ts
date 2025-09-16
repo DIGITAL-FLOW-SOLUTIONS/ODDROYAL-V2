@@ -1554,19 +1554,293 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard data (all authenticated admins)
   app.get("/api/admin/dashboard", ...SecurityMiddlewareOrchestrator.getStandardMiddleware(), authenticateAdmin, requirePermission('dashboard:read'), async (req: any, res) => {
     try {
-      // Get basic dashboard metrics
-      const totalUsers = Array.from((await storage as any).users.values()).length;
-      const pendingBets = await storage.getPendingBets();
-      const totalPendingBets = pendingBets.length;
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const twoWeeksAgo = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
+      
+      // Get all data from storage
+      const allUsers = Array.from((storage as any).users.values());
+      const allBets = Array.from((storage as any).bets.values());
+      const allTransactions = Array.from((storage as any).transactions.values());
+      const auditLogs = await storage.getAuditLogs(20);
+      
+      // User metrics
+      const totalUsers = allUsers.length;
+      const activeUsers = allUsers.filter(user => user.isActive).length;
+      const newUsersToday = allUsers.filter(user => new Date(user.createdAt) >= today).length;
+      const newUsersThisWeek = allUsers.filter(user => new Date(user.createdAt) >= weekAgo).length;
+      const newUsersLastWeek = allUsers.filter(user => {
+        const created = new Date(user.createdAt);
+        return created >= twoWeeksAgo && created < weekAgo;
+      }).length;
+      const userGrowthPercentage = newUsersLastWeek > 0 ? 
+        ((newUsersThisWeek - newUsersLastWeek) / newUsersLastWeek) * 100 : 0;
+      
+      // Bet metrics
+      const totalBets = allBets.length;
+      const pendingBets = allBets.filter(bet => bet.status === 'pending');
+      const settledBets = allBets.filter(bet => bet.status !== 'pending');
+      const betsToday = allBets.filter(bet => new Date(bet.placedAt) >= today).length;
+      const betsThisWeek = allBets.filter(bet => new Date(bet.placedAt) >= weekAgo).length;
+      const betsLastWeek = allBets.filter(bet => {
+        const placed = new Date(bet.placedAt);
+        return placed >= twoWeeksAgo && placed < weekAgo;
+      }).length;
+      const betVolumeGrowthPercentage = betsLastWeek > 0 ? 
+        ((betsThisWeek - betsLastWeek) / betsLastWeek) * 100 : 0;
+      
+      // Financial metrics
+      const totalTurnoverCents = allBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+      const turnoverTodayCents = allBets
+        .filter(bet => new Date(bet.placedAt) >= today)
+        .reduce((sum, bet) => sum + bet.totalStake, 0);
+      const turnoverThisWeekCents = allBets
+        .filter(bet => new Date(bet.placedAt) >= weekAgo)
+        .reduce((sum, bet) => sum + bet.totalStake, 0);
+      const turnoverLastWeekCents = allBets
+        .filter(bet => {
+          const placed = new Date(bet.placedAt);
+          return placed >= twoWeeksAgo && placed < weekAgo;
+        })
+        .reduce((sum, bet) => sum + bet.totalStake, 0);
+      
+      const totalWinningsCents = settledBets
+        .filter(bet => bet.status === 'won')
+        .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
+      const totalGgrCents = totalTurnoverCents - totalWinningsCents;
+      
+      const ggrTodayCents = allBets
+        .filter(bet => new Date(bet.placedAt) >= today && bet.status !== 'pending')
+        .reduce((sum, bet) => {
+          const stake = bet.totalStake;
+          const winnings = bet.status === 'won' ? (bet.actualWinnings || 0) : 0;
+          return sum + (stake - winnings);
+        }, 0);
+      
+      const ggrThisWeekCents = allBets
+        .filter(bet => new Date(bet.placedAt) >= weekAgo && bet.status !== 'pending')
+        .reduce((sum, bet) => {
+          const stake = bet.totalStake;
+          const winnings = bet.status === 'won' ? (bet.actualWinnings || 0) : 0;
+          return sum + (stake - winnings);
+        }, 0);
+      
+      const ggrLastWeekCents = allBets
+        .filter(bet => {
+          const placed = new Date(bet.placedAt);
+          return placed >= twoWeeksAgo && placed < weekAgo && bet.status !== 'pending';
+        })
+        .reduce((sum, bet) => {
+          const stake = bet.totalStake;
+          const winnings = bet.status === 'won' ? (bet.actualWinnings || 0) : 0;
+          return sum + (stake - winnings);
+        }, 0);
+      
+      const revenueGrowthPercentage = ggrLastWeekCents > 0 ? 
+        ((ggrThisWeekCents - ggrLastWeekCents) / ggrLastWeekCents) * 100 : 0;
+      
+      // Balance metrics
+      const totalPlayerBalanceCents = allUsers.reduce((sum, user) => sum + user.balance, 0);
+      const averagePlayerBalanceCents = totalUsers > 0 ? totalPlayerBalanceCents / totalUsers : 0;
+      
+      // Risk metrics
+      const totalExposureCents = pendingBets.reduce((sum, bet) => sum + bet.potentialWinnings, 0);
+      const highRiskBetsCount = pendingBets.filter(bet => bet.potentialWinnings > 100000).length; // > £1000
+      
+      // Generate trend data for charts (last 7 days)
+      const trendData = {
+        betVolume: [],
+        userRegistrations: [],
+        revenue: [],
+        turnover: []
+      };
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+        const nextDate = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        const dayBets = allBets.filter(bet => {
+          const placed = new Date(bet.placedAt);
+          return placed >= date && placed < nextDate;
+        });
+        
+        const dayUsers = allUsers.filter(user => {
+          const created = new Date(user.createdAt);
+          return created >= date && created < nextDate;
+        });
+        
+        const dayTurnover = dayBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+        const dayRevenue = dayBets
+          .filter(bet => bet.status !== 'pending')
+          .reduce((sum, bet) => {
+            const stake = bet.totalStake;
+            const winnings = bet.status === 'won' ? (bet.actualWinnings || 0) : 0;
+            return sum + (stake - winnings);
+          }, 0);
+        
+        trendData.betVolume.push({ date: dateStr, value: dayBets.length });
+        trendData.userRegistrations.push({ date: dateStr, value: dayUsers.length });
+        trendData.revenue.push({ date: dateStr, value: dayRevenue });
+        trendData.turnover.push({ date: dateStr, value: dayTurnover });
+      }
+      
+      // Recent activity from audit logs and recent bets
+      const recentActivity = [];
+      
+      // Add recent bets
+      const recentBets = allBets
+        .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime())
+        .slice(0, 5);
+      
+      recentBets.forEach(bet => {
+        recentActivity.push({
+          id: `bet-${bet.id}`,
+          type: 'bet_placed',
+          title: 'New Bet Placed',
+          description: `${bet.type} bet for £${(bet.totalStake / 100).toFixed(2)}`,
+          timestamp: bet.placedAt.toISOString(),
+          userId: bet.userId,
+          betId: bet.id,
+          amount: bet.totalStake,
+          severity: 'info'
+        });
+      });
+      
+      // Add recent user registrations
+      const recentUsers = allUsers
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 3);
+      
+      recentUsers.forEach(user => {
+        recentActivity.push({
+          id: `user-${user.id}`,
+          type: 'user_registered',
+          title: 'New User Registration',
+          description: `User ${user.username} registered`,
+          timestamp: user.createdAt.toISOString(),
+          userId: user.id,
+          severity: 'success'
+        });
+      });
+      
+      // Add audit log entries
+      auditLogs.forEach(log => {
+        recentActivity.push({
+          id: `audit-${log.id}`,
+          type: 'admin_action',
+          title: 'Admin Action',
+          description: log.actionType.replace('_', ' ').toUpperCase(),
+          timestamp: log.timestamp.toISOString(),
+          adminId: log.adminId,
+          severity: 'info'
+        });
+      });
+      
+      // Sort all activity by timestamp
+      recentActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      // Quick actions
+      const quickActions = [
+        {
+          id: 'view-pending-bets',
+          title: 'Pending Bets',
+          description: 'Review and settle pending bets',
+          action: 'navigate:/admin/bets?status=pending',
+          icon: 'Trophy',
+          count: pendingBets.length,
+          enabled: true
+        },
+        {
+          id: 'view-users',
+          title: 'User Management',
+          description: 'Manage user accounts and permissions',
+          action: 'navigate:/admin/users',
+          icon: 'Users',
+          count: totalUsers,
+          enabled: true
+        },
+        {
+          id: 'view-reports',
+          title: 'Financial Reports',
+          description: 'Generate financial and activity reports',
+          action: 'navigate:/admin/reports',
+          icon: 'DollarSign',
+          enabled: true
+        },
+        {
+          id: 'system-health',
+          title: 'System Health',
+          description: 'Monitor system performance and alerts',
+          action: 'navigate:/admin/system',
+          icon: 'Activity',
+          enabled: true
+        }
+      ];
+      
+      // System alerts
+      const systemAlerts = [];
+      
+      if (highRiskBetsCount > 0) {
+        systemAlerts.push({
+          id: 'high-risk-bets',
+          type: 'high_exposure',
+          title: 'High Risk Bets Detected',
+          message: `${highRiskBetsCount} bets with potential payouts over £1,000`,
+          severity: 'medium',
+          timestamp: now.toISOString(),
+          isResolved: false,
+          actionRequired: true
+        });
+      }
+      
+      if (totalExposureCents > 10000000) { // > £100,000
+        systemAlerts.push({
+          id: 'high-exposure',
+          type: 'high_exposure',
+          title: 'High Total Exposure',
+          message: `Total exposure: £${(totalExposureCents / 100).toLocaleString()}`,
+          severity: 'high',
+          timestamp: now.toISOString(),
+          isResolved: false,
+          actionRequired: true
+        });
+      }
       
       const dashboardData = {
         metrics: {
           totalUsers,
-          totalPendingBets,
-          timestamp: new Date()
+          activeUsers,
+          newUsersToday,
+          newUsersThisWeek,
+          userGrowthPercentage: Math.round(userGrowthPercentage * 100) / 100,
+          totalBets,
+          pendingBets: pendingBets.length,
+          settledBets: settledBets.length,
+          betsToday,
+          betsThisWeek,
+          betVolumeGrowthPercentage: Math.round(betVolumeGrowthPercentage * 100) / 100,
+          totalTurnoverCents,
+          turnoverTodayCents,
+          turnoverThisWeekCents,
+          totalGgrCents,
+          ggrTodayCents,
+          ggrThisWeekCents,
+          revenueGrowthPercentage: Math.round(revenueGrowthPercentage * 100) / 100,
+          totalPlayerBalanceCents,
+          averagePlayerBalanceCents: Math.round(averagePlayerBalanceCents),
+          totalExposureCents,
+          highRiskBetsCount,
+          systemStatus: 'operational',
+          lastUpdated: now.toISOString()
         },
-        recentActivity: [],
-        systemStatus: 'operational'
+        trends: trendData,
+        recentActivity: recentActivity.slice(0, 10),
+        quickActions,
+        systemAlerts,
+        connectedClients: (global as any).connectedClients?.size || 0,
+        lastRefresh: now.toISOString()
       };
       
       res.json({
