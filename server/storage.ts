@@ -183,6 +183,282 @@ export interface IStorage {
   updateMarketStatus(marketId: string, status: string): Promise<any>;
   updateOutcomeOdds(outcomeId: string, odds: string): Promise<any>;
   reorderMarkets(matchId: string, marketOrder: string[]): Promise<void>;
+
+  // ===================== MISSING REPORTING METHODS =====================
+  
+  // Daily/Monthly GGR reports
+  getDailyGgrReport(startDate: Date, endDate: Date): Promise<{
+    date: string;
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    grossGamingRevenueCents: number;
+    totalBets: number;
+    activePlayers: number;
+    averageStakeCents: number;
+    winRate: number;
+  }>;
+  
+  getMonthlyGgrReport(startDate: Date, endDate: Date): Promise<{
+    year: number;
+    month: number;
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    grossGamingRevenueCents: number;
+    totalBets: number;
+    activePlayers: number;
+    averageStakeCents: number;
+    highestDayCents: number;
+    lowestDayCents: number;
+    winRate: number;
+    dailyBreakdown: Array<{
+      day: number;
+      stakeCents: number;
+      ggrCents: number;
+      bets: number;
+    }>;
+  }>;
+  
+  // Sport/League turnover reports
+  getTurnoverBySportReport(startDate: Date, endDate: Date, sport?: string, league?: string): Promise<{
+    sports: Array<{
+      sport: string;
+      turnoverCents: number;
+      betCount: number;
+      ggrCents: number;
+    }>;
+    totalTurnoverCents: number;
+    totalBets: number;
+    totalGgrCents: number;
+  }>;
+  
+  // Payout ratio reports
+  getPayoutRatioReport(startDate: Date, endDate: Date): Promise<{
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    payoutRatio: number;
+    betCount: number;
+    winningBets: number;
+    losingBets: number;
+    winRate: number;
+  }>;
+  
+  // Top winners reports
+  getTopWinnersReport(startDate: Date, endDate: Date, limit: number): Promise<{
+    winners: Array<{
+      userId: string;
+      username: string;
+      netWinningsCents: number;
+      betCount: number;
+    }>;
+  }>;
+  
+  // Chargeback reports
+  getChargebackReport(startDate: Date, endDate: Date): Promise<{
+    chargebacks: Array<{
+      id: string;
+      userId: string;
+      username: string;
+      amountCents: number;
+      reason: string;
+      status: string;
+      createdAt: Date;
+    }>;
+    totalAmountCents: number;
+    count: number;
+  }>;
+  
+  // Custom report generation
+  generateCustomReport(params: {
+    reportType: string;
+    dateFrom: Date;
+    dateTo: Date;
+    filters?: any;
+    groupBy?: string;
+    metrics?: string[];
+  }): Promise<{
+    title: string;
+    data: any[];
+    summary: any;
+    generatedAt: Date;
+  }>;
+  
+  // Export report data
+  exportReportData(params: {
+    reportType: string;
+    format: 'csv' | 'excel' | 'json';
+    dateFrom: Date;
+    dateTo: Date;
+    filters?: any;
+  }): Promise<string>;
+  
+  // Scheduled reports
+  createScheduledReport(report: {
+    name: string;
+    reportType: string;
+    frequency: 'daily' | 'weekly' | 'monthly';
+    recipients: string[];
+    filters?: any;
+    format?: 'csv' | 'excel' | 'pdf';
+  }): Promise<any>;
+  
+  // ===================== MISSING DASHBOARD METHODS =====================
+  
+  // Dashboard alerts
+  getDashboardAlerts(): Promise<Array<{
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    timestamp: Date;
+    isResolved: boolean;
+    actionRequired: boolean;
+  }>>;
+  
+  resolveAlert(alertId: string, adminId: string): Promise<{
+    success: boolean;
+    message: string;
+  }>;
+  
+  // Notification settings
+  updateNotificationSettings(settings: {
+    emailSettings: any;
+    slackSettings: any;
+    webhookSettings: any;
+    alertThresholds: any;
+    updatedBy: string;
+    updatedAt: Date;
+  }): Promise<any>;
+  
+  // Dashboard metrics
+  getTotalUsers(): Promise<number>;
+  getNewUsersCount(since: Date): Promise<number>;
+  getTotalBets(): Promise<number>;
+  getPendingBetsCount(): Promise<number>;
+  getBetsCount(since: Date): Promise<number>;
+  getTurnoverMetrics(todayStart: Date, weekStart: Date): Promise<{
+    todayCents: number;
+    weekCents: number;
+    totalCents: number;
+  }>;
+  getExposureMetrics(): Promise<{
+    totalCents: number;
+    highRiskCount: number;
+  }>;
+  getRecentActivity(limit: number): Promise<Array<{
+    id: string;
+    type: string;
+    title?: string;
+    description?: string;
+    action?: string;
+    details?: string;
+    timestamp?: Date;
+    createdAt: Date;
+    userId?: string;
+    adminId?: string;
+    betId?: string;
+    amount?: number;
+    severity?: string;
+  }>>;
+  getSystemAlerts(): Promise<Array<{
+    id: string;
+    type: string;
+    title: string;
+    message?: string;
+    description?: string;
+    severity: string;
+    timestamp?: Date;
+    createdAt: Date;
+    isResolved: boolean;
+    actionRequired: boolean;
+  }>>;
+  
+  // ===================== MISSING MATCH/MARKET METHODS =====================
+  
+  getAllMatches(params?: {
+    search?: string;
+    status?: string;
+    sport?: string;
+    league?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    matches: any[];
+    total: number;
+  }>;
+  
+  createMarketOutcome(outcome: {
+    marketId: string;
+    name: string;
+    odds: string;
+    isActive: boolean;
+  }): Promise<any>;
+  
+  updateMarketOutcomeOdds(outcomeId: string, odds: string): Promise<any>;
+  
+  // ===================== MISSING USER METHODS =====================
+  
+  searchUsersData(params: {
+    query?: string;
+    isActive?: boolean;
+    dateFrom?: Date;
+    dateTo?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    users: any[];
+    total: number;
+  }>;
+  
+  getUserLimits(userId: string): Promise<{
+    dailyDepositLimitCents: number;
+    weeklyDepositLimitCents: number;
+    monthlyDepositLimitCents: number;
+    maxBetLimitCents: number;
+    sessionTimeLimitMinutes: number;
+    cooldownPeriodHours: number;
+  } | null>;
+  
+  upsertUserLimits(userId: string, limits: {
+    dailyDepositLimitCents?: number;
+    weeklyDepositLimitCents?: number;
+    monthlyDepositLimitCents?: number;
+    maxBetLimitCents?: number;
+    sessionTimeLimitMinutes?: number;
+    cooldownPeriodHours?: number;
+  }): Promise<any>;
+  
+  // ===================== MISSING FINANCIAL METHODS =====================
+  
+  calculateGGRReport(params: {
+    dateFrom: Date;
+    dateTo: Date;
+    groupBy?: 'day' | 'week' | 'month';
+  }): Promise<{
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    ggrCents: number;
+    betCount: number;
+    playerCount: number;
+    breakdown: Array<{
+      period: string;
+      stakeCents: number;
+      payoutsCents: number;
+      ggrCents: number;
+      betCount: number;
+    }>;
+  }>;
+
+  // Additional dashboard helper method to create alerts
+  createDashboardAlert(alert: {
+    type: string;
+    title: string;
+    message: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    actionRequired?: boolean;
+  }): Promise<any>;
 }
 
 export class MemStorage implements IStorage {
@@ -1415,6 +1691,684 @@ export class MemStorage implements IStorage {
   async reorderMarkets(matchId: string, marketOrder: string[]): Promise<void> {
     // Stub implementation for memory storage
     console.log(`Reordering markets for match ${matchId}:`, marketOrder);
+  }
+
+  // ===================== MISSING REPORTING METHODS =====================
+  
+  async getDailyGgrReport(startDate: Date, endDate: Date): Promise<{
+    date: string;
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    grossGamingRevenueCents: number;
+    totalBets: number;
+    activePlayers: number;
+    averageStakeCents: number;
+    winRate: number;
+  }> {
+    const allBets = Array.from(this.bets.values());
+    const dayBets = allBets.filter(bet => 
+      bet.placedAt >= startDate && bet.placedAt <= endDate
+    );
+
+    const totalStakeCents = dayBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+    const settledBets = dayBets.filter(bet => bet.status !== 'pending');
+    const totalPayoutsCents = settledBets
+      .filter(bet => bet.status === 'settled_win')
+      .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
+    
+    const uniquePlayerIds = new Set(dayBets.map(bet => bet.userId));
+    const winningBets = settledBets.filter(bet => bet.status === 'settled_win').length;
+    
+    return {
+      date: startDate.toISOString().split('T')[0],
+      totalStakeCents,
+      totalPayoutsCents,
+      grossGamingRevenueCents: totalStakeCents - totalPayoutsCents,
+      totalBets: dayBets.length,
+      activePlayers: uniquePlayerIds.size,
+      averageStakeCents: dayBets.length > 0 ? totalStakeCents / dayBets.length : 0,
+      winRate: settledBets.length > 0 ? winningBets / settledBets.length : 0
+    };
+  }
+
+  async getMonthlyGgrReport(startDate: Date, endDate: Date): Promise<{
+    year: number;
+    month: number;
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    grossGamingRevenueCents: number;
+    totalBets: number;
+    activePlayers: number;
+    averageStakeCents: number;
+    highestDayCents: number;
+    lowestDayCents: number;
+    winRate: number;
+    dailyBreakdown: Array<{
+      day: number;
+      stakeCents: number;
+      ggrCents: number;
+      bets: number;
+    }>;
+  }> {
+    const allBets = Array.from(this.bets.values());
+    const monthBets = allBets.filter(bet => 
+      bet.placedAt >= startDate && bet.placedAt <= endDate
+    );
+
+    const totalStakeCents = monthBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+    const settledBets = monthBets.filter(bet => bet.status !== 'pending');
+    const totalPayoutsCents = settledBets
+      .filter(bet => bet.status === 'settled_win')
+      .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
+    
+    const uniquePlayerIds = new Set(monthBets.map(bet => bet.userId));
+    const winningBets = settledBets.filter(bet => bet.status === 'settled_win').length;
+
+    // Generate daily breakdown
+    const dailyBreakdown = [];
+    const daysInMonth = endDate.getDate();
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayStart = new Date(startDate.getFullYear(), startDate.getMonth(), day);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      
+      const dayBets = monthBets.filter(bet => 
+        bet.placedAt >= dayStart && bet.placedAt < dayEnd
+      );
+      
+      const dayStake = dayBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+      const dayPayouts = dayBets
+        .filter(bet => bet.status === 'settled_win')
+        .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
+      
+      dailyBreakdown.push({
+        day,
+        stakeCents: dayStake,
+        ggrCents: dayStake - dayPayouts,
+        bets: dayBets.length
+      });
+    }
+
+    const dailyGgrAmounts = dailyBreakdown.map(d => d.ggrCents);
+    
+    return {
+      year: startDate.getFullYear(),
+      month: startDate.getMonth() + 1,
+      totalStakeCents,
+      totalPayoutsCents,
+      grossGamingRevenueCents: totalStakeCents - totalPayoutsCents,
+      totalBets: monthBets.length,
+      activePlayers: uniquePlayerIds.size,
+      averageStakeCents: monthBets.length > 0 ? totalStakeCents / monthBets.length : 0,
+      highestDayCents: Math.max(...dailyGgrAmounts, 0),
+      lowestDayCents: Math.min(...dailyGgrAmounts, 0),
+      winRate: settledBets.length > 0 ? winningBets / settledBets.length : 0,
+      dailyBreakdown
+    };
+  }
+
+  async getTurnoverBySportReport(startDate: Date, endDate: Date, sport?: string, league?: string): Promise<{
+    sports: Array<{
+      sport: string;
+      turnoverCents: number;
+      betCount: number;
+      ggrCents: number;
+    }>;
+    totalTurnoverCents: number;
+    totalBets: number;
+    totalGgrCents: number;
+  }> {
+    // Mock implementation for memory storage
+    return {
+      sports: [
+        { sport: 'Football', turnoverCents: 50000000, betCount: 1250, ggrCents: 2500000 },
+        { sport: 'Basketball', turnoverCents: 25000000, betCount: 600, ggrCents: 1250000 },
+        { sport: 'Tennis', turnoverCents: 15000000, betCount: 400, ggrCents: 750000 }
+      ],
+      totalTurnoverCents: 90000000,
+      totalBets: 2250,
+      totalGgrCents: 4500000
+    };
+  }
+
+  async getPayoutRatioReport(startDate: Date, endDate: Date): Promise<{
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    payoutRatio: number;
+    betCount: number;
+    winningBets: number;
+    losingBets: number;
+    winRate: number;
+  }> {
+    const allBets = Array.from(this.bets.values());
+    const periodBets = allBets.filter(bet => 
+      bet.placedAt >= startDate && 
+      bet.placedAt <= endDate &&
+      bet.status !== 'pending'
+    );
+
+    const totalStakeCents = periodBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+    const totalPayoutsCents = periodBets
+      .filter(bet => bet.status === 'settled_win')
+      .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
+
+    const winningBets = periodBets.filter(bet => bet.status === 'settled_win').length;
+    const losingBets = periodBets.filter(bet => bet.status === 'settled_lose').length;
+
+    return {
+      totalStakeCents,
+      totalPayoutsCents,
+      payoutRatio: totalStakeCents > 0 ? totalPayoutsCents / totalStakeCents : 0,
+      betCount: periodBets.length,
+      winningBets,
+      losingBets,
+      winRate: periodBets.length > 0 ? winningBets / periodBets.length : 0
+    };
+  }
+
+  async getTopWinnersReport(startDate: Date, endDate: Date, limit: number): Promise<{
+    winners: Array<{
+      userId: string;
+      username: string;
+      netWinningsCents: number;
+      betCount: number;
+    }>;
+  }> {
+    const allBets = Array.from(this.bets.values());
+    const periodBets = allBets.filter(bet => 
+      bet.placedAt >= startDate && 
+      bet.placedAt <= endDate &&
+      bet.status !== 'pending'
+    );
+
+    // Group by user
+    const userStats = new Map();
+    
+    periodBets.forEach(bet => {
+      const user = this.users.get(bet.userId);
+      if (!user) return;
+
+      if (!userStats.has(bet.userId)) {
+        userStats.set(bet.userId, {
+          userId: bet.userId,
+          username: user.username,
+          totalStake: 0,
+          totalWinnings: 0,
+          betCount: 0
+        });
+      }
+
+      const stats = userStats.get(bet.userId);
+      stats.totalStake += bet.totalStake;
+      stats.betCount += 1;
+      
+      if (bet.status === 'settled_win') {
+        stats.totalWinnings += bet.actualWinnings || 0;
+      }
+    });
+
+    const winners = Array.from(userStats.values())
+      .map(stats => ({
+        userId: stats.userId,
+        username: stats.username,
+        netWinningsCents: stats.totalWinnings - stats.totalStake,
+        betCount: stats.betCount
+      }))
+      .sort((a, b) => b.netWinningsCents - a.netWinningsCents)
+      .slice(0, limit);
+
+    return { winners };
+  }
+
+  async getChargebackReport(startDate: Date, endDate: Date): Promise<{
+    chargebacks: Array<{
+      id: string;
+      userId: string;
+      username: string;
+      amountCents: number;
+      reason: string;
+      status: string;
+      createdAt: Date;
+    }>;
+    totalAmountCents: number;
+    count: number;
+  }> {
+    // Mock implementation for memory storage
+    return {
+      chargebacks: [],
+      totalAmountCents: 0,
+      count: 0
+    };
+  }
+
+  async generateCustomReport(params: {
+    reportType: string;
+    dateFrom: Date;
+    dateTo: Date;
+    filters?: any;
+    groupBy?: string;
+    metrics?: string[];
+  }): Promise<{
+    title: string;
+    data: any[];
+    summary: any;
+    generatedAt: Date;
+  }> {
+    return {
+      title: `Custom ${params.reportType} Report`,
+      data: [],
+      summary: {},
+      generatedAt: new Date()
+    };
+  }
+
+  async exportReportData(params: {
+    reportType: string;
+    format: 'csv' | 'excel' | 'json';
+    dateFrom: Date;
+    dateTo: Date;
+    filters?: any;
+  }): Promise<string> {
+    return JSON.stringify({
+      reportType: params.reportType,
+      format: params.format,
+      exportedAt: new Date().toISOString()
+    });
+  }
+
+  async createScheduledReport(report: {
+    name: string;
+    reportType: string;
+    frequency: 'daily' | 'weekly' | 'monthly';
+    recipients: string[];
+    filters?: any;
+    format?: 'csv' | 'excel' | 'pdf';
+  }): Promise<any> {
+    return {
+      id: randomUUID(),
+      ...report,
+      createdAt: new Date(),
+      isActive: true
+    };
+  }
+
+  // ===================== DASHBOARD METHODS =====================
+
+  async getDashboardAlerts(): Promise<Array<{
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    timestamp: Date;
+    isResolved: boolean;
+    actionRequired: boolean;
+  }>> {
+    return [];
+  }
+
+  async resolveAlert(alertId: string, adminId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    return {
+      success: true,
+      message: 'Alert resolved successfully'
+    };
+  }
+
+  async updateNotificationSettings(settings: {
+    emailSettings: any;
+    slackSettings: any;
+    webhookSettings: any;
+    alertThresholds: any;
+    updatedBy: string;
+    updatedAt: Date;
+  }): Promise<any> {
+    return settings;
+  }
+
+  async getTotalUsers(): Promise<number> {
+    return this.users.size;
+  }
+
+  async getNewUsersCount(since: Date): Promise<number> {
+    return Array.from(this.users.values())
+      .filter(user => user.createdAt >= since).length;
+  }
+
+  async getTotalBets(): Promise<number> {
+    return this.bets.size;
+  }
+
+  async getPendingBetsCount(): Promise<number> {
+    return Array.from(this.bets.values())
+      .filter(bet => bet.status === 'pending').length;
+  }
+
+  async getBetsCount(since: Date): Promise<number> {
+    return Array.from(this.bets.values())
+      .filter(bet => bet.placedAt >= since).length;
+  }
+
+  async getTurnoverMetrics(todayStart: Date, weekStart: Date): Promise<{
+    todayCents: number;
+    weekCents: number;
+    totalCents: number;
+  }> {
+    const allBets = Array.from(this.bets.values());
+    
+    const todayCents = allBets
+      .filter(bet => bet.placedAt >= todayStart)
+      .reduce((sum, bet) => sum + bet.totalStake, 0);
+    
+    const weekCents = allBets
+      .filter(bet => bet.placedAt >= weekStart)
+      .reduce((sum, bet) => sum + bet.totalStake, 0);
+    
+    const totalCents = allBets
+      .reduce((sum, bet) => sum + bet.totalStake, 0);
+
+    return { todayCents, weekCents, totalCents };
+  }
+
+  async getExposureMetrics(): Promise<{
+    totalCents: number;
+    highRiskCount: number;
+  }> {
+    const pendingBets = Array.from(this.bets.values())
+      .filter(bet => bet.status === 'pending');
+    
+    const totalCents = pendingBets.reduce((sum, bet) => sum + bet.potentialWinnings, 0);
+    const highRiskCount = pendingBets.filter(bet => bet.potentialWinnings > 100000).length;
+
+    return { totalCents, highRiskCount };
+  }
+
+  async getRecentActivity(limit: number): Promise<Array<{
+    id: string;
+    type: string;
+    title?: string;
+    description?: string;
+    action?: string;
+    details?: string;
+    timestamp?: Date;
+    createdAt: Date;
+    userId?: string;
+    adminId?: string;
+    betId?: string;
+    amount?: number;
+    severity?: string;
+  }>> {
+    const recentBets = Array.from(this.bets.values())
+      .sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime())
+      .slice(0, Math.floor(limit / 2))
+      .map(bet => ({
+        id: bet.id,
+        type: 'bet_placed' as string,
+        title: 'New Bet Placed',
+        description: `Bet placed for £${(bet.totalStake / 100).toFixed(2)}`,
+        createdAt: bet.placedAt,
+        userId: bet.userId,
+        amount: bet.totalStake,
+        severity: 'info'
+      }));
+
+    const recentAudits = Array.from(this.auditLogs.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, Math.floor(limit / 2))
+      .map(audit => ({
+        id: audit.id,
+        type: 'admin_action' as string,
+        title: 'Admin Action',
+        description: audit.actionType.replace('_', ' ').toUpperCase(),
+        action: audit.actionType,
+        createdAt: audit.createdAt,
+        adminId: audit.adminId,
+        severity: 'info'
+      }));
+
+    return [...recentBets, ...recentAudits]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
+  }
+
+  async getSystemAlerts(): Promise<Array<{
+    id: string;
+    type: string;
+    title: string;
+    message?: string;
+    description?: string;
+    severity: string;
+    timestamp?: Date;
+    createdAt: Date;
+    isResolved: boolean;
+    actionRequired: boolean;
+  }>> {
+    const alerts = [];
+    const pendingBets = Array.from(this.bets.values()).filter(bet => bet.status === 'pending');
+    
+    const totalExposure = pendingBets.reduce((sum, bet) => sum + bet.potentialWinnings, 0);
+    const highRiskCount = pendingBets.filter(bet => bet.potentialWinnings > 100000).length;
+
+    if (totalExposure > 10000000) { // > £100,000
+      alerts.push({
+        id: 'high-total-exposure',
+        type: 'high_exposure',
+        title: 'High Total Exposure Alert',
+        message: `Total exposure: £${(totalExposure / 100).toLocaleString()}`,
+        severity: 'high',
+        createdAt: new Date(),
+        isResolved: false,
+        actionRequired: true
+      });
+    }
+
+    if (highRiskCount > 0) {
+      alerts.push({
+        id: 'high-risk-bets',
+        type: 'high_exposure',
+        title: 'High Risk Bets Detected',
+        message: `${highRiskCount} bets with potential payouts over £1,000`,
+        severity: 'medium',
+        createdAt: new Date(),
+        isResolved: false,
+        actionRequired: true
+      });
+    }
+
+    return alerts;
+  }
+
+  // ===================== MATCH/MARKET METHODS =====================
+
+  async getAllMatches(params?: {
+    search?: string;
+    status?: string;
+    sport?: string;
+    league?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    matches: any[];
+    total: number;
+  }> {
+    return { matches: [], total: 0 };
+  }
+
+  async createMarketOutcome(outcome: {
+    marketId: string;
+    name: string;
+    odds: string;
+    isActive: boolean;
+  }): Promise<any> {
+    return {
+      id: randomUUID(),
+      ...outcome,
+      createdAt: new Date()
+    };
+  }
+
+  async updateMarketOutcomeOdds(outcomeId: string, odds: string): Promise<any> {
+    return {
+      id: outcomeId,
+      odds,
+      updatedAt: new Date()
+    };
+  }
+
+  // ===================== USER METHODS =====================
+
+  async searchUsersData(params: {
+    query?: string;
+    isActive?: boolean;
+    dateFrom?: Date;
+    dateTo?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    users: any[];
+    total: number;
+  }> {
+    let result = Array.from(this.users.values());
+
+    if (params.query) {
+      const searchLower = params.query.toLowerCase();
+      result = result.filter(user => 
+        user.username.toLowerCase().includes(searchLower) ||
+        user.email.toLowerCase().includes(searchLower) ||
+        user.firstName?.toLowerCase().includes(searchLower) ||
+        user.lastName?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    if (params.isActive !== undefined) {
+      result = result.filter(user => user.isActive === params.isActive);
+    }
+
+    if (params.dateFrom) {
+      result = result.filter(user => user.createdAt >= params.dateFrom!);
+    }
+
+    if (params.dateTo) {
+      result = result.filter(user => user.createdAt <= params.dateTo!);
+    }
+
+    const total = result.length;
+    const offset = params.offset || 0;
+    const limit = params.limit || 50;
+    
+    result = result
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(offset, offset + limit);
+
+    return {
+      users: result.map(user => ({
+        ...user,
+        password: undefined // Remove password from results
+      })),
+      total
+    };
+  }
+
+  async getUserLimits(userId: string): Promise<{
+    dailyDepositLimitCents: number;
+    weeklyDepositLimitCents: number;
+    monthlyDepositLimitCents: number;
+    maxBetLimitCents: number;
+    sessionTimeLimitMinutes: number;
+    cooldownPeriodHours: number;
+  } | null> {
+    return {
+      dailyDepositLimitCents: 100000, // £1,000
+      weeklyDepositLimitCents: 500000, // £5,000
+      monthlyDepositLimitCents: 2000000, // £20,000
+      maxBetLimitCents: 50000, // £500
+      sessionTimeLimitMinutes: 240, // 4 hours
+      cooldownPeriodHours: 24 // 24 hours
+    };
+  }
+
+  async upsertUserLimits(userId: string, limits: {
+    dailyDepositLimitCents?: number;
+    weeklyDepositLimitCents?: number;
+    monthlyDepositLimitCents?: number;
+    maxBetLimitCents?: number;
+    sessionTimeLimitMinutes?: number;
+    cooldownPeriodHours?: number;
+  }): Promise<any> {
+    return {
+      userId,
+      ...limits,
+      updatedAt: new Date()
+    };
+  }
+
+  // ===================== FINANCIAL METHODS =====================
+
+  async calculateGGRReport(params: {
+    dateFrom: Date;
+    dateTo: Date;
+    groupBy?: 'day' | 'week' | 'month';
+  }): Promise<{
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    ggrCents: number;
+    betCount: number;
+    playerCount: number;
+    breakdown: Array<{
+      period: string;
+      stakeCents: number;
+      payoutsCents: number;
+      ggrCents: number;
+      betCount: number;
+    }>;
+  }> {
+    const allBets = Array.from(this.bets.values());
+    const periodBets = allBets.filter(bet => 
+      bet.placedAt >= params.dateFrom && bet.placedAt <= params.dateTo
+    );
+
+    const totalStakeCents = periodBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+    const totalPayoutsCents = periodBets
+      .filter(bet => bet.status === 'settled_win')
+      .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
+    
+    const uniquePlayerIds = new Set(periodBets.map(bet => bet.userId));
+    
+    const breakdown = [{
+      period: params.dateFrom.toISOString().split('T')[0],
+      stakeCents: totalStakeCents,
+      payoutsCents: totalPayoutsCents,
+      ggrCents: totalStakeCents - totalPayoutsCents,
+      betCount: periodBets.length
+    }];
+
+    return {
+      totalStakeCents,
+      totalPayoutsCents,
+      ggrCents: totalStakeCents - totalPayoutsCents,
+      betCount: periodBets.length,
+      playerCount: uniquePlayerIds.size,
+      breakdown
+    };
+  }
+
+  async createDashboardAlert(alert: {
+    type: string;
+    title: string;
+    message: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    actionRequired?: boolean;
+  }): Promise<any> {
+    return {
+      id: randomUUID(),
+      ...alert,
+      createdAt: new Date(),
+      isResolved: false
+    };
   }
 }
 

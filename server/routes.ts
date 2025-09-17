@@ -8,6 +8,7 @@ import {
   getLiveFixtures, 
   getFixtureOdds, 
   getLeagues,
+  getApiHealthStatus,
   SportMonksFixture 
 } from "./sportmonks";
 import { 
@@ -54,6 +55,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "OK", timestamp: new Date().toISOString() });
+  });
+
+  // SportMonks API health check
+  app.get("/api/integrations/sportmonks/health", async (req, res) => {
+    try {
+      const healthStatus = getApiHealthStatus();
+      res.json({
+        success: true,
+        data: healthStatus
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: "Failed to get SportMonks API health status",
+        details: (error as Error).message
+      });
+    }
   });
 
   // Authentication Routes

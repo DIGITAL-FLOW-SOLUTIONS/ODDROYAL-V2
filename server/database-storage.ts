@@ -1282,6 +1282,825 @@ export class DatabaseStorage implements IStorage {
     return null;
   }
 
+  // ===================== REPORTING METHODS IMPLEMENTATION =====================
+  
+  async getDailyGgrReport(startDate: Date, endDate: Date): Promise<{
+    date: string;
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    grossGamingRevenueCents: number;
+    totalBets: number;
+    activePlayers: number;
+    averageStakeCents: number;
+    winRate: number;
+  }> {
+    const dayBets = await db
+      .select()
+      .from(bets)
+      .where(and(
+        gte(bets.placedAt, startDate),
+        lte(bets.placedAt, endDate)
+      ));
+
+    const totalStakeCents = dayBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+    const settledBets = dayBets.filter(bet => bet.status !== 'pending');
+    const totalPayoutsCents = settledBets
+      .filter(bet => bet.status === 'settled_win')
+      .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
+    
+    const uniquePlayerIds = new Set(dayBets.map(bet => bet.userId));
+    const winningBets = settledBets.filter(bet => bet.status === 'settled_win').length;
+    
+    return {
+      date: startDate.toISOString().split('T')[0],
+      totalStakeCents,
+      totalPayoutsCents,
+      grossGamingRevenueCents: totalStakeCents - totalPayoutsCents,
+      totalBets: dayBets.length,
+      activePlayers: uniquePlayerIds.size,
+      averageStakeCents: dayBets.length > 0 ? totalStakeCents / dayBets.length : 0,
+      winRate: settledBets.length > 0 ? winningBets / settledBets.length : 0
+    };
+  }
+
+  async getMonthlyGgrReport(startDate: Date, endDate: Date): Promise<{
+    year: number;
+    month: number;
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    grossGamingRevenueCents: number;
+    totalBets: number;
+    activePlayers: number;
+    averageStakeCents: number;
+    highestDayCents: number;
+    lowestDayCents: number;
+    winRate: number;
+    dailyBreakdown: Array<{
+      day: number;
+      stakeCents: number;
+      ggrCents: number;
+      bets: number;
+    }>;
+  }> {
+    const monthBets = await db
+      .select()
+      .from(bets)
+      .where(and(
+        gte(bets.placedAt, startDate),
+        lte(bets.placedAt, endDate)
+      ));
+
+    const totalStakeCents = monthBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+    const settledBets = monthBets.filter(bet => bet.status !== 'pending');
+    const totalPayoutsCents = settledBets
+      .filter(bet => bet.status === 'settled_win')
+      .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
+    
+    const uniquePlayerIds = new Set(monthBets.map(bet => bet.userId));
+    const winningBets = settledBets.filter(bet => bet.status === 'settled_win').length;
+
+    // Generate daily breakdown
+    const dailyBreakdown = [];
+    const daysInMonth = endDate.getDate();
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayStart = new Date(startDate.getFullYear(), startDate.getMonth(), day);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      
+      const dayBets = monthBets.filter(bet => 
+        bet.placedAt >= dayStart && bet.placedAt < dayEnd
+      );
+      
+      const dayStake = dayBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+      const dayPayouts = dayBets
+        .filter(bet => bet.status === 'settled_win')
+        .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
+      
+      dailyBreakdown.push({
+        day,
+        stakeCents: dayStake,
+        ggrCents: dayStake - dayPayouts,
+        bets: dayBets.length
+      });
+    }
+
+    const dailyGgrAmounts = dailyBreakdown.map(d => d.ggrCents);
+    
+    return {
+      year: startDate.getFullYear(),
+      month: startDate.getMonth() + 1,
+      totalStakeCents,
+      totalPayoutsCents,
+      grossGamingRevenueCents: totalStakeCents - totalPayoutsCents,
+      totalBets: monthBets.length,
+      activePlayers: uniquePlayerIds.size,
+      averageStakeCents: monthBets.length > 0 ? totalStakeCents / monthBets.length : 0,
+      highestDayCents: Math.max(...dailyGgrAmounts, 0),
+      lowestDayCents: Math.min(...dailyGgrAmounts, 0),
+      winRate: settledBets.length > 0 ? winningBets / settledBets.length : 0,
+      dailyBreakdown
+    };
+  }
+
+  async getTurnoverBySportReport(startDate: Date, endDate: Date, sport?: string, league?: string): Promise<{
+    sports: Array<{
+      sport: string;
+      turnoverCents: number;
+      betCount: number;
+      ggrCents: number;
+    }>;
+    totalTurnoverCents: number;
+    totalBets: number;
+    totalGgrCents: number;
+  }> {
+    // Get bet selections to extract sport/league data
+    const betSelectionsQuery = db
+      .select({
+        betId: betSelections.betId,
+        league: betSelections.league,
+        totalStake: bets.totalStake,
+        actualWinnings: bets.actualWinnings,
+        status: bets.status
+      })
+      .from(betSelections)
+      .innerJoin(bets, eq(betSelections.betId, bets.id))
+      .where(and(
+        gte(bets.placedAt, startDate),
+        lte(bets.placedAt, endDate),
+        sport ? ilike(betSelections.league, `%${sport}%`) : undefined,
+        league ? eq(betSelections.league, league) : undefined
+      ).filter(Boolean) as any);
+
+    const selections = await betSelectionsQuery;
+
+    // Group by sport (extracted from league name)
+    const sportGroups = selections.reduce((acc, selection) => {
+      const sportName = this.extractSportFromLeague(selection.league);
+      if (!acc[sportName]) {
+        acc[sportName] = {
+          turnoverCents: 0,
+          betCount: 0,
+          payoutsCents: 0
+        };
+      }
+      
+      acc[sportName].turnoverCents += selection.totalStake;
+      acc[sportName].betCount += 1;
+      if (selection.status === 'settled_win') {
+        acc[sportName].payoutsCents += selection.actualWinnings || 0;
+      }
+      
+      return acc;
+    }, {} as Record<string, { turnoverCents: number; betCount: number; payoutsCents: number }>);
+
+    const sports = Object.entries(sportGroups).map(([sport, data]) => ({
+      sport,
+      turnoverCents: data.turnoverCents,
+      betCount: data.betCount,
+      ggrCents: data.turnoverCents - data.payoutsCents
+    }));
+
+    const totalTurnoverCents = sports.reduce((sum, s) => sum + s.turnoverCents, 0);
+    const totalBets = sports.reduce((sum, s) => sum + s.betCount, 0);
+    const totalGgrCents = sports.reduce((sum, s) => sum + s.ggrCents, 0);
+
+    return {
+      sports,
+      totalTurnoverCents,
+      totalBets,
+      totalGgrCents
+    };
+  }
+
+  private extractSportFromLeague(league: string): string {
+    // Simple sport extraction logic - can be enhanced
+    const lowerLeague = league.toLowerCase();
+    if (lowerLeague.includes('premier league') || lowerLeague.includes('championship') || lowerLeague.includes('football')) {
+      return 'Football';
+    }
+    if (lowerLeague.includes('nba') || lowerLeague.includes('basketball')) {
+      return 'Basketball';
+    }
+    if (lowerLeague.includes('tennis') || lowerLeague.includes('atp') || lowerLeague.includes('wta')) {
+      return 'Tennis';
+    }
+    return 'Other';
+  }
+
+  async getPayoutRatioReport(startDate: Date, endDate: Date): Promise<{
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    payoutRatio: number;
+    betCount: number;
+    winningBets: number;
+    losingBets: number;
+    winRate: number;
+  }> {
+    const periodBets = await db
+      .select()
+      .from(bets)
+      .where(and(
+        gte(bets.placedAt, startDate),
+        lte(bets.placedAt, endDate),
+        sql`status != 'pending'`
+      ));
+
+    const totalStakeCents = periodBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+    const totalPayoutsCents = periodBets
+      .filter(bet => bet.status === 'settled_win')
+      .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
+
+    const winningBets = periodBets.filter(bet => bet.status === 'settled_win').length;
+    const losingBets = periodBets.filter(bet => bet.status === 'settled_lose').length;
+
+    return {
+      totalStakeCents,
+      totalPayoutsCents,
+      payoutRatio: totalStakeCents > 0 ? totalPayoutsCents / totalStakeCents : 0,
+      betCount: periodBets.length,
+      winningBets,
+      losingBets,
+      winRate: periodBets.length > 0 ? winningBets / periodBets.length : 0
+    };
+  }
+
+  async getTopWinnersReport(startDate: Date, endDate: Date, limit: number): Promise<{
+    winners: Array<{
+      userId: string;
+      username: string;
+      netWinningsCents: number;
+      betCount: number;
+    }>;
+  }> {
+    const userStats = await db
+      .select({
+        userId: bets.userId,
+        username: users.username,
+        totalStake: sql`SUM(${bets.totalStake})`.as('totalStake'),
+        totalWinnings: sql`SUM(CASE WHEN ${bets.status} = 'settled_win' THEN ${bets.actualWinnings} ELSE 0 END)`.as('totalWinnings'),
+        betCount: sql`COUNT(*)`.as('betCount')
+      })
+      .from(bets)
+      .innerJoin(users, eq(bets.userId, users.id))
+      .where(and(
+        gte(bets.placedAt, startDate),
+        lte(bets.placedAt, endDate),
+        sql`status != 'pending'`
+      ))
+      .groupBy(bets.userId, users.username)
+      .orderBy(sql`SUM(CASE WHEN ${bets.status} = 'settled_win' THEN ${bets.actualWinnings} ELSE 0 END) - SUM(${bets.totalStake}) DESC`)
+      .limit(limit);
+
+    const winners = userStats.map(stat => ({
+      userId: stat.userId,
+      username: stat.username,
+      netWinningsCents: (stat.totalWinnings as number) - (stat.totalStake as number),
+      betCount: stat.betCount as number
+    }));
+
+    return { winners };
+  }
+
+  async getChargebackReport(startDate: Date, endDate: Date): Promise<{
+    chargebacks: Array<{
+      id: string;
+      userId: string;
+      username: string;
+      amountCents: number;
+      reason: string;
+      status: string;
+      createdAt: Date;
+    }>;
+    totalAmountCents: number;
+    count: number;
+  }> {
+    // Mock implementation - would need actual chargeback table
+    return {
+      chargebacks: [],
+      totalAmountCents: 0,
+      count: 0
+    };
+  }
+
+  async generateCustomReport(params: {
+    reportType: string;
+    dateFrom: Date;
+    dateTo: Date;
+    filters?: any;
+    groupBy?: string;
+    metrics?: string[];
+  }): Promise<{
+    title: string;
+    data: any[];
+    summary: any;
+    generatedAt: Date;
+  }> {
+    // Mock implementation - would expand based on reportType
+    return {
+      title: `Custom ${params.reportType} Report`,
+      data: [],
+      summary: {},
+      generatedAt: new Date()
+    };
+  }
+
+  async exportReportData(params: {
+    reportType: string;
+    format: 'csv' | 'excel' | 'json';
+    dateFrom: Date;
+    dateTo: Date;
+    filters?: any;
+  }): Promise<string> {
+    // Mock implementation - would generate actual export data
+    return JSON.stringify({
+      reportType: params.reportType,
+      format: params.format,
+      exportedAt: new Date().toISOString()
+    });
+  }
+
+  async createScheduledReport(report: {
+    name: string;
+    reportType: string;
+    frequency: 'daily' | 'weekly' | 'monthly';
+    recipients: string[];
+    filters?: any;
+    format?: 'csv' | 'excel' | 'pdf';
+  }): Promise<any> {
+    // Mock implementation - would need scheduled_reports table
+    return {
+      id: randomUUID(),
+      ...report,
+      createdAt: new Date(),
+      isActive: true
+    };
+  }
+
+  // ===================== DASHBOARD METHODS IMPLEMENTATION =====================
+
+  async getDashboardAlerts(): Promise<Array<{
+    id: string;
+    type: string;
+    title: string;
+    message: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    timestamp: Date;
+    isResolved: boolean;
+    actionRequired: boolean;
+  }>> {
+    // Mock implementation - would need alerts table
+    return [];
+  }
+
+  async resolveAlert(alertId: string, adminId: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    // Mock implementation - would update alerts table
+    return {
+      success: true,
+      message: 'Alert resolved successfully'
+    };
+  }
+
+  async updateNotificationSettings(settings: {
+    emailSettings: any;
+    slackSettings: any;
+    webhookSettings: any;
+    alertThresholds: any;
+    updatedBy: string;
+    updatedAt: Date;
+  }): Promise<any> {
+    // Mock implementation - would need notification_settings table
+    return settings;
+  }
+
+  // ===================== DASHBOARD METRICS IMPLEMENTATION =====================
+
+  async getTotalUsers(): Promise<number> {
+    const [result] = await db
+      .select({ count: count() })
+      .from(users);
+    return result.count;
+  }
+
+  async getNewUsersCount(since: Date): Promise<number> {
+    const [result] = await db
+      .select({ count: count() })
+      .from(users)
+      .where(gte(users.createdAt, since));
+    return result.count;
+  }
+
+  async getTotalBets(): Promise<number> {
+    const [result] = await db
+      .select({ count: count() })
+      .from(bets);
+    return result.count;
+  }
+
+  async getPendingBetsCount(): Promise<number> {
+    const [result] = await db
+      .select({ count: count() })
+      .from(bets)
+      .where(eq(bets.status, 'pending'));
+    return result.count;
+  }
+
+  async getBetsCount(since: Date): Promise<number> {
+    const [result] = await db
+      .select({ count: count() })
+      .from(bets)
+      .where(gte(bets.placedAt, since));
+    return result.count;
+  }
+
+  async getTurnoverMetrics(todayStart: Date, weekStart: Date): Promise<{
+    todayCents: number;
+    weekCents: number;
+    totalCents: number;
+  }> {
+    const [todayResult] = await db
+      .select({
+        totalStake: sql`SUM(${bets.totalStake})`.as('totalStake')
+      })
+      .from(bets)
+      .where(gte(bets.placedAt, todayStart));
+
+    const [weekResult] = await db
+      .select({
+        totalStake: sql`SUM(${bets.totalStake})`.as('totalStake')
+      })
+      .from(bets)
+      .where(gte(bets.placedAt, weekStart));
+
+    const [totalResult] = await db
+      .select({
+        totalStake: sql`SUM(${bets.totalStake})`.as('totalStake')
+      })
+      .from(bets);
+
+    return {
+      todayCents: (todayResult.totalStake as number) || 0,
+      weekCents: (weekResult.totalStake as number) || 0,
+      totalCents: (totalResult.totalStake as number) || 0
+    };
+  }
+
+  async getExposureMetrics(): Promise<{
+    totalCents: number;
+    highRiskCount: number;
+  }> {
+    const [exposureResult] = await db
+      .select({
+        totalExposure: sql`SUM(${bets.potentialWinnings})`.as('totalExposure'),
+        highRiskCount: sql`COUNT(CASE WHEN ${bets.potentialWinnings} > 100000 THEN 1 END)`.as('highRiskCount')
+      })
+      .from(bets)
+      .where(eq(bets.status, 'pending'));
+
+    return {
+      totalCents: (exposureResult.totalExposure as number) || 0,
+      highRiskCount: (exposureResult.highRiskCount as number) || 0
+    };
+  }
+
+  async getRecentActivity(limit: number): Promise<Array<{
+    id: string;
+    type: string;
+    title?: string;
+    description?: string;
+    action?: string;
+    details?: string;
+    timestamp?: Date;
+    createdAt: Date;
+    userId?: string;
+    adminId?: string;
+    betId?: string;
+    amount?: number;
+    severity?: string;
+  }>> {
+    const recentBets = await db
+      .select({
+        id: bets.id,
+        type: sql`'bet_placed'`.as('type'),
+        userId: bets.userId,
+        createdAt: bets.placedAt,
+        amount: bets.totalStake
+      })
+      .from(bets)
+      .orderBy(desc(bets.placedAt))
+      .limit(Math.floor(limit / 2));
+
+    const recentAudits = await db
+      .select({
+        id: auditLogs.id,
+        type: sql`'admin_action'`.as('type'),
+        adminId: auditLogs.adminId,
+        createdAt: auditLogs.createdAt,
+        action: auditLogs.actionType
+      })
+      .from(auditLogs)
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(Math.floor(limit / 2));
+
+    const combinedActivity = [
+      ...recentBets.map(bet => ({
+        id: bet.id,
+        type: 'bet_placed' as string,
+        title: 'New Bet Placed',
+        description: `Bet placed for £${(bet.amount / 100).toFixed(2)}`,
+        createdAt: bet.createdAt,
+        userId: bet.userId,
+        amount: bet.amount,
+        severity: 'info'
+      })),
+      ...recentAudits.map(audit => ({
+        id: audit.id,
+        type: 'admin_action' as string,
+        title: 'Admin Action',
+        description: audit.action?.replace('_', ' ').toUpperCase() || 'Admin Activity',
+        action: audit.action,
+        createdAt: audit.createdAt,
+        adminId: audit.adminId,
+        severity: 'info'
+      }))
+    ];
+
+    return combinedActivity
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, limit);
+  }
+
+  async getSystemAlerts(): Promise<Array<{
+    id: string;
+    type: string;
+    title: string;
+    message?: string;
+    description?: string;
+    severity: string;
+    timestamp?: Date;
+    createdAt: Date;
+    isResolved: boolean;
+    actionRequired: boolean;
+  }>> {
+    // Check for high exposure situations
+    const alerts = [];
+    
+    const [highExposure] = await db
+      .select({
+        totalExposure: sql`SUM(${bets.potentialWinnings})`.as('totalExposure'),
+        highRiskCount: sql`COUNT(CASE WHEN ${bets.potentialWinnings} > 100000 THEN 1 END)`.as('highRiskCount')
+      })
+      .from(bets)
+      .where(eq(bets.status, 'pending'));
+
+    if ((highExposure.totalExposure as number) > 10000000) { // > £100,000
+      alerts.push({
+        id: 'high-total-exposure',
+        type: 'high_exposure',
+        title: 'High Total Exposure Alert',
+        message: `Total exposure: £${((highExposure.totalExposure as number) / 100).toLocaleString()}`,
+        severity: 'high',
+        createdAt: new Date(),
+        isResolved: false,
+        actionRequired: true
+      });
+    }
+
+    if ((highExposure.highRiskCount as number) > 0) {
+      alerts.push({
+        id: 'high-risk-bets',
+        type: 'high_exposure',
+        title: 'High Risk Bets Detected',
+        message: `${highExposure.highRiskCount} bets with potential payouts over £1,000`,
+        severity: 'medium',
+        createdAt: new Date(),
+        isResolved: false,
+        actionRequired: true
+      });
+    }
+
+    return alerts;
+  }
+
+  // ===================== MATCH/MARKET METHODS IMPLEMENTATION =====================
+
+  async getAllMatches(params?: {
+    search?: string;
+    status?: string;
+    sport?: string;
+    league?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    matches: any[];
+    total: number;
+  }> {
+    // Mock implementation - would need matches table with proper schema
+    return {
+      matches: [],
+      total: 0
+    };
+  }
+
+  async createMarketOutcome(outcome: {
+    marketId: string;
+    name: string;
+    odds: string;
+    isActive: boolean;
+  }): Promise<any> {
+    // Mock implementation - would need market_outcomes table
+    return {
+      id: randomUUID(),
+      ...outcome,
+      createdAt: new Date()
+    };
+  }
+
+  async updateMarketOutcomeOdds(outcomeId: string, odds: string): Promise<any> {
+    // Mock implementation - would update market_outcomes table
+    return {
+      id: outcomeId,
+      odds,
+      updatedAt: new Date()
+    };
+  }
+
+  // ===================== USER METHODS IMPLEMENTATION =====================
+
+  async searchUsersData(params: {
+    query?: string;
+    isActive?: boolean;
+    dateFrom?: Date;
+    dateTo?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    users: any[];
+    total: number;
+  }> {
+    const conditions: SQL<unknown>[] = [];
+
+    if (params.query) {
+      const searchTerm = `%${params.query.toLowerCase()}%`;
+      conditions.push(
+        or(
+          ilike(users.username, searchTerm),
+          ilike(users.email, searchTerm),
+          ilike(users.firstName, searchTerm),
+          ilike(users.lastName, searchTerm)
+        )!
+      );
+    }
+
+    if (params.isActive !== undefined) {
+      conditions.push(eq(users.isActive, params.isActive));
+    }
+
+    if (params.dateFrom) {
+      conditions.push(gte(users.createdAt, params.dateFrom));
+    }
+
+    if (params.dateTo) {
+      conditions.push(lte(users.createdAt, params.dateTo));
+    }
+
+    let query = db
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        balance: users.balance,
+        isActive: users.isActive,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt
+      })
+      .from(users);
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+
+    // Get total count
+    let countQuery = db
+      .select({ count: count() })
+      .from(users);
+
+    if (conditions.length > 0) {
+      countQuery = countQuery.where(and(...conditions)) as any;
+    }
+
+    const [{ count: total }] = await countQuery;
+    
+    const userResults = await query
+      .orderBy(desc(users.createdAt))
+      .limit(params.limit || 50)
+      .offset(params.offset || 0);
+
+    return {
+      users: userResults.map(user => ({
+        ...user,
+        // Remove password from results
+        password: undefined
+      })),
+      total
+    };
+  }
+
+  async getUserLimits(userId: string): Promise<{
+    dailyDepositLimitCents: number;
+    weeklyDepositLimitCents: number;
+    monthlyDepositLimitCents: number;
+    maxBetLimitCents: number;
+    sessionTimeLimitMinutes: number;
+    cooldownPeriodHours: number;
+  } | null> {
+    // Mock implementation - would need user_limits table
+    return {
+      dailyDepositLimitCents: 100000, // £1,000
+      weeklyDepositLimitCents: 500000, // £5,000
+      monthlyDepositLimitCents: 2000000, // £20,000
+      maxBetLimitCents: 50000, // £500
+      sessionTimeLimitMinutes: 240, // 4 hours
+      cooldownPeriodHours: 24 // 24 hours
+    };
+  }
+
+  async upsertUserLimits(userId: string, limits: {
+    dailyDepositLimitCents?: number;
+    weeklyDepositLimitCents?: number;
+    monthlyDepositLimitCents?: number;
+    maxBetLimitCents?: number;
+    sessionTimeLimitMinutes?: number;
+    cooldownPeriodHours?: number;
+  }): Promise<any> {
+    // Mock implementation - would upsert into user_limits table
+    return {
+      userId,
+      ...limits,
+      updatedAt: new Date()
+    };
+  }
+
+  // ===================== FINANCIAL METHODS IMPLEMENTATION =====================
+
+  async calculateGGRReport(params: {
+    dateFrom: Date;
+    dateTo: Date;
+    groupBy?: 'day' | 'week' | 'month';
+  }): Promise<{
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    ggrCents: number;
+    betCount: number;
+    playerCount: number;
+    breakdown: Array<{
+      period: string;
+      stakeCents: number;
+      payoutsCents: number;
+      ggrCents: number;
+      betCount: number;
+    }>;
+  }> {
+    const periodBets = await db
+      .select()
+      .from(bets)
+      .where(and(
+        gte(bets.placedAt, params.dateFrom),
+        lte(bets.placedAt, params.dateTo)
+      ));
+
+    const totalStakeCents = periodBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+    const totalPayoutsCents = periodBets
+      .filter(bet => bet.status === 'settled_win')
+      .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
+    
+    const uniquePlayerIds = new Set(periodBets.map(bet => bet.userId));
+    
+    // Generate breakdown (simplified implementation)
+    const breakdown = [{
+      period: params.dateFrom.toISOString().split('T')[0],
+      stakeCents: totalStakeCents,
+      payoutsCents: totalPayoutsCents,
+      ggrCents: totalStakeCents - totalPayoutsCents,
+      betCount: periodBets.length
+    }];
+
+    return {
+      totalStakeCents,
+      totalPayoutsCents,
+      ggrCents: totalStakeCents - totalPayoutsCents,
+      betCount: periodBets.length,
+      playerCount: uniquePlayerIds.size,
+      breakdown
+    };
+  }
+
   // Create demo account for testing
   async initializeDemoAccount() {
     // Only create demo account in demo mode - critical security check
