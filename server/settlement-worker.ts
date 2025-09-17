@@ -31,8 +31,38 @@ interface BetOutcome {
 export class BetSettlementWorker {
   private isRunning = false;
   private intervalId: NodeJS.Timeout | null = null;
+  private processedBets = 0;
+  private errors = 0;
+  private lastRun: Date | null = null;
 
   constructor(private intervalMinutes = 2) {}
+
+  /**
+   * Get the current status of the settlement worker
+   */
+  getStatus(): {
+    isRunning: boolean;
+    lastRun: string | null;
+    nextRun: string | null;
+    processedBets: number;
+    errors: number;
+  } {
+    const now = new Date();
+    let nextRun: string | null = null;
+    
+    if (this.intervalId && this.lastRun) {
+      const nextRunTime = new Date(this.lastRun.getTime() + (this.intervalMinutes * 60 * 1000));
+      nextRun = nextRunTime.toISOString();
+    }
+
+    return {
+      isRunning: this.intervalId !== null,
+      lastRun: this.lastRun?.toISOString() || null,
+      nextRun,
+      processedBets: this.processedBets,
+      errors: this.errors
+    };
+  }
 
   /**
    * Start the settlement worker to run at specified intervals
@@ -75,6 +105,7 @@ export class BetSettlementWorker {
     }
 
     this.isRunning = true;
+    this.lastRun = new Date();
     console.log('Processing pending bet settlements...');
 
     try {
@@ -106,9 +137,11 @@ export class BetSettlementWorker {
           const settled = await this.settleBet(bet, matchResults);
           if (settled) {
             settledBetsCount++;
+            this.processedBets++;
           }
         } catch (error) {
           console.error(`Failed to settle bet ${bet.id}:`, error);
+          this.errors++;
         }
       }
 
@@ -116,6 +149,7 @@ export class BetSettlementWorker {
       
     } catch (error) {
       console.error('Error processing pending bets:', error);
+      this.errors++;
     } finally {
       this.isRunning = false;
     }

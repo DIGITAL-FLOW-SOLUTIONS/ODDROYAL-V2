@@ -9,6 +9,8 @@ import AdminMatchesMarkets from "./AdminMatchesMarkets";
 import AdminMarketEditor from "./AdminMarketEditor";
 import AdminBetManagement from "./AdminBetManagement";
 import AdminRiskExposure from "./AdminRiskExposure";
+import AdminSettlement from "./AdminSettlement";
+import AdminSecurity from "./AdminSecurity";
 import NotFound from "@/pages/not-found";
 
 // Admin router component
@@ -122,12 +124,7 @@ function AdminRouter() {
       <Route path="/prime-admin/settlement">
         <AdminAuthGuard>
           <AdminLayout>
-            <div className="p-6">
-              <h1 className="text-2xl font-bold mb-4">Settlement Control & Reconciliation</h1>
-              <p className="text-muted-foreground">
-                Settlement control and reconciliation interface coming soon...
-              </p>
-            </div>
+            <AdminSettlement />
           </AdminLayout>
         </AdminAuthGuard>
       </Route>
@@ -135,12 +132,7 @@ function AdminRouter() {
       <Route path="/prime-admin/security">
         <AdminAuthGuard>
           <AdminLayout>
-            <div className="p-6">
-              <h1 className="text-2xl font-bold mb-4">Security & Access</h1>
-              <p className="text-muted-foreground">
-                Security and access management interface coming soon...
-              </p>
-            </div>
+            <AdminSecurity />
           </AdminLayout>
         </AdminAuthGuard>
       </Route>

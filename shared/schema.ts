@@ -292,6 +292,7 @@ export const adminSessions = pgTable("admin_sessions", {
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   twoFactorVerified: boolean("two_factor_verified").notNull().default(false),
+  isRevoked: boolean("is_revoked").notNull().default(false),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 }, (table) => ({
@@ -356,6 +357,7 @@ export const markets = pgTable("markets", {
   maxStakeCents: integer("max_stake_cents").notNull().default(10000000), // £100,000 maximum
   maxLiabilityCents: integer("max_liability_cents").notNull().default(100000000), // £1M maximum liability
   displayOrder: integer("display_order").notNull().default(0),
+  sortOrder: integer("sort_order").notNull().default(0),
   isPublished: boolean("is_published").notNull().default(false),
   isDeleted: boolean("is_deleted").notNull().default(false),
   createdBy: varchar("created_by"),

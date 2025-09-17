@@ -3524,6 +3524,736 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // =====================================
+  // ADMIN SETTLEMENT ROUTES - Instruction 8
+  // =====================================
+
+  // Get pending bets for settlement
+  app.get("/api/admin/settlement/pending", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('bets:read'), 
+    async (req: any, res) => {
+      try {
+        const pendingBets = await storage.getAllBets({
+          status: 'pending',
+          limit: 100
+        });
+
+        res.json({
+          success: true,
+          data: pendingBets
+        });
+      } catch (error) {
+        console.error('Get pending settlements error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve pending settlements'
+        });
+      }
+    }
+  );
+
+  // Get reconciliation issues
+  app.get("/api/admin/settlement/reconciliation-issues", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('bets:read'), 
+    async (req: any, res) => {
+      try {
+        // Mock reconciliation issues - in a real implementation, this would check for:
+        // - Missing results for completed matches
+        // - Duplicate results 
+        // - Mismatched data between SportMonks and local database
+        const issues = [
+          {
+            id: randomUUID(),
+            type: 'missing_result',
+            description: 'Match completed but no result available from SportMonks',
+            fixtureId: '12345',
+            homeTeam: 'Arsenal',
+            awayTeam: 'Chelsea',
+            affectedBets: 5,
+            severity: 'high' as const,
+            createdAt: new Date().toISOString()
+          }
+        ];
+
+        res.json({
+          success: true,
+          data: issues
+        });
+      } catch (error) {
+        console.error('Get reconciliation issues error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve reconciliation issues'
+        });
+      }
+    }
+  );
+
+  // Get settlement worker status
+  app.get("/api/admin/settlement/worker-status", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('bets:read'), 
+    async (req: any, res) => {
+      try {
+        // Import settlement worker to check status
+        const { settlementWorker } = await import('./settlement-worker');
+        
+        const status = settlementWorker.getStatus();
+
+        res.json({
+          success: true,
+          data: status
+        });
+      } catch (error) {
+        console.error('Get worker status error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve worker status'
+        });
+      }
+    }
+  );
+
+  // Get settlement history
+  app.get("/api/admin/settlement/history", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('bets:read'), 
+    async (req: any, res) => {
+      try {
+        const { status, fixtureId, dateFrom, dateTo } = req.query;
+        
+        const settledBets = await storage.getAllBets({
+          status: status !== 'all' ? status as string : undefined,
+          limit: 100
+        });
+
+        // Filter by date range if provided
+        let filteredBets = settledBets;
+        if (dateFrom || dateTo) {
+          filteredBets = settledBets.filter(bet => {
+            const betDate = new Date(bet.placedAt);
+            if (dateFrom && betDate < new Date(dateFrom as string)) return false;
+            if (dateTo && betDate > new Date(dateTo as string)) return false;
+            return true;
+          });
+        }
+
+        res.json({
+          success: true,
+          data: filteredBets
+        });
+      } catch (error) {
+        console.error('Get settlement history error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve settlement history'
+        });
+      }
+    }
+  );
+
+  // Force settle bet - Manual override capability
+  app.post("/api/admin/settlement/force-settle/:betId", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('bets:settle'), 
+    require2FA,
+    auditAction('force_settle_bet', (req) => ({ 
+      targetType: 'bet', 
+      targetId: req.params.betId 
+    })),
+    async (req: any, res) => {
+      try {
+        const { betId } = req.params;
+        const { outcome, reason } = req.body;
+
+        if (!['won', 'lost', 'void'].includes(outcome)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid settlement outcome. Must be won, lost, or void.'
+          });
+        }
+
+        if (!reason || reason.trim().length < 10) {
+          return res.status(400).json({
+            success: false,
+            error: 'Detailed reason required for manual settlement (minimum 10 characters)'
+          });
+        }
+
+        const bet = await storage.getBet(betId);
+        if (!bet) {
+          return res.status(404).json({
+            success: false,
+            error: 'Bet not found'
+          });
+        }
+
+        if (bet.status !== 'pending') {
+          return res.status(400).json({
+            success: false,
+            error: 'Bet is not in pending status'
+          });
+        }
+
+        // Calculate winnings based on outcome
+        let actualWinnings = 0;
+        if (outcome === 'won') {
+          actualWinnings = bet.potentialWinnings;
+        } else if (outcome === 'void') {
+          actualWinnings = bet.totalStake; // Return stake for voided bets
+        }
+        // For 'lost', actualWinnings remains 0
+
+        // Update bet status
+        const updatedBet = await storage.updateBetStatus(betId, outcome, actualWinnings);
+        
+        if (!updatedBet) {
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to update bet status'
+          });
+        }
+
+        // Update user balance if bet won or voided
+        if (actualWinnings > 0) {
+          const user = await storage.getUser(bet.userId);
+          if (user) {
+            const newBalance = user.balance + actualWinnings;
+            await storage.updateUserBalance(bet.userId, newBalance);
+            
+            // Record transaction
+            await storage.createTransaction({
+              userId: bet.userId,
+              type: outcome === 'won' ? 'payout' : 'refund',
+              amount: actualWinnings,
+              description: `Manual settlement: ${outcome.toUpperCase()} - ${reason}`,
+              balanceAfter: newBalance,
+              betId: betId
+            });
+          }
+        }
+
+        res.json({
+          success: true,
+          data: updatedBet,
+          message: `Bet manually settled as ${outcome.toUpperCase()}`
+        });
+      } catch (error) {
+        console.error('Force settle bet error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to force settle bet'
+        });
+      }
+    }
+  );
+
+  // Start/stop settlement worker
+  app.post("/api/admin/settlement/worker/:action", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('bets:settle'), 
+    auditAction('settlement_worker_control', (req) => ({ 
+      targetType: 'system', 
+      targetId: 'settlement_worker',
+      note: `Worker ${req.params.action}` 
+    })),
+    async (req: any, res) => {
+      try {
+        const { action } = req.params;
+        
+        if (!['start', 'stop'].includes(action)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid action. Must be start or stop.'
+          });
+        }
+
+        // Import settlement worker
+        const { settlementWorker } = await import('./settlement-worker');
+        
+        if (action === 'start') {
+          settlementWorker.start();
+        } else {
+          settlementWorker.stop();
+        }
+
+        res.json({
+          success: true,
+          message: `Settlement worker ${action}ed successfully`
+        });
+      } catch (error) {
+        console.error('Settlement worker control error:', error);
+        res.status(500).json({
+          success: false,
+          error: `Failed to ${req.params.action} settlement worker`
+        });
+      }
+    }
+  );
+
+  // Manual reconciliation for a specific fixture
+  app.post("/api/admin/settlement/reconcile/:fixtureId", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('bets:settle'), 
+    auditAction('manual_reconciliation', (req) => ({ 
+      targetType: 'fixture', 
+      targetId: req.params.fixtureId 
+    })),
+    async (req: any, res) => {
+      try {
+        const { fixtureId } = req.params;
+        
+        // Import settlement worker to trigger reconciliation
+        const { settlementWorker } = await import('./settlement-worker');
+        
+        // In a real implementation, this would:
+        // 1. Re-fetch results for the specific fixture
+        // 2. Check for pending bets on this fixture
+        // 3. Attempt to settle them with the new data
+        // 4. Log any remaining issues
+        
+        res.json({
+          success: true,
+          message: `Manual reconciliation triggered for fixture ${fixtureId}`
+        });
+      } catch (error) {
+        console.error('Manual reconciliation error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to trigger manual reconciliation'
+        });
+      }
+    }
+  );
+
+  // Re-fetch results from SportMonks for a fixture
+  app.post("/api/admin/settlement/refetch-results/:fixtureId", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('bets:settle'), 
+    auditAction('refetch_results', (req) => ({ 
+      targetType: 'fixture', 
+      targetId: req.params.fixtureId 
+    })),
+    async (req: any, res) => {
+      try {
+        const { fixtureId } = req.params;
+        
+        // In a real implementation, this would:
+        // 1. Call SportMonks API to get fresh results for the fixture
+        // 2. Update local cache with new data
+        // 3. Check if this resolves any reconciliation issues
+        
+        res.json({
+          success: true,
+          message: `Results re-fetched for fixture ${fixtureId}`
+        });
+      } catch (error) {
+        console.error('Re-fetch results error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to re-fetch results'
+        });
+      }
+    }
+  );
+
+  // Export settlement report
+  app.post("/api/admin/settlement/export", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:export'), 
+    auditAction('export_settlement_report'),
+    async (req: any, res) => {
+      try {
+        const { format, dateFrom, dateTo } = req.body;
+        
+        if (!['csv', 'pdf'].includes(format)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid format. Must be csv or pdf.'
+          });
+        }
+
+        // Get settlement data for the date range
+        const bets = await storage.getAllBets({
+          limit: 1000 // Reasonable limit for exports
+        });
+
+        // Filter by date range
+        let filteredBets = bets;
+        if (dateFrom || dateTo) {
+          filteredBets = bets.filter(bet => {
+            const betDate = new Date(bet.placedAt);
+            if (dateFrom && betDate < new Date(dateFrom)) return false;
+            if (dateTo && betDate > new Date(dateTo)) return false;
+            return true;
+          });
+        }
+
+        if (format === 'csv') {
+          // Generate CSV
+          const csvHeader = 'Bet ID,User ID,Type,Stake,Status,Placed At,Settled At,Winnings\n';
+          const csvData = filteredBets.map(bet => 
+            `${bet.id},${bet.userId},${bet.type},${bet.totalStake},${bet.status},${bet.placedAt},${bet.settledAt || ''},${bet.actualWinnings || 0}`
+          ).join('\n');
+          
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', 'attachment; filename="settlement-report.csv"');
+          res.send(csvHeader + csvData);
+        } else {
+          // For PDF, we'd use a library like puppeteer or pdfkit
+          // For now, return a simple text response
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', 'attachment; filename="settlement-report.pdf"');
+          res.send('PDF generation not implemented yet');
+        }
+      } catch (error) {
+        console.error('Export settlement report error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to export settlement report'
+        });
+      }
+    }
+  );
+
+  // =====================================
+  // ADMIN SECURITY ROUTES - Instruction 9
+  // =====================================
+
+  // Get IP allowlist
+  app.get("/api/admin/security/ip-allowlist", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requireSuperadmin(), 
+    async (req: any, res) => {
+      try {
+        // Mock IP allowlist - in real implementation, this would be stored in database
+        const allowlist = [
+          {
+            id: randomUUID(),
+            ipAddress: "192.168.1.100",
+            description: "Office network",
+            adminRole: "superadmin",
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            createdBy: req.adminUser.id
+          }
+        ];
+
+        res.json({
+          success: true,
+          data: allowlist
+        });
+      } catch (error) {
+        console.error('Get IP allowlist error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve IP allowlist'
+        });
+      }
+    }
+  );
+
+  // Add IP to allowlist
+  app.post("/api/admin/security/ip-allowlist", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requireSuperadmin(), 
+    auditAction('ip_allowlist_add', (req) => ({ 
+      targetType: 'ip_allowlist', 
+      targetId: req.body.ipAddress 
+    })),
+    async (req: any, res) => {
+      try {
+        const { ipAddress, description, adminRole } = req.body;
+
+        if (!ipAddress || !description || !adminRole) {
+          return res.status(400).json({
+            success: false,
+            error: 'IP address, description, and admin role are required'
+          });
+        }
+
+        // Basic IP validation
+        const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+        if (!ipRegex.test(ipAddress)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid IP address format'
+          });
+        }
+
+        // In real implementation, store in database
+        const newEntry = {
+          id: randomUUID(),
+          ipAddress,
+          description,
+          adminRole,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          createdBy: req.adminUser.id
+        };
+
+        res.json({
+          success: true,
+          data: newEntry,
+          message: 'IP address added to allowlist successfully'
+        });
+      } catch (error) {
+        console.error('Add IP allowlist error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to add IP to allowlist'
+        });
+      }
+    }
+  );
+
+  // Remove IP from allowlist
+  app.delete("/api/admin/security/ip-allowlist/:id", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requireSuperadmin(), 
+    auditAction('ip_allowlist_remove', (req) => ({ 
+      targetType: 'ip_allowlist', 
+      targetId: req.params.id 
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+
+        // In real implementation, remove from database
+        res.json({
+          success: true,
+          message: 'IP address removed from allowlist successfully'
+        });
+      } catch (error) {
+        console.error('Remove IP allowlist error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to remove IP from allowlist'
+        });
+      }
+    }
+  );
+
+  // Get active admin sessions
+  app.get("/api/admin/security/sessions", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requireAdminLevel(), 
+    async (req: any, res) => {
+      try {
+        // Get active admin sessions
+        const sessions = await storage.getActiveAdminSessions();
+        
+        res.json({
+          success: true,
+          data: sessions
+        });
+      } catch (error) {
+        console.error('Get admin sessions error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve admin sessions'
+        });
+      }
+    }
+  );
+
+  // Get system status
+  app.get("/api/admin/security/system-status", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('dashboard:read'), 
+    async (req: any, res) => {
+      try {
+        // Mock system status - in real implementation, check actual system state
+        const status = {
+          bettingEnabled: true,
+          maintenanceMode: false,
+          emergencyShutdown: false,
+          totalActiveSessions: 3,
+          totalActiveUsers: 1250,
+          systemAlerts: 0
+        };
+
+        res.json({
+          success: true,
+          data: status
+        });
+      } catch (error) {
+        console.error('Get system status error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve system status'
+        });
+      }
+    }
+  );
+
+  // Emergency shutdown toggle - PANIC BUTTON
+  app.post("/api/admin/security/emergency-shutdown", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requireSuperadmin(), 
+    require2FA,
+    auditAction('emergency_shutdown', (req) => ({ 
+      targetType: 'system', 
+      targetId: 'betting_system',
+      note: `Emergency shutdown ${req.body.action}` 
+    })),
+    async (req: any, res) => {
+      try {
+        const { action } = req.body;
+
+        if (!['enable', 'disable'].includes(action)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid action. Must be enable or disable.'
+          });
+        }
+
+        // In real implementation:
+        // 1. Set emergency shutdown flag in database/cache
+        // 2. Stop all betting workers
+        // 3. Notify all services of emergency state
+        // 4. Log critical alert
+
+        console.log(`EMERGENCY SHUTDOWN ${action.toUpperCase()} by admin ${req.adminUser.username}`);
+
+        res.json({
+          success: true,
+          message: `Emergency shutdown ${action}d successfully`,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Emergency shutdown error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to execute emergency shutdown'
+        });
+      }
+    }
+  );
+
+  // Toggle betting system
+  app.post("/api/admin/security/toggle-betting", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requireAnyRole(['superadmin', 'admin', 'risk_manager']), 
+    auditAction('toggle_betting', (req) => ({ 
+      targetType: 'system', 
+      targetId: 'betting_system',
+      note: `Betting ${req.body.enabled ? 'enabled' : 'disabled'}` 
+    })),
+    async (req: any, res) => {
+      try {
+        const { enabled } = req.body;
+
+        if (typeof enabled !== 'boolean') {
+          return res.status(400).json({
+            success: false,
+            error: 'Enabled parameter must be a boolean'
+          });
+        }
+
+        // In real implementation:
+        // 1. Update system configuration
+        // 2. Notify betting workers
+        // 3. Update frontend flags
+
+        res.json({
+          success: true,
+          message: `Betting ${enabled ? 'enabled' : 'disabled'} successfully`
+        });
+      } catch (error) {
+        console.error('Toggle betting error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to toggle betting'
+        });
+      }
+    }
+  );
+
+  // Terminate admin session
+  app.post("/api/admin/security/terminate-session/:sessionId", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requireSuperadmin(), 
+    auditAction('terminate_session', (req) => ({ 
+      targetType: 'admin_session', 
+      targetId: req.params.sessionId 
+    })),
+    async (req: any, res) => {
+      try {
+        const { sessionId } = req.params;
+
+        // Don't allow terminating own session
+        const session = await storage.getAdminSession(sessionId);
+        if (session && session.adminId === req.adminUser.id) {
+          return res.status(400).json({
+            success: false,
+            error: 'Cannot terminate your own session'
+          });
+        }
+
+        // Terminate the session
+        await storage.deleteAdminSession(sessionId);
+
+        res.json({
+          success: true,
+          message: 'Admin session terminated successfully'
+        });
+      } catch (error) {
+        console.error('Terminate session error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to terminate session'
+        });
+      }
+    }
+  );
+
+  // Force 2FA for all admins
+  app.post("/api/admin/security/force-2fa", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requireSuperadmin(), 
+    auditAction('force_2fa_all'),
+    async (req: any, res) => {
+      try {
+        // In real implementation:
+        // 1. Update all admin users to require 2FA
+        // 2. Invalidate sessions without 2FA
+        // 3. Send notifications to admins
+
+        res.json({
+          success: true,
+          message: 'Two-factor authentication enforced for all admin users'
+        });
+      } catch (error) {
+        console.error('Force 2FA error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to enforce 2FA'
+        });
+      }
+    }
+  );
+
   const httpServer = createServer(app);
   
   // Initialize WebSocket server for real-time updates

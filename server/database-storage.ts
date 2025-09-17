@@ -391,7 +391,7 @@ export class DatabaseStorage implements IStorage {
   async createAdminUser(admin: InsertAdminUser): Promise<AdminUser> {
     const [newAdmin] = await db
       .insert(adminUsers)
-      .values(admin)
+      .values([admin])
       .returning();
     return newAdmin;
   }
@@ -1352,5 +1352,135 @@ export class DatabaseStorage implements IStorage {
         groupBy: params.groupBy
       }
     };
+  }
+
+  // ===================== MISSING ADMIN OPERATIONS =====================
+  
+  async getAllBets(params?: {
+    status?: string;
+    userId?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<Bet[]> {
+    let query = db.select().from(bets);
+    const conditions = [];
+
+    if (params?.status) {
+      conditions.push(eq(bets.status, params.status));
+    }
+    if (params?.userId) {
+      conditions.push(eq(bets.userId, params.userId));
+    }
+    if (params?.dateFrom) {
+      conditions.push(gte(bets.placedAt, params.dateFrom));
+    }
+    if (params?.dateTo) {
+      conditions.push(lte(bets.placedAt, params.dateTo));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    query = query.orderBy(desc(bets.placedAt));
+
+    if (params?.limit) {
+      query = query.limit(params.limit);
+    }
+    if (params?.offset) {
+      query = query.offset(params.offset);
+    }
+
+    return await query;
+  }
+
+  async getActiveAdminSessions(): Promise<AdminSession[]> {
+    const now = new Date();
+    return await db
+      .select()
+      .from(adminSessions)
+      .where(and(
+        gte(adminSessions.expiresAt, now),
+        eq(adminSessions.isRevoked, false)
+      ))
+      .orderBy(desc(adminSessions.createdAt));
+  }
+
+  async getMatchMarkets(matchId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(markets)
+      .where(eq(markets.matchId, matchId))
+      .orderBy(markets.sortOrder);
+  }
+
+  async createMarketWithOutcomes(market: any): Promise<any> {
+    return await db.transaction(async (tx) => {
+      // Create the market
+      const [newMarket] = await tx
+        .insert(markets)
+        .values({
+          matchId: market.matchId,
+          key: market.key,
+          name: market.name,
+          type: market.type,
+          sortOrder: market.sortOrder || 0,
+          isActive: market.isActive ?? true
+        })
+        .returning();
+
+      // Create outcomes if provided
+      if (market.outcomes && Array.isArray(market.outcomes)) {
+        for (const outcome of market.outcomes) {
+          await tx
+            .insert(marketOutcomes)
+            .values({
+              marketId: newMarket.id,
+              key: outcome.key,
+              name: outcome.name,
+              odds: outcome.odds,
+              sortOrder: outcome.sortOrder || 0,
+              isActive: outcome.isActive ?? true
+            });
+        }
+      }
+
+      return newMarket;
+    });
+  }
+
+  async updateMarketStatus(marketId: string, status: string): Promise<any> {
+    const isActive = status === 'active';
+    const [updatedMarket] = await db
+      .update(markets)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(markets.id, marketId))
+      .returning();
+    return updatedMarket;
+  }
+
+  async updateOutcomeOdds(outcomeId: string, odds: string): Promise<any> {
+    const [updatedOutcome] = await db
+      .update(marketOutcomes)
+      .set({ odds, updatedAt: new Date() })
+      .where(eq(marketOutcomes.id, outcomeId))
+      .returning();
+    return updatedOutcome;
+  }
+
+  async reorderMarkets(matchId: string, marketOrder: string[]): Promise<void> {
+    await db.transaction(async (tx) => {
+      for (let i = 0; i < marketOrder.length; i++) {
+        await tx
+          .update(markets)
+          .set({ sortOrder: i, updatedAt: new Date() })
+          .where(and(
+            eq(markets.id, marketOrder[i]),
+            eq(markets.matchId, matchId)
+          ));
+      }
+    });
   }
 }

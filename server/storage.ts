@@ -147,6 +147,22 @@ export interface IStorage {
     limit?: number;
     offset?: number;
   }): Promise<{ users: AdminUser[]; total: number }>;
+
+  // Missing admin operations needed by routes.ts
+  getAllBets(params?: {
+    status?: string;
+    userId?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<Bet[]>;
+  getActiveAdminSessions(): Promise<AdminSession[]>;
+  getMatchMarkets(matchId: string): Promise<any[]>;
+  createMarketWithOutcomes(market: any): Promise<any>;
+  updateMarketStatus(marketId: string, status: string): Promise<any>;
+  updateOutcomeOdds(outcomeId: string, odds: string): Promise<any>;
+  reorderMarkets(matchId: string, marketOrder: string[]): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -227,11 +243,12 @@ export class MemStorage implements IStorage {
         return;
       }
       
-      // Create demo admin user
+      // Create demo admin user  
+      const hashedAdminPassword = await argon2.hash(adminPassword);
       const demoAdmin = await this.createAdminUser({
         username: adminUsername,
         email: adminEmail,
-        password: adminPassword,
+        passwordHash: hashedAdminPassword,
         role: 'admin'
       });
       
@@ -512,12 +529,20 @@ export class MemStorage implements IStorage {
         totalOdds: totalOdds.toFixed(4)
       });
 
-      // Create bet selections
+      // Create bet selections with placeholder market/outcome IDs
       const selections: BetSelection[] = [];
       for (const selectionData of params.selections) {
         const selection = await this.createBetSelection({
           betId: bet.id,
-          ...selectionData
+          fixtureId: selectionData.fixtureId,
+          homeTeam: selectionData.homeTeam,
+          awayTeam: selectionData.awayTeam,
+          league: selectionData.league,
+          marketId: 'placeholder-market-id', // TODO: Implement proper market lookup
+          outcomeId: 'placeholder-outcome-id', // TODO: Implement proper outcome lookup
+          market: selectionData.market,
+          selection: selectionData.selection,
+          odds: selectionData.odds
         });
         selections.push(selection);
       }
@@ -660,6 +685,7 @@ export class MemStorage implements IStorage {
       ipAddress: ipAddress || null,
       userAgent: userAgent || null,
       twoFactorVerified: false,
+      isRevoked: false,
       expiresAt,
       createdAt: now
     };
@@ -1055,6 +1081,78 @@ export class MemStorage implements IStorage {
     }
     
     return data;
+  }
+
+  // ===================== INITIALIZATION =====================
+
+  // ===================== MISSING ADMIN OPERATIONS =====================
+  
+  async getAllBets(params?: {
+    status?: string;
+    userId?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<Bet[]> {
+    let result = Array.from(this.bets.values());
+
+    if (params?.status) {
+      result = result.filter(bet => bet.status === params.status);
+    }
+    if (params?.userId) {
+      result = result.filter(bet => bet.userId === params.userId);
+    }
+    if (params?.dateFrom) {
+      result = result.filter(bet => bet.placedAt >= params.dateFrom!);
+    }
+    if (params?.dateTo) {
+      result = result.filter(bet => bet.placedAt <= params.dateTo!);
+    }
+
+    // Sort by date descending
+    result.sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime());
+
+    if (params?.offset) {
+      result = result.slice(params.offset);
+    }
+    if (params?.limit) {
+      result = result.slice(0, params.limit);
+    }
+
+    return result;
+  }
+
+  async getActiveAdminSessions(): Promise<AdminSession[]> {
+    const now = new Date();
+    return Array.from(this.adminSessions.values())
+      .filter(session => session.expiresAt > now)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getMatchMarkets(matchId: string): Promise<any[]> {
+    // Stub implementation for memory storage
+    return [];
+  }
+
+  async createMarketWithOutcomes(market: any): Promise<any> {
+    // Stub implementation for memory storage
+    return { id: randomUUID(), ...market };
+  }
+
+  async updateMarketStatus(marketId: string, status: string): Promise<any> {
+    // Stub implementation for memory storage
+    return { id: marketId, status };
+  }
+
+  async updateOutcomeOdds(outcomeId: string, odds: string): Promise<any> {
+    // Stub implementation for memory storage
+    return { id: outcomeId, odds };
+  }
+
+  async reorderMarkets(matchId: string, marketOrder: string[]): Promise<void> {
+    // Stub implementation for memory storage
+    console.log(`Reordering markets for match ${matchId}:`, marketOrder);
   }
 }
 
