@@ -4,6 +4,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { settlementWorker } from "./settlement-worker";
 import { exposureEngine } from "./exposure-engine";
 import { storage } from "./storage";
+import { AdminSeeder } from "./admin-seeder";
 
 // Enable demo mode for development (this is not a secret, just a feature flag)
 if (process.env.NODE_ENV === 'development') {
@@ -70,7 +71,27 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  // Initialize demo account if in demo mode (before server starts)
+  
+  // Initialize admin accounts (before server starts)
+  console.log("🔐 Initializing admin accounts...");
+  const adminSeedResult = await AdminSeeder.seedDefaultAdmin();
+  if (adminSeedResult.success) {
+    console.log("✅ Admin initialization successful");
+  } else {
+    console.warn("⚠️ Admin initialization failed:", adminSeedResult.error);
+  }
+  
+  // Initialize demo admin in development mode
+  if (process.env.NODE_ENV === 'development') {
+    const demoSeedResult = await AdminSeeder.seedDemoAdmin();
+    if (demoSeedResult.success) {
+      console.log("✅ Demo admin initialization successful");
+    } else {
+      console.warn("⚠️ Demo admin initialization failed:", demoSeedResult.error);
+    }
+  }
+  
+  // Initialize demo user account if in demo mode (before server starts)
   await storage.initializeDemoAccount();
 
   server.listen({
