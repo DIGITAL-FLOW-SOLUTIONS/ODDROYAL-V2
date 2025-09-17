@@ -209,10 +209,9 @@ export class ExposureCalculationEngine {
     outcomeId?: string;
   }): Promise<ExposureResult[]> {
     try {
-      let query = db.select().from(exposureSnapshots);
-
+      const conditions = [];
+      
       if (filters) {
-        const conditions = [];
         if (filters.matchId) {
           conditions.push(eq(exposureSnapshots.matchId, filters.matchId));
         }
@@ -222,13 +221,12 @@ export class ExposureCalculationEngine {
         if (filters.outcomeId) {
           conditions.push(eq(exposureSnapshots.outcomeId, filters.outcomeId));
         }
-        
-        if (conditions.length > 0) {
-          query = query.where(and(...conditions));
-        }
       }
 
-      const snapshots = await query
+      const snapshots = await db
+        .select()
+        .from(exposureSnapshots)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(exposureSnapshots.calculatedAt);
 
       return snapshots.map((snapshot: any) => ({

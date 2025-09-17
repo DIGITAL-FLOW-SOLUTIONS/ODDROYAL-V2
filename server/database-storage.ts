@@ -31,7 +31,7 @@ import {
   type AuditLog,
   type InsertAuditLog
 } from "@shared/schema";
-import { eq, and, desc, gte, lte, sql, count } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, count, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import argon2 from "argon2";
@@ -391,7 +391,7 @@ export class DatabaseStorage implements IStorage {
   async createAdminUser(admin: InsertAdminUser): Promise<AdminUser> {
     const [newAdmin] = await db
       .insert(adminUsers)
-      .values([admin])
+      .values(admin)
       .returning();
     return newAdmin;
   }
@@ -848,11 +848,11 @@ export class DatabaseStorage implements IStorage {
 
     if (betSelectionIds.length === 0) return [];
 
-    const betIds = [...new Set(betSelectionIds.map(b => b.betId))];
+    const betIds = Array.from(new Set(betSelectionIds.map(b => b.betId)));
     return await db
       .select()
       .from(bets)
-      .where(sql`${bets.id} = ANY(${betIds}) AND ${bets.status} = 'pending'`);
+      .where(and(inArray(bets.id, betIds), eq(bets.status, 'pending')));
   }
 
   // ===================== MARKET MANAGEMENT =====================
