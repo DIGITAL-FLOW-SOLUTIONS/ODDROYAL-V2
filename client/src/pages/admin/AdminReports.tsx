@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, adminApiRequest, queryClient } from "@/lib/queryClient";
 import { 
   FileDown, 
   TrendingUp, 
@@ -23,6 +23,63 @@ import {
   Download,
   Clock
 } from "lucide-react";
+
+// Interfaces for typed query responses
+interface DailyReportData {
+  grossGamingRevenue: string;
+  totalBets: number;
+  totalTurnover: string;
+}
+
+interface MonthlyReportData {
+  grossGamingRevenue: string;
+  totalBets: number;
+  growth: number;
+}
+
+interface TurnoverBySportData {
+  totalTurnover: string;
+  sports: Array<{
+    sport: string;
+    turnover: string;
+    percentage: number;
+  }>;
+}
+
+interface PayoutRatioData {
+  payoutRatioPercentage: string;
+  winRatePercentage: string;
+  totalStake: string;
+  totalPayouts: string;
+  winningBets: number;
+  losingBets: number;
+}
+
+interface TopWinnersData {
+  winners: Array<{
+    username: string;
+    winnings: string;
+    betsCount: number;
+  }>;
+}
+
+interface ChargebacksData {
+  totalChargebacks: string;
+  chargebackCount: number;
+  chargebackRatePercentage: string;
+  chargebacks: Array<{
+    id: string;
+    amount: string;
+    date: string;
+    reason: string;
+  }>;
+}
+
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -56,34 +113,75 @@ export default function AdminReports() {
   });
 
   // Daily GGR Report
-  const { data: dailyReport, isLoading: dailyLoading } = useQuery({
+  const { data: dailyReport, isLoading: dailyLoading } = useQuery<ApiResponse<DailyReportData>>({
     queryKey: ['/api/admin/reports/daily', filters.dateFrom],
+    queryFn: async () => {
+      const response = await adminApiRequest('POST', '/api/admin/reports/daily', { date: filters.dateFrom });
+      return response.json();
+    },
     enabled: !!filters.dateFrom
   });
 
   // Monthly Report
-  const { data: monthlyReport, isLoading: monthlyLoading } = useQuery({
-    queryKey: ['/api/admin/reports/monthly', new Date().getFullYear(), new Date().getMonth() + 1]
+  const { data: monthlyReport, isLoading: monthlyLoading } = useQuery<ApiResponse<MonthlyReportData>>({
+    queryKey: ['/api/admin/reports/monthly', new Date().getFullYear(), new Date().getMonth() + 1],
+    queryFn: async () => {
+      const response = await adminApiRequest('POST', '/api/admin/reports/monthly', { 
+        year: new Date().getFullYear(), 
+        month: new Date().getMonth() + 1 
+      });
+      return response.json();
+    }
   });
 
   // Turnover by Sport Report
-  const { data: turnoverBySport, isLoading: turnoverLoading } = useQuery({
-    queryKey: ['/api/admin/reports/turnover-by-sport', filters.dateFrom, filters.dateTo, filters.sport]
+  const { data: turnoverBySport, isLoading: turnoverLoading } = useQuery<ApiResponse<TurnoverBySportData>>({
+    queryKey: ['/api/admin/reports/turnover-by-sport', filters.dateFrom, filters.dateTo, filters.sport],
+    queryFn: async () => {
+      const response = await adminApiRequest('POST', '/api/admin/reports/turnover-by-sport', {
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+        sport: filters.sport
+      });
+      return response.json();
+    }
   });
 
   // Payout Ratio Report
-  const { data: payoutRatio, isLoading: payoutLoading } = useQuery({
-    queryKey: ['/api/admin/reports/payout-ratio', filters.dateFrom, filters.dateTo]
+  const { data: payoutRatio, isLoading: payoutLoading } = useQuery<ApiResponse<PayoutRatioData>>({
+    queryKey: ['/api/admin/reports/payout-ratio', filters.dateFrom, filters.dateTo],
+    queryFn: async () => {
+      const response = await adminApiRequest('POST', '/api/admin/reports/payout-ratio', {
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo
+      });
+      return response.json();
+    }
   });
 
   // Top Winners Report
-  const { data: topWinners, isLoading: winnersLoading } = useQuery({
-    queryKey: ['/api/admin/reports/top-winners', filters.dateFrom, filters.dateTo, filters.limit || 50]
+  const { data: topWinners, isLoading: winnersLoading } = useQuery<ApiResponse<TopWinnersData>>({
+    queryKey: ['/api/admin/reports/top-winners', filters.dateFrom, filters.dateTo, filters.limit || 50],
+    queryFn: async () => {
+      const response = await adminApiRequest('POST', '/api/admin/reports/top-winners', {
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+        limit: filters.limit || 50
+      });
+      return response.json();
+    }
   });
 
   // Chargebacks Report
-  const { data: chargebacks, isLoading: chargebacksLoading } = useQuery({
-    queryKey: ['/api/admin/reports/chargebacks', filters.dateFrom, filters.dateTo]
+  const { data: chargebacks, isLoading: chargebacksLoading } = useQuery<ApiResponse<ChargebacksData>>({
+    queryKey: ['/api/admin/reports/chargebacks', filters.dateFrom, filters.dateTo],
+    queryFn: async () => {
+      const response = await adminApiRequest('POST', '/api/admin/reports/chargebacks', {
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo
+      });
+      return response.json();
+    }
   });
 
   // Export mutation

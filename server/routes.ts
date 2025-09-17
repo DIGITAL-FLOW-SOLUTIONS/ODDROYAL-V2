@@ -1567,10 +1567,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // User metrics
       const totalUsers = allUsers.length;
-      const activeUsers = allUsers.filter(user => user.isActive).length;
-      const newUsersToday = allUsers.filter(user => new Date(user.createdAt) >= today).length;
-      const newUsersThisWeek = allUsers.filter(user => new Date(user.createdAt) >= weekAgo).length;
-      const newUsersLastWeek = allUsers.filter(user => {
+      const activeUsers = allUsers.filter((user: any) => user.isActive).length;
+      const newUsersToday = allUsers.filter((user: any) => new Date(user.createdAt) >= today).length;
+      const newUsersThisWeek = allUsers.filter((user: any) => new Date(user.createdAt) >= weekAgo).length;
+      const newUsersLastWeek = allUsers.filter((user: any) => {
         const created = new Date(user.createdAt);
         return created >= twoWeeksAgo && created < weekAgo;
       }).length;
@@ -1579,11 +1579,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Bet metrics
       const totalBets = allBets.length;
-      const pendingBets = allBets.filter(bet => bet.status === 'pending');
-      const settledBets = allBets.filter(bet => bet.status !== 'pending');
-      const betsToday = allBets.filter(bet => new Date(bet.placedAt) >= today).length;
-      const betsThisWeek = allBets.filter(bet => new Date(bet.placedAt) >= weekAgo).length;
-      const betsLastWeek = allBets.filter(bet => {
+      const pendingBets = allBets.filter((bet: any) => bet.status === 'pending');
+      const settledBets = allBets.filter((bet: any) => bet.status !== 'pending');
+      const betsToday = allBets.filter((bet: any) => new Date(bet.placedAt) >= today).length;
+      const betsThisWeek = allBets.filter((bet: any) => new Date(bet.placedAt) >= weekAgo).length;
+      const betsLastWeek = allBets.filter((bet: any) => {
         const placed = new Date(bet.placedAt);
         return placed >= twoWeeksAgo && placed < weekAgo;
       }).length;
@@ -1591,7 +1591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ((betsThisWeek - betsLastWeek) / betsLastWeek) * 100 : 0;
       
       // Financial metrics
-      const totalTurnoverCents = allBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+      const totalTurnoverCents = allBets.reduce((sum: number, bet: any) => sum + bet.totalStake, 0);
       const turnoverTodayCents = allBets
         .filter(bet => new Date(bet.placedAt) >= today)
         .reduce((sum, bet) => sum + bet.totalStake, 0);
@@ -1859,16 +1859,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bet management endpoints
   app.get("/api/admin/bets", ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), authenticateAdmin, requirePermission('bets:read'), async (req: any, res) => {
     try {
-      const { limit = 50, offset = 0, status, userId } = req.query;
-      const pendingBets = await storage.getPendingBets();
+      const {
+        limit = '25',
+        offset = '0',
+        search,
+        status,
+        betType,
+        userId,
+        dateFrom,
+        dateTo,
+        minStake,
+        maxStake
+      } = req.query;
+
+      // Parse parameters
+      const params = {
+        search: search as string | undefined,
+        status: status as string | undefined,
+        betType: betType as string | undefined,
+        userId: userId as string | undefined,
+        dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
+        dateTo: dateTo ? new Date(dateTo as string) : undefined,
+        minStake: minStake ? parseInt(minStake as string) : undefined,
+        maxStake: maxStake ? parseInt(maxStake as string) : undefined,
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      };
+
+      // Filter out undefined values
+      const filteredParams = Object.fromEntries(
+        Object.entries(params).filter(([_, value]) => value !== undefined)
+      );
+
+      const result = await storage.getAllBets(filteredParams);
       
-      // For now, return pending bets - in a real system this would have more filtering
       res.json({
         success: true,
-        data: {
-          bets: pendingBets.slice(parseInt(offset), parseInt(offset) + parseInt(limit)),
-          total: pendingBets.length
-        }
+        data: result
       });
     } catch (error) {
       console.error('Get admin bets error:', error);
@@ -1879,6 +1906,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export bets to CSV
+  app.get("/api/admin/bets/export/csv", ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), authenticateAdmin, requirePermission('bets:read'), async (req: any, res) => {
+    try {
+      const {
+        search,
+        status,
+        betType,
+        userId,
+        dateFrom,
+        dateTo,
+        minStake,
+        maxStake
+      } = req.query;
+
+      const params = {
+        search: search as string | undefined,
+        status: status as string | undefined,
+        betType: betType as string | undefined,
+        userId: userId as string | undefined,
+        dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
+        dateTo: dateTo ? new Date(dateTo as string) : undefined,
+        minStake: minStake ? parseInt(minStake as string) : undefined,
+        maxStake: maxStake ? parseInt(maxStake as string) : undefined
+      };
+
+      const filteredParams = Object.fromEntries(
+        Object.entries(params).filter(([_, value]) => value !== undefined)
+      );
+
+      const csvData = await storage.exportBetsToCSV(filteredParams);
+      
+      // Set CSV headers
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="bets_export_${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csvData);
+    } catch (error) {
+      console.error('Export bets CSV error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to export bets'
+      });
+    }
+  });
+
+  // Force settle bet endpoint
+  app.post("/api/admin/bets/:id/force-settle",
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin,
+    requirePermission('bets:settle'),
+    require2FA,
+    auditAction('force_bet_settlement', (req) => ({
+      targetType: 'bet',
+      targetId: req.params.id,
+      note: `Force settlement: ${req.body.outcome} - ${req.body.reason}`
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const { outcome, reason, payoutCents } = z.object({
+          outcome: z.enum(['win', 'lose', 'void']),
+          reason: z.string().min(1, 'Reason is required'),
+          payoutCents: z.number().min(0).optional()
+        }).parse(req.body);
+
+        if (!reason.trim()) {
+          return res.status(400).json({
+            success: false,
+            error: 'Detailed reason is required for force settlement'
+          });
+        }
+
+        const payout = payoutCents || 0;
+        const result = await storage.forceBetSettlement(id, outcome, payout);
+        
+        if (!result.success) {
+          return res.status(400).json({
+            success: false,
+            error: result.error || 'Failed to force settle bet'
+          });
+        }
+
+        res.json({
+          success: true,
+          data: result.bet,
+          message: `Bet force settled as ${outcome} successfully`
+        });
+      } catch (error) {
+        console.error('Force settle bet error:', error);
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request data',
+            details: error.errors
+          });
+        }
+        res.status(500).json({
+          success: false,
+          error: 'Failed to force settle bet'
+        });
+      }
+    }
+  );
+
+  // Refund bet endpoint
+  app.post("/api/admin/bets/:id/refund",
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin,
+    requirePermission('bets:settle'),
+    auditAction('bet_refund', (req) => ({
+      targetType: 'bet',
+      targetId: req.params.id,
+      note: `Bet refund requested`
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        
+        const result = await storage.refundBet(id);
+        
+        if (!result.success) {
+          return res.status(400).json({
+            success: false,
+            error: result.error || 'Failed to refund bet'
+          });
+        }
+
+        res.json({
+          success: true,
+          data: result.bet,
+          message: 'Bet refunded successfully'
+        });
+      } catch (error) {
+        console.error('Refund bet error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to refund bet'
+        });
+      }
+    }
+  );
+
+  // Legacy settle endpoint - kept for backwards compatibility
   app.patch("/api/admin/bets/:id/settle", 
     ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
     authenticateAdmin, 
@@ -1919,12 +2088,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Bulk bet operations endpoint
+  app.post("/api/admin/bets/bulk",
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin,
+    requirePermission('bets:settle'),
+    require2FA,
+    auditAction('bulk_bet_operations', (req) => ({
+      targetType: 'bet',
+      targetId: 'bulk',
+      note: `Bulk operation: ${req.body.action} on ${req.body.betIds?.length || 0} bets`
+    })),
+    async (req: any, res) => {
+      try {
+        const { action, betIds, reason } = z.object({
+          action: z.enum(['refund', 'settle_win', 'settle_lose', 'void']),
+          betIds: z.array(z.string()).min(1, 'At least one bet ID required'),
+          reason: z.string().min(1, 'Reason is required for bulk operations')
+        }).parse(req.body);
+
+        if (betIds.length > 50) {
+          return res.status(400).json({
+            success: false,
+            error: 'Maximum 50 bets can be processed in a single bulk operation'
+          });
+        }
+
+        const results = [];
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const betId of betIds) {
+          try {
+            let result;
+            if (action === 'refund') {
+              result = await storage.refundBet(betId);
+            } else {
+              const outcome = action === 'settle_win' ? 'win' : 
+                             action === 'settle_lose' ? 'lose' : 'void';
+              // For bulk operations, use 0 payout for wins (could be enhanced to calculate)
+              result = await storage.forceBetSettlement(betId, outcome, 0);
+            }
+            
+            if (result.success) {
+              successCount++;
+              results.push({ betId, success: true });
+            } else {
+              errorCount++;
+              results.push({ betId, success: false, error: result.error });
+            }
+          } catch (error) {
+            errorCount++;
+            results.push({ 
+              betId, 
+              success: false, 
+              error: error instanceof Error ? error.message : 'Unknown error' 
+            });
+          }
+        }
+
+        res.json({
+          success: successCount > 0,
+          data: {
+            totalProcessed: betIds.length,
+            successCount,
+            errorCount,
+            results
+          },
+          message: `Bulk operation completed: ${successCount} successful, ${errorCount} failed`
+        });
+      } catch (error) {
+        console.error('Bulk bet operation error:', error);
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request data',
+            details: error.errors
+          });
+        }
+        res.status(500).json({
+          success: false,
+          error: 'Failed to execute bulk operation'
+        });
+      }
+    }
+  );
+
   // User management endpoints  
   app.get("/api/admin/customers", ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), authenticateAdmin, requirePermission('users:read'), async (req: any, res) => {
     try {
       const { limit = 50, offset = 0, search, isActive } = req.query;
       
-      // Get all users from storage
+      // Get all users from database
       const allUsers = Array.from(((await storage as any).users as Map<string, User>).values());
       let filteredUsers = allUsers;
       

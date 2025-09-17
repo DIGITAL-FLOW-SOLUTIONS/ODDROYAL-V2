@@ -150,13 +150,33 @@ export interface IStorage {
 
   // Missing admin operations needed by routes.ts
   getAllBets(params?: {
+    search?: string;
     status?: string;
+    betType?: string;
     userId?: string;
     dateFrom?: Date;
     dateTo?: Date;
+    minStake?: number;
+    maxStake?: number;
     limit?: number;
     offset?: number;
-  }): Promise<Bet[]>;
+  }): Promise<{ bets: any[]; total: number }>;
+  
+  // Force settlement and refund operations
+  forceBetSettlement(betId: string, outcome: 'win' | 'lose' | 'void', payoutCents: number): Promise<{ success: boolean; bet?: Bet; error?: string }>;
+  refundBet(betId: string): Promise<{ success: boolean; bet?: Bet; error?: string }>;
+  
+  // Export functionality
+  exportBetsToCSV(params?: {
+    search?: string;
+    status?: string;
+    betType?: string;
+    userId?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    minStake?: number;
+    maxStake?: number;
+  }): Promise<string>;
   getActiveAdminSessions(): Promise<AdminSession[]>;
   getMatchMarkets(matchId: string): Promise<any[]>;
   createMarketWithOutcomes(market: any): Promise<any>;
@@ -231,15 +251,22 @@ export class MemStorage implements IStorage {
         console.log('Demo account created successfully with initial balance');
       }
       
-      // Create demo admin account
-      const adminUsername = "admin";
+      // Create demo admin account with unique credentials to avoid conflicts with AdminSeeder
+      const adminUsername = "demo-storage-admin"; // Unique username to avoid conflicts
       const adminPassword = "admin123456"; // Strong password for admin
-      const adminEmail = "admin@primestake.com";
+      const adminEmail = "demo.storage.admin@primestake.com"; // Unique email to avoid conflicts
       
-      // Check if demo admin already exists
+      // Check if demo admin already exists (idempotent)
       const existingAdmin = await this.getAdminUserByUsername(adminUsername);
       if (existingAdmin) {
-        console.log('Demo admin account already exists');
+        console.log('Demo storage admin account already exists');
+        return;
+      }
+      
+      // Also check by email to ensure no conflicts
+      const existingAdminByEmail = await this.getAdminUserByEmail(adminEmail);
+      if (existingAdminByEmail) {
+        console.log('Demo storage admin account with this email already exists');
         return;
       }
       
@@ -252,7 +279,7 @@ export class MemStorage implements IStorage {
         role: 'admin'
       });
       
-      console.log('Demo admin account created successfully');
+      console.log('Demo storage admin account created successfully');
     } catch (error) {
       console.error('Failed to create demo accounts:', error);
     }
@@ -1097,31 +1124,64 @@ export class MemStorage implements IStorage {
   // ===================== MISSING ADMIN OPERATIONS =====================
   
   async getAllBets(params?: {
+    search?: string;
     status?: string;
+    betType?: string;
     userId?: string;
     dateFrom?: Date;
     dateTo?: Date;
+    minStake?: number;
+    maxStake?: number;
     limit?: number;
     offset?: number;
-  }): Promise<Bet[]> {
+  }): Promise<{ bets: any[]; total: number }> {
     let result = Array.from(this.bets.values());
 
-    if (params?.status) {
+    // Apply filters
+    if (params?.search) {
+      const searchLower = params.search.toLowerCase();
+      result = result.filter(bet => {
+        const user = this.users.get(bet.userId);
+        return bet.id.toLowerCase().includes(searchLower) ||
+               user?.username.toLowerCase().includes(searchLower) ||
+               user?.email.toLowerCase().includes(searchLower);
+      });
+    }
+
+    if (params?.status && params.status !== 'all') {
       result = result.filter(bet => bet.status === params.status);
     }
+
+    if (params?.betType && params.betType !== 'all') {
+      result = result.filter(bet => bet.type === params.betType);
+    }
+
     if (params?.userId) {
       result = result.filter(bet => bet.userId === params.userId);
     }
+
     if (params?.dateFrom) {
       result = result.filter(bet => bet.placedAt >= params.dateFrom!);
     }
+
     if (params?.dateTo) {
       result = result.filter(bet => bet.placedAt <= params.dateTo!);
+    }
+
+    if (params?.minStake) {
+      result = result.filter(bet => bet.totalStake >= params.minStake!);
+    }
+
+    if (params?.maxStake) {
+      result = result.filter(bet => bet.totalStake <= params.maxStake!);
     }
 
     // Sort by date descending
     result.sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime());
 
+    const total = result.length;
+
+    // Apply pagination
     if (params?.offset) {
       result = result.slice(params.offset);
     }
@@ -1129,7 +1189,200 @@ export class MemStorage implements IStorage {
       result = result.slice(0, params.limit);
     }
 
-    return result;
+    // Format for frontend with user data
+    const formattedBets = result.map(bet => {
+      const user = this.users.get(bet.userId);
+      const selections = Array.from(this.betSelections.values())
+        .filter(sel => sel.betId === bet.id);
+        
+      return {
+        id: bet.id,
+        userId: bet.userId,
+        username: user?.username || 'Unknown',
+        userEmail: user?.email || 'Unknown',
+        betType: bet.type as 'single' | 'express' | 'system',
+        totalStakeCents: bet.totalStake,
+        potentialWinCents: bet.potentialWinnings,
+        actualWinCents: bet.actualWinnings || 0,
+        status: bet.status as 'pending' | 'settled_win' | 'settled_lose' | 'voided' | 'refunded',
+        placedAt: bet.placedAt.toISOString(),
+        settledAt: bet.settledAt?.toISOString() || null,
+        selections,
+        selectionsCount: selections.length,
+        totalOdds: parseFloat(bet.totalOdds),
+        ipAddress: null
+      };
+    });
+
+    return {
+      bets: formattedBets,
+      total
+    };
+  }
+
+  async forceBetSettlement(betId: string, outcome: 'win' | 'lose' | 'void', payoutCents: number): Promise<{ success: boolean; bet?: Bet; error?: string }> {
+    const bet = this.bets.get(betId);
+    if (!bet) {
+      return { success: false, error: 'Bet not found' };
+    }
+
+    if (bet.status !== 'pending') {
+      return { success: false, error: 'Bet is not pending' };
+    }
+
+    // Update bet status
+    const newStatus = outcome === 'win' ? 'settled_win' :
+                     outcome === 'lose' ? 'settled_lose' : 'voided';
+
+    const updatedBet = {
+      ...bet,
+      status: newStatus,
+      settledAt: new Date(),
+      actualWinnings: outcome === 'win' ? payoutCents : 0
+    };
+
+    this.bets.set(betId, updatedBet);
+
+    // Update user balance if win or void
+    if ((outcome === 'win' && payoutCents > 0) || outcome === 'void') {
+      const user = this.users.get(bet.userId);
+      if (user) {
+        const balanceIncrease = outcome === 'win' ? payoutCents : bet.totalStake;
+        const updatedUser = { ...user, balance: user.balance + balanceIncrease };
+        this.users.set(bet.userId, updatedUser);
+
+        // Create transaction record
+        const transactionId = randomUUID();
+        const transaction: Transaction = {
+          id: transactionId,
+          userId: bet.userId,
+          type: outcome === 'win' ? 'bet_win' : 'bet_refund',
+          status: 'completed',
+          amount: balanceIncrease,
+          balanceBefore: user.balance,
+          balanceAfter: user.balance + balanceIncrease,
+          reference: null,
+          description: `Bet settlement - Force settled as ${outcome}`,
+          createdAt: new Date()
+        };
+        this.transactions.set(transactionId, transaction);
+      }
+    }
+
+    return { success: true, bet: updatedBet };
+  }
+
+  async refundBet(betId: string): Promise<{ success: boolean; bet?: Bet; error?: string }> {
+    const bet = this.bets.get(betId);
+    if (!bet) {
+      return { success: false, error: 'Bet not found' };
+    }
+
+    if (bet.status !== 'pending') {
+      return { success: false, error: 'Only pending bets can be refunded' };
+    }
+
+    // Update bet status to refunded
+    const updatedBet = {
+      ...bet,
+      status: 'refunded',
+      settledAt: new Date(),
+      actualWinnings: 0
+    };
+
+    this.bets.set(betId, updatedBet);
+
+    // Refund the stake to user balance
+    const user = this.users.get(bet.userId);
+    if (user) {
+      const updatedUser = { ...user, balance: user.balance + bet.totalStake };
+      this.users.set(bet.userId, updatedUser);
+
+      // Create transaction record
+      const transactionId = randomUUID();
+      const transaction: Transaction = {
+        id: transactionId,
+        userId: bet.userId,
+        type: 'bet_refund',
+        status: 'completed',
+        amount: bet.totalStake,
+        balanceBefore: user.balance,
+        balanceAfter: user.balance + bet.totalStake,
+        reference: null,
+        description: 'Bet refund - Manual refund by admin',
+        createdAt: new Date()
+      };
+      this.transactions.set(transactionId, transaction);
+    }
+
+    return { success: true, bet: updatedBet };
+  }
+
+  async exportBetsToCSV(params?: {
+    search?: string;
+    status?: string;
+    betType?: string;
+    userId?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    minStake?: number;
+    maxStake?: number;
+  }): Promise<string> {
+    // Get all bets without pagination for export
+    const { bets: allBets } = await this.getAllBets({ ...params, limit: 10000, offset: 0 });
+    
+    // CSV headers
+    const headers = [
+      'Bet ID',
+      'Username',
+      'Email', 
+      'Bet Type',
+      'Stake (£)',
+      'Potential Win (£)',
+      'Actual Win (£)',
+      'Status',
+      'Selections',
+      'Total Odds',
+      'Placed At',
+      'Settled At',
+      'Markets'
+    ];
+
+    // Convert bets to CSV rows
+    const rows = allBets.map(bet => {
+      const selectionsText = bet.selections.map((s: any) => 
+        `${s.homeTeam} vs ${s.awayTeam} - ${s.market}: ${s.selection} @${s.odds}`
+      ).join(' | ');
+
+      const marketsText = bet.selections.map((s: any) => s.market).join(', ');
+
+      return [
+        bet.id,
+        bet.username,
+        bet.userEmail,
+        bet.betType,
+        (bet.totalStakeCents / 100).toFixed(2),
+        (bet.potentialWinCents / 100).toFixed(2),
+        (bet.actualWinCents / 100).toFixed(2),
+        bet.status,
+        `"${selectionsText}"`, // Wrap in quotes to handle commas
+        bet.totalOdds.toFixed(2),
+        bet.placedAt,
+        bet.settledAt || 'N/A',
+        marketsText
+      ];
+    });
+
+    // Combine headers and rows
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(field => 
+        typeof field === 'string' && field.includes(',') && !field.startsWith('"') 
+          ? `"${field}"` 
+          : field
+      ).join(','))
+      .join('\n');
+
+    return csvContent;
   }
 
   async getActiveAdminSessions(): Promise<AdminSession[]> {

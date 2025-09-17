@@ -20,7 +20,13 @@ import {
   Download,
   User,
   Calendar,
-  Zap
+  Zap,
+  RotateCcw,
+  ChevronDown,
+  Trash2,
+  CheckSquare,
+  Square,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,8 +38,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, adminApiRequest } from "@/lib/queryClient";
 import { currencyUtils } from "@shared/schema";
@@ -130,6 +137,12 @@ export default function AdminBetManagement() {
   const [selectedBet, setSelectedBet] = useState<AdminBet | null>(null);
   const [showBetDetail, setShowBetDetail] = useState(false);
   const [showForceSettleModal, setShowForceSettleModal] = useState(false);
+  const [showBulkActionsModal, setShowBulkActionsModal] = useState(false);
+  
+  // Bulk operations state
+  const [selectedBetIds, setSelectedBetIds] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<'refund' | 'settle_win' | 'settle_lose' | 'void'>('refund');
+  const [bulkActionReason, setBulkActionReason] = useState('');
   
   // Force settle form data
   const [forceSettleData, setForceSettleData] = useState<ForceSettleData>({
@@ -251,6 +264,84 @@ export default function AdminBetManagement() {
     },
   });
 
+  // Export mutation
+  const exportBetsMutation = useMutation({
+    mutationFn: async () => {
+      const params = new URLSearchParams();
+      if (filters.search) params.append('search', filters.search);
+      if (filters.status !== 'all') params.append('status', filters.status);
+      if (filters.betType !== 'all') params.append('betType', filters.betType);
+      if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+      if (filters.dateTo) params.append('dateTo', filters.dateTo);
+      if (filters.minStake) {
+        params.append('minStake', currencyUtils.poundsToCents(filters.minStake).toString());
+      }
+      if (filters.maxStake) {
+        params.append('maxStake', currencyUtils.poundsToCents(filters.maxStake).toString());
+      }
+      if (filters.userId) params.append('userId', filters.userId);
+
+      const response = await adminApiRequest('GET', `/api/admin/bets/export/csv?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('Failed to export bets');
+      }
+      return response.text();
+    },
+    onSuccess: (csvData) => {
+      // Create and download the CSV file
+      const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `bets_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Success",
+        description: "Bets exported successfully",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to export bets",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Bulk operations mutation
+  const bulkActionMutation = useMutation({
+    mutationFn: async (data: { action: string; betIds: string[]; reason: string }) => {
+      const response = await adminApiRequest('POST', '/api/admin/bets/bulk', data);
+      if (!response.ok) {
+        throw new Error('Failed to execute bulk operation');
+      }
+      return response.json();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/bets'] });
+      setSelectedBetIds(new Set());
+      setShowBulkActionsModal(false);
+      setBulkActionReason('');
+      
+      toast({
+        title: "Success",
+        description: `Bulk operation completed: ${result.data.successCount} successful, ${result.data.errorCount} failed`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to execute bulk operation",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Helper functions
   const handleFilterChange = (key: keyof BetFilters, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -305,6 +396,58 @@ export default function AdminBetManagement() {
 
   const totalPages = Math.ceil(totalBets / pagination.limit);
 
+  // Helper functions for bulk operations
+  const handleSelectAllBets = () => {
+    if (selectedBetIds.size === bets.length && bets.length > 0) {
+      setSelectedBetIds(new Set());
+    } else {
+      setSelectedBetIds(new Set(bets.map((bet: AdminBet) => bet.id)));
+    }
+  };
+
+  const handleSelectBet = (betId: string) => {
+    const newSelected = new Set(selectedBetIds);
+    if (newSelected.has(betId)) {
+      newSelected.delete(betId);
+    } else {
+      newSelected.add(betId);
+    }
+    setSelectedBetIds(newSelected);
+  };
+
+  const handleBulkAction = () => {
+    if (selectedBetIds.size === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one bet",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowBulkActionsModal(true);
+  };
+
+  const executeBulkAction = () => {
+    if (!bulkActionReason.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide a reason for the bulk operation",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    bulkActionMutation.mutate({
+      action: bulkAction,
+      betIds: Array.from(selectedBetIds),
+      reason: bulkActionReason
+    });
+  };
+
+  const handleExport = () => {
+    exportBetsMutation.mutate();
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -331,11 +474,39 @@ export default function AdminBetManagement() {
           <Button
             variant="outline"
             size="sm"
+            onClick={handleExport}
+            disabled={exportBetsMutation.isPending}
             data-testid="button-export-bets"
           >
-            <Download className="w-4 h-4 mr-2" />
-            Export
+            <Download className={`w-4 h-4 mr-2 ${exportBetsMutation.isPending ? 'animate-spin' : ''}`} />
+            {exportBetsMutation.isPending ? 'Exporting...' : 'Export CSV'}
           </Button>
+          {selectedBetIds.size > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-bulk-actions"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Bulk Actions ({selectedBetIds.size})
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleBulkAction}>
+                  <Calculator className="w-4 h-4 mr-2" />
+                  Bulk Operations
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setSelectedBetIds(new Set())}>
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Clear Selection
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 
@@ -544,6 +715,13 @@ export default function AdminBetManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">
+                    <Checkbox
+                      checked={selectedBetIds.size === bets.length && bets.length > 0}
+                      onCheckedChange={handleSelectAllBets}
+                      data-testid="checkbox-select-all-bets"
+                    />
+                  </TableHead>
                   <TableHead>Bet ID</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Type</TableHead>
@@ -559,7 +737,7 @@ export default function AdminBetManagement() {
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, index) => (
                     <TableRow key={index}>
-                      <TableCell colSpan={9} className="h-12">
+                      <TableCell colSpan={10} className="h-12">
                         <div className="flex items-center justify-center">
                           <RefreshCw className="w-4 h-4 animate-spin mr-2" />
                           Loading bets...
@@ -569,7 +747,7 @@ export default function AdminBetManagement() {
                   ))
                 ) : bets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       <div className="text-muted-foreground">
                         {Object.values(filters).some(v => v && v !== 'all') ? 
                           'No bets found matching your filters' : 
@@ -581,6 +759,13 @@ export default function AdminBetManagement() {
                 ) : (
                   bets.map((bet: AdminBet) => (
                     <TableRow key={bet.id} className="hover-elevate">
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedBetIds.has(bet.id)}
+                          onCheckedChange={() => handleSelectBet(bet.id)}
+                          data-testid={`checkbox-select-bet-${bet.id}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-mono text-sm">
                         <span data-testid={`text-bet-id-${bet.id}`}>
                           {bet.id.slice(-8)}
@@ -905,6 +1090,87 @@ export default function AdminBetManagement() {
               data-testid="button-confirm-force-settle"
             >
               {forceSettleMutation.isPending ? 'Settling...' : 'Force Settle Bet'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Actions Modal */}
+      <Dialog open={showBulkActionsModal} onOpenChange={setShowBulkActionsModal}>
+        <DialogContent data-testid="modal-bulk-actions">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-600">
+              <Settings className="w-5 h-5" />
+              Bulk Actions
+            </DialogTitle>
+            <DialogDescription>
+              Perform actions on {selectedBetIds.size} selected bet{selectedBetIds.size !== 1 ? 's' : ''}. This requires 2FA confirmation and audit logging.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+              <p className="text-sm text-orange-800 dark:text-orange-200">
+                ⚠️ Bulk operations affect multiple bets simultaneously and should be used with caution.
+              </p>
+            </div>
+            
+            <div>
+              <Label htmlFor="bulk-action">Action</Label>
+              <Select
+                value={bulkAction}
+                onValueChange={(value: any) => setBulkAction(value)}
+              >
+                <SelectTrigger id="bulk-action" data-testid="select-bulk-action">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="refund">Refund All</SelectItem>
+                  <SelectItem value="settle_win">Settle as Win</SelectItem>
+                  <SelectItem value="settle_lose">Settle as Loss</SelectItem>
+                  <SelectItem value="void">Void All</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="bulk-reason">Reason (Required)</Label>
+              <Textarea
+                id="bulk-reason"
+                placeholder="Provide a detailed reason for this bulk operation..."
+                value={bulkActionReason}
+                onChange={(e) => setBulkActionReason(e.target.value)}
+                rows={3}
+                data-testid="textarea-bulk-reason"
+              />
+            </div>
+            
+            <div className="bg-muted rounded-lg p-3">
+              <p className="text-sm font-medium">Selected Bets:</p>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {Array.from(selectedBetIds).slice(0, 10).map(betId => (
+                  <Badge key={betId} variant="secondary" className="text-xs">
+                    {betId.slice(-6)}
+                  </Badge>
+                ))}
+                {selectedBetIds.size > 10 && (
+                  <Badge variant="secondary" className="text-xs">
+                    +{selectedBetIds.size - 10} more
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowBulkActionsModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={executeBulkAction}
+              disabled={bulkActionMutation.isPending || !bulkActionReason.trim()}
+              data-testid="button-confirm-bulk-action"
+            >
+              {bulkActionMutation.isPending ? 'Processing...' : `Execute ${bulkAction === 'refund' ? 'Refunds' : bulkAction === 'settle_win' ? 'Win Settlements' : bulkAction === 'settle_lose' ? 'Loss Settlements' : 'Void Operations'}`}
             </Button>
           </DialogFooter>
         </DialogContent>
