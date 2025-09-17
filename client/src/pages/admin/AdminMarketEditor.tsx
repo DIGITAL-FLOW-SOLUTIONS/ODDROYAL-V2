@@ -159,8 +159,8 @@ export default function AdminMarketEditor() {
   const [markets, setMarkets] = useState<Market[]>([]);
   
   useEffect(() => {
-    if (matchData?.markets) {
-      setMarkets([...matchData.markets].sort((a, b) => a.displayOrder - b.displayOrder));
+    if (matchData?.data?.markets) {
+      setMarkets([...matchData.data.markets].sort((a, b) => a.displayOrder - b.displayOrder));
     }
   }, [matchData]);
 
@@ -419,7 +419,7 @@ export default function AdminMarketEditor() {
               Market Editor
             </h1>
             <p className="text-muted-foreground">
-              {matchData.homeTeamName} vs {matchData.awayTeamName} • {matchData.leagueName}
+              {matchData?.data?.homeTeamName} vs {matchData?.data?.awayTeamName} • {matchData?.data?.leagueName}
             </p>
           </div>
         </div>

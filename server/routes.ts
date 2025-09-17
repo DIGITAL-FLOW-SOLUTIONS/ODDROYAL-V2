@@ -2874,6 +2874,243 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // GET /api/admin/matches/:matchId/markets - get markets for a specific match
+  app.get("/api/admin/matches/:matchId/markets", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('markets:read'), 
+    async (req: any, res) => {
+      try {
+        const { matchId } = req.params;
+        
+        // Verify match exists
+        const match = await storage.getMatch(matchId);
+        if (!match) {
+          return res.status(404).json({
+            success: false,
+            error: 'Match not found'
+          });
+        }
+        
+        // Get markets with outcomes for the match
+        const markets = await storage.getMatchMarkets(matchId);
+        
+        res.json({
+          success: true,
+          data: {
+            ...match,
+            markets
+          }
+        });
+      } catch (error) {
+        console.error('Get match markets error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to get match markets'
+        });
+      }
+    }
+  );
+
+  // POST /api/admin/matches/:id/markets - create market for specific match
+  app.post("/api/admin/matches/:id/markets", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('markets:create'), 
+    auditAction('market_create_for_match'),
+    async (req: any, res) => {
+      try {
+        const { id: matchId } = req.params;
+        const { key, name, type, outcomes } = req.body;
+        
+        if (!key || !name || !type || !outcomes || !Array.isArray(outcomes)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Market key, name, type, and outcomes array are required'
+          });
+        }
+        
+        // Verify match exists
+        const match = await storage.getMatch(matchId);
+        if (!match) {
+          return res.status(404).json({
+            success: false,
+            error: 'Match not found'
+          });
+        }
+        
+        // Create market with outcomes
+        const market = await storage.createMarketWithOutcomes({
+          matchId,
+          key,
+          name,
+          type,
+          outcomes,
+          createdBy: req.adminUser.id
+        });
+        
+        res.json({
+          success: true,
+          data: market,
+          message: 'Market created successfully'
+        });
+      } catch (error) {
+        console.error('Create market for match error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to create market'
+        });
+      }
+    }
+  );
+
+  // PATCH /api/admin/markets/:id/status - update market status
+  app.patch("/api/admin/markets/:id/status", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('markets:update'), 
+    auditAction('market_status_change', (req) => ({ 
+      targetType: 'market', 
+      targetId: req.params.id 
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const { action } = req.body;
+        
+        if (!action || !['publish', 'unpublish', 'suspend', 'reopen', 'lock'].includes(action)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Valid action is required (publish, unpublish, suspend, reopen, lock)'
+          });
+        }
+        
+        const market = await storage.updateMarketStatus(id, action, req.adminUser.id);
+        
+        if (!market) {
+          return res.status(404).json({
+            success: false,
+            error: 'Market not found'
+          });
+        }
+        
+        res.json({
+          success: true,
+          data: market,
+          message: `Market ${action}ed successfully`
+        });
+      } catch (error) {
+        console.error('Update market status error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to update market status'
+        });
+      }
+    }
+  );
+
+  // PATCH /api/admin/outcomes/:id/odds - update outcome odds
+  app.patch("/api/admin/outcomes/:id/odds", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('odds:manage'), 
+    require2FA,
+    auditAction('odds_change', (req) => ({ 
+      targetType: 'outcome', 
+      targetId: req.params.id 
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const { odds, reason } = req.body;
+        
+        if (!odds || !reason) {
+          return res.status(400).json({
+            success: false,
+            error: 'Odds value and reason are required'
+          });
+        }
+        
+        const oddsValue = parseFloat(odds);
+        if (isNaN(oddsValue) || oddsValue < 1.01 || oddsValue > 1000) {
+          return res.status(400).json({
+            success: false,
+            error: 'Odds must be between 1.01 and 1000'
+          });
+        }
+        
+        const outcome = await storage.updateOutcomeOdds(id, oddsValue, reason, req.adminUser.id);
+        
+        if (!outcome) {
+          return res.status(404).json({
+            success: false,
+            error: 'Outcome not found'
+          });
+        }
+        
+        res.json({
+          success: true,
+          data: outcome,
+          message: 'Odds updated successfully'
+        });
+      } catch (error) {
+        console.error('Update outcome odds error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to update odds'
+        });
+      }
+    }
+  );
+
+  // PATCH /api/admin/matches/:id/markets/reorder - reorder markets for match
+  app.patch("/api/admin/matches/:id/markets/reorder", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('markets:update'), 
+    auditAction('markets_reorder', (req) => ({ 
+      targetType: 'match', 
+      targetId: req.params.id 
+    })),
+    async (req: any, res) => {
+      try {
+        const { id: matchId } = req.params;
+        const { markets } = req.body;
+        
+        if (!markets || !Array.isArray(markets)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Markets array is required'
+          });
+        }
+        
+        // Verify match exists
+        const match = await storage.getMatch(matchId);
+        if (!match) {
+          return res.status(404).json({
+            success: false,
+            error: 'Match not found'
+          });
+        }
+        
+        // Update market display order
+        const updatedMarkets = await storage.reorderMarkets(matchId, markets, req.adminUser.id);
+        
+        res.json({
+          success: true,
+          data: updatedMarkets,
+          message: 'Markets reordered successfully'
+        });
+      } catch (error) {
+        console.error('Reorder markets error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to reorder markets'
+        });
+      }
+    }
+  );
+
   // =====================================
   // MISSING ADMIN ENDPOINTS FROM INSTRUCTION 4
   // =====================================
