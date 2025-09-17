@@ -3,6 +3,9 @@ import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
+import { pdfReportService } from "./pdf-service";
+import { emailReportService } from "./email-service";
+import XLSX from 'xlsx';
 import { 
   getUpcomingFixtures, 
   getLiveFixtures, 
@@ -2909,16 +2912,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
         const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
         
-        const report = await storage.getDailyGgrReport?.(startOfDay, endOfDay) || {
-          date: startOfDay.toISOString().split('T')[0],
-          totalStakeCents: 25000000,
-          totalPayoutsCents: 21250000,
-          grossGamingRevenueCents: 3750000,
-          totalBets: 850,
-          activePlayers: 245,
-          averageStakeCents: 29412,
-          winRate: 0.52
-        };
+        // Use real database method - cast storage to database storage to access reporting methods
+        const dbStorage = storage as any;
+        const report = await dbStorage.getDailyGgrReport(startOfDay, endOfDay);
         
         res.json({
           success: true,
@@ -2955,25 +2951,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const startOfMonth = new Date(targetYear, targetMonth - 1, 1);
         const endOfMonth = new Date(targetYear, targetMonth, 0);
         
-        const report = await storage.getMonthlyGgrReport?.(startOfMonth, endOfMonth) || {
-          year: targetYear,
-          month: targetMonth,
-          totalStakeCents: 750000000,
-          totalPayoutsCents: 637500000,
-          grossGamingRevenueCents: 112500000,
-          totalBets: 25500,
-          activePlayers: 2850,
-          averageStakeCents: 29412,
-          highestDayCents: 5200000,
-          lowestDayCents: 1800000,
-          winRate: 0.515,
-          dailyBreakdown: Array.from({ length: endOfMonth.getDate() }, (_, i) => ({
-            day: i + 1,
-            stakeCents: Math.floor(Math.random() * 5000000) + 1000000,
-            ggrCents: Math.floor(Math.random() * 500000) + 100000,
-            bets: Math.floor(Math.random() * 500) + 200
-          }))
-        };
+        // Use real database method - cast storage to database storage to access reporting methods
+        const dbStorage = storage as any;
+        const report = await dbStorage.getMonthlyGgrReport(startOfMonth, endOfMonth);
         
         res.json({
           success: true,
@@ -3014,16 +2994,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const endDate = dateTo ? new Date(dateTo) : new Date();
         
-        const report = await storage.getTurnoverBySportReport?.(startDate, endDate, sport, league) || {
-          sports: [
-            { sport: 'Football', turnoverCents: 50000000, betCount: 1250, ggrCents: 2500000 },
-            { sport: 'Basketball', turnoverCents: 25000000, betCount: 600, ggrCents: 1250000 },
-            { sport: 'Tennis', turnoverCents: 15000000, betCount: 400, ggrCents: 750000 }
-          ],
-          totalTurnoverCents: 90000000,
-          totalBets: 2250,
-          totalGgrCents: 4500000
-        };
+        // Use real database method - cast storage to database storage to access reporting methods
+        const dbStorage = storage as any;
+        const report = await dbStorage.getTurnoverBySportReport(startDate, endDate, sport, league);
         
         res.json({
           success: true,
@@ -3059,15 +3032,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const endDate = dateTo ? new Date(dateTo) : new Date();
         
-        const report = await storage.getPayoutRatioReport?.(startDate, endDate) || {
-          totalStakeCents: 100000000,
-          totalPayoutsCents: 85000000,
-          payoutRatio: 0.85,
-          betCount: 2500,
-          winningBets: 1200,
-          losingBets: 1300,
-          winRate: 0.48
-        };
+        // Use real database method - cast storage to database storage to access reporting methods
+        const dbStorage = storage as any;
+        const report = await dbStorage.getPayoutRatioReport(startDate, endDate);
         
         res.json({
           success: true,
@@ -3100,13 +3067,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const endDate = dateTo ? new Date(dateTo) : new Date();
         
-        const report = await storage.getTopWinnersReport?.(startDate, endDate, parseInt(limit)) || {
-          winners: [
-            { userId: 'user1', username: 'player123', netWinningsCents: 500000, betCount: 25 },
-            { userId: 'user2', username: 'winner456', netWinningsCents: 350000, betCount: 18 },
-            { userId: 'user3', username: 'lucky789', netWinningsCents: 280000, betCount: 12 }
-          ]
-        };
+        // Use real database method - cast storage to database storage to access reporting methods
+        const dbStorage = storage as any;
+        const report = await dbStorage.getTopWinnersReport(startDate, endDate, parseInt(limit));
         
         res.json({
           success: true,
@@ -3138,15 +3101,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const endDate = dateTo ? new Date(dateTo) : new Date();
         
-        const report = await storage.getChargebackReport?.(startDate, endDate) || {
-          totalChargebacksCents: 125000,
-          chargebackCount: 5,
-          chargebackRate: 0.002,
-          chargebacks: [
-            { id: 'cb1', userId: 'user1', amountCents: 50000, reason: 'Fraud', date: new Date() },
-            { id: 'cb2', userId: 'user2', amountCents: 75000, reason: 'Disputed', date: new Date() }
-          ]
-        };
+        // Use real database method - cast storage to database storage to access reporting methods
+        const dbStorage = storage as any;
+        const report = await dbStorage.getChargebackReport(startDate, endDate);
         
         res.json({
           success: true,
@@ -3190,20 +3147,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const startDate = new Date(dateFrom);
         const endDate = new Date(dateTo);
         
-        const report = await storage.generateCustomReport?.({
+        // Use real database method - cast storage to database storage to access reporting methods
+        const dbStorage = storage as any;
+        const report = await dbStorage.generateCustomReport({
           reportType,
-          startDate,
-          endDate,
+          dateFrom: startDate,
+          dateTo: endDate,
           filters,
           groupBy,
           metrics
-        }) || {
-          data: [],
-          summary: {
-            totalRecords: 0,
-            totalValueCents: 0
-          }
-        };
+        });
         
         res.json({
           success: true,
@@ -3236,27 +3189,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
           filters = {} 
         } = req.body;
         
-        if (!['csv', 'pdf'].includes(format)) {
+        if (!['csv', 'pdf', 'excel'].includes(format)) {
           return res.status(400).json({
             success: false,
-            error: 'Invalid format. Must be csv or pdf'
+            error: 'Invalid format. Must be csv, pdf, or excel'
           });
         }
         
-        const exportData = await storage.exportReportData?.(reportType, {
-          format,
-          startDate: new Date(dateFrom),
-          endDate: new Date(dateTo),
-          filters
-        }) || {
-          filename: `${reportType}_${format}_${Date.now()}.${format}`,
-          data: format === 'csv' ? 'Date,Type,Amount\n' : Buffer.from('Mock PDF data'),
-          mimeType: format === 'csv' ? 'text/csv' : 'application/pdf'
-        };
+        // Use real database methods and PDF service
+        const dbStorage = storage as any;
+        const startDate = new Date(dateFrom);
+        const endDate = new Date(dateTo);
         
-        res.setHeader('Content-Type', exportData.mimeType);
-        res.setHeader('Content-Disposition', `attachment; filename="${exportData.filename}"`);
-        res.send(exportData.data);
+        // Get report data based on type
+        let reportData: any;
+        let reportTitle: string;
+        
+        switch (reportType) {
+          case 'daily':
+            reportData = await dbStorage.getDailyGgrReport(startDate, endDate);
+            reportTitle = 'Daily GGR Report';
+            break;
+          case 'monthly':
+            reportData = await dbStorage.getMonthlyGgrReport(startDate, endDate);
+            reportTitle = 'Monthly GGR Report';
+            break;
+          case 'turnover':
+            reportData = await dbStorage.getTurnoverBySportReport(startDate, endDate);
+            reportTitle = 'Turnover by Sport Report';
+            break;
+          case 'payout':
+            reportData = await dbStorage.getPayoutRatioReport(startDate, endDate);
+            reportTitle = 'Payout Ratio Report';
+            break;
+          case 'winners':
+            reportData = await dbStorage.getTopWinnersReport(startDate, endDate, 100);
+            reportTitle = 'Top Winners Report';
+            break;
+          case 'chargebacks':
+            reportData = await dbStorage.getChargebackReport(startDate, endDate);
+            reportTitle = 'Chargeback Report';
+            break;
+          default:
+            throw new Error(`Unknown report type: ${reportType}`);
+        }
+        
+        if (format === 'pdf') {
+          // Generate professional PDF using the PDF service
+          const pdfBuffer = await pdfReportService.generateReport({
+            title: reportTitle,
+            subtitle: `Generated on ${new Date().toLocaleDateString('en-GB')}`,
+            data: reportData,
+            reportType: reportType as any,
+            dateRange: { from: startDate, to: endDate },
+            includeCharts: true,
+            companyInfo: {
+              name: 'PRIMESTAKE',
+              address: 'Professional Sports Betting Platform'
+            }
+          });
+          
+          const filename = `${reportType}_report_${startDate.toISOString().split('T')[0]}_${endDate.toISOString().split('T')[0]}.pdf`;
+          
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+          res.send(pdfBuffer);
+        } else if (format === 'csv') {
+          // Generate CSV using database export method
+          const csvData = await dbStorage.exportReportData({
+            reportType,
+            format: 'csv',
+            startDate,
+            endDate,
+            filters
+          });
+          
+          const filename = `${reportType}_report_${startDate.toISOString().split('T')[0]}_${endDate.toISOString().split('T')[0]}.csv`;
+          
+          res.setHeader('Content-Type', 'text/csv');
+          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+          res.send(csvData);
+        } else if (format === 'excel') {
+          // Generate Excel using XLSX library
+          const workbook = XLSX.utils.book_new();
+          
+          // Add summary sheet
+          const summaryData = [
+            ['PRIMESTAKE - ' + reportTitle],
+            ['Generated:', new Date().toLocaleString()],
+            ['Period:', `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`],
+            [''] // Empty row
+          ];
+          
+          // Add report-specific data
+          if (reportType === 'daily' || reportType === 'monthly') {
+            summaryData.push(
+              ['Metric', 'Value'],
+              ['Total Stake', '£' + (reportData.totalStakeCents / 100).toLocaleString()],
+              ['Total Payouts', '£' + (reportData.totalPayoutsCents / 100).toLocaleString()],
+              ['Gross Gaming Revenue', '£' + (reportData.grossGamingRevenueCents / 100).toLocaleString()],
+              ['Total Bets', reportData.totalBets],
+              ['Active Players', reportData.activePlayers],
+              ['Win Rate', (reportData.winRate * 100).toFixed(2) + '%']
+            );
+          }
+          
+          const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+          XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+          
+          // Add detailed data sheet for applicable reports
+          if (reportData.dailyBreakdown) {
+            const detailData = [
+              ['Day', 'Stake (£)', 'GGR (£)', 'Bets'],
+              ...reportData.dailyBreakdown.map((day: any) => [
+                day.day,
+                (day.stakeCents / 100).toFixed(2),
+                (day.ggrCents / 100).toFixed(2),
+                day.bets
+              ])
+            ];
+            const detailSheet = XLSX.utils.aoa_to_sheet(detailData);
+            XLSX.utils.book_append_sheet(workbook, detailSheet, 'Daily Breakdown');
+          }
+          
+          const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+          const filename = `${reportType}_report_${startDate.toISOString().split('T')[0]}_${endDate.toISOString().split('T')[0]}.xlsx`;
+          
+          res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+          res.send(excelBuffer);
+        } else {
+          throw new Error('Invalid export format');
+        }
         
       } catch (error) {
         console.error('Export report error:', error);
@@ -3284,23 +3348,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           enabled = true
         } = req.body;
         
-        const scheduledReport = await storage.createScheduledReport?.({
+        // Use real database method and email service for scheduled reports
+        const dbStorage = storage as any;
+        const scheduledReport = await dbStorage.createScheduledReport({
+          name: `${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`,
           reportType,
-          schedule,
-          format,
+          frequency: schedule,
           recipients,
-          enabled,
-          createdBy: req.adminUser.id
-        }) || {
-          id: `sched_${Date.now()}`,
-          reportType,
-          schedule,
-          format,
-          recipients,
-          enabled,
-          createdAt: new Date(),
-          nextRun: new Date(Date.now() + 24 * 60 * 60 * 1000)
-        };
+          filters,
+          format: format || 'pdf'
+        });
+        
+        // Test email configuration if this is the first scheduled report
+        const emailTest = await emailReportService.testEmailConfiguration();
+        if (!emailTest.success) {
+          console.warn('Email service not configured properly:', emailTest.message);
+          console.warn('Scheduled report created but email delivery may fail');
+          console.warn('Configure SMTP settings (SMTP_HOST, SMTP_USER, SMTP_PASS) to enable email delivery');
+        }
         
         res.json({
           success: true,

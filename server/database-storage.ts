@@ -2047,6 +2047,521 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // ===================== COMPREHENSIVE REPORTING METHODS =====================
+  
+  // Daily GGR Report - Critical Financial Metric
+  async getDailyGgrReport(startDate: Date, endDate: Date): Promise<{
+    date: string;
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    grossGamingRevenueCents: number;
+    totalBets: number;
+    activePlayers: number;
+    averageStakeCents: number;
+    winRate: number;
+  }> {
+    const dateStr = startDate.toISOString().split('T')[0];
+    
+    // Get all bets for the date range
+    const betStats = await db
+      .select({
+        totalStake: sql<number>`COALESCE(SUM(${bets.totalStake}), 0)::int`,
+        totalPayouts: sql<number>`COALESCE(SUM(CASE WHEN ${bets.status} IN ('settled_win') THEN ${bets.actualWinnings} ELSE 0 END), 0)::int`,
+        totalBets: sql<number>`COUNT(*)`
+      })
+      .from(bets)
+      .where(
+        and(
+          gte(bets.placedAt, startDate),
+          lte(bets.placedAt, endDate)
+        )
+      );
+    
+    // Get unique active players count
+    const playerCount = await db
+      .select({ count: sql<number>`COUNT(DISTINCT ${bets.userId})` })
+      .from(bets)
+      .where(
+        and(
+          gte(bets.placedAt, startDate),
+          lte(bets.placedAt, endDate)
+        )
+      );
+    
+    // Get winning bets count for win rate calculation
+    const winStats = await db
+      .select({
+        winningBets: sql<number>`COUNT(CASE WHEN ${bets.status} IN ('settled_win') THEN 1 END)`,
+        totalBets: sql<number>`COUNT(*)`
+      })
+      .from(bets)
+      .where(
+        and(
+          gte(bets.placedAt, startDate),
+          lte(bets.placedAt, endDate)
+        )
+      );
+    
+    const stats = betStats[0] || { totalStake: 0, totalPayouts: 0, totalBets: 0 };
+    const players = playerCount[0]?.count || 0;
+    const winData = winStats[0] || { winningBets: 0, totalBets: 0 };
+    
+    const grossGamingRevenueCents = stats.totalStake - stats.totalPayouts;
+    const averageStakeCents = stats.totalBets > 0 ? Math.round(stats.totalStake / stats.totalBets) : 0;
+    const winRate = winData.totalBets > 0 ? winData.winningBets / winData.totalBets : 0;
+    
+    return {
+      date: dateStr,
+      totalStakeCents: stats.totalStake,
+      totalPayoutsCents: stats.totalPayouts,
+      grossGamingRevenueCents,
+      totalBets: stats.totalBets,
+      activePlayers: players,
+      averageStakeCents,
+      winRate
+    };
+  }
+  
+  // Monthly GGR Report with daily breakdown
+  async getMonthlyGgrReport(startDate: Date, endDate: Date): Promise<{
+    year: number;
+    month: number;
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    grossGamingRevenueCents: number;
+    totalBets: number;
+    activePlayers: number;
+    averageStakeCents: number;
+    highestDayCents: number;
+    lowestDayCents: number;
+    winRate: number;
+    dailyBreakdown: Array<{
+      day: number;
+      stakeCents: number;
+      ggrCents: number;
+      bets: number;
+    }>;
+  }> {
+    // Monthly totals
+    const monthlyStats = await db
+      .select({
+        totalStake: sql<number>`COALESCE(SUM(${bets.totalStake}), 0)::int`,
+        totalPayouts: sql<number>`COALESCE(SUM(CASE WHEN ${bets.status} IN ('settled_win') THEN ${bets.actualWinnings} ELSE 0 END), 0)::int`,
+        totalBets: sql<number>`COUNT(*)`
+      })
+      .from(bets)
+      .where(
+        and(
+          gte(bets.placedAt, startDate),
+          lte(bets.placedAt, endDate)
+        )
+      );
+    
+    // Unique players
+    const playerCount = await db
+      .select({ count: sql<number>`COUNT(DISTINCT ${bets.userId})` })
+      .from(bets)
+      .where(
+        and(
+          gte(bets.placedAt, startDate),
+          lte(bets.placedAt, endDate)
+        )
+      );
+    
+    // Daily breakdown
+    const dailyStats = await db
+      .select({
+        day: sql<number>`EXTRACT(DAY FROM ${bets.placedAt})::int`,
+        stakeCents: sql<number>`COALESCE(SUM(${bets.totalStake}), 0)::int`,
+        payoutsCents: sql<number>`COALESCE(SUM(CASE WHEN ${bets.status} IN ('settled_win') THEN ${bets.actualWinnings} ELSE 0 END), 0)::int`,
+        bets: sql<number>`COUNT(*)`
+      })
+      .from(bets)
+      .where(
+        and(
+          gte(bets.placedAt, startDate),
+          lte(bets.placedAt, endDate)
+        )
+      )
+      .groupBy(sql`EXTRACT(DAY FROM ${bets.placedAt})`)
+      .orderBy(sql`EXTRACT(DAY FROM ${bets.placedAt})`);
+    
+    // Win rate calculation
+    const winStats = await db
+      .select({
+        winningBets: sql<number>`COUNT(CASE WHEN ${bets.status} IN ('settled_win') THEN 1 END)`,
+        totalBets: sql<number>`COUNT(*)`
+      })
+      .from(bets)
+      .where(
+        and(
+          gte(bets.placedAt, startDate),
+          lte(bets.placedAt, endDate)
+        )
+      );
+    
+    const stats = monthlyStats[0] || { totalStake: 0, totalPayouts: 0, totalBets: 0 };
+    const players = playerCount[0]?.count || 0;
+    const winData = winStats[0] || { winningBets: 0, totalBets: 0 };
+    
+    const grossGamingRevenueCents = stats.totalStake - stats.totalPayouts;
+    const averageStakeCents = stats.totalBets > 0 ? Math.round(stats.totalStake / stats.totalBets) : 0;
+    const winRate = winData.totalBets > 0 ? winData.winningBets / winData.totalBets : 0;
+    
+    // Calculate daily breakdown with GGR
+    const dailyBreakdown = dailyStats.map(day => ({
+      day: day.day,
+      stakeCents: day.stakeCents,
+      ggrCents: day.stakeCents - day.payoutsCents,
+      bets: day.bets
+    }));
+    
+    // Find highest and lowest GGR days
+    const ggrAmounts = dailyBreakdown.map(d => d.ggrCents);
+    const highestDayCents = ggrAmounts.length > 0 ? Math.max(...ggrAmounts) : 0;
+    const lowestDayCents = ggrAmounts.length > 0 ? Math.min(...ggrAmounts) : 0;
+    
+    return {
+      year: startDate.getFullYear(),
+      month: startDate.getMonth() + 1,
+      totalStakeCents: stats.totalStake,
+      totalPayoutsCents: stats.totalPayouts,
+      grossGamingRevenueCents,
+      totalBets: stats.totalBets,
+      activePlayers: players,
+      averageStakeCents,
+      highestDayCents,
+      lowestDayCents,
+      winRate,
+      dailyBreakdown
+    };
+  }
+  
+  // Turnover by Sport Report - Market Analysis
+  async getTurnoverBySportReport(startDate: Date, endDate: Date, sport?: string, league?: string): Promise<{
+    sports: Array<{
+      sport: string;
+      turnoverCents: number;
+      betCount: number;
+      ggrCents: number;
+    }>;
+    totalTurnoverCents: number;
+    totalBets: number;
+    totalGgrCents: number;
+  }> {
+    // Build conditions
+    const conditions = [
+      gte(bets.placedAt, startDate),
+      lte(bets.placedAt, endDate)
+    ];
+    
+    // Get sport breakdown with turnover and GGR
+    const sportStats = await db
+      .select({
+        sport: sql<string>`COALESCE(${betSelections.league}, 'Unknown')`,
+        turnoverCents: sql<number>`COALESCE(SUM(${bets.totalStake}), 0)::int`,
+        betCount: sql<number>`COUNT(DISTINCT ${bets.id})`,
+        payoutsCents: sql<number>`COALESCE(SUM(CASE WHEN ${bets.status} IN ('settled_win') THEN ${bets.actualWinnings} ELSE 0 END), 0)::int`
+      })
+      .from(bets)
+      .innerJoin(betSelections, eq(bets.id, betSelections.betId))
+      .where(and(...conditions))
+      .groupBy(sql`COALESCE(${betSelections.league}, 'Unknown')`)
+      .orderBy(sql`SUM(${bets.totalStake}) DESC`);
+    
+    // Calculate GGR for each sport
+    const sports = sportStats.map(sport => ({
+      sport: sport.sport,
+      turnoverCents: sport.turnoverCents,
+      betCount: sport.betCount,
+      ggrCents: sport.turnoverCents - sport.payoutsCents
+    }));
+    
+    const totalTurnoverCents = sports.reduce((sum, sport) => sum + sport.turnoverCents, 0);
+    const totalBets = sports.reduce((sum, sport) => sum + sport.betCount, 0);
+    const totalGgrCents = sports.reduce((sum, sport) => sum + sport.ggrCents, 0);
+    
+    return {
+      sports,
+      totalTurnoverCents,
+      totalBets,
+      totalGgrCents
+    };
+  }
+  
+  // Payout Ratio Report - Risk Management Metric
+  async getPayoutRatioReport(startDate: Date, endDate: Date): Promise<{
+    totalStakeCents: number;
+    totalPayoutsCents: number;
+    payoutRatio: number;
+    betCount: number;
+    winningBets: number;
+    losingBets: number;
+    winRate: number;
+  }> {
+    const stats = await db
+      .select({
+        totalStakeCents: sql<number>`COALESCE(SUM(${bets.totalStake}), 0)::int`,
+        totalPayoutsCents: sql<number>`COALESCE(SUM(CASE WHEN ${bets.status} IN ('settled_win') THEN ${bets.actualWinnings} ELSE 0 END), 0)::int`,
+        betCount: sql<number>`COUNT(*)`,
+        winningBets: sql<number>`COUNT(CASE WHEN ${bets.status} IN ('settled_win') THEN 1 END)`,
+        losingBets: sql<number>`COUNT(CASE WHEN ${bets.status} IN ('settled_lose') THEN 1 END)`
+      })
+      .from(bets)
+      .where(
+        and(
+          gte(bets.placedAt, startDate),
+          lte(bets.placedAt, endDate)
+        )
+      );
+    
+    const result = stats[0] || {
+      totalStakeCents: 0,
+      totalPayoutsCents: 0,
+      betCount: 0,
+      winningBets: 0,
+      losingBets: 0
+    };
+    
+    const payoutRatio = result.totalStakeCents > 0 ? result.totalPayoutsCents / result.totalStakeCents : 0;
+    const winRate = result.betCount > 0 ? result.winningBets / result.betCount : 0;
+    
+    return {
+      ...result,
+      payoutRatio,
+      winRate
+    };
+  }
+  
+  // Top Winners Report - High-Value Player Analysis
+  async getTopWinnersReport(startDate: Date, endDate: Date, limit: number): Promise<{
+    winners: Array<{
+      userId: string;
+      username: string;
+      netWinningsCents: number;
+      betCount: number;
+    }>;
+  }> {
+    const topWinners = await db
+      .select({
+        userId: bets.userId,
+        username: users.username,
+        totalStakeCents: sql<number>`COALESCE(SUM(${bets.totalStake}), 0)::int`,
+        totalWinningsCents: sql<number>`COALESCE(SUM(CASE WHEN ${bets.status} IN ('settled_win') THEN ${bets.actualWinnings} ELSE 0 END), 0)::int`,
+        betCount: sql<number>`COUNT(*)`
+      })
+      .from(bets)
+      .innerJoin(users, eq(bets.userId, users.id))
+      .where(
+        and(
+          gte(bets.placedAt, startDate),
+          lte(bets.placedAt, endDate)
+        )
+      )
+      .groupBy(bets.userId, users.username)
+      .orderBy(sql`(COALESCE(SUM(CASE WHEN ${bets.status} IN ('settled_win') THEN ${bets.actualWinnings} ELSE 0 END), 0) - COALESCE(SUM(${bets.totalStake}), 0)) DESC`)
+      .limit(limit);
+    
+    const winners = topWinners.map(winner => ({
+      userId: winner.userId,
+      username: winner.username,
+      netWinningsCents: winner.totalWinningsCents - winner.totalStakeCents,
+      betCount: winner.betCount
+    }));
+    
+    return { winners };
+  }
+  
+  // Chargeback Report - Payment Processing Analysis
+  async getChargebackReport(startDate: Date, endDate: Date): Promise<{
+    chargebacks: Array<{
+      id: string;
+      userId: string;
+      username: string;
+      amountCents: number;
+      reason: string;
+      status: string;
+      createdAt: Date;
+    }>;
+    totalAmountCents: number;
+    count: number;
+  }> {
+    // For now, return empty results as chargeback tracking would need its own table
+    // In a real implementation, we'd have a chargebacks table
+    return {
+      chargebacks: [],
+      totalAmountCents: 0,
+      count: 0
+    };
+  }
+  
+  // Custom Report Generation - Flexible Analytics Engine
+  async generateCustomReport(params: {
+    reportType: string;
+    startDate: Date;
+    endDate: Date;
+    filters?: any;
+    groupBy?: string;
+    metrics?: string[];
+  }): Promise<{
+    title: string;
+    data: any[];
+    summary: any;
+    generatedAt: Date;
+  }> {
+    const { reportType, startDate, endDate, filters = {}, groupBy = 'date', metrics = ['turnover', 'bets', 'ggr'] } = params;
+    
+    let query = db.select().from(bets)
+      .where(
+        and(
+          gte(bets.placedAt, startDate),
+          lte(bets.placedAt, endDate)
+        )
+      );
+    
+    // Apply filters
+    if (filters.userId) {
+      query = query.where(eq(bets.userId, filters.userId)) as any;
+    }
+    
+    if (filters.status) {
+      query = query.where(eq(bets.status, filters.status)) as any;
+    }
+    
+    // For basic implementation, get all matching bets
+    const betsData = await query.limit(1000); // Limit for performance
+    
+    // Group and aggregate data
+    const groupedData = new Map();
+    
+    for (const bet of betsData) {
+      let groupKey: string;
+      
+      switch (groupBy) {
+        case 'date':
+          groupKey = bet.placedAt.toISOString().split('T')[0];
+          break;
+        case 'user':
+          groupKey = bet.userId;
+          break;
+        case 'status':
+          groupKey = bet.status;
+          break;
+        default:
+          groupKey = 'all';
+      }
+      
+      if (!groupedData.has(groupKey)) {
+        groupedData.set(groupKey, {
+          group: groupKey,
+          turnover: 0,
+          bets: 0,
+          payouts: 0,
+          ggr: 0
+        });
+      }
+      
+      const group = groupedData.get(groupKey);
+      group.turnover += bet.totalStake;
+      group.bets += 1;
+      if (bet.status === 'settled_win' && bet.actualWinnings) {
+        group.payouts += bet.actualWinnings;
+      }
+      group.ggr = group.turnover - group.payouts;
+    }
+    
+    const data = Array.from(groupedData.values());
+    
+    // Calculate summary
+    const summary = {
+      totalRecords: data.length,
+      totalTurnover: data.reduce((sum, row) => sum + row.turnover, 0),
+      totalBets: data.reduce((sum, row) => sum + row.bets, 0),
+      totalGGR: data.reduce((sum, row) => sum + row.ggr, 0)
+    };
+    
+    return {
+      title: `Custom ${reportType} Report`,
+      data,
+      summary,
+      generatedAt: new Date()
+    };
+  }
+  
+  // Export Report Data - Multi-format Export Engine
+  async exportReportData(params: {
+    reportType: string;
+    format: 'csv' | 'excel' | 'json';
+    startDate: Date;
+    endDate: Date;
+    filters?: any;
+  }): Promise<string> {
+    const { reportType, format, startDate, endDate, filters } = params;
+    
+    // Get the appropriate report data
+    let reportData: any;
+    
+    switch (reportType) {
+      case 'daily':
+        reportData = await this.getDailyGgrReport(startDate, endDate);
+        break;
+      case 'monthly':
+        reportData = await this.getMonthlyGgrReport(startDate, endDate);
+        break;
+      case 'turnover':
+        reportData = await this.getTurnoverBySportReport(startDate, endDate);
+        break;
+      case 'payout':
+        reportData = await this.getPayoutRatioReport(startDate, endDate);
+        break;
+      case 'winners':
+        reportData = await this.getTopWinnersReport(startDate, endDate, 50);
+        break;
+      default:
+        reportData = { error: 'Unknown report type' };
+    }
+    
+    // Format based on requested format
+    switch (format) {
+      case 'json':
+        return JSON.stringify(reportData, null, 2);
+      case 'csv':
+        // Simple CSV implementation
+        if (Array.isArray(reportData)) {
+          const headers = Object.keys(reportData[0] || {}).join(',');
+          const rows = reportData.map(row => 
+            Object.values(row).map(val => 
+              typeof val === 'string' ? `"${val}"` : val
+            ).join(',')
+          ).join('\n');
+          return `${headers}\n${rows}`;
+        }
+        return Object.entries(reportData).map(([key, value]) => `${key},${value}`).join('\n');
+      default:
+        return JSON.stringify(reportData, null, 2);
+    }
+  }
+  
+  // Scheduled Report Management
+  async createScheduledReport(report: {
+    name: string;
+    reportType: string;
+    frequency: 'daily' | 'weekly' | 'monthly';
+    recipients: string[];
+    filters?: any;
+    format?: 'csv' | 'excel' | 'pdf';
+  }): Promise<any> {
+    // For now, return a mock scheduled report
+    // In a real implementation, this would be stored in a scheduledReports table
+    return {
+      id: randomUUID(),
+      ...report,
+      createdAt: new Date(),
+      nextRun: new Date(Date.now() + 24 * 60 * 60 * 1000), // Next day
+      isActive: true
+    };
+  }
+  
   // ===================== FINANCIAL METHODS IMPLEMENTATION =====================
 
   async calculateGGRReport(params: {

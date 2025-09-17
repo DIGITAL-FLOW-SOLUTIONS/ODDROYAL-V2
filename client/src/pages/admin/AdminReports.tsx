@@ -187,17 +187,14 @@ export default function AdminReports() {
   // Export mutation
   const exportMutation = useMutation({
     mutationFn: async (params: { reportType: string; format: string }) => {
-      return apiRequest(`/api/admin/reports/export`, {
-        method: 'POST',
-        body: {
-          reportType: params.reportType,
-          format: params.format,
-          dateFrom: filters.dateFrom,
-          dateTo: filters.dateTo,
-          filters: {
-            sport: filters.sport,
-            league: filters.league
-          }
+      return adminApiRequest('POST', `/api/admin/reports/export`, {
+        reportType: params.reportType,
+        format: params.format,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+        filters: {
+          sport: filters.sport,
+          league: filters.league
         }
       });
     },
@@ -219,20 +216,14 @@ export default function AdminReports() {
   // Custom report mutation
   const customReportMutation = useMutation({
     mutationFn: async (params: any) => {
-      return apiRequest(`/api/admin/reports/custom`, {
-        method: 'POST',
-        body: params
-      });
+      return adminApiRequest('POST', `/api/admin/reports/custom`, params);
     }
   });
 
   // Schedule report mutation
   const scheduleReportMutation = useMutation({
     mutationFn: async (params: any) => {
-      return apiRequest(`/api/admin/reports/schedule`, {
-        method: 'POST',
-        body: params
-      });
+      return adminApiRequest('POST', `/api/admin/reports/schedule`, params);
     },
     onSuccess: () => {
       toast({
