@@ -11,6 +11,8 @@ import AdminBetManagement from "./AdminBetManagement";
 import AdminRiskExposure from "./AdminRiskExposure";
 import AdminSettlement from "./AdminSettlement";
 import AdminSecurity from "./AdminSecurity";
+import AdminReports from "./AdminReports";
+import AdminNotifications from "./AdminNotifications";
 import NotFound from "@/pages/not-found";
 
 // Admin router component
@@ -85,12 +87,15 @@ function AdminRouter() {
       <Route path="/prime-admin/reports">
         <AdminAuthGuard>
           <AdminLayout>
-            <div className="p-6">
-              <h1 className="text-2xl font-bold mb-4">Financial Reports</h1>
-              <p className="text-muted-foreground">
-                Financial reporting interface coming soon...
-              </p>
-            </div>
+            <AdminReports />
+          </AdminLayout>
+        </AdminAuthGuard>
+      </Route>
+      
+      <Route path="/prime-admin/notifications">
+        <AdminAuthGuard>
+          <AdminLayout>
+            <AdminNotifications />
           </AdminLayout>
         </AdminAuthGuard>
       </Route>

@@ -43,7 +43,8 @@ import {
   LogOut,
   Crown,
   Sun,
-  Moon
+  Moon,
+  Bell
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -92,6 +93,12 @@ const adminMenuItems = [
     url: "/prime-admin/reports",
     icon: BarChart3,
     permission: "reports:read"
+  },
+  {
+    title: "Notifications",
+    url: "/prime-admin/notifications",
+    icon: Bell,
+    permission: "notifications:read"
   },
   {
     title: "Audit Logs",
