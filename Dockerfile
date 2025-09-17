@@ -1,0 +1,71 @@
+# Multi-stage Docker build for PRIMESTAKE Admin Panel
+# Production-ready containerized environment
+
+# Build stage
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files for dependency installation
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy source code
+COPY . .
+
+# Build the application
+RUN npm run build
+
+# Production stage
+FROM node:20-alpine AS production
+
+# Install security updates and necessary packages
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
+    dumb-init \
+    tini \
+    ca-certificates && \
+    rm -rf /var/cache/apk/*
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S primestake -u 1001
+
+WORKDIR /app
+
+# Copy built application from builder stage
+COPY --from=builder --chown=primestake:nodejs /app/dist ./dist
+COPY --from=builder --chown=primestake:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=primestake:nodejs /app/package*.json ./
+
+# Copy static assets and configuration
+COPY --chown=primestake:nodejs client/index.html ./client/
+COPY --chown=primestake:nodejs shared ./shared
+COPY --chown=primestake:nodejs server ./server
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/uploads && \
+    chown -R primestake:nodejs /app/logs /app/uploads
+
+# Switch to non-root user
+USER primestake
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
+
+# Expose port
+EXPOSE 3000
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Use tini as init system for proper signal handling
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Start the application
+CMD ["npm", "start"]

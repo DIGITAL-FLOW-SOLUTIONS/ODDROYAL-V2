@@ -1,0 +1,25 @@
+# Configuration management for PRIMESTAKE
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: primestake-config
+  namespace: primestake
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  ADMIN_BASE_PATH: "/prime-admin"
+  ADMIN_2FA_ENFORCED: "true"
+  RATE_LIMIT_WINDOW_MS: "900000"
+  RATE_LIMIT_MAX_REQUESTS: "100"
+  LOG_LEVEL: "info"
+  DEMO_MODE: "false"
+  MAINTENANCE_MODE: "false"
+  
+  # Database configuration (non-sensitive)
+  PGHOST: "postgres-service"
+  PGPORT: "5432"
+  PGDATABASE: "primestake"
+  
+  # Redis configuration (non-sensitive)  
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"

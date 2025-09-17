@@ -1,0 +1,335 @@
+# PRIMESTAKE Application deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: primestake-deployment
+  namespace: primestake
+  labels:
+    app: primestake
+    component: application
+spec:
+  replicas: 3  # Multiple replicas for high availability
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: primestake
+  template:
+    metadata:
+      labels:
+        app: primestake
+        component: application
+    spec:
+      serviceAccountName: primestake-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      containers:
+      - name: primestake
+        image: primestake/admin-panel:latest  # Replace with your actual image
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        # Configuration from ConfigMap
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: NODE_ENV
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: PORT
+        - name: ADMIN_BASE_PATH
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: ADMIN_BASE_PATH
+        - name: ADMIN_2FA_ENFORCED
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: ADMIN_2FA_ENFORCED
+        - name: RATE_LIMIT_WINDOW_MS
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: RATE_LIMIT_WINDOW_MS
+        - name: RATE_LIMIT_MAX_REQUESTS
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: RATE_LIMIT_MAX_REQUESTS
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: LOG_LEVEL
+        - name: DEMO_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: DEMO_MODE
+        - name: MAINTENANCE_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: MAINTENANCE_MODE
+        - name: PGHOST
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: PGHOST
+        - name: PGPORT
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: PGPORT
+        - name: PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: PGDATABASE
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: primestake-config
+              key: REDIS_PORT
+        
+        # Secrets
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: DATABASE_URL
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: POSTGRES_USER
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: POSTGRES_PASSWORD
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: REDIS_PASSWORD
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: REDIS_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: JWT_SECRET
+        - name: ADMIN_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: ADMIN_JWT_SECRET
+        - name: SESSION_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: SESSION_SECRET
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: ENCRYPTION_KEY
+        - name: SPORTMONKS_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: SPORTMONKS_API_KEY
+        - name: STRIPE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: STRIPE_SECRET_KEY
+        - name: SENTRY_DSN
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: SENTRY_DSN
+        
+        volumeMounts:
+        - name: app-logs
+          mountPath: /app/logs
+        - name: app-uploads
+          mountPath: /app/uploads
+        - name: temp-storage
+          mountPath: /tmp
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      
+      initContainers:
+      - name: wait-for-postgres
+        image: postgres:16-alpine
+        command:
+        - sh
+        - -c
+        - |
+          until pg_isready -h postgres-service -p 5432 -U primestake; do
+            echo "Waiting for PostgreSQL to be ready..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
+        env:
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: primestake-secrets
+              key: POSTGRES_USER
+      
+      - name: wait-for-redis
+        image: redis:7-alpine
+        command:
+        - sh
+        - -c
+        - |
+          until redis-cli -h redis-service -p 6379 ping; do
+            echo "Waiting for Redis to be ready..."
+            sleep 2
+          done
+          echo "Redis is ready!"
+      
+      volumes:
+      - name: app-logs
+        persistentVolumeClaim:
+          claimName: primestake-logs-pvc
+      - name: app-uploads
+        persistentVolumeClaim:
+          claimName: primestake-uploads-pvc
+      - name: temp-storage
+        emptyDir: {}
+      
+      # Pod disruption budget for high availability
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: primestake
+
+---
+# PRIMESTAKE Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: primestake-service
+  namespace: primestake
+  labels:
+    app: primestake
+    component: application
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: primestake
+
+---
+# Persistent Volume Claims for application data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: primestake-logs-pvc
+  namespace: primestake
+spec:
+  accessModes:
+    - ReadWriteMany  # Multiple pods need access
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: primestake-uploads-pvc
+  namespace: primestake
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+
+---
+# Service Account for PRIMESTAKE
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: primestake-service-account
+  namespace: primestake
+  labels:
+    app: primestake
+
+---
+# Pod Disruption Budget for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: primestake-pdb
+  namespace: primestake
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: primestake

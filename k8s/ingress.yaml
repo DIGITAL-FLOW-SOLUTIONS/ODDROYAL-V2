@@ -1,0 +1,201 @@
+# Ingress configuration for PRIMESTAKE Admin Panel
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: primestake-ingress
+  namespace: primestake
+  labels:
+    app: primestake
+    component: ingress
+  annotations:
+    # NGINX Ingress Controller annotations
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    
+    # Security headers
+    nginx.ingress.kubernetes.io/server-snippet: |
+      add_header X-Frame-Options "DENY" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';" always;
+    
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/rate-limit-connections: "10"
+    
+    # Client body size (for file uploads)
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    
+    # Timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    
+    # Enable CORS for API endpoints
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://yourdomain.com"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    
+    # Certificate management (cert-manager)
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    
+    # Custom cache settings
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      # Cache static assets
+      location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+      }
+      
+      # Security for admin panel
+      location /prime-admin {
+        # Additional security for admin area
+        deny 192.168.0.0/16;  # Block internal networks (adjust as needed)
+        allow all;
+        
+        # IP whitelist for admin access (uncomment and configure as needed)
+        # allow 203.0.113.0/24;  # Your office IP range
+        # deny all;
+        
+        # Additional headers for admin area
+        add_header X-Admin-Panel "true" always;
+      }
+
+spec:
+  ingressClassName: nginx
+  
+  tls:
+  - hosts:
+    - yourdomain.com
+    - admin.yourdomain.com
+    secretName: primestake-tls
+  
+  rules:
+  # Main domain
+  - host: yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: primestake-service
+            port:
+              number: 3000
+  
+  # Admin subdomain (optional, for additional security)
+  - host: admin.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: primestake-service
+            port:
+              number: 3000
+
+---
+# Alternative ingress for staging environment
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: primestake-staging-ingress
+  namespace: primestake
+  labels:
+    app: primestake
+    component: ingress
+    env: staging
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"  # HTTP allowed for staging
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+    
+    # Staging-specific headers
+    nginx.ingress.kubernetes.io/server-snippet: |
+      add_header X-Environment "staging" always;
+      add_header X-Robots-Tag "noindex, nofollow" always;
+
+spec:
+  ingressClassName: nginx
+  
+  tls:
+  - hosts:
+    - staging.yourdomain.com
+    secretName: primestake-staging-tls
+  
+  rules:
+  - host: staging.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: primestake-service
+            port:
+              number: 3000
+
+---
+# Network policy for additional security (optional)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: primestake-network-policy
+  namespace: primestake
+spec:
+  podSelector:
+    matchLabels:
+      app: primestake
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 3000
+  
+  egress:
+  # Allow access to PostgreSQL
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+  
+  # Allow access to Redis
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  
+  # Allow external API calls (SportMonks, Stripe, etc.)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+  
+  # Allow DNS
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53

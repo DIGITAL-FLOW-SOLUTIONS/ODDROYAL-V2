@@ -1,0 +1,9 @@
+# Kubernetes namespace for PRIMESTAKE Admin Panel
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: primestake
+  labels:
+    name: primestake
+    env: production
+    app: primestake-admin

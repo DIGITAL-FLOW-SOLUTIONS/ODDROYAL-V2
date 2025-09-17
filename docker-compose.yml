@@ -1,0 +1,178 @@
+# Docker Compose configuration for PRIMESTAKE Admin Panel
+# Production-ready multi-service setup
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: primestake-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-primestake}
+      POSTGRES_USER: ${POSTGRES_USER:-primestake}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - primestake-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-primestake} -d ${POSTGRES_DB:-primestake}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: primestake-redis
+    restart: unless-stopped
+    command: >
+      --requirepass ${REDIS_PASSWORD}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - primestake-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PRIMESTAKE Application
+  primestake-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: primestake-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      DATABASE_URL: postgresql://${POSTGRES_USER:-primestake}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-primestake}
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-primestake}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-primestake}
+      
+      # Redis Configuration
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      
+      # Application Configuration
+      NODE_ENV: production
+      PORT: 3000
+      
+      # Security Configuration
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      SESSION_SECRET: ${SESSION_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      
+      # Rate Limiting
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-100}
+      
+      # Admin Panel Configuration
+      ADMIN_BASE_PATH: ${ADMIN_BASE_PATH:-/prime-admin}
+      ADMIN_2FA_ENFORCED: ${ADMIN_2FA_ENFORCED:-true}
+      
+      # External API Keys (encrypted in production)
+      SPORTMONKS_API_KEY: ${SPORTMONKS_API_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      
+      # Monitoring & Logging
+      SENTRY_DSN: ${SENTRY_DSN}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      
+      # Feature Flags
+      DEMO_MODE: ${DEMO_MODE:-false}
+      MAINTENANCE_MODE: ${MAINTENANCE_MODE:-false}
+    
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    
+    volumes:
+      - app_logs:/app/logs
+      - app_uploads:/app/uploads
+    
+    networks:
+      - primestake-network
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+  # Nginx Reverse Proxy (Optional, for production)
+  nginx:
+    image: nginx:alpine
+    container_name: primestake-nginx
+    restart: unless-stopped
+    depends_on:
+      - primestake-app
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - primestake-network
+    command: >
+      sh -c "nginx -t && nginx -g 'daemon off;'"
+
+# Named volumes for data persistence
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_uploads:
+    driver: local
+  nginx_logs:
+    driver: local
+
+# Network configuration
+networks:
+  primestake-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
