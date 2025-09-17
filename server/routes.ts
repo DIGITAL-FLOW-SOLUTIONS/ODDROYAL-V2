@@ -3994,6 +3994,336 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // GET /api/admin/customers - List regular users with search/filter functionality
+  app.get("/api/admin/customers", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('users:view'),
+    auditAction('customers_list'),
+    async (req: any, res) => {
+      try {
+        const { limit = 50, offset = 0, search, isActive } = req.query;
+        
+        // Use server-side filtering and pagination
+        const result = await storage.searchUsersData({
+          query: search,
+          isActive: isActive !== undefined ? isActive === 'true' : undefined,
+          limit: parseInt(limit),
+          offset: parseInt(offset)
+        });
+
+        // Remove sensitive data and format consistently
+        const safeUsers = result.users.map(user => {
+          const { password, ...userWithoutPassword } = user;
+          return {
+            ...userWithoutPassword,
+            balance: currencyUtils.formatCurrency(user.balance) // Use consistent currency formatting
+          };
+        });
+
+        res.json({
+          success: true,
+          data: {
+            users: safeUsers,
+            total: result.total,
+            filteredTotal: result.filteredTotal,
+            limit: parseInt(limit),
+            offset: parseInt(offset)
+          }
+        });
+      } catch (error) {
+        console.error('List customers error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve customers'
+        });
+      }
+    }
+  );
+
+  // GET /api/admin/customers/:id - Get single customer details
+  app.get("/api/admin/customers/:id", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('users:view'),
+    auditAction('customer_view'),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        
+        const user = await storage.getUser(id);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'Customer not found'
+          });
+        }
+
+        // Get user's recent bets and transactions
+        const [userBets, userTransactions] = await Promise.all([
+          storage.getUserBets(id, 20),
+          storage.getUserTransactions(id, 20)
+        ]);
+
+        const { password, ...userWithoutPassword } = user;
+        res.json({
+          success: true,
+          data: {
+            user: {
+              ...userWithoutPassword,
+              balance: currencyUtils.formatCurrency(user.balance) // Use consistent currency formatting
+            },
+            recentBets: userBets,
+            recentTransactions: userTransactions
+          }
+        });
+      } catch (error) {
+        console.error('Get customer error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve customer details'
+        });
+      }
+    }
+  );
+
+  // POST /api/admin/customers/:id/unban - Unban/activate user account
+  app.post("/api/admin/customers/:id/unban", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('users:manage'), 
+    require2FA,
+    auditAction('unban_user'),
+    async (req: any, res) => {
+      try {
+        const { id: userId } = req.params;
+        const { reason } = req.body;
+        
+        if (!reason) {
+          return res.status(400).json({
+            success: false,
+            error: 'Reason is required to unban a user'
+          });
+        }
+
+        // Get user to verify exists
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found'
+          });
+        }
+
+        // Unban user (set isActive to true)
+        await storage.updateUserProfile(userId, { isActive: true });
+
+        // Create audit log
+        await storage.createAuditLog({
+          adminId: req.adminUser.id,
+          actionType: 'unban_user',
+          targetType: 'user',
+          targetId: userId,
+          dataBefore: { isActive: user.isActive },
+          dataAfter: { isActive: true },
+          note: `User unbanned: ${reason}`,
+          ipAddress: req.ip || null,
+          userAgent: req.get('User-Agent') || null,
+          success: true
+        });
+
+        res.json({
+          success: true,
+          data: { userId, unbanned: true, reason },
+          message: 'User unbanned successfully'
+        });
+      } catch (error) {
+        console.error('Unban user error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to unban user'
+        });
+      }
+    }
+  );
+
+  // GET /api/admin/customers/:id/transactions - Get detailed transaction history for user
+  app.get("/api/admin/customers/:id/transactions", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('users:view'),
+    auditAction('view_user_transactions'),
+    async (req: any, res) => {
+      try {
+        const { id: userId } = req.params;
+        const { limit = 100, offset = 0 } = req.query;
+        
+        // Get user to verify exists
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'Customer not found'
+          });
+        }
+
+        // Get user transactions with pagination
+        const transactions = await storage.getUserTransactions(userId, parseInt(limit));
+        
+        res.json({
+          success: true,
+          data: {
+            userId,
+            transactions,
+            total: transactions.length, // TODO: Implement proper total count
+            limit: parseInt(limit),
+            offset: parseInt(offset)
+          }
+        });
+      } catch (error) {
+        console.error('Get user transactions error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve user transactions'
+        });
+      }
+    }
+  );
+
+  // POST /api/admin/customers/:id/limits - Set betting limits for user
+  app.post("/api/admin/customers/:id/limits", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('users:manage'), 
+    require2FA,
+    auditAction('set_user_limits'),
+    async (req: any, res) => {
+      try {
+        const { id: userId } = req.params;
+        
+        // Validate and parse request body with proper field mapping
+        const requestSchema = z.object({
+          dailyLimitCents: z.number().positive().optional(),
+          weeklyLimitCents: z.number().positive().optional(), 
+          monthlyLimitCents: z.number().positive().optional(),
+          maxStakeCents: z.number().positive().optional(),
+          dailyDepositLimitCents: z.number().positive().optional(),
+          dailyLossLimitCents: z.number().positive().optional(),
+          isSelfExcluded: z.boolean().optional(),
+          selfExclusionUntil: z.string().datetime().optional(),
+          cooldownUntil: z.string().datetime().optional(),
+          reason: z.string().min(1, 'Reason is required to set user limits')
+        });
+
+        const validatedData = requestSchema.parse(req.body);
+
+        // Get user to verify exists
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found'
+          });
+        }
+
+        // Get existing limits for audit trail
+        const existingLimits = await storage.getUserLimits(userId);
+
+        // Map legacy field names to schema field names for backward compatibility
+        const limitsData = {
+          dailyStakeLimitCents: validatedData.dailyLimitCents,
+          weeklyStakeLimitCents: validatedData.weeklyLimitCents, 
+          monthlyStakeLimitCents: validatedData.monthlyLimitCents,
+          maxStakeCents: validatedData.maxStakeCents,
+          dailyDepositLimitCents: validatedData.dailyDepositLimitCents,
+          dailyLossLimitCents: validatedData.dailyLossLimitCents,
+          isSelfExcluded: validatedData.isSelfExcluded,
+          selfExclusionUntil: validatedData.selfExclusionUntil ? new Date(validatedData.selfExclusionUntil) : undefined,
+          cooldownUntil: validatedData.cooldownUntil ? new Date(validatedData.cooldownUntil) : undefined,
+          reason: validatedData.reason
+        };
+
+        // Save limits to database
+        const updatedLimits = await storage.upsertUserLimits(userId, limitsData, req.adminUser.id);
+
+        // Create audit log with proper before/after data
+        await storage.createAuditLog({
+          adminId: req.adminUser.id,
+          actionType: 'set_user_limits',
+          targetType: 'user',
+          targetId: userId,
+          dataBefore: existingLimits,
+          dataAfter: updatedLimits,
+          note: `User limits set: ${validatedData.reason}`,
+          ipAddress: req.ip || null,
+          userAgent: req.get('User-Agent') || null,
+          success: true
+        });
+
+        res.json({
+          success: true,
+          data: { 
+            userId, 
+            limits: updatedLimits,
+            reason: validatedData.reason
+          },
+          message: 'User limits set successfully and saved to database'
+        });
+      } catch (error) {
+        console.error('Set user limits error:', error);
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid request data',
+            details: error.errors
+          });
+        }
+        res.status(500).json({
+          success: false,
+          error: 'Failed to set user limits'
+        });
+      }
+    }
+  );
+
+  // GET /api/admin/customers/:id/limits - Get current betting limits for user
+  app.get("/api/admin/customers/:id/limits", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('users:read'),
+    async (req: any, res) => {
+      try {
+        const { id: userId } = req.params;
+        
+        // Get user to verify exists
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found'
+          });
+        }
+
+        // Get user limits
+        const limits = await storage.getUserLimits(userId);
+
+        res.json({
+          success: true,
+          data: { 
+            userId, 
+            limits: limits || null // Return null if no limits set
+          }
+        });
+      } catch (error) {
+        console.error('Get user limits error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve user limits'
+        });
+      }
+    }
+  );
+
   // POST /api/admin/users/:id/wallet/adjust - credit/debit user wallet
   app.post("/api/admin/users/:id/wallet/adjust", 
     ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),

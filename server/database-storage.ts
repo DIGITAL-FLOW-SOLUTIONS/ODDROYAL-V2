@@ -14,6 +14,7 @@ import {
   marketOutcomes,
   promotions,
   oddsHistory,
+  userLimits,
   type User, 
   type InsertUser, 
   type Bet, 
@@ -29,7 +30,9 @@ import {
   type InsertAdminUser,
   type AdminSession,
   type AuditLog,
-  type InsertAuditLog
+  type InsertAuditLog,
+  type UserLimits,
+  type InsertUserLimits
 } from "@shared/schema";
 import { eq, and, desc, gte, lte, sql, count, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -386,6 +389,53 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount || 0;
   }
 
+  // ===================== USER LIMITS OPERATIONS =====================
+  
+  async getUserLimits(userId: string): Promise<UserLimits | null> {
+    const [limits] = await db
+      .select()
+      .from(userLimits)
+      .where(eq(userLimits.userId, userId));
+    return limits || null;
+  }
+
+  async upsertUserLimits(userId: string, limitsData: Partial<InsertUserLimits>, setByAdminId?: string): Promise<UserLimits> {
+    try {
+      // Check if limits already exist for this user
+      const existingLimits = await this.getUserLimits(userId);
+      
+      const limitPayload = {
+        ...limitsData,
+        userId,
+        setByAdminId,
+        updatedAt: new Date()
+      };
+
+      if (existingLimits) {
+        // Update existing limits
+        const [updatedLimits] = await db
+          .update(userLimits)
+          .set(limitPayload)
+          .where(eq(userLimits.userId, userId))
+          .returning();
+        return updatedLimits;
+      } else {
+        // Insert new limits
+        const [newLimits] = await db
+          .insert(userLimits)
+          .values({
+            ...limitPayload,
+            createdAt: new Date()
+          })
+          .returning();
+        return newLimits;
+      }
+    } catch (error) {
+      console.error('Upsert user limits error:', error);
+      throw error;
+    }
+  }
+
   // ===================== ADMIN OPERATIONS =====================
   
   async createAdminUser(admin: InsertAdminUser): Promise<AdminUser> {
@@ -652,6 +702,64 @@ export class DatabaseStorage implements IStorage {
     return {
       users: usersResult,
       total: countResult[0]?.count || 0
+    };
+  }
+
+  async searchUsersData(params: {
+    query?: string;
+    isActive?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ users: User[], total: number, filteredTotal: number }> {
+    const { query, isActive, limit = 50, offset = 0 } = params;
+    const conditions = [];
+
+    // Build where conditions
+    if (query) {
+      const searchLower = query.toLowerCase();
+      conditions.push(sql`(
+        LOWER(${users.username}) LIKE ${'%' + searchLower + '%'} OR
+        LOWER(${users.email}) LIKE ${'%' + searchLower + '%'} OR
+        LOWER(${users.firstName}) LIKE ${'%' + searchLower + '%'} OR
+        LOWER(${users.lastName}) LIKE ${'%' + searchLower + '%'}
+      )`);
+    }
+
+    if (isActive !== undefined) {
+      conditions.push(eq(users.isActive, isActive));
+    }
+
+    const whereCondition = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Execute queries in parallel
+    const [usersResult, totalResult, filteredResult] = await Promise.all([
+      // Get filtered and paginated users
+      whereCondition 
+        ? db.select()
+            .from(users)
+            .where(whereCondition)
+            .orderBy(desc(users.createdAt))
+            .limit(limit)
+            .offset(offset)
+        : db.select()
+            .from(users)
+            .orderBy(desc(users.createdAt))
+            .limit(limit)
+            .offset(offset),
+      // Get total count (all users)
+      db.select({ count: count() }).from(users),
+      // Get filtered count
+      whereCondition
+        ? db.select({ count: count() })
+            .from(users)
+            .where(whereCondition)
+        : db.select({ count: count() }).from(users)
+    ]);
+
+    return {
+      users: usersResult,
+      total: totalResult[0]?.count || 0,
+      filteredTotal: filteredResult[0]?.count || 0
     };
   }
 
@@ -981,6 +1089,142 @@ export class DatabaseStorage implements IStorage {
   
   async generateFinancialReport(params: any): Promise<any> {
     return { records: [] };
+  }
+
+  async generateCustomReport(params: any): Promise<any> {
+    const { reportType, startDate, endDate, filters = {}, groupBy = 'date', metrics = ['turnover', 'bets', 'ggr'] } = params;
+    
+    try {
+      // Get base data for the period
+      const [betsInPeriod, transactionsInPeriod] = await Promise.all([
+        db.select()
+          .from(bets)
+          .where(and(
+            gte(bets.placedAt, startDate),
+            lte(bets.placedAt, endDate)
+          )),
+        db.select()
+          .from(transactions)
+          .where(and(
+            gte(transactions.createdAt, startDate),
+            lte(transactions.createdAt, endDate),
+            eq(transactions.type, 'bet_winnings')
+          ))
+      ]);
+
+      const totalStakeCents = betsInPeriod.reduce((sum, bet) => sum + bet.totalStake, 0);
+      const totalPayoutsCents = betsInPeriod
+        .filter(bet => bet.status === 'won')
+        .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
+      const ggrCents = totalStakeCents - totalPayoutsCents;
+
+      // Group data by requested period
+      let groupedData: any[] = [];
+      if (groupBy === 'date') {
+        const dailyGroups = new Map<string, { stakeCents: number; payoutsCents: number; betCount: number }>();
+        
+        for (const bet of betsInPeriod) {
+          const date = bet.placedAt.toISOString().split('T')[0];
+          if (!dailyGroups.has(date)) {
+            dailyGroups.set(date, { stakeCents: 0, payoutsCents: 0, betCount: 0 });
+          }
+          const group = dailyGroups.get(date)!;
+          group.stakeCents += bet.totalStake;
+          group.betCount += 1;
+          if (bet.status === 'won') {
+            group.payoutsCents += bet.actualWinnings || 0;
+          }
+        }
+
+        groupedData = Array.from(dailyGroups.entries()).map(([date, data]) => ({
+          date,
+          stakeCents: data.stakeCents,
+          payoutsCents: data.payoutsCents,
+          ggrCents: data.stakeCents - data.payoutsCents,
+          betCount: data.betCount,
+          margin: data.stakeCents > 0 ? ((data.stakeCents - data.payoutsCents) / data.stakeCents * 100).toFixed(2) : '0.00'
+        }));
+      }
+
+      return {
+        data: groupedData,
+        summary: {
+          totalRecords: betsInPeriod.length,
+          totalValueCents: totalStakeCents,
+          totalStakeCents,
+          totalPayoutsCents,
+          ggrCents,
+          margin: totalStakeCents > 0 ? ((ggrCents / totalStakeCents) * 100).toFixed(2) : '0.00'
+        },
+        period: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          groupBy,
+          metrics
+        }
+      };
+    } catch (error) {
+      console.error('Generate custom report error:', error);
+      return {
+        data: [],
+        summary: { totalRecords: 0, totalValueCents: 0 },
+        error: 'Failed to generate custom report'
+      };
+    }
+  }
+
+  async exportReportData(reportType: string, params: any): Promise<any> {
+    const { format, startDate, endDate, filters = {} } = params;
+    
+    try {
+      // Get the report data
+      const reportData = await this.generateCustomReport({
+        reportType,
+        startDate,
+        endDate,
+        filters,
+        groupBy: 'date',
+        metrics: ['turnover', 'bets', 'ggr']
+      });
+
+      if (format === 'csv') {
+        // Generate CSV content
+        const csvHeader = 'Date,Stake (Cents),Payouts (Cents),GGR (Cents),Bet Count,Margin %\n';
+        const csvRows = reportData.data.map((row: any) => 
+          `${row.date},${row.stakeCents},${row.payoutsCents},${row.ggrCents},${row.betCount},${row.margin}%`
+        ).join('\n');
+        const csvContent = csvHeader + csvRows;
+
+        return {
+          filename: `${reportType}-report-${startDate.toISOString().split('T')[0]}-to-${endDate.toISOString().split('T')[0]}.csv`,
+          data: csvContent,
+          mimeType: 'text/csv'
+        };
+      } else if (format === 'pdf') {
+        // For PDF, return structured data (actual PDF generation would require a PDF library)
+        const pdfData = {
+          title: `${reportType.toUpperCase()} Report`,
+          period: `${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`,
+          summary: reportData.summary,
+          data: reportData.data
+        };
+
+        return {
+          filename: `${reportType}-report-${startDate.toISOString().split('T')[0]}-to-${endDate.toISOString().split('T')[0]}.pdf`,
+          data: Buffer.from(JSON.stringify(pdfData, null, 2)),
+          mimeType: 'application/pdf'
+        };
+      }
+
+      throw new Error('Unsupported export format');
+    } catch (error) {
+      console.error('Export report data error:', error);
+      return {
+        filename: `error-report-${Date.now()}.txt`,
+        data: 'Error generating report',
+        mimeType: 'text/plain'
+      };
+    }
   }
 
   async getDailyFinancialReport(date: Date): Promise<any> {

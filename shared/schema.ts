@@ -98,6 +98,27 @@ export const userSessions = pgTable("user_sessions", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+// User limits - Betting and deposit limits for responsible gambling
+export const userLimits = pgTable("user_limits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id).unique(),
+  maxStakeCents: integer("max_stake_cents").default(10000000), // Max single bet stake (£100,000)
+  dailyStakeLimitCents: integer("daily_stake_limit_cents").default(100000000), // Daily betting limit (£1,000,000)
+  dailyDepositLimitCents: integer("daily_deposit_limit_cents").default(100000000), // Daily deposit limit (£1,000,000)
+  dailyLossLimitCents: integer("daily_loss_limit_cents").default(100000000), // Daily loss limit (£1,000,000)
+  weeklyStakeLimitCents: integer("weekly_stake_limit_cents").default(700000000), // Weekly betting limit (£7,000,000)
+  monthlyStakeLimitCents: integer("monthly_stake_limit_cents").default(3000000000), // Monthly betting limit (£30,000,000)
+  isSelfExcluded: boolean("is_self_excluded").notNull().default(false),
+  selfExclusionUntil: timestamp("self_exclusion_until"),
+  cooldownUntil: timestamp("cooldown_until"), // Cooling off period
+  setByAdminId: varchar("set_by_admin_id"), // Track which admin set limits
+  reason: text("reason"), // Reason for setting limits
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, (table) => ({
+  userIdIdx: index("user_limits_user_id_idx").on(table.userId),
+}));
+
 // Create Zod schemas for validation
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -155,6 +176,26 @@ export const insertTransactionSchema = createInsertSchema(transactions).pick({
     return data.balanceAfter >= 0; // Cannot have negative balance
   },
   { message: "Balance cannot be negative", path: ["balanceAfter"] }
+);
+
+export const insertUserLimitsSchema = createInsertSchema(userLimits).pick({
+  maxStakeCents: true,
+  dailyStakeLimitCents: true,
+  dailyDepositLimitCents: true,
+  dailyLossLimitCents: true,
+  weeklyStakeLimitCents: true,
+  monthlyStakeLimitCents: true,
+  isSelfExcluded: true,
+  selfExclusionUntil: true,
+  cooldownUntil: true,
+  reason: true,
+}).refine(
+  (data) => {
+    // All limits must be positive if set
+    const limits = [data.maxStakeCents, data.dailyStakeLimitCents, data.dailyDepositLimitCents, data.dailyLossLimitCents, data.weeklyStakeLimitCents, data.monthlyStakeLimitCents];
+    return limits.every(limit => limit === null || limit === undefined || limit > 0);
+  },
+  { message: "All limits must be positive", path: ["maxStakeCents"] }
 );
 
 // Utility functions for currency conversion
@@ -251,6 +292,9 @@ export type Transaction = typeof transactions.$inferSelect;
 export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
 
 export type UserSession = typeof userSessions.$inferSelect;
+
+export type UserLimits = typeof userLimits.$inferSelect;
+export type InsertUserLimits = z.infer<typeof insertUserLimitsSchema>;
 
 // =====================================
 // ADMIN PANEL SCHEMA EXTENSIONS
