@@ -631,7 +631,7 @@ export class MemStorage implements IStorage {
       lastLogin: null,
       loginAttempts: 0,
       lockedUntil: null,
-      ipWhitelist: insertAdmin.ipWhitelist || null,
+      ipWhitelist: (insertAdmin.ipWhitelist as string[]) || null,
       createdAt: now,
       updatedAt: now,
       createdBy: null
@@ -645,12 +645,13 @@ export class MemStorage implements IStorage {
     const admin = this.adminUsers.get(adminId);
     if (!admin) return undefined;
     
-    const updatedAdmin = {
+    const updatedAdmin: AdminUser = {
       ...admin,
       ...updates,
       id: admin.id, // Ensure ID cannot be changed
       createdAt: admin.createdAt, // Ensure creation date cannot be changed
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      ipWhitelist: (updates.ipWhitelist as string[]) || admin.ipWhitelist
     };
     
     this.adminUsers.set(adminId, updatedAdmin);
@@ -748,7 +749,17 @@ export class MemStorage implements IStorage {
     
     const auditLog: AuditLog = {
       id,
-      ...insertAuditLog,
+      adminId: insertAuditLog.adminId,
+      actionType: insertAuditLog.actionType,
+      targetType: insertAuditLog.targetType || null,
+      targetId: insertAuditLog.targetId || null,
+      dataBefore: insertAuditLog.dataBefore || null,
+      dataAfter: insertAuditLog.dataAfter || null,
+      note: insertAuditLog.note || null,
+      ipAddress: insertAuditLog.ipAddress || null,
+      userAgent: insertAuditLog.userAgent || null,
+      success: insertAuditLog.success !== undefined ? insertAuditLog.success : true,
+      errorMessage: insertAuditLog.errorMessage || null,
       createdAt: now
     };
     
@@ -867,14 +878,12 @@ export class MemStorage implements IStorage {
   }): Promise<{ users: AdminUser[]; total: number }> {
     let admins = Array.from(this.adminUsers.values());
 
-    // Filter by search query (username, email, first/last name)
+    // Filter by search query (username, email only - AdminUser doesn't have firstName/lastName)
     if (params.query) {
       const query = params.query.toLowerCase();
       admins = admins.filter(admin => 
         admin.username.toLowerCase().includes(query) ||
-        admin.email.toLowerCase().includes(query) ||
-        (admin.firstName && admin.firstName.toLowerCase().includes(query)) ||
-        (admin.lastName && admin.lastName.toLowerCase().includes(query))
+        admin.email.toLowerCase().includes(query)
       );
     }
 

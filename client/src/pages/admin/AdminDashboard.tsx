@@ -381,7 +381,7 @@ const SystemAlerts = ({ alerts }: { alerts: SystemAlert[] }) => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium">{alert.title}</p>
-                      <Badge variant={getSeverityColor(alert.severity)} size="sm">
+                      <Badge variant={getSeverityColor(alert.severity)}>
                         {alert.severity}
                       </Badge>
                     </div>
