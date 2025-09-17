@@ -10,14 +10,17 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install ALL dependencies (including dev deps needed for build)
+RUN npm ci && npm cache clean --force
 
 # Copy source code
 COPY . .
 
 # Build the application
 RUN npm run build
+
+# Remove dev dependencies after build
+RUN npm prune --production
 
 # Production stage
 FROM node:20-alpine AS production
@@ -27,7 +30,8 @@ RUN apk update && apk upgrade && \
     apk add --no-cache \
     dumb-init \
     tini \
-    ca-certificates && \
+    ca-certificates \
+    curl && \
     rm -rf /var/cache/apk/*
 
 # Create non-root user for security
@@ -40,11 +44,6 @@ WORKDIR /app
 COPY --from=builder --chown=primestake:nodejs /app/dist ./dist
 COPY --from=builder --chown=primestake:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=primestake:nodejs /app/package*.json ./
-
-# Copy static assets and configuration
-COPY --chown=primestake:nodejs client/index.html ./client/
-COPY --chown=primestake:nodejs shared ./shared
-COPY --chown=primestake:nodejs server ./server
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/uploads && \
@@ -68,4 +67,4 @@ ENV PORT=3000
 ENTRYPOINT ["/sbin/tini", "--"]
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["node", "dist/index.js"]
