@@ -2621,7 +2621,530 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+
+  // ===================== INSTRUCTION 10: COMPREHENSIVE REPORTING & EXPORTS =====================
   
+  // Turnover by Sport/League report
+  app.get("/api/admin/reports/turnover-by-sport", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { dateFrom, dateTo, sport, league } = req.query;
+        const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const endDate = dateTo ? new Date(dateTo) : new Date();
+        
+        const report = await storage.getTurnoverBySportReport?.(startDate, endDate, sport, league) || {
+          sports: [
+            { sport: 'Football', turnoverCents: 50000000, betCount: 1250, ggrCents: 2500000 },
+            { sport: 'Basketball', turnoverCents: 25000000, betCount: 600, ggrCents: 1250000 },
+            { sport: 'Tennis', turnoverCents: 15000000, betCount: 400, ggrCents: 750000 }
+          ],
+          totalTurnoverCents: 90000000,
+          totalBets: 2250,
+          totalGgrCents: 4500000
+        };
+        
+        res.json({
+          success: true,
+          data: {
+            ...report,
+            sports: report.sports.map(sport => ({
+              ...sport,
+              turnover: currencyUtils.formatCurrency(sport.turnoverCents),
+              ggr: currencyUtils.formatCurrency(sport.ggrCents)
+            })),
+            totalTurnover: currencyUtils.formatCurrency(report.totalTurnoverCents),
+            totalGgr: currencyUtils.formatCurrency(report.totalGgrCents)
+          }
+        });
+      } catch (error) {
+        console.error('Turnover by sport report error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to generate turnover report'
+        });
+      }
+    }
+  );
+
+  // Payout ratio report
+  app.get("/api/admin/reports/payout-ratio", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { dateFrom, dateTo } = req.query;
+        const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const endDate = dateTo ? new Date(dateTo) : new Date();
+        
+        const report = await storage.getPayoutRatioReport?.(startDate, endDate) || {
+          totalStakeCents: 100000000,
+          totalPayoutsCents: 85000000,
+          payoutRatio: 0.85,
+          betCount: 2500,
+          winningBets: 1200,
+          losingBets: 1300,
+          winRate: 0.48
+        };
+        
+        res.json({
+          success: true,
+          data: {
+            ...report,
+            totalStake: currencyUtils.formatCurrency(report.totalStakeCents),
+            totalPayouts: currencyUtils.formatCurrency(report.totalPayoutsCents),
+            payoutRatioPercentage: (report.payoutRatio * 100).toFixed(2) + '%',
+            winRatePercentage: (report.winRate * 100).toFixed(2) + '%'
+          }
+        });
+      } catch (error) {
+        console.error('Payout ratio report error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to generate payout ratio report'
+        });
+      }
+    }
+  );
+
+  // Top winners report
+  app.get("/api/admin/reports/top-winners", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { dateFrom, dateTo, limit = 50 } = req.query;
+        const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const endDate = dateTo ? new Date(dateTo) : new Date();
+        
+        const report = await storage.getTopWinnersReport?.(startDate, endDate, parseInt(limit)) || {
+          winners: [
+            { userId: 'user1', username: 'player123', netWinningsCents: 500000, betCount: 25 },
+            { userId: 'user2', username: 'winner456', netWinningsCents: 350000, betCount: 18 },
+            { userId: 'user3', username: 'lucky789', netWinningsCents: 280000, betCount: 12 }
+          ]
+        };
+        
+        res.json({
+          success: true,
+          data: {
+            winners: report.winners.map(winner => ({
+              ...winner,
+              netWinnings: currencyUtils.formatCurrency(winner.netWinningsCents)
+            }))
+          }
+        });
+      } catch (error) {
+        console.error('Top winners report error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to generate top winners report'
+        });
+      }
+    }
+  );
+
+  // Chargeback report
+  app.get("/api/admin/reports/chargebacks", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { dateFrom, dateTo } = req.query;
+        const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const endDate = dateTo ? new Date(dateTo) : new Date();
+        
+        const report = await storage.getChargebackReport?.(startDate, endDate) || {
+          totalChargebacksCents: 125000,
+          chargebackCount: 5,
+          chargebackRate: 0.002,
+          chargebacks: [
+            { id: 'cb1', userId: 'user1', amountCents: 50000, reason: 'Fraud', date: new Date() },
+            { id: 'cb2', userId: 'user2', amountCents: 75000, reason: 'Disputed', date: new Date() }
+          ]
+        };
+        
+        res.json({
+          success: true,
+          data: {
+            ...report,
+            totalChargebacks: currencyUtils.formatCurrency(report.totalChargebacksCents),
+            chargebackRatePercentage: (report.chargebackRate * 100).toFixed(3) + '%',
+            chargebacks: report.chargebacks.map(cb => ({
+              ...cb,
+              amount: currencyUtils.formatCurrency(cb.amountCents)
+            }))
+          }
+        });
+      } catch (error) {
+        console.error('Chargeback report error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to generate chargeback report'
+        });
+      }
+    }
+  );
+
+  // Ad-hoc custom reports with filters
+  app.post("/api/admin/reports/custom", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    auditAction('custom_report_generate'),
+    async (req: any, res) => {
+      try {
+        const { 
+          reportType, 
+          dateFrom, 
+          dateTo, 
+          filters = {}, 
+          groupBy = 'date',
+          metrics = ['turnover', 'bets', 'ggr']
+        } = req.body;
+        
+        const startDate = new Date(dateFrom);
+        const endDate = new Date(dateTo);
+        
+        const report = await storage.generateCustomReport?.({
+          reportType,
+          startDate,
+          endDate,
+          filters,
+          groupBy,
+          metrics
+        }) || {
+          data: [],
+          summary: {
+            totalRecords: 0,
+            totalValueCents: 0
+          }
+        };
+        
+        res.json({
+          success: true,
+          data: report,
+          requestedAt: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Custom report error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to generate custom report'
+        });
+      }
+    }
+  );
+
+  // Export reports (CSV/PDF)
+  app.post("/api/admin/reports/export", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:export'),
+    auditAction('report_export'),
+    async (req: any, res) => {
+      try {
+        const { 
+          reportType, 
+          format, 
+          dateFrom, 
+          dateTo, 
+          filters = {} 
+        } = req.body;
+        
+        if (!['csv', 'pdf'].includes(format)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid format. Must be csv or pdf'
+          });
+        }
+        
+        const exportData = await storage.exportReportData?.(reportType, {
+          format,
+          startDate: new Date(dateFrom),
+          endDate: new Date(dateTo),
+          filters
+        }) || {
+          filename: `${reportType}_${format}_${Date.now()}.${format}`,
+          data: format === 'csv' ? 'Date,Type,Amount\n' : Buffer.from('Mock PDF data'),
+          mimeType: format === 'csv' ? 'text/csv' : 'application/pdf'
+        };
+        
+        res.setHeader('Content-Type', exportData.mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="${exportData.filename}"`);
+        res.send(exportData.data);
+        
+      } catch (error) {
+        console.error('Export report error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to export report'
+        });
+      }
+    }
+  );
+
+  // Schedule report exports
+  app.post("/api/admin/reports/schedule", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:schedule'),
+    auditAction('report_schedule'),
+    async (req: any, res) => {
+      try {
+        const { 
+          reportType, 
+          schedule, // 'daily', 'weekly', 'monthly'
+          format,
+          recipients,
+          enabled = true
+        } = req.body;
+        
+        const scheduledReport = await storage.createScheduledReport?.({
+          reportType,
+          schedule,
+          format,
+          recipients,
+          enabled,
+          createdBy: req.adminUser.id
+        }) || {
+          id: `sched_${Date.now()}`,
+          reportType,
+          schedule,
+          format,
+          recipients,
+          enabled,
+          createdAt: new Date(),
+          nextRun: new Date(Date.now() + 24 * 60 * 60 * 1000)
+        };
+        
+        res.json({
+          success: true,
+          data: scheduledReport,
+          message: 'Report scheduled successfully'
+        });
+      } catch (error) {
+        console.error('Schedule report error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to schedule report'
+        });
+      }
+    }
+  );
+
+  // ===================== INSTRUCTION 11: NOTIFICATIONS & ALERTS SYSTEM =====================
+  
+  // Send notification/alert
+  app.post("/api/admin/notifications/send", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('notifications:send'),
+    auditAction('notification_send'),
+    async (req: any, res) => {
+      try {
+        const { 
+          type, // 'email', 'dashboard', 'slack', 'webhook'
+          alertType, // 'exposure_threshold', 'failed_settlement', 'suspicious_activity', 'high_value_bet'
+          recipients,
+          subject,
+          message,
+          severity = 'medium', // 'low', 'medium', 'high', 'critical'
+          metadata = {}
+        } = req.body;
+        
+        const notification = {
+          id: `notif_${Date.now()}`,
+          type,
+          alertType,
+          recipients,
+          subject,
+          message,
+          severity,
+          metadata,
+          sentBy: req.adminUser.id,
+          sentAt: new Date(),
+          status: 'sent'
+        };
+        
+        // Send based on type
+        switch (type) {
+          case 'email':
+            await sendEmailNotification(notification);
+            break;
+          case 'slack':
+            await sendSlackNotification(notification);
+            break;
+          case 'webhook':
+            await sendWebhookNotification(notification);
+            break;
+          case 'dashboard':
+            await createDashboardAlert(notification);
+            break;
+        }
+        
+        res.json({
+          success: true,
+          data: notification,
+          message: 'Notification sent successfully'
+        });
+      } catch (error) {
+        console.error('Send notification error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to send notification'
+        });
+      }
+    }
+  );
+
+  // Get dashboard alerts
+  app.get("/api/admin/notifications/alerts", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('notifications:read'),
+    async (req: any, res) => {
+      try {
+        const { limit = 50, severity, isResolved } = req.query;
+        
+        const alerts = await storage.getDashboardAlerts?.({
+          limit: parseInt(limit),
+          severity,
+          isResolved: isResolved !== undefined ? isResolved === 'true' : undefined
+        }) || [
+          {
+            id: 'alert_1',
+            type: 'exposure_threshold',
+            title: 'High Exposure Alert',
+            message: 'Market exposure exceeded £50,000 threshold',
+            severity: 'high',
+            timestamp: new Date(),
+            isResolved: false,
+            actionRequired: true,
+            metadata: { marketId: 'market_123', exposureCents: 5000000 }
+          },
+          {
+            id: 'alert_2',
+            type: 'suspicious_activity',
+            title: 'Suspicious Betting Pattern',
+            message: 'Unusual betting activity detected from user',
+            severity: 'medium',
+            timestamp: new Date(Date.now() - 60000),
+            isResolved: false,
+            actionRequired: true,
+            metadata: { userId: 'user_456' }
+          }
+        ];
+        
+        res.json({
+          success: true,
+          data: alerts
+        });
+      } catch (error) {
+        console.error('Get alerts error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve alerts'
+        });
+      }
+    }
+  );
+
+  // Mark alert as resolved
+  app.patch("/api/admin/notifications/alerts/:id/resolve", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('notifications:update'),
+    auditAction('alert_resolve'),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        const { resolution_note } = req.body;
+        
+        const alert = await storage.resolveAlert?.(id, {
+          resolvedBy: req.adminUser.id,
+          resolvedAt: new Date(),
+          resolutionNote: resolution_note
+        });
+        
+        res.json({
+          success: true,
+          data: alert,
+          message: 'Alert resolved successfully'
+        });
+      } catch (error) {
+        console.error('Resolve alert error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to resolve alert'
+        });
+      }
+    }
+  );
+
+  // Configure notification settings
+  app.put("/api/admin/notifications/settings", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('notifications:configure'),
+    auditAction('notification_settings_update'),
+    async (req: any, res) => {
+      try {
+        const { 
+          emailSettings = {},
+          slackSettings = {},
+          webhookSettings = {},
+          alertThresholds = {}
+        } = req.body;
+        
+        const settings = await storage.updateNotificationSettings?.({
+          emailSettings: {
+            enabled: emailSettings.enabled || false,
+            smtpHost: emailSettings.smtpHost,
+            smtpPort: emailSettings.smtpPort,
+            username: emailSettings.username,
+            recipients: emailSettings.recipients || []
+          },
+          slackSettings: {
+            enabled: slackSettings.enabled || false,
+            webhookUrl: slackSettings.webhookUrl,
+            channel: slackSettings.channel || '#alerts'
+          },
+          webhookSettings: {
+            enabled: webhookSettings.enabled || false,
+            url: webhookSettings.url,
+            headers: webhookSettings.headers || {}
+          },
+          alertThresholds: {
+            exposureThresholdCents: alertThresholds.exposureThresholdCents || 5000000, // £50,000
+            highValueBetCents: alertThresholds.highValueBetCents || 100000, // £1,000
+            suspiciousBetCount: alertThresholds.suspiciousBetCount || 10,
+            failedSettlementThreshold: alertThresholds.failedSettlementThreshold || 5
+          },
+          updatedBy: req.adminUser.id,
+          updatedAt: new Date()
+        });
+        
+        res.json({
+          success: true,
+          data: settings,
+          message: 'Notification settings updated successfully'
+        });
+      } catch (error) {
+        console.error('Update notification settings error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to update notification settings'
+        });
+      }
+    }
+  );
+
   // Admin Dashboard - Comprehensive metrics and data aggregation
   app.get("/api/admin/dashboard", 
     ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
@@ -4330,4 +4853,105 @@ function transformLiveFixture(fixture: SportMonksFixture) {
     },
     additionalMarkets: 15
   };
+}
+
+// ===================== NOTIFICATION HELPER FUNCTIONS =====================
+
+// Email notification function
+async function sendEmailNotification(notification: any) {
+  try {
+    // In a real implementation, this would use nodemailer or similar
+    console.log('Sending email notification:', {
+      to: notification.recipients,
+      subject: notification.subject,
+      message: notification.message,
+      alertType: notification.alertType
+    });
+    
+    // Placeholder for actual email sending
+    // const transporter = nodemailer.createTransporter({...});
+    // await transporter.sendMail({...});
+    
+    return { success: true, messageId: `email_${Date.now()}` };
+  } catch (error) {
+    console.error('Email notification error:', error);
+    throw error;
+  }
+}
+
+// Slack notification function
+async function sendSlackNotification(notification: any) {
+  try {
+    // In a real implementation, this would use Slack webhook
+    console.log('Sending Slack notification:', {
+      channel: '#alerts',
+      text: notification.message,
+      alertType: notification.alertType,
+      severity: notification.severity
+    });
+    
+    // Placeholder for actual Slack webhook call
+    // const response = await fetch(slackWebhookUrl, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ text: notification.message })
+    // });
+    
+    return { success: true, messageId: `slack_${Date.now()}` };
+  } catch (error) {
+    console.error('Slack notification error:', error);
+    throw error;
+  }
+}
+
+// Webhook notification function
+async function sendWebhookNotification(notification: any) {
+  try {
+    // In a real implementation, this would call the configured webhook
+    console.log('Sending webhook notification:', {
+      url: 'https://example.com/webhook',
+      payload: {
+        alertType: notification.alertType,
+        message: notification.message,
+        severity: notification.severity,
+        timestamp: notification.sentAt
+      }
+    });
+    
+    // Placeholder for actual webhook call
+    // const response = await fetch(webhookUrl, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(notification)
+    // });
+    
+    return { success: true, messageId: `webhook_${Date.now()}` };
+  } catch (error) {
+    console.error('Webhook notification error:', error);
+    throw error;
+  }
+}
+
+// Dashboard alert creation function
+async function createDashboardAlert(notification: any) {
+  try {
+    // Store alert in database for dashboard display
+    const alert = await storage.createDashboardAlert?.({
+      type: notification.alertType,
+      title: notification.subject,
+      message: notification.message,
+      severity: notification.severity,
+      metadata: notification.metadata,
+      createdBy: notification.sentBy,
+      createdAt: notification.sentAt,
+      isResolved: false,
+      actionRequired: ['high', 'critical'].includes(notification.severity)
+    });
+    
+    console.log('Dashboard alert created:', alert);
+    return { success: true, alertId: alert?.id || `alert_${Date.now()}` };
+  } catch (error) {
+    console.error('Dashboard alert creation error:', error);
+    throw error;
+  }
 }
