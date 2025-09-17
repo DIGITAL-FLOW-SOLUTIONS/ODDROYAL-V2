@@ -6,6 +6,7 @@ import AdminLogin from "./AdminLogin";
 import AdminDashboard from "./AdminDashboard";
 import AdminUserManagement from "./AdminUserManagement";
 import AdminMatchesMarkets from "./AdminMatchesMarkets";
+import AdminMarketEditor from "./AdminMarketEditor";
 import AdminBetManagement from "./AdminBetManagement";
 import AdminRiskExposure from "./AdminRiskExposure";
 import NotFound from "@/pages/not-found";
@@ -46,6 +47,14 @@ function AdminRouter() {
         <AdminAuthGuard>
           <AdminLayout>
             <AdminMatchesMarkets />
+          </AdminLayout>
+        </AdminAuthGuard>
+      </Route>
+
+      <Route path="/prime-admin/matches/:matchId/markets">
+        <AdminAuthGuard>
+          <AdminLayout>
+            <AdminMarketEditor />
           </AdminLayout>
         </AdminAuthGuard>
       </Route>

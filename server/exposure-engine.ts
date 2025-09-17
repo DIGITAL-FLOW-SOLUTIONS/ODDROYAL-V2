@@ -229,8 +229,7 @@ export class ExposureCalculationEngine {
       }
 
       const snapshots = await query
-        .orderBy(exposureSnapshots.calculatedAt)
-        .execute();
+        .orderBy(exposureSnapshots.calculatedAt);
 
       return snapshots.map((snapshot: any) => ({
         outcomeId: snapshot.outcomeId || '',
@@ -360,8 +359,8 @@ export class ExposureCalculationEngine {
    * Used for automatic market suspension
    */
   async checkExposureThresholds(thresholdCents = 100000): Promise<Array<{
-    marketId: string;
-    outcomeId: string;
+    marketId: string | null;
+    outcomeId: string | null;
     exposureAmountCents: number;
     exceedsThreshold: boolean;
   }>> {
