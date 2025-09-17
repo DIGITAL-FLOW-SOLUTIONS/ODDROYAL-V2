@@ -152,14 +152,98 @@ export class DatabaseStorage implements IStorage {
   }> {
     return await db.transaction(async (tx) => {
       try {
-        // Check user balance
-        const [user] = await tx.select().from(users).where(eq(users.id, params.userId));
+        // CRITICAL: Acquire row-level lock to prevent concurrent bet placement for same user
+        const [user] = await tx
+          .select()
+          .from(users)
+          .where(eq(users.id, params.userId))
+          .for('update'); // Row-level lock prevents concurrency issues
+          
         if (!user) {
           return { success: false, error: "User not found" };
         }
 
         if (user.balance < params.totalStakeCents) {
           return { success: false, error: "Insufficient balance" };
+        }
+
+        // CRITICAL: Check user limits using TRANSACTIONAL queries to prevent race conditions
+        const userLimits = await this.getUserLimitsInTx(params.userId, tx);
+        const now = new Date();
+        
+        // Check if user is self-excluded (boolean OR time-based exclusion)
+        if (userLimits && userLimits.isSelfExcluded) {
+          return { success: false, error: "Account is self-excluded from betting" };
+        }
+        
+        // CRITICAL FIX: Check self-exclusion period (was missing before)
+        if (userLimits && userLimits.selfExclusionUntil && now < userLimits.selfExclusionUntil) {
+          return { success: false, error: "Account is self-excluded until " + userLimits.selfExclusionUntil.toLocaleDateString() };
+        }
+        
+        // Check if user is in cooldown period
+        if (userLimits && userLimits.cooldownUntil && now < userLimits.cooldownUntil) {
+          return { success: false, error: "Account is in cooling-off period until " + userLimits.cooldownUntil.toLocaleDateString() };
+        }
+
+        // Check maximum single stake limit
+        if (userLimits && userLimits.maxStakeCents && params.totalStakeCents > userLimits.maxStakeCents) {
+          return { 
+            success: false, 
+            error: `Stake exceeds maximum limit of £${(userLimits.maxStakeCents / 100).toFixed(2)}` 
+          };
+        }
+
+        // Check daily/weekly/monthly stake limits using TRANSACTIONAL queries
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay());
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        if (userLimits) {
+          // Check daily stake limit (TRANSACTIONAL)
+          if (userLimits.dailyStakeLimitCents) {
+            const dailyStakeTotal = await this.getUserStakeTotal(params.userId, today, tx);
+            if (dailyStakeTotal + params.totalStakeCents > userLimits.dailyStakeLimitCents) {
+              return { 
+                success: false, 
+                error: `Would exceed daily betting limit of £${(userLimits.dailyStakeLimitCents / 100).toFixed(2)}` 
+              };
+            }
+          }
+
+          // Check weekly stake limit (TRANSACTIONAL)
+          if (userLimits.weeklyStakeLimitCents) {
+            const weeklyStakeTotal = await this.getUserStakeTotal(params.userId, weekStart, tx);
+            if (weeklyStakeTotal + params.totalStakeCents > userLimits.weeklyStakeLimitCents) {
+              return { 
+                success: false, 
+                error: `Would exceed weekly betting limit of £${(userLimits.weeklyStakeLimitCents / 100).toFixed(2)}` 
+              };
+            }
+          }
+
+          // Check monthly stake limit (TRANSACTIONAL)
+          if (userLimits.monthlyStakeLimitCents) {
+            const monthlyStakeTotal = await this.getUserStakeTotal(params.userId, monthStart, tx);
+            if (monthlyStakeTotal + params.totalStakeCents > userLimits.monthlyStakeLimitCents) {
+              return { 
+                success: false, 
+                error: `Would exceed monthly betting limit of £${(userLimits.monthlyStakeLimitCents / 100).toFixed(2)}` 
+              };
+            }
+          }
+
+          // Check daily loss limit (TRANSACTIONAL)
+          if (userLimits.dailyLossLimitCents) {
+            const dailyLossTotal = await this.getUserLossTotal(params.userId, today, tx);
+            if (dailyLossTotal + params.totalStakeCents > userLimits.dailyLossLimitCents) {
+              return { 
+                success: false, 
+                error: `Would exceed daily loss limit of £${(userLimits.dailyLossLimitCents / 100).toFixed(2)}` 
+              };
+            }
+          }
         }
 
         // Calculate total odds and potential winnings
@@ -434,6 +518,48 @@ export class DatabaseStorage implements IStorage {
       console.error('Upsert user limits error:', error);
       throw error;
     }
+  }
+
+  // Helper method to calculate total stakes from a given date (TRANSACTIONAL)
+  async getUserStakeTotal(userId: string, fromDate: Date, tx: any = db): Promise<number> {
+    const result = await tx
+      .select({ 
+        totalStakes: sql<number>`COALESCE(SUM(${bets.totalStake}), 0)`.as('totalStakes') 
+      })
+      .from(bets)
+      .where(and(
+        eq(bets.userId, userId),
+        gte(bets.placedAt, fromDate)
+      ));
+    
+    return result[0]?.totalStakes || 0;
+  }
+
+  // Helper method to calculate total losses from a given date (TRANSACTIONAL)
+  async getUserLossTotal(userId: string, fromDate: Date, tx: any = db): Promise<number> {
+    // For loss calculation, we sum stakes from losing bets + stakes from pending bets (potential loss)
+    const result = await tx
+      .select({ 
+        totalLoss: sql<number>`COALESCE(SUM(${bets.totalStake}), 0)`.as('totalLoss') 
+      })
+      .from(bets)
+      .where(and(
+        eq(bets.userId, userId),
+        gte(bets.placedAt, fromDate),
+        // Include losing bets and pending bets (potential loss)
+        inArray(bets.status, ['lost', 'pending'])
+      ));
+    
+    return result[0]?.totalLoss || 0;
+  }
+
+  // Helper method to get user limits within a transaction (TRANSACTIONAL)
+  async getUserLimitsInTx(userId: string, tx: any = db): Promise<UserLimits | null> {
+    const [limits] = await tx
+      .select()
+      .from(userLimits)
+      .where(eq(userLimits.userId, userId));
+    return limits || null;
   }
 
   // ===================== ADMIN OPERATIONS =====================
