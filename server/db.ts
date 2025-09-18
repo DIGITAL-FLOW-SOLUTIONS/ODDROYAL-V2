@@ -5,8 +5,7 @@ import * as schema from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 
-const token =
-  process.env.DATABASE_URL || "https://czigytpqfjshigkefovp.supabase.co";
+const token = process.env.DATABASE_URL;
 
 if (!token) {
   throw new Error(
