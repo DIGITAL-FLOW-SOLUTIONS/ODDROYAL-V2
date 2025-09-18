@@ -354,7 +354,10 @@ export const adminSessions = pgTable("admin_sessions", {
 export const matches = pgTable("matches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   externalId: text("external_id"), // SportMonks fixture ID
+  externalSource: text("external_source"), // 'sportmonks', 'manual', etc.
   sport: text("sport").notNull().default('Football'), // Football, Basketball, Tennis, Soccer, etc.
+  sportId: text("sport_id"), // External sport ID from data source
+  sportName: text("sport_name"), // Display name for the sport
   leagueId: text("league_id").notNull(),
   leagueName: text("league_name").notNull(),
   homeTeamId: text("home_team_id").notNull(),
@@ -379,13 +382,15 @@ export const matches = pgTable("matches", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 }, (table) => ({
   externalIdIdx: index("matches_external_id_idx").on(table.externalId),
+  externalSourceIdx: index("matches_external_source_idx").on(table.externalSource),
   sportIdx: index("matches_sport_idx").on(table.sport),
+  sportIdIdx: index("matches_sport_id_idx").on(table.sportId),
   leagueIdIdx: index("matches_league_id_idx").on(table.leagueId),
   kickoffTimeIdx: index("matches_kickoff_time_idx").on(table.kickoffTime),
   statusIdx: index("matches_status_idx").on(table.status),
   isDeletedIdx: index("matches_is_deleted_idx").on(table.isDeleted),
-  // Partial unique index on externalId to prevent duplicate fixtures (only for non-null values)
-  externalIdUniqueIdx: unique("matches_external_id_unique").on(table.externalId),
+  // Composite unique index on (externalId, externalSource) to prevent duplicate fixtures from same source
+  externalIdSourceUniqueIdx: unique("matches_external_id_source_unique").on(table.externalId, table.externalSource),
   // CHECK constraint for valid sport types
   sportCheck: check("matches_sport_check", sql`sport IN ('Football', 'Basketball', 'Tennis', 'Soccer', 'Baseball', 'Hockey', 'Rugby', 'Cricket', 'Volleyball', 'Handball')`),
   // CHECK constraint for valid match status

@@ -12,7 +12,8 @@ import {
   getFixtureOdds, 
   getLeagues,
   getApiHealthStatus,
-  SportMonksFixture 
+  SportMonksFixture,
+  getAllSportsFixtures 
 } from "./sportmonks";
 import { 
   insertUserSchema, 
@@ -1880,6 +1881,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
+
+  // Match import from SportMonks endpoint
+  app.post("/api/admin/matches/import-sportmonks", 
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    authenticateAdmin, 
+    requirePermission('matches:write'), 
+    auditAction('matches_import', (req) => ({ 
+      targetType: 'system', 
+      note: `SportMonks matches import initiated` 
+    })),
+    async (req: any, res) => {
+      try {
+        // Fetch fixtures from SportMonks API using the getAllSportsFixtures function
+        console.log('Starting SportMonks matches import...');
+        const fixturesData = await getAllSportsFixtures(20, 10); // Get 20 upcoming, 10 live per sport
+        
+        // Process both upcoming and live fixtures
+        const allFixtureGroups = [...fixturesData.upcoming, ...fixturesData.live];
+        
+        // Step 1: Collect all fixture IDs for bulk duplicate detection
+        const allFixtures = [];
+        const allExternalIds = [];
+        
+        for (const sportGroup of allFixtureGroups) {
+          for (const leagueGroup of sportGroup.leagues) {
+            for (const fixture of leagueGroup.fixtures) {
+              const externalId = fixture.id.toString();
+              allExternalIds.push(externalId);
+              allFixtures.push({
+                fixture,
+                sport: sportGroup.sport,
+                league: leagueGroup.league,
+                externalId
+              });
+            }
+          }
+        }
+        
+        console.log(`Found ${allFixtures.length} fixtures to process`);
+        
+        // Step 2: Bulk fetch existing matches - single database query instead of N queries
+        const existingMatches = await storage.getMatchesByExternalIds(allExternalIds);
+        const existingMatchIds = new Set(existingMatches.map(match => match.externalId));
+        
+        console.log(`Found ${existingMatches.length} existing matches`);
+        
+        // Step 3: Process fixtures with optimized duplicate detection and upserts
+        let importedCount = 0;
+        let updatedCount = 0;
+        let errorCount = 0;
+        const importStats = new Map<string, { imported: number; updated: number; errors: number }>();
+        
+        // Helper function to map SportMonks status to our status
+        const mapStatus = (sportMonksState: any) => {
+          const state = sportMonksState?.developer_name?.toLowerCase() || 'unknown';
+          switch (state) {
+            case 'ns': // Not Started
+            case 'tbd': // To Be Determined
+              return 'scheduled';
+            case 'live':
+            case 'ht': // Half Time
+            case 'et': // Extra Time
+              return 'live';
+            case 'ft': // Full Time
+            case 'aet': // After Extra Time
+              return 'finished';
+            case 'cancelled':
+            case 'canc':
+              return 'cancelled';
+            case 'postponed':
+            case 'postp':
+              return 'postponed';
+            default:
+              return 'scheduled';
+          }
+        };
+        
+        for (const { fixture, sport, league, externalId } of allFixtures) {
+          try {
+            const sportName = sport.name;
+            if (!importStats.has(sportName)) {
+              importStats.set(sportName, { imported: 0, updated: 0, errors: 0 });
+            }
+            const sportStats = importStats.get(sportName)!;
+            
+            // Extract teams from participants
+            const homeTeam = fixture.participants.find((p: any) => p.meta.location === 'home');
+            const awayTeam = fixture.participants.find((p: any) => p.meta.location === 'away');
+            
+            if (!homeTeam || !awayTeam) {
+              console.log(`Invalid team data for fixture ${fixture.id}, skipping`);
+              errorCount++;
+              sportStats.errors++;
+              continue;
+            }
+            
+            // Extract scores for live/finished matches
+            let homeScore: number | null = null;
+            let awayScore: number | null = null;
+            if (fixture.scores && fixture.scores.length > 0) {
+              const homeScoreData = fixture.scores.find((s: any) => s.participant_id === homeTeam.id);
+              const awayScoreData = fixture.scores.find((s: any) => s.participant_id === awayTeam.id);
+              homeScore = homeScoreData?.score?.goals || 0;
+              awayScore = awayScoreData?.score?.goals || 0;
+            }
+            
+            // Transform to internal match format with enhanced data mapping
+            const matchData = {
+              externalId,
+              externalSource: 'sportmonks',
+              sport: sportName,
+              sportId: sport.id?.toString() || null,
+              sportName,
+              leagueId: league.id.toString(),
+              leagueName: league.name,
+              homeTeamId: homeTeam.id.toString(),
+              homeTeamName: homeTeam.name,
+              awayTeamId: awayTeam.id.toString(),
+              awayTeamName: awayTeam.name,
+              kickoffTime: new Date(fixture.starting_at),
+              status: mapStatus(fixture.state),
+              homeScore,
+              awayScore,
+              isManual: false, // SportMonks imports are not manual
+              createdBy: req.adminUser.id,
+              updatedBy: req.adminUser.id
+            };
+            
+            // Step 4: Use upsert for idempotent imports (create or update existing)
+            const isExisting = existingMatchIds.has(externalId);
+            const match = await storage.upsertMatch(matchData);
+            
+            if (isExisting) {
+              console.log(`Updated match: ${homeTeam.name} vs ${awayTeam.name} (${fixture.id})`);
+              updatedCount++;
+              sportStats.updated++;
+            } else {
+              console.log(`Created match: ${homeTeam.name} vs ${awayTeam.name} (${fixture.id})`);
+              importedCount++;
+              sportStats.imported++;
+            }
+            
+          } catch (error) {
+            console.error(`Error processing fixture ${fixture.id}:`, error);
+            errorCount++;
+            const sportName = sport.name;
+            if (importStats.has(sportName)) {
+              importStats.get(sportName)!.errors++;
+            }
+          }
+        }
+        
+        const totalProcessed = importedCount + updatedCount + errorCount;
+        
+        // Log import summary
+        console.log(`SportMonks import completed: ${importedCount} imported, ${updatedCount} updated, ${errorCount} errors`);
+        
+        // Step 5: Standardized response format with detailed breakdown
+        res.json({
+          success: true,
+          imported: importedCount, // Root level for frontend compatibility
+          data: {
+            imported: importedCount,
+            updated: updatedCount,
+            errors: errorCount,
+            totalProcessed,
+            details: {
+              sportBreakdown: Object.fromEntries(importStats),
+              performanceStats: {
+                totalFixturesFound: allFixtures.length,
+                existingMatchesFound: existingMatches.length,
+                duplicateDetectionOptimized: true,
+                upsertPatternUsed: true
+              },
+              timestamp: new Date().toISOString()
+            }
+          },
+          message: `Successfully processed ${totalProcessed} matches from SportMonks: ${importedCount} new, ${updatedCount} updated`
+        });
+        
+      } catch (error) {
+        console.error('SportMonks import error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to import matches from SportMonks',
+          details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
+        });
+      }
+    }
+  );
 
   // Bet management endpoints
   app.get("/api/admin/bets", ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), authenticateAdmin, requirePermission('bets:read'), async (req: any, res) => {

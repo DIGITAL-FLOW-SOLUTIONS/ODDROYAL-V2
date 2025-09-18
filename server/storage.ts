@@ -484,6 +484,45 @@ export interface IStorage {
     total: number;
   }>;
 
+  // New methods for optimized bulk operations
+  getMatchesFiltered(params: {
+    filters: {
+      externalId?: string;
+      externalSource?: string;
+      sport?: string;
+      status?: string;
+      isDeleted?: boolean;
+    };
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    matches: any[];
+    total: number;
+  }>;
+
+  getMatchesByExternalIds(externalIds: string[]): Promise<any[]>;
+
+  upsertMatch(matchData: {
+    externalId: string;
+    externalSource?: string;
+    sport: string;
+    sportId?: string;
+    sportName?: string;
+    leagueId: string;
+    leagueName: string;
+    homeTeamId: string;
+    homeTeamName: string;
+    awayTeamId: string;
+    awayTeamName: string;
+    kickoffTime: Date;
+    status: string;
+    homeScore?: number;
+    awayScore?: number;
+    isManual?: boolean;
+    createdBy?: string;
+    updatedBy?: string;
+  }): Promise<any>;
+
   createMarketOutcome(outcome: {
     marketId: string;
     name: string;
@@ -1459,6 +1498,71 @@ export class MemStorage implements IStorage {
     return Array.from(this.bets.values()).filter(
       (bet) => bet.status === "pending", // Would need to check bet selections for match reference
     );
+  }
+
+  async getMatchesByExternalIds(externalIds: string[]): Promise<any[]> {
+    // In MemStorage, we don't have a persistent match store, so return empty array
+    // This method is used for duplicate detection during import
+    console.log(`MemStorage: Checking for existing matches with externalIds:`, externalIds);
+    return [];
+  }
+
+  async upsertMatch(matchData: {
+    externalId: string;
+    externalSource?: string;
+    sport: string;
+    sportId?: string;
+    sportName?: string;
+    leagueId: string;
+    leagueName: string;
+    homeTeamId: string;
+    homeTeamName: string;
+    awayTeamId: string;
+    awayTeamName: string;
+    kickoffTime: Date;
+    status?: string;
+    homeScore?: number;
+    awayScore?: number;
+    isManual?: boolean;
+    createdBy?: string;
+    updatedBy?: string;
+  }): Promise<{ match: any; isNew: boolean }> {
+    // In MemStorage, always create a new match since we don't persist data
+    const id = randomUUID();
+    const now = new Date();
+    
+    const match = {
+      id,
+      externalId: matchData.externalId,
+      externalSource: matchData.externalSource || 'sportmonks',
+      sport: matchData.sport,
+      sportId: matchData.sportId,
+      sportName: matchData.sportName,
+      leagueId: matchData.leagueId,
+      leagueName: matchData.leagueName,
+      homeTeamId: matchData.homeTeamId,
+      homeTeamName: matchData.homeTeamName,
+      awayTeamId: matchData.awayTeamId,
+      awayTeamName: matchData.awayTeamName,
+      kickoffTime: matchData.kickoffTime,
+      status: matchData.status || 'scheduled',
+      homeScore: matchData.homeScore,
+      awayScore: matchData.awayScore,
+      simulatedResult: null,
+      isManual: matchData.isManual || false,
+      isDeleted: false,
+      createdBy: matchData.createdBy,
+      updatedBy: matchData.updatedBy,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    console.log(`MemStorage: Created new match ${match.id} - ${match.homeTeamName} vs ${match.awayTeamName}`);
+    
+    return {
+      match,
+      isNew: true
+    };
   }
 
   // ===================== MARKET MANAGEMENT OPERATIONS =====================

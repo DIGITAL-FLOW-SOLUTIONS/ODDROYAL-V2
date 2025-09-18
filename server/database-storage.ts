@@ -1899,11 +1899,230 @@ export class DatabaseStorage implements IStorage {
     matches: any[];
     total: number;
   }> {
-    // Mock implementation - would need matches table with proper schema
+    const conditions: SQL<unknown>[] = [eq(matches.isDeleted, false)];
+
+    if (params?.search) {
+      const searchTerm = `%${params.search.toLowerCase()}%`;
+      conditions.push(
+        or(
+          ilike(matches.homeTeamName, searchTerm),
+          ilike(matches.awayTeamName, searchTerm),
+          ilike(matches.leagueName, searchTerm),
+          ilike(matches.externalId, searchTerm)
+        )!
+      );
+    }
+
+    if (params?.status) {
+      conditions.push(eq(matches.status, params.status));
+    }
+
+    if (params?.sport) {
+      conditions.push(eq(matches.sport, params.sport));
+    }
+
+    if (params?.league) {
+      conditions.push(eq(matches.leagueId, params.league));
+    }
+
+    if (params?.dateFrom) {
+      conditions.push(gte(matches.kickoffTime, params.dateFrom));
+    }
+
+    if (params?.dateTo) {
+      conditions.push(lte(matches.kickoffTime, params.dateTo));
+    }
+
+    // Get total count
+    let countQuery = db
+      .select({ count: count() })
+      .from(matches);
+
+    if (conditions.length > 0) {
+      countQuery = countQuery.where(and(...conditions)) as any;
+    }
+
+    const [{ count: total }] = await countQuery;
+    
+    // Get matches with pagination
+    let matchQuery = db
+      .select()
+      .from(matches);
+
+    if (conditions.length > 0) {
+      matchQuery = matchQuery.where(and(...conditions)) as any;
+    }
+
+    const matchResults = await matchQuery
+      .orderBy(desc(matches.kickoffTime))
+      .limit(params?.limit || 50)
+      .offset(params?.offset || 0);
+
+    // Add computed fields for frontend compatibility
+    const enrichedMatches = matchResults.map(match => ({
+      ...match,
+      marketsCount: 0, // TODO: Count from markets table
+      totalExposure: 0 // TODO: Calculate from exposure table
+    }));
+
     return {
-      matches: [],
-      total: 0
+      matches: enrichedMatches,
+      total
     };
+  }
+
+  // New optimized methods for SportMonks import
+  async getMatchesFiltered(params: {
+    filters: {
+      externalId?: string;
+      externalSource?: string;
+      sport?: string;
+      status?: string;
+      isDeleted?: boolean;
+    };
+    limit?: number;
+    offset?: number;
+  }): Promise<{
+    matches: any[];
+    total: number;
+  }> {
+    const conditions: SQL<unknown>[] = [];
+
+    if (params.filters.externalId) {
+      conditions.push(eq(matches.externalId, params.filters.externalId));
+    }
+
+    if (params.filters.externalSource) {
+      conditions.push(eq(matches.externalSource, params.filters.externalSource));
+    }
+
+    if (params.filters.sport) {
+      conditions.push(eq(matches.sport, params.filters.sport));
+    }
+
+    if (params.filters.status) {
+      conditions.push(eq(matches.status, params.filters.status));
+    }
+
+    if (params.filters.isDeleted !== undefined) {
+      conditions.push(eq(matches.isDeleted, params.filters.isDeleted));
+    }
+
+    // Get total count
+    let countQuery = db
+      .select({ count: count() })
+      .from(matches);
+
+    if (conditions.length > 0) {
+      countQuery = countQuery.where(and(...conditions)) as any;
+    }
+
+    const [{ count: total }] = await countQuery;
+    
+    // Get matches
+    let matchQuery = db
+      .select()
+      .from(matches);
+
+    if (conditions.length > 0) {
+      matchQuery = matchQuery.where(and(...conditions)) as any;
+    }
+
+    const matchResults = await matchQuery
+      .limit(params.limit || 50)
+      .offset(params.offset || 0);
+
+    return {
+      matches: matchResults,
+      total
+    };
+  }
+
+  async getMatchesByExternalIds(externalIds: string[]): Promise<any[]> {
+    if (externalIds.length === 0) return [];
+    
+    return await db
+      .select()
+      .from(matches)
+      .where(
+        and(
+          inArray(matches.externalId, externalIds),
+          eq(matches.isDeleted, false)
+        )
+      );
+  }
+
+  async upsertMatch(matchData: {
+    externalId: string;
+    externalSource?: string;
+    sport: string;
+    sportId?: string;
+    sportName?: string;
+    leagueId: string;
+    leagueName: string;
+    homeTeamId: string;
+    homeTeamName: string;
+    awayTeamId: string;
+    awayTeamName: string;
+    kickoffTime: Date;
+    status: string;
+    homeScore?: number;
+    awayScore?: number;
+    isManual?: boolean;
+    createdBy?: string;
+    updatedBy?: string;
+  }): Promise<{ match: any; isNew: boolean }> {
+    const now = new Date();
+    const externalSource = matchData.externalSource || 'sportmonks';
+    
+    try {
+      // Use INSERT ... ON CONFLICT DO UPDATE for true atomic upsert
+      // This leverages our new composite unique constraint (externalId, externalSource)
+      const [result] = await db
+        .insert(matches)
+        .values({
+          ...matchData,
+          externalSource,
+          id: randomUUID(),
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [matches.externalId, matches.externalSource],
+          set: {
+            sport: matchData.sport,
+            sportId: matchData.sportId,
+            sportName: matchData.sportName,
+            leagueId: matchData.leagueId,
+            leagueName: matchData.leagueName,
+            homeTeamId: matchData.homeTeamId,
+            homeTeamName: matchData.homeTeamName,
+            awayTeamId: matchData.awayTeamId,
+            awayTeamName: matchData.awayTeamName,
+            kickoffTime: matchData.kickoffTime,
+            status: matchData.status,
+            homeScore: matchData.homeScore,
+            awayScore: matchData.awayScore,
+            updatedBy: matchData.updatedBy,
+            updatedAt: now,
+            // Don't update: id, externalId, externalSource, isManual, createdBy, createdAt
+          },
+        })
+        .returning();
+
+      // Check if this was an insert (new) or update (existing)
+      // If createdAt equals updatedAt, it was a new insert
+      const isNew = result.createdAt.getTime() === result.updatedAt.getTime();
+      
+      return {
+        match: result,
+        isNew
+      };
+      
+    } catch (error) {
+      console.error('Error in upsertMatch:', error);
+      throw error;
+    }
   }
 
   async createMarketOutcome(outcome: {
