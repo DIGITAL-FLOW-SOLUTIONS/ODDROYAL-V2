@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { format, parseISO } from "date-fns";
 import { 
   Search, 
@@ -21,7 +21,16 @@ import {
   PauseCircle,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  ChevronDown,
+  ChevronRight,
+  Trophy,
+  Zap,
+  Globe,
+  Timer,
+  Settings,
+  DollarSign,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +51,9 @@ import { useLocation } from "wouter";
 interface Match {
   id: string;
   externalId?: string;
+  sport: string;
+  sportId?: string;
+  sportName?: string;
   leagueId: string;
   leagueName: string;
   homeTeamId: string;
@@ -55,12 +67,57 @@ interface Match {
   isManual: boolean;
   marketsCount: number;
   totalExposure: number;
+  simulatedResult?: {
+    homeScore: number;
+    awayScore: number;
+    winner: 'home' | 'away' | 'draw';
+  };
   createdAt: string;
   updatedAt: string;
 }
 
+interface MatchEvent {
+  id?: string;
+  type: 'goal' | 'yellow_card' | 'red_card' | 'substitution' | 'penalty';
+  minute: number;
+  team: 'home' | 'away';
+  playerName?: string;
+  description: string;
+}
+
+interface MarketSetup {
+  type: '1x2' | 'totals' | 'btts' | 'handicap' | 'correct_score';
+  name: string;
+  outcomes: {
+    key: string;
+    label: string;
+    odds: number;
+  }[];
+}
+
+interface Sport {
+  id: number;
+  name: string;
+  displayName: string;
+}
+
+interface League {
+  id: string;
+  name: string;
+  sport: string;
+  matches: Match[];
+}
+
+interface GroupedMatches {
+  sport: Sport;
+  leagues: League[];
+  liveCount: number;
+  upcomingCount: number;
+}
+
 interface MatchFilters {
   search: string;
+  sport: string;
   status: 'all' | 'scheduled' | 'live' | 'finished' | 'cancelled' | 'postponed';
   source: 'all' | 'manual' | 'sportmonks';
   dateFrom: string;
@@ -69,10 +126,18 @@ interface MatchFilters {
 }
 
 interface CreateMatchData {
+  sport: string;
   leagueName: string;
   homeTeamName: string;
   awayTeamName: string;
   kickoffTime: string;
+  markets: MarketSetup[];
+  events: MatchEvent[];
+  simulatedResult: {
+    homeScore: number;
+    awayScore: number;
+    winner: 'home' | 'away' | 'draw';
+  };
 }
 
 const MATCH_STATUS_COLORS = {
@@ -98,6 +163,7 @@ export default function AdminMatchesMarkets() {
   // State management
   const [filters, setFilters] = useState<MatchFilters>({
     search: '',
+    sport: 'all',
     status: 'all',
     source: 'all',
     dateFrom: '',
@@ -109,13 +175,24 @@ export default function AdminMatchesMarkets() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'grouped' | 'table'>('grouped');
+  const [expandedSports, setExpandedSports] = useState<Set<string>>(new Set());
+  const [createStep, setCreateStep] = useState(1);
   
   // Create match form data
   const [createMatchData, setCreateMatchData] = useState<CreateMatchData>({
+    sport: '',
     leagueName: '',
     homeTeamName: '',
     awayTeamName: '',
-    kickoffTime: ''
+    kickoffTime: '',
+    markets: [],
+    events: [],
+    simulatedResult: {
+      homeScore: 0,
+      awayScore: 0,
+      winner: 'draw'
+    }
   });
 
   // Pagination
@@ -124,6 +201,30 @@ export default function AdminMatchesMarkets() {
     limit: 25,
     total: 0
   });
+
+  // Sports data - mock data for now, can be replaced with API call
+  const sportsData = [
+    { id: 1, name: 'football', displayName: 'Football' },
+    { id: 2, name: 'basketball', displayName: 'Basketball' },
+    { id: 3, name: 'tennis', displayName: 'Tennis' },
+    { id: 4, name: 'soccer', displayName: 'Soccer' },
+    { id: 5, name: 'baseball', displayName: 'Baseball' },
+    { id: 6, name: 'hockey', displayName: 'Hockey' },
+    { id: 7, name: 'rugby', displayName: 'Rugby' },
+    { id: 8, name: 'cricket', displayName: 'Cricket' }
+  ];
+
+  // Fetch sports from API
+  const { data: sportsResponse } = useQuery({
+    queryKey: ['/api/sports'],
+    queryFn: async () => {
+      const response = await adminApiRequest('GET', '/api/sports');
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const availableSports = sportsResponse?.data || sportsData;
 
   // Fetch matches with React Query
   const { data: matchesResponse, isLoading, error, refetch } = useQuery({
@@ -182,10 +283,18 @@ export default function AdminMatchesMarkets() {
       });
       setShowCreateModal(false);
       setCreateMatchData({
+        sport: '',
         leagueName: '',
         homeTeamName: '',
         awayTeamName: '',
-        kickoffTime: ''
+        kickoffTime: '',
+        markets: [],
+        events: [],
+        simulatedResult: {
+          homeScore: 0,
+          awayScore: 0,
+          winner: 'draw'
+        }
       });
     },
     onError: (error) => {
@@ -256,6 +365,7 @@ export default function AdminMatchesMarkets() {
   const clearFilters = () => {
     setFilters({
       search: '',
+      sport: 'all',
       status: 'all',
       source: 'all',
       dateFrom: '',
@@ -287,21 +397,99 @@ export default function AdminMatchesMarkets() {
     return <IconComponent className="w-4 h-4" />;
   };
 
+  // Group matches by sport and league
+  const groupMatchesBySportAndLeague = (matches: Match[]): GroupedMatches[] => {
+    const grouped = matches.reduce((acc, match) => {
+      const sportKey = match.sport || 'Football';
+      const leagueKey = match.leagueName;
+
+      if (!acc[sportKey]) {
+        const sport = availableSports.find(s => s.name.toLowerCase() === sportKey.toLowerCase()) || 
+                     { id: 0, name: sportKey, displayName: sportKey };
+        acc[sportKey] = {
+          sport,
+          leagues: {},
+          liveCount: 0,
+          upcomingCount: 0
+        };
+      }
+
+      if (!acc[sportKey].leagues[leagueKey]) {
+        acc[sportKey].leagues[leagueKey] = {
+          id: match.leagueId,
+          name: leagueKey,
+          sport: sportKey,
+          matches: []
+        };
+      }
+
+      acc[sportKey].leagues[leagueKey].matches.push(match);
+
+      if (match.status === 'live') {
+        acc[sportKey].liveCount++;
+      } else if (match.status === 'scheduled') {
+        acc[sportKey].upcomingCount++;
+      }
+
+      return acc;
+    }, {} as Record<string, { sport: Sport; leagues: Record<string, League>; liveCount: number; upcomingCount: number; }>);
+
+    return Object.values(grouped).map(item => ({
+      ...item,
+      leagues: Object.values(item.leagues)
+    }));
+  };
+
+  const toggleSportExpansion = (sportName: string) => {
+    setExpandedSports(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sportName)) {
+        newSet.delete(sportName);
+      } else {
+        newSet.add(sportName);
+      }
+      return newSet;
+    });
+  };
+
   const totalPages = Math.ceil(totalMatches / pagination.limit);
+  const groupedMatches = groupMatchesBySportAndLeague(matches);
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-matches-title">
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3" data-testid="text-matches-title">
+            <Globe className="w-8 h-8 text-primary" />
             Matches & Markets
           </h1>
           <p className="text-muted-foreground">
-            Manage matches, markets, and betting options
+            Manage matches, markets, and betting options across all sports
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-muted rounded-lg p-1">
+            <Button
+              variant={viewMode === 'grouped' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('grouped')}
+              data-testid="button-grouped-view"
+            >
+              <Trophy className="w-4 h-4 mr-2" />
+              Grouped
+            </Button>
+            <Button
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('table')}
+              data-testid="button-table-view"
+            >
+              <Target className="w-4 h-4 mr-2" />
+              Table
+            </Button>
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -368,7 +556,27 @@ export default function AdminMatchesMarkets() {
               exit={{ height: 0, opacity: 0 }}
               className="border-t pt-4 space-y-4"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div>
+                  <Label htmlFor="sport-filter">Sport</Label>
+                  <Select
+                    value={filters.sport}
+                    onValueChange={(value) => handleFilterChange('sport', value)}
+                  >
+                    <SelectTrigger id="sport-filter" data-testid="select-sport-filter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sports</SelectItem>
+                      {availableSports.map((sport) => (
+                        <SelectItem key={sport.id} value={sport.name.toLowerCase()}>
+                          {sport.displayName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div>
                   <Label htmlFor="status-filter">Status</Label>
                   <Select
@@ -444,154 +652,351 @@ export default function AdminMatchesMarkets() {
         </CardContent>
       </Card>
 
-      {/* Matches Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Matches ({totalMatches.toLocaleString()})</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Match</TableHead>
-                  <TableHead>League</TableHead>
-                  <TableHead>Kickoff Time</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Markets</TableHead>
-                  <TableHead>Exposure</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, index) => (
-                    <TableRow key={index}>
-                      <TableCell colSpan={9} className="h-12">
-                        <div className="flex items-center justify-center">
-                          <RefreshCw className="w-4 h-4 animate-spin mr-2" />
-                          Loading matches...
+      {/* Matches Display */}
+      {viewMode === 'grouped' ? (
+        /* Grouped View - Matches organized by Sport and League */
+        <div className="space-y-6">
+          {isLoading ? (
+            <Card>
+              <CardContent className="p-8">
+                <div className="flex items-center justify-center">
+                  <RefreshCw className="w-6 h-6 animate-spin mr-3" />
+                  <span>Loading matches from all sports...</span>
+                </div>
+              </CardContent>
+            </Card>
+          ) : groupedMatches.length === 0 ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <AlertCircle className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-semibold mb-2">No matches found</h3>
+                <p className="text-muted-foreground mb-4">
+                  {Object.values(filters).some(v => v && v !== 'all') ? 
+                    'No matches found matching your current filters.' : 
+                    'No matches are currently available.'
+                  }
+                </p>
+                <Button onClick={() => setShowCreateModal(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create First Match
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            groupedMatches.map((sportGroup) => (
+              <Card key={sportGroup.sport.name} className="overflow-hidden">
+                <CardHeader 
+                  className="cursor-pointer hover-elevate transition-colors"
+                  onClick={() => toggleSportExpansion(sportGroup.sport.name)}
+                >
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {expandedSports.has(sportGroup.sport.name) ? 
+                        <ChevronDown className="w-5 h-5" /> : 
+                        <ChevronRight className="w-5 h-5" />
+                      }
+                      <Globe className="w-6 h-6 text-primary" />
+                      <span className="text-xl">{sportGroup.sport.displayName}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                      {sportGroup.liveCount > 0 && (
+                        <Badge variant="destructive" className="flex items-center gap-1">
+                          <Zap className="w-3 h-3" />
+                          {sportGroup.liveCount} Live
+                        </Badge>
+                      )}
+                      {sportGroup.upcomingCount > 0 && (
+                        <Badge variant="default" className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {sportGroup.upcomingCount} Upcoming
+                        </Badge>
+                      )}
+                      <span className="text-muted-foreground">
+                        {sportGroup.leagues.reduce((total, league) => total + league.matches.length, 0)} matches
+                      </span>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                
+                <AnimatePresence>
+                  {expandedSports.has(sportGroup.sport.name) && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <CardContent className="pt-0">
+                        <div className="space-y-6">
+                          {sportGroup.leagues.map((league) => (
+                            <div key={league.id} className="space-y-2">
+                              <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
+                                <Trophy className="w-4 h-4 text-primary" />
+                                <span className="font-semibold">{league.name}</span>
+                                <Badge variant="outline" className="ml-auto">
+                                  {league.matches.length} matches
+                                </Badge>
+                              </div>
+                              
+                              <div className="grid gap-2">
+                                {league.matches
+                                  .sort((a, b) => {
+                                    // Sort: live first, then by kickoff time
+                                    if (a.status === 'live' && b.status !== 'live') return -1;
+                                    if (b.status === 'live' && a.status !== 'live') return 1;
+                                    return new Date(a.kickoffTime).getTime() - new Date(b.kickoffTime).getTime();
+                                  })
+                                  .map((match) => (
+                                    <div
+                                      key={match.id}
+                                      className={`p-4 rounded-lg border hover-elevate transition-all ${
+                                        match.status === 'live' ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950' :
+                                        match.status === 'scheduled' ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950' :
+                                        'border-muted bg-background'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-3">
+                                            <div className="font-semibold text-lg">
+                                              {match.homeTeamName} vs {match.awayTeamName}
+                                            </div>
+                                            <Badge 
+                                              variant={MATCH_STATUS_COLORS[match.status] as any}
+                                              className="flex items-center gap-1"
+                                            >
+                                              {getStatusIcon(match.status)}
+                                              {match.status.charAt(0).toUpperCase() + match.status.slice(1)}
+                                            </Badge>
+                                            {match.isManual && (
+                                              <Badge variant="secondary">
+                                                Manual
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          
+                                          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                                            <div className="flex items-center gap-1">
+                                              <Calendar className="w-3 h-3" />
+                                              {formatMatchTime(match.kickoffTime)}
+                                            </div>
+                                            {(match.status === 'finished' || match.status === 'live') && (
+                                              <div className="flex items-center gap-1 font-mono font-bold">
+                                                <span>Score:</span>
+                                                <span>{match.homeScore} - {match.awayScore}</span>
+                                              </div>
+                                            )}
+                                            <div className="flex items-center gap-1">
+                                              <Target className="w-3 h-3" />
+                                              {match.marketsCount} markets
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                              <DollarSign className="w-3 h-3" />
+                                              £{(match.totalExposure / 100).toLocaleString()} exposure
+                                            </div>
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-2">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => openMarketEditor(match)}
+                                            data-testid={`button-manage-markets-${match.id}`}
+                                          >
+                                            <Target className="w-4 h-4 mr-2" />
+                                            Markets
+                                          </Button>
+                                          <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                              <Button variant="ghost" size="icon">
+                                                <MoreHorizontal className="w-4 h-4" />
+                                              </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                              <DropdownMenuItem onClick={() => setLocation(`/prime-admin/matches/${match.id}/exposure`)}>
+                                                <Activity className="w-4 h-4 mr-2" />
+                                                View Exposure
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem onClick={() => openDeleteModal(match)}>
+                                                <Trash2 className="w-4 h-4 mr-2" />
+                                                Delete Match
+                                              </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                          </DropdownMenu>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : matches.length === 0 ? (
+                      </CardContent>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Card>
+            ))
+          )}
+        </div>
+      ) : (
+        /* Table View - Traditional table layout */
+        <Card>
+          <CardHeader>
+            <CardTitle>Matches ({totalMatches.toLocaleString()})</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
-                      <div className="text-muted-foreground">
-                        {Object.values(filters).some(v => v && v !== 'all') ? 
-                          'No matches found matching your filters' : 
-                          'No matches found'
-                        }
-                      </div>
-                    </TableCell>
+                    <TableHead>Sport</TableHead>
+                    <TableHead>Match</TableHead>
+                    <TableHead>League</TableHead>
+                    <TableHead>Kickoff Time</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Score</TableHead>
+                    <TableHead>Markets</TableHead>
+                    <TableHead>Exposure</TableHead>
+                    <TableHead>Source</TableHead>
+                    <TableHead className="w-24">Actions</TableHead>
                   </TableRow>
-                ) : (
-                  matches.map((match: Match) => (
-                    <TableRow key={match.id} className="hover-elevate">
-                      <TableCell className="font-medium">
-                        <div>
-                          <div className="font-semibold" data-testid={`text-match-${match.id}`}>
-                            {match.homeTeamName} vs {match.awayTeamName}
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, index) => (
+                      <TableRow key={index}>
+                        <TableCell colSpan={10} className="h-12">
+                          <div className="flex items-center justify-center">
+                            <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                            Loading matches...
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            ID: {match.id.slice(-8)}
-                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : matches.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={10} className="text-center py-8">
+                        <div className="text-muted-foreground">
+                          {Object.values(filters).some(v => v && v !== 'all') ? 
+                            'No matches found matching your filters' : 
+                            'No matches found'
+                          }
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-muted-foreground" />
-                          <span data-testid={`text-league-${match.id}`}>
-                            {match.leagueName}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm" data-testid={`text-kickoff-${match.id}`}>
-                            {formatMatchTime(match.kickoffTime)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={MATCH_STATUS_COLORS[match.status] as any}
-                          className="flex items-center gap-1"
-                          data-testid={`badge-status-${match.id}`}
-                        >
-                          {getStatusIcon(match.status)}
-                          {match.status.charAt(0).toUpperCase() + match.status.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {match.status === 'finished' || match.status === 'live' ? (
-                          <span className="font-mono" data-testid={`text-score-${match.id}`}>
-                            {match.homeScore} - {match.awayScore}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Target className="w-4 h-4 text-muted-foreground" />
-                          <span data-testid={`text-markets-count-${match.id}`}>
-                            {match.marketsCount}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span 
-                          className={`font-mono ${match.totalExposure > 100000 ? 'text-red-500' : 'text-green-500'}`}
-                          data-testid={`text-exposure-${match.id}`}
-                        >
-                          £{(match.totalExposure / 100).toLocaleString()}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={match.isManual ? 'default' : 'secondary'}>
-                          {match.isManual ? 'Manual' : 'SportMonks'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              data-testid={`button-match-actions-${match.id}`}
-                            >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openMarketEditor(match)}>
-                              <Target className="w-4 h-4 mr-2" />
-                              Manage Markets
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setLocation(`/prime-admin/matches/${match.id}/exposure`)}>
-                              <Activity className="w-4 h-4 mr-2" />
-                              View Exposure
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openDeleteModal(match)}>
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete Match
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                  ) : (
+                    matches.map((match: Match) => (
+                      <TableRow key={match.id} className="hover-elevate">
+                        <TableCell>
+                          <Badge variant="outline" className="flex items-center gap-1">
+                            <Globe className="w-3 h-3" />
+                            {match.sport || 'Football'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          <div>
+                            <div className="font-semibold" data-testid={`text-match-${match.id}`}>
+                              {match.homeTeamName} vs {match.awayTeamName}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              ID: {match.id.slice(-8)}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-muted-foreground" />
+                            <span data-testid={`text-league-${match.id}`}>
+                              {match.leagueName}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm" data-testid={`text-kickoff-${match.id}`}>
+                              {formatMatchTime(match.kickoffTime)}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={MATCH_STATUS_COLORS[match.status] as any}
+                            className="flex items-center gap-1"
+                            data-testid={`badge-status-${match.id}`}
+                          >
+                            {getStatusIcon(match.status)}
+                            {match.status.charAt(0).toUpperCase() + match.status.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {match.status === 'finished' || match.status === 'live' ? (
+                            <span className="font-mono" data-testid={`text-score-${match.id}`}>
+                              {match.homeScore} - {match.awayScore}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Target className="w-4 h-4 text-muted-foreground" />
+                            <span data-testid={`text-markets-count-${match.id}`}>
+                              {match.marketsCount}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span 
+                            className={`font-mono ${match.totalExposure > 100000 ? 'text-red-500' : 'text-green-500'}`}
+                            data-testid={`text-exposure-${match.id}`}
+                          >
+                            £{(match.totalExposure / 100).toLocaleString()}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={match.isManual ? 'default' : 'secondary'}>
+                            {match.isManual ? 'Manual' : 'SportMonks'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="icon"
+                                data-testid={`button-match-actions-${match.id}`}
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openMarketEditor(match)}>
+                                <Target className="w-4 h-4 mr-2" />
+                                Manage Markets
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setLocation(`/prime-admin/matches/${match.id}/exposure`)}>
+                                <Activity className="w-4 h-4 mr-2" />
+                                View Exposure
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openDeleteModal(match)}>
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete Match
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
@@ -624,68 +1029,364 @@ export default function AdminMatchesMarkets() {
         </div>
       )}
 
-      {/* Create Match Modal */}
-      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-        <DialogContent data-testid="modal-create-match">
+      {/* Enhanced Create Match Modal */}
+      <Dialog open={showCreateModal} onOpenChange={(open) => {
+        setShowCreateModal(open);
+        if (!open) {
+          setCreateStep(1);
+        }
+      }}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto" data-testid="modal-create-match">
           <DialogHeader>
-            <DialogTitle>Create New Match</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Globe className="w-5 h-5" />
+              Create New Match
+            </DialogTitle>
             <DialogDescription>
-              Create a new match manually. You can also import matches from SportMonks.
+              Create a new match with comprehensive settings for any sport
             </DialogDescription>
+            
+            {/* Progress Indicator */}
+            <div className="flex items-center gap-2 mt-4">
+              {[1, 2, 3].map((step) => (
+                <div key={step} className="flex items-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                    createStep === step ? 'bg-primary text-primary-foreground' :
+                    createStep > step ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' :
+                    'bg-muted text-muted-foreground'
+                  }`}>
+                    {createStep > step ? <CheckCircle className="w-4 h-4" /> : step}
+                  </div>
+                  {step < 3 && (
+                    <div className={`w-12 h-0.5 mx-2 transition-colors ${
+                      createStep > step ? 'bg-green-400' : 'bg-muted'
+                    }`} />
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            <div className="text-sm text-muted-foreground">
+              {createStep === 1 && 'Step 1: Basic Match Information'}
+              {createStep === 2 && 'Step 2: Markets & Odds Configuration'}
+              {createStep === 3 && 'Step 3: Match Simulation Settings'}
+            </div>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="league-name">League Name</Label>
-              <Input
-                id="league-name"
-                placeholder="e.g., Premier League"
-                value={createMatchData.leagueName}
-                onChange={(e) => setCreateMatchData(prev => ({ ...prev, leagueName: e.target.value }))}
-                data-testid="input-create-league"
-              />
-            </div>
-            <div>
-              <Label htmlFor="home-team">Home Team</Label>
-              <Input
-                id="home-team"
-                placeholder="e.g., Manchester United"
-                value={createMatchData.homeTeamName}
-                onChange={(e) => setCreateMatchData(prev => ({ ...prev, homeTeamName: e.target.value }))}
-                data-testid="input-create-home-team"
-              />
-            </div>
-            <div>
-              <Label htmlFor="away-team">Away Team</Label>
-              <Input
-                id="away-team"
-                placeholder="e.g., Liverpool"
-                value={createMatchData.awayTeamName}
-                onChange={(e) => setCreateMatchData(prev => ({ ...prev, awayTeamName: e.target.value }))}
-                data-testid="input-create-away-team"
-              />
-            </div>
-            <div>
-              <Label htmlFor="kickoff-time">Kickoff Time</Label>
-              <Input
-                id="kickoff-time"
-                type="datetime-local"
-                value={createMatchData.kickoffTime}
-                onChange={(e) => setCreateMatchData(prev => ({ ...prev, kickoffTime: e.target.value }))}
-                data-testid="input-create-kickoff"
-              />
-            </div>
+          
+          <div className="space-y-6">
+            {/* Step 1: Basic Information */}
+            {createStep === 1 && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="sport-select">Sport</Label>
+                  <Select
+                    value={createMatchData.sport}
+                    onValueChange={(value) => setCreateMatchData(prev => ({ ...prev, sport: value }))}
+                  >
+                    <SelectTrigger id="sport-select" data-testid="select-create-sport">
+                      <SelectValue placeholder="Choose a sport" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSports.map((sport) => (
+                        <SelectItem key={sport.id} value={sport.name.toLowerCase()}>
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-4 h-4" />
+                            {sport.displayName}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label htmlFor="league-name">League Name</Label>
+                  <Input
+                    id="league-name"
+                    value={createMatchData.leagueName}
+                    onChange={(e) => setCreateMatchData(prev => ({ ...prev, leagueName: e.target.value }))}
+                    placeholder="e.g., Premier League, NBA, ATP Tour"
+                    data-testid="input-create-league"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="home-team">Home Team/Player</Label>
+                    <Input
+                      id="home-team"
+                      value={createMatchData.homeTeamName}
+                      onChange={(e) => setCreateMatchData(prev => ({ ...prev, homeTeamName: e.target.value }))}
+                      placeholder="Home team or player"
+                      data-testid="input-create-home-team"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="away-team">Away Team/Player</Label>
+                    <Input
+                      id="away-team"
+                      value={createMatchData.awayTeamName}
+                      onChange={(e) => setCreateMatchData(prev => ({ ...prev, awayTeamName: e.target.value }))}
+                      placeholder="Away team or player"
+                      data-testid="input-create-away-team"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="kickoff-time">Match Start Time</Label>
+                  <Input
+                    id="kickoff-time"
+                    type="datetime-local"
+                    value={createMatchData.kickoffTime}
+                    onChange={(e) => setCreateMatchData(prev => ({ ...prev, kickoffTime: e.target.value }))}
+                    data-testid="input-create-kickoff"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Set the date and time when the match will begin
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Step 2: Markets & Odds */}
+            {createStep === 2 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Target className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Markets & Odds Configuration</h3>
+                </div>
+                
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingUp className="w-4 h-4" />
+                    <span className="font-medium">Match Winner Market</span>
+                    <Badge variant="default">Default</Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label>Home Win Odds</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="2.50"
+                        className="mt-1"
+                        data-testid="input-home-odds"
+                      />
+                    </div>
+                    <div>
+                      <Label>Draw Odds</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="3.20"
+                        className="mt-1"
+                        data-testid="input-draw-odds"
+                      />
+                    </div>
+                    <div>
+                      <Label>Away Win Odds</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="2.80"
+                        className="mt-1"
+                        data-testid="input-away-odds"
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-4 border-2 border-dashed border-muted rounded-lg text-center">
+                  <Target className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-muted-foreground mb-2">Additional Markets</p>
+                  <Button variant="outline" size="sm" data-testid="button-add-market">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Market (Over/Under, Asian Handicap, etc.)
+                  </Button>
+                </div>
+                
+                <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                  <Info className="w-4 h-4 text-blue-500" />
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Default markets will be created automatically. You can add more markets after match creation.
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Step 3: Simulation Settings */}
+            {createStep === 3 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Activity className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Match Simulation Settings</h3>
+                </div>
+                
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Trophy className="w-4 h-4" />
+                    <span className="font-medium">Predicted Result (for simulation)</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Home Score</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={createMatchData.simulatedResult.homeScore}
+                        onChange={(e) => setCreateMatchData(prev => ({
+                          ...prev,
+                          simulatedResult: {
+                            ...prev.simulatedResult,
+                            homeScore: parseInt(e.target.value) || 0
+                          }
+                        }))}
+                        className="mt-1"
+                        data-testid="input-home-score"
+                      />
+                    </div>
+                    <div>
+                      <Label>Away Score</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={createMatchData.simulatedResult.awayScore}
+                        onChange={(e) => setCreateMatchData(prev => ({
+                          ...prev,
+                          simulatedResult: {
+                            ...prev.simulatedResult,
+                            awayScore: parseInt(e.target.value) || 0
+                          }
+                        }))}
+                        className="mt-1"
+                        data-testid="input-away-score"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3">
+                    <Label>Match Winner</Label>
+                    <Select
+                      value={createMatchData.simulatedResult.winner}
+                      onValueChange={(value: 'home' | 'away' | 'draw') => 
+                        setCreateMatchData(prev => ({
+                          ...prev,
+                          simulatedResult: {
+                            ...prev.simulatedResult,
+                            winner: value
+                          }
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="mt-1" data-testid="select-winner">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="home">Home Team Win</SelectItem>
+                        <SelectItem value="away">Away Team Win</SelectItem>
+                        <SelectItem value="draw">Draw</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="p-4 border-2 border-dashed border-muted rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium">Match Events (Goals, Cards, etc.)</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Add specific match events with timing for realistic simulation
+                  </p>
+                  <Button variant="outline" size="sm" data-testid="button-add-event">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Match Event
+                  </Button>
+                </div>
+                
+                <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    These settings help create realistic live match simulations for testing betting scenarios.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
+          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => createMatchMutation.mutate(createMatchData)}
-              disabled={createMatchMutation.isPending}
-              data-testid="button-confirm-create-match"
-            >
-              {createMatchMutation.isPending ? 'Creating...' : 'Create Match'}
-            </Button>
+            <div className="flex justify-between w-full">
+              <div>
+                {createStep > 1 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setCreateStep(prev => prev - 1)}
+                    data-testid="button-previous-step"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-2" />
+                    Previous
+                  </Button>
+                )}
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCreateModal(false)}
+                  data-testid="button-cancel-create"
+                >
+                  Cancel
+                </Button>
+                
+                {createStep < 3 ? (
+                  <Button
+                    onClick={() => setCreateStep(prev => prev + 1)}
+                    disabled={
+                      createStep === 1 && (
+                        !createMatchData.sport ||
+                        !createMatchData.leagueName ||
+                        !createMatchData.homeTeamName ||
+                        !createMatchData.awayTeamName ||
+                        !createMatchData.kickoffTime
+                      )
+                    }
+                    data-testid="button-next-step"
+                  >
+                    Next Step
+                    <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      createMatchMutation.mutate({
+                        sport: createMatchData.sport,
+                        leagueName: createMatchData.leagueName,
+                        homeTeamName: createMatchData.homeTeamName,
+                        awayTeamName: createMatchData.awayTeamName,
+                        kickoffTime: createMatchData.kickoffTime,
+                        markets: createMatchData.markets,
+                        simulatedResult: createMatchData.simulatedResult
+                      });
+                    }}
+                    disabled={createMatchMutation.isPending}
+                    data-testid="button-confirm-create-match"
+                  >
+                    {createMatchMutation.isPending ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Creating Match...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create Match
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
