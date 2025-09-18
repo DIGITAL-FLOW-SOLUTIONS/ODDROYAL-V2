@@ -29,7 +29,7 @@ export class PDFReportService {
    */
   async generateReport(options: PDFOptions): Promise<Buffer> {
     const browser = await puppeteer.launch({
-      headless: 'new',
+      headless: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -1023,6 +1023,7 @@ export class PDFReportService {
     return false;
     /*
     return ['daily', 'monthly', 'turnover', 'payout', 'winners'].includes(reportType);
+    */
   }
   
   private formatDate(date: Date): string {
