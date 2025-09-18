@@ -2904,4 +2904,386 @@ export class DatabaseStorage implements IStorage {
       console.error('Failed to create demo accounts:', error);
     }
   }
+
+  // ===================== MISSING ENHANCED MARKET OPERATIONS =====================
+
+  async deleteMarket(marketId: string, adminId: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Soft delete the market
+      await tx
+        .update(markets)
+        .set({ 
+          isDeleted: true, 
+          updatedBy: adminId,
+          updatedAt: new Date() 
+        })
+        .where(eq(markets.id, marketId));
+
+      // Soft delete all associated outcomes
+      await tx
+        .update(marketOutcomes)
+        .set({ 
+          isDeleted: true, 
+          updatedBy: adminId,
+          updatedAt: new Date() 
+        })
+        .where(eq(marketOutcomes.marketId, marketId));
+    });
+  }
+
+  async getMarketOutcomes(marketId: string): Promise<any[]> {
+    return await db
+      .select()
+      .from(marketOutcomes)
+      .where(
+        and(
+          eq(marketOutcomes.marketId, marketId),
+          eq(marketOutcomes.isDeleted, false)
+        )
+      )
+      .orderBy(marketOutcomes.displayOrder);
+  }
+
+  async updateMarketOutcome(outcomeId: string, updates: {
+    odds?: string;
+    status?: string;
+    liabilityLimitCents?: number;
+    adminId: string;
+    reason?: string;
+  }): Promise<any> {
+    return await db.transaction(async (tx) => {
+      // Get current outcome for audit trail
+      const [currentOutcome] = await tx
+        .select()
+        .from(marketOutcomes)
+        .where(eq(marketOutcomes.id, outcomeId));
+
+      if (!currentOutcome) {
+        throw new Error('Market outcome not found');
+      }
+
+      // Prepare update data
+      const updateData: any = {
+        updatedBy: updates.adminId,
+        updatedAt: new Date()
+      };
+
+      if (updates.odds !== undefined) {
+        updateData.previousOdds = currentOutcome.odds;
+        updateData.odds = updates.odds;
+      }
+
+      if (updates.status !== undefined) {
+        updateData.status = updates.status;
+      }
+
+      if (updates.liabilityLimitCents !== undefined) {
+        updateData.liabilityLimitCents = updates.liabilityLimitCents;
+      }
+
+      // Update the outcome
+      const [updatedOutcome] = await tx
+        .update(marketOutcomes)
+        .set(updateData)
+        .where(eq(marketOutcomes.id, outcomeId))
+        .returning();
+
+      // Log odds change if odds were updated
+      if (updates.odds !== undefined) {
+        await tx
+          .insert(oddsHistory)
+          .values({
+            id: randomUUID(),
+            outcomeId,
+            previousOdds: currentOutcome.odds,
+            newOdds: updates.odds,
+            source: 'manual',
+            reason: updates.reason || 'Manual odds update',
+            changedBy: updates.adminId,
+            timestamp: new Date()
+          });
+      }
+
+      return updatedOutcome;
+    });
+  }
+
+  // ===================== ENHANCED SPORTS AND LEAGUES OPERATIONS =====================
+
+  async getSports(): Promise<Array<{
+    id: string;
+    name: string;
+    displayName: string;
+    matchCount: number;
+  }>> {
+    const result = await db
+      .select({
+        sport: matches.sport,
+        matchCount: count(matches.id).as('matchCount')
+      })
+      .from(matches)
+      .where(
+        and(
+          eq(matches.isDeleted, false),
+          gte(matches.kickoffTime, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) // Last 7 days
+        )
+      )
+      .groupBy(matches.sport)
+      .orderBy(desc(count(matches.id)));
+
+    return result.map(row => ({
+      id: row.sport,
+      name: row.sport,
+      displayName: row.sport,
+      matchCount: row.matchCount
+    }));
+  }
+
+  async getLeagues(sportFilter?: string): Promise<Array<{
+    id: string;
+    name: string;
+    sport: string;
+    matchCount: number;
+  }>> {
+    let query = db
+      .select({
+        leagueId: matches.leagueId,
+        leagueName: matches.leagueName,
+        sport: matches.sport,
+        matchCount: count(matches.id).as('matchCount')
+      })
+      .from(matches)
+      .where(
+        and(
+          eq(matches.isDeleted, false),
+          gte(matches.kickoffTime, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) // Last 7 days
+        )
+      );
+
+    if (sportFilter) {
+      query = query.where(
+        and(
+          eq(matches.isDeleted, false),
+          eq(matches.sport, sportFilter),
+          gte(matches.kickoffTime, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+        )
+      ) as any;
+    }
+
+    const result = await query
+      .groupBy(matches.leagueId, matches.leagueName, matches.sport)
+      .orderBy(desc(count(matches.id)));
+
+    return result.map(row => ({
+      id: row.leagueId,
+      name: row.leagueName,
+      sport: row.sport,
+      matchCount: row.matchCount
+    }));
+  }
+
+  // ===================== ENHANCED MARKET CREATION =====================
+
+  async createMarket(marketData: {
+    matchId: string;
+    key: string;
+    name: string;
+    type: string;
+    parameter?: string;
+    outcomes: Array<{
+      key: string;
+      label: string;
+      odds: string;
+    }>;
+    adminId: string;
+  }): Promise<any> {
+    return await db.transaction(async (tx) => {
+      // Verify match exists
+      const [match] = await tx
+        .select()
+        .from(matches)
+        .where(
+          and(
+            eq(matches.id, marketData.matchId),
+            eq(matches.isDeleted, false)
+          )
+        );
+
+      if (!match) {
+        throw new Error('Match not found or has been deleted');
+      }
+
+      // Create the market
+      const [newMarket] = await tx
+        .insert(markets)
+        .values({
+          id: randomUUID(),
+          matchId: marketData.matchId,
+          key: marketData.key,
+          name: marketData.name,
+          type: marketData.type,
+          parameter: marketData.parameter,
+          status: 'open',
+          isPublished: true,
+          createdBy: marketData.adminId,
+          updatedBy: marketData.adminId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+
+      // Create outcomes
+      const outcomePromises = marketData.outcomes.map((outcome, index) =>
+        tx
+          .insert(marketOutcomes)
+          .values({
+            id: randomUUID(),
+            marketId: newMarket.id,
+            key: outcome.key,
+            label: outcome.label,
+            odds: outcome.odds,
+            status: 'active',
+            displayOrder: index,
+            updatedBy: marketData.adminId,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          })
+          .returning()
+      );
+
+      const outcomes = await Promise.all(outcomePromises);
+
+      return {
+        ...newMarket,
+        outcomes: outcomes.map(([outcome]) => outcome)
+      };
+    });
+  }
+
+  // ===================== LIVE MATCH SIMULATION METHODS =====================
+
+  async getScheduledManualMatches(): Promise<any[]> {
+    const now = new Date();
+    return await db
+      .select()
+      .from(matches)
+      .where(
+        and(
+          eq(matches.status, 'scheduled'),
+          eq(matches.isManual, true),
+          eq(matches.isDeleted, false),
+          lte(matches.kickoffTime, now)
+        )
+      );
+  }
+
+  async getMatchWithEvents(matchId: string): Promise<{ match: any; events: any[] }> {
+    const [match] = await db
+      .select()
+      .from(matches)
+      .where(eq(matches.id, matchId));
+
+    if (!match) {
+      throw new Error(`Match ${matchId} not found`);
+    }
+
+    const events = await db
+      .select()
+      .from(matchEvents)
+      .where(
+        and(
+          eq(matchEvents.matchId, matchId),
+          eq(matchEvents.isSimulated, true),
+          eq(matchEvents.isExecuted, false)
+        )
+      )
+      .orderBy(matchEvents.minute, matchEvents.second, matchEvents.orderIndex);
+
+    return { match, events };
+  }
+
+  async updateMatchToLive(matchId: string): Promise<void> {
+    await db
+      .update(matches)
+      .set({ 
+        status: 'live',
+        updatedAt: new Date()
+      })
+      .where(eq(matches.id, matchId));
+  }
+
+  async updateMatchScore(matchId: string, homeScore: number, awayScore: number): Promise<void> {
+    await db
+      .update(matches)
+      .set({
+        homeScore,
+        awayScore,
+        updatedAt: new Date()
+      })
+      .where(eq(matches.id, matchId));
+  }
+
+  async markEventAsExecuted(eventId: string): Promise<void> {
+    await db
+      .update(matchEvents)
+      .set({ 
+        isExecuted: true,
+        updatedAt: new Date()
+      })
+      .where(eq(matchEvents.id, eventId));
+  }
+
+  async suspendAllMarkets(matchId: string): Promise<void> {
+    await db
+      .update(markets)
+      .set({ 
+        status: 'suspended',
+        updatedAt: new Date()
+      })
+      .where(eq(markets.matchId, matchId));
+  }
+
+  async reopenAllMarkets(matchId: string): Promise<void> {
+    await db
+      .update(markets)
+      .set({ 
+        status: 'open',
+        updatedAt: new Date()
+      })
+      .where(eq(markets.matchId, matchId));
+  }
+
+  async updateMarketOdds(outcomeId: string, newOdds: string): Promise<void> {
+    await db
+      .update(marketOutcomes)
+      .set({ 
+        odds: newOdds,
+        updatedAt: new Date()
+      })
+      .where(eq(marketOutcomes.id, outcomeId));
+  }
+
+  async finishMatch(matchId: string, homeScore: number, awayScore: number): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Update match status
+      await tx
+        .update(matches)
+        .set({ 
+          status: 'finished',
+          homeScore,
+          awayScore,
+          updatedAt: new Date()
+        })
+        .where(eq(matches.id, matchId));
+
+      // Close all markets for this match
+      await tx
+        .update(markets)
+        .set({ 
+          status: 'settled',
+          updatedAt: new Date()
+        })
+        .where(eq(markets.matchId, matchId));
+    });
+  }
 }

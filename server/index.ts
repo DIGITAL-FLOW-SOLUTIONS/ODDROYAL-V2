@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { settlementWorker } from "./settlement-worker";
 import { exposureEngine } from "./exposure-engine";
+import { liveMatchSimulator } from "./live-match-simulator";
 import { storage } from "./storage";
 import { AdminSeeder } from "./admin-seeder";
 
@@ -106,5 +107,9 @@ app.use((req, res, next) => {
     
     // Start exposure calculation engine
     exposureEngine.start(1); // Update exposure cache every minute
+    
+    // Start live match simulation engine
+    console.log("🔴 Starting Live Match Simulation Engine...");
+    liveMatchSimulator.start(30, 1); // Check every 30 seconds, real-time speed
   });
 })();

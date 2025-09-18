@@ -24,13 +24,16 @@ import {
   Clock,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Trophy,
   Zap,
   Globe,
   Timer,
   Settings,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  TrendingUp,
+  Info
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -404,7 +407,7 @@ export default function AdminMatchesMarkets() {
       const leagueKey = match.leagueName;
 
       if (!acc[sportKey]) {
-        const sport = availableSports.find(s => s.name.toLowerCase() === sportKey.toLowerCase()) || 
+        const sport = availableSports.find((s: Sport) => s.name.toLowerCase() === sportKey.toLowerCase()) || 
                      { id: 0, name: sportKey, displayName: sportKey };
         acc[sportKey] = {
           sport,
@@ -568,7 +571,7 @@ export default function AdminMatchesMarkets() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Sports</SelectItem>
-                      {availableSports.map((sport) => (
+                      {availableSports.map((sport: Sport) => (
                         <SelectItem key={sport.id} value={sport.name.toLowerCase()}>
                           {sport.displayName}
                         </SelectItem>
@@ -1087,7 +1090,7 @@ export default function AdminMatchesMarkets() {
                       <SelectValue placeholder="Choose a sport" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableSports.map((sport) => (
+                      {availableSports.map((sport: Sport) => (
                         <SelectItem key={sport.id} value={sport.name.toLowerCase()}>
                           <div className="flex items-center gap-2">
                             <Globe className="w-4 h-4" />
@@ -1366,6 +1369,7 @@ export default function AdminMatchesMarkets() {
                         awayTeamName: createMatchData.awayTeamName,
                         kickoffTime: createMatchData.kickoffTime,
                         markets: createMatchData.markets,
+                        events: createMatchData.events,
                         simulatedResult: createMatchData.simulatedResult
                       });
                     }}

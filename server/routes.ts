@@ -29,6 +29,8 @@ import {
   rolePermissions
 } from "@shared/schema";
 import { initializeWebSocket, broadcastBetUpdate } from './websocket';
+import { liveMatchSimulator } from './live-match-simulator';
+import { addSimulationRoutes } from './simulation-routes';
 import { 
   authenticateAdmin, 
   require2FA, 
@@ -4331,6 +4333,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // GET /api/admin/matches/:id - get single match details
+  app.get("/api/admin/matches/:id", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('matches:read'), 
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        
+        const match = await storage.getMatch(id);
+        
+        if (!match) {
+          return res.status(404).json({
+            success: false,
+            error: 'Match not found'
+          });
+        }
+
+        // Get associated markets and their outcomes
+        const markets = await storage.getMatchMarkets(id);
+        
+        // Get exposure data
+        let exposureData = null;
+        try {
+          exposureData = await storage.getMatchExposure(id);
+        } catch (error) {
+          console.warn('Failed to get exposure data for match:', id, error);
+        }
+
+        res.json({
+          success: true,
+          data: {
+            ...match,
+            markets: markets || [],
+            exposure: exposureData
+          }
+        });
+      } catch (error) {
+        console.error('Get match error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to fetch match'
+        });
+      }
+    }
+  );
+
   // POST /api/admin/matches/:id/markets - create market for a match
   app.post("/api/admin/matches/:id/markets", 
     ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
@@ -5747,6 +5796,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   const httpServer = createServer(app);
+  
+  // Add live match simulation control endpoints
+  addSimulationRoutes(app);
   
   // Initialize WebSocket server for real-time updates
   initializeWebSocket(httpServer);

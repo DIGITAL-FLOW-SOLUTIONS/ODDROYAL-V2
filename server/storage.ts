@@ -240,11 +240,84 @@ export interface IStorage {
     maxStake?: number;
   }): Promise<string>;
   getActiveAdminSessions(): Promise<AdminSession[]>;
+
+  // Live match simulation methods
+  getScheduledManualMatches(): Promise<any[]>;
+  getMatchWithEvents(matchId: string): Promise<{
+    match: any;
+    events: any[];
+  }>;
+  updateMatchToLive(matchId: string): Promise<void>;
+  updateMatchScore(matchId: string, homeScore: number, awayScore: number): Promise<void>;
+  markEventAsExecuted(eventId: string): Promise<void>;
+  suspendAllMarkets(matchId: string): Promise<void>;
+  reopenAllMarkets(matchId: string): Promise<void>;
+  updateMarketOdds(outcomeId: string, newOdds: string): Promise<void>;
+  finishMatch(matchId: string, homeScore: number, awayScore: number): Promise<void>;
+
+  // ===================== ENHANCED MATCH OPERATIONS =====================
+  
+  // Complete match CRUD operations
+  getAllMatches(params?: {
+    search?: string;
+    sport?: string;
+    league?: string;
+    status?: string;
+    source?: string; // 'manual' | 'sportmonks' | 'all'
+    dateFrom?: Date;
+    dateTo?: Date;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ matches: any[]; total: number }>;
+
+  // ===================== ENHANCED MARKET OPERATIONS =====================
+  
   getMatchMarkets(matchId: string): Promise<any[]>;
+  createMarket(marketData: {
+    matchId: string;
+    key: string;
+    name: string;
+    type: string;
+    parameter?: string;
+    outcomes: Array<{
+      key: string;
+      label: string;
+      odds: string;
+    }>;
+    adminId: string;
+  }): Promise<any>;
   createMarketWithOutcomes(market: any): Promise<any>;
   updateMarketStatus(marketId: string, status: string): Promise<any>;
   updateOutcomeOdds(outcomeId: string, odds: string): Promise<any>;
+  deleteMarket(marketId: string, adminId: string): Promise<void>;
   reorderMarkets(matchId: string, marketOrder: string[]): Promise<void>;
+
+  // ===================== MARKET OUTCOME OPERATIONS =====================
+  
+  getMarketOutcomes(marketId: string): Promise<any[]>;
+  updateMarketOutcome(outcomeId: string, updates: {
+    odds?: string;
+    status?: string;
+    liabilityLimitCents?: number;
+    adminId: string;
+    reason?: string;
+  }): Promise<any>;
+
+  // ===================== SPORTS AND LEAGUES OPERATIONS =====================
+  
+  getSports(): Promise<Array<{
+    id: string;
+    name: string;
+    displayName: string;
+    matchCount: number;
+  }>>;
+  
+  getLeagues(sportFilter?: string): Promise<Array<{
+    id: string;
+    name: string;
+    sport: string;
+    matchCount: number;
+  }>>;
 
   // ===================== MISSING REPORTING METHODS =====================
 

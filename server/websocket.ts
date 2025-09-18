@@ -20,6 +20,40 @@ interface BetUpdate {
   details?: any;
 }
 
+interface MatchUpdate {
+  type: 'match_started' | 'match_update' | 'match_finished';
+  matchId: string;
+  homeTeam?: string;
+  awayTeam?: string;
+  homeScore: number;
+  awayScore: number;
+  minute: number;
+  status: string;
+  timestamp: string;
+}
+
+interface EventUpdate {
+  type: 'match_event';
+  matchId: string;
+  eventType: string;
+  minute: number;
+  team: 'home' | 'away';
+  playerName?: string;
+  description?: string;
+  homeScore: number;
+  awayScore: number;
+  timestamp: string;
+}
+
+interface MarketUpdate {
+  type: 'markets_suspended' | 'markets_reopened' | 'odds_updated';
+  matchId: string;
+  marketId?: string;
+  reason?: string;
+  odds?: any;
+  timestamp: string;
+}
+
 let wss: WebSocketServer | null = null;
 const connectedClients = new Set<WebSocket>();
 
@@ -120,6 +154,66 @@ export function broadcastBetUpdate(update: BetUpdate) {
         ws.send(message);
       } catch (error) {
         console.error('Error sending bet update:', error);
+        connectedClients.delete(ws);
+      }
+    }
+  });
+}
+
+export function broadcastMatchUpdate(update: MatchUpdate) {
+  if (!wss) return;
+  
+  const message = JSON.stringify({
+    type: 'match_update',
+    data: update
+  });
+  
+  connectedClients.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(message);
+      } catch (error) {
+        console.error('Error sending match update:', error);
+        connectedClients.delete(ws);
+      }
+    }
+  });
+}
+
+export function broadcastEventUpdate(update: EventUpdate) {
+  if (!wss) return;
+  
+  const message = JSON.stringify({
+    type: 'event_update',
+    data: update
+  });
+  
+  connectedClients.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(message);
+      } catch (error) {
+        console.error('Error sending event update:', error);
+        connectedClients.delete(ws);
+      }
+    }
+  });
+}
+
+export function broadcastMarketUpdate(update: MarketUpdate) {
+  if (!wss) return;
+  
+  const message = JSON.stringify({
+    type: 'market_update',
+    data: update
+  });
+  
+  connectedClients.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(message);
+      } catch (error) {
+        console.error('Error sending market update:', error);
         connectedClients.delete(ws);
       }
     }
