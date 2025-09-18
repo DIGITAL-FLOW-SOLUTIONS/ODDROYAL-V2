@@ -32,7 +32,7 @@ class TokenBucket {
     const now = Date.now();
     const timePassed = now - this.lastRefill;
     const tokensToAdd = Math.floor(timePassed * this.refillRate);
-    
+
     this.tokens = Math.min(this.capacity, this.tokens + tokensToAdd);
     this.lastRefill = now;
   }
@@ -82,11 +82,14 @@ class ApiRequestManager {
     // Initialize with conservative rate limiting
     this.tokenBucket = new TokenBucket(
       RATE_LIMIT_CONFIG.burstLimit,
-      RATE_LIMIT_CONFIG.requestsPerMinute / 60
+      RATE_LIMIT_CONFIG.requestsPerMinute / 60,
     );
   }
 
-  async makeRequest<T>(requestFn: () => Promise<T>, priority: number = 1): Promise<T> {
+  async makeRequest<T>(
+    requestFn: () => Promise<T>,
+    priority: number = 1,
+  ): Promise<T> {
     return new Promise((resolve, reject) => {
       this.requestQueue.push({
         resolve,
@@ -95,7 +98,7 @@ class ApiRequestManager {
         priority,
         timestamp: Date.now(),
       });
-      
+
       // Sort by priority (higher first) then by timestamp
       this.requestQueue.sort((a, b) => {
         if (a.priority !== b.priority) {
@@ -103,7 +106,7 @@ class ApiRequestManager {
         }
         return a.timestamp - b.timestamp;
       });
-      
+
       this.processQueue();
     });
   }
@@ -117,14 +120,14 @@ class ApiRequestManager {
 
     while (this.requestQueue.length > 0) {
       const queuedRequest = this.requestQueue.shift()!;
-      
+
       if (!this.tokenBucket.canConsume()) {
         const waitTime = this.tokenBucket.getWaitTime();
         this.metrics.rateLimitedRequests++;
-        
+
         console.log(`Rate limit reached, waiting ${waitTime}ms`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
+
         // Check if we can consume now
         if (!this.tokenBucket.canConsume()) {
           // Put request back at the front
@@ -137,12 +140,12 @@ class ApiRequestManager {
         const startTime = Date.now();
         this.metrics.totalRequests++;
         this.metrics.lastRequestTime = startTime;
-        
+
         const result = await this.executeWithRetry(queuedRequest.requestFn);
-        
+
         const responseTime = Date.now() - startTime;
         this.updateMetrics(responseTime, true);
-        
+
         queuedRequest.resolve(result);
       } catch (error) {
         this.metrics.failedRequests++;
@@ -150,7 +153,7 @@ class ApiRequestManager {
       }
 
       // Small delay between requests to be respectful
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
     this.processing = false;
@@ -158,13 +161,17 @@ class ApiRequestManager {
 
   private async executeWithRetry<T>(requestFn: () => Promise<T>): Promise<T> {
     let lastError: Error;
-    
-    for (let attempt = 1; attempt <= RATE_LIMIT_CONFIG.retryAttempts; attempt++) {
+
+    for (
+      let attempt = 1;
+      attempt <= RATE_LIMIT_CONFIG.retryAttempts;
+      attempt++
+    ) {
       try {
         return await requestFn();
       } catch (error) {
         lastError = error as Error;
-        
+
         // Don't retry on authentication errors or client errors (4xx except 429)
         if (axios.isAxiosError(error)) {
           const status = error.response?.status;
@@ -176,15 +183,18 @@ class ApiRequestManager {
         if (attempt < RATE_LIMIT_CONFIG.retryAttempts) {
           const delay = Math.min(
             RATE_LIMIT_CONFIG.baseRetryDelay * Math.pow(2, attempt - 1),
-            RATE_LIMIT_CONFIG.maxRetryDelay
+            RATE_LIMIT_CONFIG.maxRetryDelay,
           );
-          
-          console.log(`API request failed (attempt ${attempt}/${RATE_LIMIT_CONFIG.retryAttempts}), retrying in ${delay}ms:`, (error as Error).message);
-          await new Promise(resolve => setTimeout(resolve, delay));
+
+          console.log(
+            `API request failed (attempt ${attempt}/${RATE_LIMIT_CONFIG.retryAttempts}), retrying in ${delay}ms:`,
+            (error as Error).message,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
-    
+
     throw lastError!;
   }
 
@@ -193,16 +203,17 @@ class ApiRequestManager {
       this.metrics.successfulRequests++;
       // Update rolling average response time
       const alpha = 0.1; // Smoothing factor
-      this.metrics.averageResponseTime = 
+      this.metrics.averageResponseTime =
         alpha * responseTime + (1 - alpha) * this.metrics.averageResponseTime;
     }
   }
 
   getMetrics() {
-    const successRate = this.metrics.totalRequests > 0 
-      ? (this.metrics.successfulRequests / this.metrics.totalRequests) * 100 
-      : 0;
-    
+    const successRate =
+      this.metrics.totalRequests > 0
+        ? (this.metrics.successfulRequests / this.metrics.totalRequests) * 100
+        : 0;
+
     return {
       ...this.metrics,
       successRate: Math.round(successRate * 100) / 100,
@@ -213,13 +224,18 @@ class ApiRequestManager {
   getHealthStatus() {
     const metrics = this.getMetrics();
     const timeSinceLastRequest = Date.now() - metrics.lastRequestTime;
-    
+
     return {
       healthy: metrics.successRate > 80 && timeSinceLastRequest < 300000, // 5 minutes
       metrics,
-      status: metrics.successRate > 95 ? 'excellent' : 
-             metrics.successRate > 80 ? 'good' : 
-             metrics.successRate > 50 ? 'poor' : 'critical'
+      status:
+        metrics.successRate > 95
+          ? "excellent"
+          : metrics.successRate > 80
+            ? "good"
+            : metrics.successRate > 50
+              ? "poor"
+              : "critical",
     };
   }
 }
@@ -228,9 +244,13 @@ class ApiRequestManager {
 const requestManager = new ApiRequestManager();
 
 function getApiToken(): string | undefined {
-  const token = process.env.SPORTMONKS_API_TOKEN;
+  const token =
+    process.env.SPORTMONKS_API_TOKEN ||
+    "dtfLGFmJFxJ83SX10NkpSZTWzzwEmUZvSTjofTRdYH81MPkiivR4O3vpNLYo";
   if (!token && !warnedAboutMissingToken) {
-    console.warn("SportMonks API token not found in environment variables. API functionality will be limited.");
+    console.warn(
+      "SportMonks API token not found in environment variables. API functionality will be limited.",
+    );
     warnedAboutMissingToken = true;
   }
   return token;
@@ -259,7 +279,7 @@ class ApiCache {
     // Clean old entries if cache is getting full
     if (this.cache.size >= this.maxSize) {
       this.cleanExpired();
-      
+
       // If still full after cleaning, remove oldest entries
       if (this.cache.size >= this.maxSize) {
         const entries = Array.from(this.cache.entries());
@@ -300,7 +320,7 @@ class ApiCache {
 
     const now = Date.now();
     const maxStaleAge = maxStaleAgeMinutes * 60 * 1000;
-    
+
     // Allow stale data up to maxStaleAgeMinutes old
     if (now - entry.timestamp > maxStaleAge) {
       this.cache.delete(key);
@@ -330,14 +350,14 @@ class ApiCache {
   private cleanExpired(): void {
     const now = Date.now();
     const expiredKeys: string[] = [];
-    
+
     this.cache.forEach((entry, key) => {
       if (now - entry.timestamp > entry.ttl) {
         expiredKeys.push(key);
       }
     });
-    
-    expiredKeys.forEach(key => this.cache.delete(key));
+
+    expiredKeys.forEach((key) => this.cache.delete(key));
   }
 
   getStats() {
@@ -356,31 +376,43 @@ const apiCache = new ApiCache();
 class ApiLogger {
   // Redact sensitive fields from params before logging
   private static redactSensitiveData(obj: any): any {
-    if (!obj || typeof obj !== 'object') {
+    if (!obj || typeof obj !== "object") {
       return obj;
     }
-    
-    const sensitiveFields = ['api_token', 'token', 'password', 'secret', 'key', 'auth'];
+
+    const sensitiveFields = [
+      "api_token",
+      "token",
+      "password",
+      "secret",
+      "key",
+      "auth",
+    ];
     const redacted = { ...obj };
-    
+
     for (const field of sensitiveFields) {
       if (redacted[field]) {
-        redacted[field] = '[REDACTED]';
+        redacted[field] = "[REDACTED]";
       }
     }
-    
+
     return redacted;
   }
 
-  static logRequest(endpoint: string, params: any, method: string = 'GET') {
+  static logRequest(endpoint: string, params: any, method: string = "GET") {
     console.log(`[SportMonks API] ${method} ${endpoint}`, {
       params: this.redactSensitiveData(params),
       timestamp: new Date().toISOString(),
     });
   }
 
-  static logResponse(endpoint: string, success: boolean, responseTime: number, error?: any) {
-    const level = success ? 'info' : 'error';
+  static logResponse(
+    endpoint: string,
+    success: boolean,
+    responseTime: number,
+    error?: any,
+  ) {
+    const level = success ? "info" : "error";
     console.log(`[SportMonks API] Response - ${endpoint}`, {
       success,
       responseTime: `${responseTime}ms`,
@@ -407,16 +439,18 @@ class ApiLogger {
 class CircuitBreaker {
   private failures = 0;
   private lastFailureTime = 0;
-  private state: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED';
+  private state: "CLOSED" | "OPEN" | "HALF_OPEN" = "CLOSED";
   private readonly failureThreshold = 5;
   private readonly timeoutDuration = 60000; // 1 minute
 
   async execute<T>(operation: () => Promise<T>): Promise<T> {
-    if (this.state === 'OPEN') {
+    if (this.state === "OPEN") {
       if (Date.now() - this.lastFailureTime > this.timeoutDuration) {
-        this.state = 'HALF_OPEN';
+        this.state = "HALF_OPEN";
       } else {
-        throw new Error('Circuit breaker is OPEN - API is temporarily unavailable');
+        throw new Error(
+          "Circuit breaker is OPEN - API is temporarily unavailable",
+        );
       }
     }
 
@@ -432,16 +466,18 @@ class CircuitBreaker {
 
   private onSuccess(): void {
     this.failures = 0;
-    this.state = 'CLOSED';
+    this.state = "CLOSED";
   }
 
   private onFailure(): void {
     this.failures++;
     this.lastFailureTime = Date.now();
-    
+
     if (this.failures >= this.failureThreshold) {
-      this.state = 'OPEN';
-      console.warn(`[SportMonks API] Circuit breaker opened after ${this.failures} failures`);
+      this.state = "OPEN";
+      console.warn(
+        `[SportMonks API] Circuit breaker opened after ${this.failures} failures`,
+      );
     }
   }
 
@@ -543,11 +579,11 @@ export interface SportMonksOdds {
 
 // Enhanced API wrapper with caching and error handling
 async function makeApiRequest<T>(
-  endpoint: string, 
-  params: any, 
-  cacheKey: string, 
+  endpoint: string,
+  params: any,
+  cacheKey: string,
   cacheTtlMinutes: number = 5,
-  priority: number = 1
+  priority: number = 1,
 ): Promise<T> {
   // Check cache first
   const cached = apiCache.get<T>(cacheKey);
@@ -555,17 +591,17 @@ async function makeApiRequest<T>(
     ApiLogger.logCacheHit(cacheKey);
     return cached;
   }
-  
+
   ApiLogger.logCacheMiss(cacheKey);
-  
+
   const token = getApiToken();
   if (!token) {
-    throw new Error('SportMonks API token not available');
+    throw new Error("SportMonks API token not available");
   }
 
   const startTime = Date.now();
   ApiLogger.logRequest(endpoint, params);
-  
+
   try {
     const result = await circuitBreaker.execute(async () => {
       return await requestManager.makeRequest(async () => {
@@ -578,13 +614,13 @@ async function makeApiRequest<T>(
         return response.data;
       }, priority);
     });
-    
+
     const responseTime = Date.now() - startTime;
     ApiLogger.logResponse(endpoint, true, responseTime);
-    
+
     // Cache the result
     apiCache.set(cacheKey, result, cacheTtlMinutes);
-    
+
     return result;
   } catch (error) {
     const responseTime = Date.now() - startTime;
@@ -598,35 +634,42 @@ export async function getUpcomingFixtures(
   limit: number = 20,
 ): Promise<SportMonksFixture[]> {
   const cacheKey = `upcoming_fixtures_${limit}`;
-  
+
   try {
     const result = await makeApiRequest<any>(
-      '/football/fixtures',
+      "/football/fixtures",
       {
-        include: 'participants;league;state;scores',
+        include: "participants;league;state;scores",
         per_page: limit,
-        filters: 'fixtureStates:1', // Upcoming matches
+        filters: "fixtureStates:1", // Upcoming matches
       },
       cacheKey,
       2, // Cache for 2 minutes for upcoming matches
-      2 // High priority
+      2, // High priority
     );
-    
+
     const fixtures = result.data || [];
     return validateAndTransformFixtures(fixtures);
   } catch (error) {
-    console.warn('Failed to fetch upcoming fixtures from API:', (error as Error).message);
-    
+    console.warn(
+      "Failed to fetch upcoming fixtures from API:",
+      (error as Error).message,
+    );
+
     // Gradual degradation: try to return stale cached data (up to 60 minutes old)
     const staleCache = apiCache.getStale<any>(cacheKey, 60);
     if (staleCache) {
-      console.log('Using stale cache for upcoming fixtures (graceful degradation)');
+      console.log(
+        "Using stale cache for upcoming fixtures (graceful degradation)",
+      );
       const fixtures = staleCache.data || [];
       return validateAndTransformFixtures(fixtures);
     }
-    
+
     // Last resort: return a limited set of mock data but log it
-    console.warn('Using mock data for upcoming fixtures - API and stale cache unavailable');
+    console.warn(
+      "Using mock data for upcoming fixtures - API and stale cache unavailable",
+    );
     return getMockUpcomingFixtures().slice(0, Math.min(3, limit)); // Limit mock data
   }
 }
@@ -636,29 +679,32 @@ export async function getLiveFixtures(
   sportId?: number,
 ): Promise<SportMonksFixture[]> {
   const sportEndpoint = getSportEndpoint(sportId);
-  const cacheKey = `live_fixtures_${sportId || 'all'}`;
-  
+  const cacheKey = `live_fixtures_${sportId || "all"}`;
+
   try {
     const result = await makeApiRequest<any>(
       `/${sportEndpoint}/fixtures`,
       {
-        include: 'participants;league;state;scores',
+        include: "participants;league;state;scores",
         per_page: 50,
-        filters: 'fixtureStates:2', // Live matches
+        filters: "fixtureStates:2", // Live matches
       },
       cacheKey,
       0.5, // Cache for 30 seconds for live data
-      3 // Highest priority for live data
+      3, // Highest priority for live data
     );
-    
+
     const fixtures = result.data || [];
     return validateAndTransformFixtures(fixtures);
   } catch (error) {
-    console.warn('Failed to fetch live fixtures from API:', (error as Error).message);
-    
+    console.warn(
+      "Failed to fetch live fixtures from API:",
+      (error as Error).message,
+    );
+
     // For live data, don't fall back to mock data - return empty array
     // This ensures we don't show stale or fake live matches
-    console.log('No live fixtures available due to API error');
+    console.log("No live fixtures available due to API error");
     return [];
   }
 }
@@ -688,9 +734,10 @@ export function getApiHealthStatus() {
   const requestManagerHealth = requestManager.getHealthStatus();
   const circuitBreakerState = circuitBreaker.getState();
   const cacheStats = apiCache.getStats();
-  
-  const overallHealth = requestManagerHealth.healthy && circuitBreakerState.state !== 'OPEN';
-  
+
+  const overallHealth =
+    requestManagerHealth.healthy && circuitBreakerState.state !== "OPEN";
+
   return {
     healthy: overallHealth,
     timestamp: new Date().toISOString(),
@@ -704,7 +751,7 @@ export function getApiHealthStatus() {
         state: circuitBreakerState.state,
         failures: circuitBreakerState.failures,
         lastFailureTime: circuitBreakerState.lastFailureTime,
-        healthy: circuitBreakerState.state !== 'OPEN',
+        healthy: circuitBreakerState.state !== "OPEN",
       },
       cache: {
         size: cacheStats.size,
@@ -731,25 +778,24 @@ export function getCacheStats() {
 // Utility to clear cache (useful for testing or manual cache invalidation)
 export function clearApiCache() {
   apiCache.clear();
-  console.log('[SportMonks API] Cache cleared manually');
+  console.log("[SportMonks API] Cache cleared manually");
 }
 
 // Utility to warm up the cache with essential data
 export async function warmUpCache() {
-  console.log('[SportMonks API] Starting cache warm-up...');
-  
+  console.log("[SportMonks API] Starting cache warm-up...");
+
   try {
     // Warm up with essential data that's frequently accessed
-    const promises = [
-      getUpcomingFixtures(10),
-      getLiveFixtures(),
-      getLeagues(),
-    ];
-    
+    const promises = [getUpcomingFixtures(10), getLiveFixtures(), getLeagues()];
+
     await Promise.allSettled(promises);
-    console.log('[SportMonks API] Cache warm-up completed');
+    console.log("[SportMonks API] Cache warm-up completed");
   } catch (error) {
-    console.warn('[SportMonks API] Cache warm-up failed:', (error as Error).message);
+    console.warn(
+      "[SportMonks API] Cache warm-up failed:",
+      (error as Error).message,
+    );
   }
 }
 
@@ -759,10 +805,10 @@ export class SportMonksApiError extends Error {
     message: string,
     public readonly statusCode?: number,
     public readonly endpoint?: string,
-    public readonly retryable: boolean = true
+    public readonly retryable: boolean = true,
   ) {
     super(message);
-    this.name = 'SportMonksApiError';
+    this.name = "SportMonksApiError";
   }
 }
 
@@ -777,33 +823,33 @@ export async function testApiConnectivity(): Promise<{
   if (!token) {
     return {
       success: false,
-      message: 'SportMonks API token not available',
+      message: "SportMonks API token not available",
     };
   }
 
   const startTime = Date.now();
-  
+
   try {
     // Test with a simple API call
-    await api.get('/football/fixtures', {
+    await api.get("/football/fixtures", {
       params: {
         api_token: token,
         per_page: 1,
       },
       timeout: 10000,
     });
-    
+
     const responseTime = Date.now() - startTime;
-    
+
     return {
       success: true,
-      message: 'SportMonks API connectivity test successful',
+      message: "SportMonks API connectivity test successful",
       responseTime,
     };
   } catch (error: any) {
     return {
       success: false,
-      message: 'SportMonks API connectivity test failed',
+      message: "SportMonks API connectivity test failed",
       responseTime: Date.now() - startTime,
       error: error.message,
     };
@@ -826,122 +872,134 @@ function getSportEndpoint(sportId?: number): string {
 // Data validation and transformation utilities
 function validateAndTransformFixtures(fixtures: any[]): SportMonksFixture[] {
   if (!Array.isArray(fixtures)) {
-    console.warn('Invalid fixtures data received - not an array');
+    console.warn("Invalid fixtures data received - not an array");
     return [];
   }
 
   return fixtures
-    .filter(fixture => {
+    .filter((fixture) => {
       // Basic validation - ensure required fields exist
-      const hasRequiredFields = 
+      const hasRequiredFields =
         fixture &&
-        typeof fixture.id === 'number' &&
-        typeof fixture.name === 'string' &&
+        typeof fixture.id === "number" &&
+        typeof fixture.name === "string" &&
         fixture.starting_at &&
         fixture.participants &&
         Array.isArray(fixture.participants) &&
         fixture.participants.length >= 2;
-      
+
       if (!hasRequiredFields) {
-        console.warn(`Invalid fixture data:`, { id: fixture?.id, name: fixture?.name });
+        console.warn(`Invalid fixture data:`, {
+          id: fixture?.id,
+          name: fixture?.name,
+        });
         return false;
       }
-      
+
       return true;
     })
-    .map(fixture => {
+    .map((fixture) => {
       // Transform and normalize the fixture data
       return {
         id: fixture.id,
-        name: fixture.name || `${fixture.participants?.[0]?.name} vs ${fixture.participants?.[1]?.name}`,
+        name:
+          fixture.name ||
+          `${fixture.participants?.[0]?.name} vs ${fixture.participants?.[1]?.name}`,
         starting_at: fixture.starting_at,
         result_info: fixture.result_info || null,
-        leg: fixture.leg || '1/1',
+        leg: fixture.leg || "1/1",
         details: fixture.details || null,
         length: fixture.length || 90,
         placeholder: Boolean(fixture.placeholder),
         has_odds: Boolean(fixture.has_odds),
-        participants: fixture.participants?.map((p: any) => ({
-          id: p.id || 0,
-          sport_id: p.sport_id || 1,
-          country_id: p.country_id || 0,
-          venue_id: p.venue_id || 0,
-          gender: p.gender || 'male',
-          name: p.name || 'Unknown Team',
-          short_code: p.short_code || '',
-          image_path: p.image_path || '',
-          founded: p.founded || 0,
-          type: p.type || 'domestic',
-          placeholder: Boolean(p.placeholder),
-          last_played_at: p.last_played_at || new Date().toISOString(),
-          meta: {
-            location: p.meta?.location || 'unknown',
-            winner: Boolean(p.meta?.winner),
-            position: p.meta?.position || 0,
-          },
-        })) || [],
+        participants:
+          fixture.participants?.map((p: any) => ({
+            id: p.id || 0,
+            sport_id: p.sport_id || 1,
+            country_id: p.country_id || 0,
+            venue_id: p.venue_id || 0,
+            gender: p.gender || "male",
+            name: p.name || "Unknown Team",
+            short_code: p.short_code || "",
+            image_path: p.image_path || "",
+            founded: p.founded || 0,
+            type: p.type || "domestic",
+            placeholder: Boolean(p.placeholder),
+            last_played_at: p.last_played_at || new Date().toISOString(),
+            meta: {
+              location: p.meta?.location || "unknown",
+              winner: Boolean(p.meta?.winner),
+              position: p.meta?.position || 0,
+            },
+          })) || [],
         state: {
           id: fixture.state?.id || 0,
-          state: fixture.state?.state || 'UNKNOWN',
-          name: fixture.state?.name || 'Unknown',
-          short_name: fixture.state?.short_name || 'UNK',
-          developer_name: fixture.state?.developer_name || 'UNKNOWN',
+          state: fixture.state?.state || "UNKNOWN",
+          name: fixture.state?.name || "Unknown",
+          short_name: fixture.state?.short_name || "UNK",
+          developer_name: fixture.state?.developer_name || "UNKNOWN",
         },
         league: {
           id: fixture.league?.id || 0,
           sport_id: fixture.league?.sport_id || 1,
           country_id: fixture.league?.country_id || 0,
-          name: fixture.league?.name || 'Unknown League',
+          name: fixture.league?.name || "Unknown League",
           active: Boolean(fixture.league?.active ?? true),
-          short_code: fixture.league?.short_code || '',
-          image_path: fixture.league?.image_path || '',
-          type: fixture.league?.type || 'league',
-          sub_type: fixture.league?.sub_type || 'domestic',
-          last_played_at: fixture.league?.last_played_at || new Date().toISOString(),
+          short_code: fixture.league?.short_code || "",
+          image_path: fixture.league?.image_path || "",
+          type: fixture.league?.type || "league",
+          sub_type: fixture.league?.sub_type || "domestic",
+          last_played_at:
+            fixture.league?.last_played_at || new Date().toISOString(),
         },
-        scores: Array.isArray(fixture.scores) ? fixture.scores.map((s: any) => ({
-          id: s.id || 0,
-          fixture_id: s.fixture_id || fixture.id,
-          type_id: s.type_id || 0,
-          participant_id: s.participant_id || 0,
-          score: {
-            goals: Number(s.score?.goals) || 0,
-            participant: s.score?.participant || 'Unknown',
-          },
-          description: s.description || 'unknown',
-        })) : [],
+        scores: Array.isArray(fixture.scores)
+          ? fixture.scores.map((s: any) => ({
+              id: s.id || 0,
+              fixture_id: s.fixture_id || fixture.id,
+              type_id: s.type_id || 0,
+              participant_id: s.participant_id || 0,
+              score: {
+                goals: Number(s.score?.goals) || 0,
+                participant: s.score?.participant || "Unknown",
+              },
+              description: s.description || "unknown",
+            }))
+          : [],
       };
     });
 }
 
 function validateAndTransformOdds(odds: any[]): SportMonksOdds[] {
   if (!Array.isArray(odds)) {
-    console.warn('Invalid odds data received - not an array');
+    console.warn("Invalid odds data received - not an array");
     return [];
   }
 
   return odds
-    .filter(odd => {
-      const hasRequiredFields = 
+    .filter((odd) => {
+      const hasRequiredFields =
         odd &&
-        typeof odd.id === 'number' &&
-        typeof odd.fixture_id === 'number' &&
+        typeof odd.id === "number" &&
+        typeof odd.fixture_id === "number" &&
         odd.value &&
         odd.market;
-      
+
       if (!hasRequiredFields) {
-        console.warn(`Invalid odds data:`, { id: odd?.id, fixture_id: odd?.fixture_id });
+        console.warn(`Invalid odds data:`, {
+          id: odd?.id,
+          fixture_id: odd?.fixture_id,
+        });
         return false;
       }
-      
+
       return true;
     })
-    .map(odd => ({
+    .map((odd) => ({
       id: odd.id,
       fixture_id: odd.fixture_id,
       market_id: odd.market_id || 0,
       bookmaker_id: odd.bookmaker_id || 0,
-      label: odd.label || '',
+      label: odd.label || "",
       value: odd.value,
       handicap: odd.handicap || null,
       total: odd.total || null,
@@ -950,12 +1008,12 @@ function validateAndTransformOdds(odds: any[]): SportMonksOdds[] {
       last_update: odd.last_update || {
         date: new Date().toISOString(),
         timezone_type: 3,
-        timezone: 'UTC',
+        timezone: "UTC",
       },
       market: {
         id: odd.market?.id || 0,
-        name: odd.market?.name || 'Unknown Market',
-        developer_name: odd.market?.developer_name || 'unknown',
+        name: odd.market?.name || "Unknown Market",
+        developer_name: odd.market?.developer_name || "unknown",
         has_winning_calculations: Boolean(odd.market?.has_winning_calculations),
       },
     }));
@@ -966,24 +1024,27 @@ export async function getFixtureOdds(
   fixtureId: number,
 ): Promise<SportMonksOdds[]> {
   const cacheKey = `fixture_odds_${fixtureId}`;
-  
+
   try {
     const result = await makeApiRequest<any>(
-      '/football/odds',
+      "/football/odds",
       {
-        include: 'market',
+        include: "market",
         filters: `fixtures:${fixtureId};markets:1,2,3,18`, // 1x2, Over/Under, Both Teams to Score, Double Chance
       },
       cacheKey,
       1, // Cache for 1 minute for odds
-      2 // High priority
+      2, // High priority
     );
-    
+
     const odds = result.data || [];
     return validateAndTransformOdds(odds);
   } catch (error) {
-    console.warn(`Failed to fetch odds for fixture ${fixtureId}:`, (error as Error).message);
-    
+    console.warn(
+      `Failed to fetch odds for fixture ${fixtureId}:`,
+      (error as Error).message,
+    );
+
     // For odds, we don't want to return mock data - return empty array
     // This ensures betting is disabled when real odds aren't available
     return [];
@@ -992,77 +1053,80 @@ export async function getFixtureOdds(
 
 // Get leagues with enhanced error handling
 export async function getLeagues(): Promise<any[]> {
-  const cacheKey = 'football_leagues';
-  
+  const cacheKey = "football_leagues";
+
   try {
     const result = await makeApiRequest<any>(
-      '/football/leagues',
+      "/football/leagues",
       {
         per_page: 50, // Get more leagues
-        include: 'country',
-        filters: 'active:true', // Only active leagues
+        include: "country",
+        filters: "active:true", // Only active leagues
       },
       cacheKey,
       60, // Cache for 1 hour - leagues don't change often
-      1 // Normal priority
+      1, // Normal priority
     );
-    
+
     const leagues = result.data || [];
     return validateAndTransformLeagues(leagues);
   } catch (error) {
-    console.warn('Failed to fetch leagues from API:', (error as Error).message);
-    
+    console.warn("Failed to fetch leagues from API:", (error as Error).message);
+
     // Try expired cache first
-    const expiredCache = apiCache.get<any[]>(cacheKey + '_backup');
+    const expiredCache = apiCache.get<any[]>(cacheKey + "_backup");
     if (expiredCache) {
-      console.log('Using expired cache for leagues');
+      console.log("Using expired cache for leagues");
       return expiredCache;
     }
-    
+
     // Fallback to basic mock leagues but log it
-    console.warn('Using mock data for leagues - API unavailable');
-    return getMockLeagues().map(league => ({
-    ...league,
-    country: {
-      name: league.country?.name || 'Unknown',
-      code: 'XX',
-    },
-  }));
+    console.warn("Using mock data for leagues - API unavailable");
+    return getMockLeagues().map((league) => ({
+      ...league,
+      country: {
+        name: league.country?.name || "Unknown",
+        code: "XX",
+      },
+    }));
   }
 }
 
 function validateAndTransformLeagues(leagues: any[]): any[] {
   if (!Array.isArray(leagues)) {
-    console.warn('Invalid leagues data received - not an array');
+    console.warn("Invalid leagues data received - not an array");
     return [];
   }
 
   return leagues
-    .filter(league => {
-      const hasRequiredFields = 
+    .filter((league) => {
+      const hasRequiredFields =
         league &&
-        typeof league.id === 'number' &&
-        typeof league.name === 'string';
-      
+        typeof league.id === "number" &&
+        typeof league.name === "string";
+
       if (!hasRequiredFields) {
-        console.warn(`Invalid league data:`, { id: league?.id, name: league?.name });
+        console.warn(`Invalid league data:`, {
+          id: league?.id,
+          name: league?.name,
+        });
         return false;
       }
-      
+
       return true;
     })
-    .map(league => ({
+    .map((league) => ({
       id: league.id,
       name: league.name,
       country: {
-        name: league.country?.name || 'Unknown',
-        code: league.country?.code || 'XX',
+        name: league.country?.name || "Unknown",
+        code: league.country?.code || "XX",
       },
       active: Boolean(league.active ?? true),
-      short_code: league.short_code || '',
-      image_path: league.image_path || '',
-      type: league.type || 'league',
-      sub_type: league.sub_type || 'domestic',
+      short_code: league.short_code || "",
+      image_path: league.image_path || "",
+      type: league.type || "league",
+      sub_type: league.sub_type || "domestic",
     }));
 }
 
@@ -1246,27 +1310,30 @@ export async function getFixtureResult(fixtureId: number): Promise<{
   status: "finished" | "cancelled" | "postponed" | "ongoing";
 } | null> {
   const cacheKey = `fixture_result_${fixtureId}`;
-  
+
   try {
     const result = await makeApiRequest<any>(
       `/football/fixtures/${fixtureId}`,
       {
-        include: 'participants;scores;state',
+        include: "participants;scores;state",
       },
       cacheKey,
       5, // Cache for 5 minutes for match results
-      3 // Highest priority for settlement data
+      3, // Highest priority for settlement data
     );
-    
+
     const fixture = result.data;
     if (!fixture) {
       console.warn(`No fixture data found for ID ${fixtureId}`);
       return null;
     }
-    
+
     return transformFixtureResult(fixture);
   } catch (error) {
-    console.warn(`Failed to fetch fixture result for ${fixtureId}:`, (error as Error).message);
+    console.warn(
+      `Failed to fetch fixture result for ${fixtureId}:`,
+      (error as Error).message,
+    );
     return null; // No fallback for settlement data - must be accurate
   }
 }
@@ -1281,12 +1348,13 @@ function transformFixtureResult(fixture: any): {
   status: "finished" | "cancelled" | "postponed" | "ongoing";
 } {
   // Get match state
-  const state = fixture.state?.name || fixture.state?.developer_name || 'UNKNOWN';
+  const state =
+    fixture.state?.name || fixture.state?.developer_name || "UNKNOWN";
 
   // Check different match states with more comprehensive coverage
-  const finishedStates = ['FT', 'AET', 'PEN', 'FINISHED', 'FT_PEN'];
-  const cancelledStates = ['CANCELLED', 'ABANDONED', 'SUSPENDED'];
-  const postponedStates = ['POSTPONED', 'DELAYED', 'TBA'];
+  const finishedStates = ["FT", "AET", "PEN", "FINISHED", "FT_PEN"];
+  const cancelledStates = ["CANCELLED", "ABANDONED", "SUSPENDED"];
+  const postponedStates = ["POSTPONED", "DELAYED", "TBA"];
 
   const isFinished = finishedStates.includes(state);
   const isCancelled = cancelledStates.includes(state);
@@ -1305,8 +1373,10 @@ function transformFixtureResult(fixture: any): {
 
   // Get team names with better error handling
   const participants = fixture.participants || [];
-  const homeTeam = participants.find((p: any) => p.meta?.location === "home")?.name || "Home";
-  const awayTeam = participants.find((p: any) => p.meta?.location === "away")?.name || "Away";
+  const homeTeam =
+    participants.find((p: any) => p.meta?.location === "home")?.name || "Home";
+  const awayTeam =
+    participants.find((p: any) => p.meta?.location === "away")?.name || "Away";
 
   // Extract scores for finished matches with improved logic
   let homeScore = 0;
@@ -1314,37 +1384,47 @@ function transformFixtureResult(fixture: any): {
 
   if (isFinished && fixture.scores) {
     const scores = fixture.scores;
-    
+
     // Find home and away team participant IDs
-    const homeParticipant = participants.find((p: any) => p.meta?.location === "home");
-    const awayParticipant = participants.find((p: any) => p.meta?.location === "away");
-    
+    const homeParticipant = participants.find(
+      (p: any) => p.meta?.location === "home",
+    );
+    const awayParticipant = participants.find(
+      (p: any) => p.meta?.location === "away",
+    );
+
     if (homeParticipant && awayParticipant) {
       // Look for current scores by participant ID (more reliable)
-      const homeScoreEntry = scores.find((s: any) => 
-        s.participant_id === homeParticipant.id && 
-        (s.description === 'current' || s.description === 'CURRENT')
+      const homeScoreEntry = scores.find(
+        (s: any) =>
+          s.participant_id === homeParticipant.id &&
+          (s.description === "current" || s.description === "CURRENT"),
       );
-      const awayScoreEntry = scores.find((s: any) => 
-        s.participant_id === awayParticipant.id && 
-        (s.description === 'current' || s.description === 'CURRENT')
+      const awayScoreEntry = scores.find(
+        (s: any) =>
+          s.participant_id === awayParticipant.id &&
+          (s.description === "current" || s.description === "CURRENT"),
       );
-      
+
       homeScore = Number(homeScoreEntry?.score?.goals) || 0;
       awayScore = Number(awayScoreEntry?.score?.goals) || 0;
     } else {
       // Fallback to name-based matching
       const homeScoreEntry = scores.find((s: any) => {
         const participant = s.score?.participant?.toLowerCase();
-        return (participant === "home" || participant === homeTeam.toLowerCase()) &&
-               (s.description === 'current' || s.description === 'CURRENT');
+        return (
+          (participant === "home" || participant === homeTeam.toLowerCase()) &&
+          (s.description === "current" || s.description === "CURRENT")
+        );
       });
       const awayScoreEntry = scores.find((s: any) => {
         const participant = s.score?.participant?.toLowerCase();
-        return (participant === "away" || participant === awayTeam.toLowerCase()) &&
-               (s.description === 'current' || s.description === 'CURRENT');
+        return (
+          (participant === "away" || participant === awayTeam.toLowerCase()) &&
+          (s.description === "current" || s.description === "CURRENT")
+        );
       });
-      
+
       homeScore = Number(homeScoreEntry?.score?.goals) || 0;
       awayScore = Number(awayScoreEntry?.score?.goals) || 0;
     }
