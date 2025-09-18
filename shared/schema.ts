@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, decimal, timestamp, boolean, json, uuid, primaryKey, index, foreignKey } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, decimal, timestamp, boolean, json, uuid, primaryKey, index, foreignKey, check, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -354,6 +354,7 @@ export const adminSessions = pgTable("admin_sessions", {
 export const matches = pgTable("matches", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   externalId: text("external_id"), // SportMonks fixture ID
+  sport: text("sport").notNull().default('Football'), // Football, Basketball, Tennis, Soccer, etc.
   leagueId: text("league_id").notNull(),
   leagueName: text("league_name").notNull(),
   homeTeamId: text("home_team_id").notNull(),
@@ -364,6 +365,12 @@ export const matches = pgTable("matches", {
   status: text("status").notNull().default('scheduled'), // scheduled, live, finished, cancelled, postponed
   homeScore: integer("home_score"),
   awayScore: integer("away_score"),
+  // Result simulation fields for admin panel
+  simulatedResult: json("simulated_result").$type<{
+    homeScore: number;
+    awayScore: number;
+    winner: 'home' | 'away' | 'draw';
+  }>(),
   isManual: boolean("is_manual").notNull().default(false), // true for manually created matches
   isDeleted: boolean("is_deleted").notNull().default(false), // soft delete
   createdBy: varchar("created_by"),
@@ -372,10 +379,18 @@ export const matches = pgTable("matches", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 }, (table) => ({
   externalIdIdx: index("matches_external_id_idx").on(table.externalId),
+  sportIdx: index("matches_sport_idx").on(table.sport),
   leagueIdIdx: index("matches_league_id_idx").on(table.leagueId),
   kickoffTimeIdx: index("matches_kickoff_time_idx").on(table.kickoffTime),
   statusIdx: index("matches_status_idx").on(table.status),
   isDeletedIdx: index("matches_is_deleted_idx").on(table.isDeleted),
+  // Partial unique index on externalId to prevent duplicate fixtures (only for non-null values)
+  externalIdUniqueIdx: unique("matches_external_id_unique").on(table.externalId),
+  // CHECK constraint for valid sport types
+  sportCheck: check("matches_sport_check", sql`sport IN ('Football', 'Basketball', 'Tennis', 'Soccer', 'Baseball', 'Hockey', 'Rugby', 'Cricket', 'Volleyball', 'Handball')`),
+  // CHECK constraint for valid match status
+  statusCheck: check("matches_status_check", sql`status IN ('scheduled', 'live', 'finished', 'cancelled', 'postponed')`),
+  // Existing indexes and foreign keys
   fkCreatedBy: foreignKey({
     columns: [table.createdBy],
     foreignColumns: [adminUsers.id],
@@ -385,6 +400,62 @@ export const matches = pgTable("matches", {
     columns: [table.updatedBy],
     foreignColumns: [adminUsers.id],
     name: 'matches_updated_by_fk'
+  }).onDelete('set null').onUpdate('cascade'),
+}));
+
+// Match events table - Track individual match events for simulation
+export const matchEvents = pgTable("match_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  matchId: varchar("match_id").notNull().references(() => matches.id, { onDelete: 'cascade' }),
+  type: text("type").notNull(), // 'goal', 'yellow_card', 'red_card', 'substitution', 'penalty', 'corner', 'freekick', 'offside', 'foul'
+  minute: integer("minute").notNull(), // Match minute when event occurred
+  second: integer("second").default(0), // Second within the minute for precision
+  extraTime: integer("extra_time"), // Extra time minutes (if applicable)
+  team: text("team").notNull(), // 'home' or 'away'
+  playerId: text("player_id"), // Player involved in the event
+  playerName: text("player_name"), // Player name for display
+  assistPlayerId: text("assist_player_id"), // For goals/assists
+  assistPlayerName: text("assist_player_name"),
+  description: text("description"), // Human-readable description of the event
+  // Simulation fields
+  isSimulated: boolean("is_simulated").notNull().default(false), // true if this is a pre-planned simulation event
+  scheduledTime: timestamp("scheduled_time"), // When this event should "happen" during live simulation
+  isExecuted: boolean("is_executed").notNull().default(false), // Whether the simulated event has been executed
+  // Additional metadata
+  eventData: json("event_data").$type<Record<string, any>>(), // Sport-specific event data (e.g., shot coordinates, foul severity)
+  orderIndex: integer("order_index").notNull().default(0), // Order of events within the same minute
+  // Admin tracking
+  createdBy: varchar("created_by"),
+  updatedBy: varchar("updated_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, (table) => ({
+  matchIdIdx: index("match_events_match_id_idx").on(table.matchId),
+  typeIdx: index("match_events_type_idx").on(table.type),
+  minuteIdx: index("match_events_minute_idx").on(table.minute),
+  teamIdx: index("match_events_team_idx").on(table.team),
+  playerIdIdx: index("match_events_player_id_idx").on(table.playerId),
+  isSimulatedIdx: index("match_events_is_simulated_idx").on(table.isSimulated),
+  scheduledTimeIdx: index("match_events_scheduled_time_idx").on(table.scheduledTime),
+  isExecutedIdx: index("match_events_is_executed_idx").on(table.isExecuted),
+  orderIdx: index("match_events_order_idx").on(table.matchId, table.minute, table.orderIndex),
+  // Composite index for simulation queries
+  simulationIdx: index("match_events_simulation_idx").on(table.matchId, table.isSimulated, table.isExecuted, table.scheduledTime),
+  // CHECK constraints for data validation
+  eventTypeCheck: check("match_events_type_check", sql`type IN ('goal', 'yellow_card', 'red_card', 'substitution', 'penalty', 'corner', 'freekick', 'offside', 'foul')`),
+  teamCheck: check("match_events_team_check", sql`team IN ('home', 'away')`),
+  minuteCheck: check("match_events_minute_check", sql`minute >= 0`),
+  secondCheck: check("match_events_second_check", sql`second >= 0 AND second <= 59`),
+  extraTimeCheck: check("match_events_extra_time_check", sql`extra_time IS NULL OR extra_time >= 0`),
+  fkCreatedBy: foreignKey({
+    columns: [table.createdBy],
+    foreignColumns: [adminUsers.id],
+    name: 'match_events_created_by_fk'
+  }).onDelete('set null').onUpdate('cascade'),
+  fkUpdatedBy: foreignKey({
+    columns: [table.updatedBy],
+    foreignColumns: [adminUsers.id],
+    name: 'match_events_updated_by_fk'
   }).onDelete('set null').onUpdate('cascade'),
 }));
 
@@ -608,6 +679,7 @@ export const loginAdminSchema = z.object({
 // Match schemas
 export const insertMatchSchema = createInsertSchema(matches).pick({
   externalId: true,
+  sport: true,
   leagueId: true,
   leagueName: true,
   homeTeamId: true,
@@ -615,11 +687,58 @@ export const insertMatchSchema = createInsertSchema(matches).pick({
   awayTeamId: true,
   awayTeamName: true,
   kickoffTime: true,
+  homeScore: true,
+  awayScore: true,
+  simulatedResult: true,
   isManual: true,
 }).extend({
+  sport: z.enum(['Football', 'Basketball', 'Tennis', 'Soccer', 'Baseball', 'Hockey', 'Rugby', 'Cricket', 'Volleyball', 'Handball']).default('Football'),
   kickoffTime: z.string().or(z.date()).transform((val) => 
     typeof val === 'string' ? new Date(val) : val
   ),
+  homeScore: z.number().min(0).max(50).optional(),
+  awayScore: z.number().min(0).max(50).optional(),
+  simulatedResult: z.object({
+    homeScore: z.number().min(0).max(50),
+    awayScore: z.number().min(0).max(50),
+    winner: z.enum(['home', 'away', 'draw']),
+  }).optional(),
+  status: z.enum(['scheduled', 'live', 'finished', 'cancelled', 'postponed']).default('scheduled'),
+}).refine(
+  (data) => {
+    // Validate that home and away team IDs are different
+    return data.homeTeamId !== data.awayTeamId;
+  },
+  { message: "Home and away teams must be different", path: ["awayTeamId"] }
+);
+
+// Match events schemas
+export const insertMatchEventSchema = createInsertSchema(matchEvents).pick({
+  matchId: true,
+  type: true,
+  minute: true,
+  second: true,
+  extraTime: true,
+  team: true,
+  playerId: true,
+  playerName: true,
+  assistPlayerId: true,
+  assistPlayerName: true,
+  description: true,
+  isSimulated: true,
+  scheduledTime: true,
+  eventData: true,
+  orderIndex: true,
+}).extend({
+  type: z.enum(['goal', 'yellow_card', 'red_card', 'substitution', 'penalty', 'corner', 'freekick', 'offside', 'foul']),
+  minute: z.number().min(0).max(120),
+  second: z.number().min(0).max(59).default(0),
+  extraTime: z.number().min(0).max(30).optional(),
+  team: z.enum(['home', 'away']),
+  scheduledTime: z.string().or(z.date()).transform((val) => 
+    typeof val === 'string' ? new Date(val) : val
+  ).optional(),
+  orderIndex: z.number().min(0).default(0),
 });
 
 // Market schemas
@@ -708,6 +827,9 @@ export type AdminSession = typeof adminSessions.$inferSelect;
 
 export type Match = typeof matches.$inferSelect;
 export type InsertMatch = z.infer<typeof insertMatchSchema>;
+
+export type MatchEvent = typeof matchEvents.$inferSelect;
+export type InsertMatchEvent = z.infer<typeof insertMatchEventSchema>;
 
 export type Market = typeof markets.$inferSelect;
 export type InsertMarket = z.infer<typeof insertMarketSchema>;
