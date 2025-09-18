@@ -1,0 +1,98 @@
+**Prompt for Replit: Updating Admin Panel Matches & Markets Page**
+
+Replit, please update the **Admin Panel** at route `/prime-admin` to implement the following detailed features for the **Matches & Markets** page:
+
+---
+
+### 1. Matches Table (Full Sports Coverage)
+
+* Create a **dynamic Matches Table** that lists matches for **all sports provided by the SportMonks API**.
+* The table should:
+
+  * Group matches by **Sport** (Football, Basketball, Tennis, etc.).
+  * Within each sport, group matches by **League**.
+  * Under each league, display all **matches (fixtures)**.
+  * Clearly indicate **Live matches** (highlight in red or add a LIVE badge) vs **Pre-match fixtures**.
+  * Columns should include:
+
+    * Sport Name
+    * League Name
+    * Home Team vs Away Team
+    * Kickoff Time
+    * Odds Summary (main odds like 1X2)
+    * Status (Live, Pre-match, Finished)
+    * Admin Actions (Edit | Override | Delete)
+
+---
+
+### 2. Create Match Button & Form
+
+* Add a **"Create Match" button** above the Matches Table.
+* On click, open a **form modal or drawer** with the following fields:
+
+#### Form Fields:
+
+1. **Sport Type** (dropdown: Football, Basketball, Tennis, etc.).
+2. **League Name** (text input or select existing leagues).
+3. **Home Team** (text input).
+4. **Away Team** (text input).
+5. **Kickoff Time** (datetime picker).
+6. **Odds Setup**:
+
+   * Admin can enter odds manually for markets such as:
+
+     * 1X2 (Home, Draw, Away)
+     * Over/Under Goals
+     * Both Teams To Score
+     * Handicap Odds
+   * Allow multiple odds markets to be configured.
+7. **Result Simulation**:
+
+   * Admin can pre-set the **match outcome**.
+   * Options to add **goal events**: which team scored, and at what time (minute).
+   * This enables **simulation of the match** once kickoff time arrives, behaving like a live match.
+
+#### Behavior:
+
+* Once created, the manual match should:
+
+  * Appear in the Matches Table alongside API-fetched matches.
+  * Be available for users to bet on, with the same odds and markets as API matches.
+  * Transition from Pre-match → Live → Finished automatically based on the **Kickoff Time and simulated events**.
+
+---
+
+### 3. Admin Match Actions
+
+* For both API and manually created matches, provide **Admin Actions**:
+
+  * **Edit Match** → Update odds, kickoff time, markets, or results.
+  * **Override Result** → Manually settle the match and update bets.
+  * **Delete Match** → Remove match completely.
+
+---
+
+### 4. Security & Data Handling
+
+* Ensure all create/update/delete actions are **authenticated** and **logged** in the admin audit trail.
+* Matches created manually should be tagged as `manual_match = true` in the database.
+* Make sure results updates trigger bet settlement workflows.
+
+---
+
+### 5. UI/UX Requirements
+
+* Matches Table must be **scrollable, paginated, and searchable**.
+* Use **badges and highlights** for Live/Pre-match.
+* Keep consistent styling with the rest of the Admin Panel (sidebar, header, theme).
+* Form should have **validation** (e.g., kickoff time cannot be in the past, odds must be valid numbers).
+
+---
+
+✅ With these updates, the Admin Panel will:
+
+* Allow admins to view all API matches grouped by sport/league.
+* Allow creation of manual matches across any sport.
+* Support full odds and market setup.
+* Support result simulation to behave like real matches.
+* Integrate seamlessly into the betting flow for users.
