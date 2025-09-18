@@ -223,155 +223,32 @@ export class PDFReportService {
    * Generate GGR trend chart
    */
   private async generateGGRChart(dailyData: Array<{ day: number; stakeCents: number; ggrCents: number; }>): Promise<Buffer> {
-    const config: ChartConfiguration = {
-      type: 'line',
-      data: {
-        labels: dailyData.map(d => `Day ${d.day}`),
-        datasets: [
-          {
-            label: 'Stake (£)',
-            data: dailyData.map(d => d.stakeCents / 100),
-            borderColor: '#3B82F6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            tension: 0.4
-          },
-          {
-            label: 'GGR (£)',
-            data: dailyData.map(d => d.ggrCents / 100),
-            borderColor: '#10B981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            tension: 0.4
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          title: {
-            display: true,
-            text: 'Daily Stake vs GGR Trend'
-          },
-          legend: {
-            position: 'top'
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              callback: function(value) {
-                return '£' + Number(value).toLocaleString();
-              }
-            }
-          }
-        }
-      }
-    };
-    
-    return await this.chartJSCanvas.renderToBuffer(config);
+    // Chart generation disabled for system compatibility
+    return Buffer.alloc(0);
   }
   
   /**
    * Generate turnover pie chart by sport
    */
   private async generateTurnoverPieChart(sportsData: Array<{ sport: string; turnoverCents: number; }>): Promise<Buffer> {
-    const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
-    
-    const config: ChartConfiguration = {
-      type: 'doughnut',
-      data: {
-        labels: sportsData.map(s => s.sport),
-        datasets: [{
-          data: sportsData.map(s => s.turnoverCents / 100),
-          backgroundColor: colors.slice(0, sportsData.length),
-          borderWidth: 2,
-          borderColor: '#fff'
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          title: {
-            display: true,
-            text: 'Turnover Distribution by Sport'
-          },
-          legend: {
-            position: 'right'
-          }
-        }
-      }
-    };
-    
-    return await this.chartJSCanvas.renderToBuffer(config);
+    // Chart generation disabled for system compatibility
+    return Buffer.alloc(0);
   }
   
   /**
    * Generate payout ratio chart
    */
   private async generatePayoutChart(payoutData: { winningBets: number; losingBets: number; payoutRatio: number; }): Promise<Buffer> {
-    const config: ChartConfiguration = {
-      type: 'doughnut',
-      data: {
-        labels: ['Winning Bets', 'Losing Bets'],
-        datasets: [{
-          data: [payoutData.winningBets, payoutData.losingBets],
-          backgroundColor: ['#10B981', '#EF4444'],
-          borderWidth: 2,
-          borderColor: '#fff'
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          title: {
-            display: true,
-            text: `Bet Outcomes (Payout Ratio: ${(payoutData.payoutRatio * 100).toFixed(1)}%)`
-          }
-        }
-      }
-    };
-    
-    return await this.chartJSCanvas.renderToBuffer(config);
+    // Chart generation disabled for system compatibility
+    return Buffer.alloc(0);
   }
   
   /**
    * Generate top winners chart
    */
   private async generateTopWinnersChart(winnersData: Array<{ username: string; netWinningsCents: number; }>): Promise<Buffer> {
-    const top10 = winnersData.slice(0, 10);
-    
-    const config: ChartConfiguration = {
-      type: 'bar',
-      data: {
-        labels: top10.map(w => w.username),
-        datasets: [{
-          label: 'Net Winnings (£)',
-          data: top10.map(w => w.netWinningsCents / 100),
-          backgroundColor: top10.map(w => w.netWinningsCents >= 0 ? '#10B981' : '#EF4444'),
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          title: {
-            display: true,
-            text: 'Top 10 Players by Net Winnings'
-          }
-        },
-        scales: {
-          y: {
-            ticks: {
-              callback: function(value) {
-                return '£' + Number(value).toLocaleString();
-              }
-            }
-          }
-        }
-      }
-    };
-    
-    return await this.chartJSCanvas.renderToBuffer(config);
+    // Chart generation disabled for system compatibility
+    return Buffer.alloc(0);
   }
 
   /**
