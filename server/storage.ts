@@ -1,10 +1,10 @@
-import { 
-  type User, 
-  type InsertUser, 
-  type Bet, 
+import {
+  type User,
+  type InsertUser,
+  type Bet,
   type InsertBet,
   type BetSelection,
-  type InsertBetSelection, 
+  type InsertBetSelection,
   type UserFavorite,
   type InsertFavorite,
   type Transaction,
@@ -14,7 +14,7 @@ import {
   type InsertAdminUser,
   type AdminSession,
   type AuditLog,
-  type InsertAuditLog
+  type InsertAuditLog,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
@@ -30,19 +30,29 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  updateUserProfile(userId: string, updates: Partial<InsertUser>): Promise<User | undefined>;
-  updateUserBalance(userId: string, newBalanceCents: number): Promise<User | undefined>;
-  
+  updateUserProfile(
+    userId: string,
+    updates: Partial<InsertUser>,
+  ): Promise<User | undefined>;
+  updateUserBalance(
+    userId: string,
+    newBalanceCents: number,
+  ): Promise<User | undefined>;
+
   // Bet operations
   createBet(bet: InsertBet & { userId: string }): Promise<Bet>;
   getBet(id: string): Promise<Bet | undefined>;
   getUserBets(userId: string, limit?: number): Promise<Bet[]>;
-  updateBetStatus(betId: string, status: string, actualWinningsCents?: number): Promise<Bet | undefined>;
-  
+  updateBetStatus(
+    betId: string,
+    status: string,
+    actualWinningsCents?: number,
+  ): Promise<Bet | undefined>;
+
   // Atomic bet placement - ensures transaction integrity
   placeBetAtomic(params: {
     userId: string;
-    betType: 'single' | 'express' | 'system';
+    betType: "single" | "express" | "system";
     totalStakeCents: number;
     selections: Array<{
       fixtureId: string;
@@ -61,85 +71,131 @@ export interface IStorage {
     transaction?: Transaction;
     error?: string;
   }>;
-  
+
   // Bet selection operations
   createBetSelection(selection: InsertBetSelection): Promise<BetSelection>;
   getBetSelections(betId: string): Promise<BetSelection[]>;
-  updateSelectionStatus(selectionId: string, status: string, result?: string): Promise<BetSelection | undefined>;
-  
+  updateSelectionStatus(
+    selectionId: string,
+    status: string,
+    result?: string,
+  ): Promise<BetSelection | undefined>;
+
   // Favorites operations
-  addFavorite(favorite: InsertFavorite & { userId: string }): Promise<UserFavorite>;
+  addFavorite(
+    favorite: InsertFavorite & { userId: string },
+  ): Promise<UserFavorite>;
   removeFavorite(userId: string, entityId: string): Promise<boolean>;
   getUserFavorites(userId: string): Promise<UserFavorite[]>;
-  
+
   // Transaction operations
-  createTransaction(transaction: InsertTransaction & { userId: string }): Promise<Transaction>;
+  createTransaction(
+    transaction: InsertTransaction & { userId: string },
+  ): Promise<Transaction>;
   getUserTransactions(userId: string, limit?: number): Promise<Transaction[]>;
-  
+
   // Session operations
-  createSession(userId: string, sessionToken: string, expiresAt: Date, ipAddress?: string, userAgent?: string): Promise<UserSession>;
+  createSession(
+    userId: string,
+    sessionToken: string,
+    expiresAt: Date,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<UserSession>;
   getSession(sessionToken: string): Promise<UserSession | undefined>;
   deleteSession(sessionToken: string): Promise<boolean>;
-  
+
   // Settlement operations
   getPendingBets(): Promise<Bet[]>;
-  
+
   // Match management operations
-  getMatchesByTeamsAndTime(homeTeamId: string, awayTeamId: string, kickoffTime: Date): Promise<any[]>;
+  getMatchesByTeamsAndTime(
+    homeTeamId: string,
+    awayTeamId: string,
+    kickoffTime: Date,
+  ): Promise<any[]>;
   createMatch(match: any): Promise<any>;
   getMatch(id: string): Promise<any>;
   updateMatch(id: string, updates: any): Promise<any>;
   softDeleteMatch(id: string, adminId: string): Promise<void>;
   getActiveBetsByMatch(matchId: string): Promise<Bet[]>;
-  
+
   // Market management operations
   createMarket(market: any): Promise<any>;
   updateMarket(id: string, updates: any): Promise<any>;
-  
+
   // Exposure operations
   getMatchExposure(matchId: string): Promise<any>;
   getMarketExposure(marketId: string): Promise<any>;
   getOverallExposure(limit: number): Promise<any>;
-  
+
   // Promotions operations
   getPromotions(params: any): Promise<any>;
   getPromotionByCode(code: string): Promise<any>;
   createPromotion(promotion: any): Promise<any>;
   updatePromotion(id: string, updates: any): Promise<any>;
-  
+
   // Financial reporting operations
   getDailyFinancialReport(date: Date): Promise<any>;
   getMonthlyFinancialReport(year: number, month: number): Promise<any>;
   getPlayerActivityReport(params: any): Promise<any>;
   exportFinancialData(params: any): Promise<any>;
-  
+
   // Admin operations
   getAdminUser(id: string): Promise<AdminUser | undefined>;
   getAdminUserByUsername(username: string): Promise<AdminUser | undefined>;
   getAdminUserByEmail(email: string): Promise<AdminUser | undefined>;
   createAdminUser(admin: InsertAdminUser): Promise<AdminUser>;
-  updateAdminUser(adminId: string, updates: Partial<InsertAdminUser>): Promise<AdminUser | undefined>;
-  updateAdminLoginAttempts(adminId: string, attempts: number, lockedUntil?: Date): Promise<AdminUser | undefined>;
-  
+  updateAdminUser(
+    adminId: string,
+    updates: Partial<InsertAdminUser>,
+  ): Promise<AdminUser | undefined>;
+  updateAdminLoginAttempts(
+    adminId: string,
+    attempts: number,
+    lockedUntil?: Date,
+  ): Promise<AdminUser | undefined>;
+
   // Admin session operations
-  createAdminSession(adminId: string, sessionToken: string, expiresAt: Date, ipAddress?: string, userAgent?: string): Promise<AdminSession>;
+  createAdminSession(
+    adminId: string,
+    sessionToken: string,
+    expiresAt: Date,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<AdminSession>;
   getAdminSession(sessionToken: string): Promise<AdminSession | undefined>;
-  updateAdminSession(sessionId: string, updates: Partial<AdminSession>): Promise<AdminSession | undefined>;
+  updateAdminSession(
+    sessionId: string,
+    updates: Partial<AdminSession>,
+  ): Promise<AdminSession | undefined>;
   deleteAdminSession(sessionToken: string): Promise<boolean>;
   deleteAllAdminSessions(adminId: string): Promise<boolean>;
-  
+
   // Audit operations
   createAuditLog(auditLog: InsertAuditLog): Promise<AuditLog>;
   getAuditLogs(limit?: number, offset?: number): Promise<AuditLog[]>;
-  
+
   // 2FA operations
-  enableAdmin2FA(adminId: string, totpSecret: string): Promise<AdminUser | undefined>;
+  enableAdmin2FA(
+    adminId: string,
+    totpSecret: string,
+  ): Promise<AdminUser | undefined>;
   disableAdmin2FA(adminId: string): Promise<AdminUser | undefined>;
-  
+
   // RBAC operations
   getAdminUsers(limit?: number, offset?: number): Promise<AdminUser[]>;
   getAdminsByRole(role: string): Promise<AdminUser[]>;
-  updateAdminRole(adminId: string, newRole: string, updatedBy: string): Promise<{ success: boolean; admin?: AdminUser; auditLog?: AuditLog; error?: string }>;
+  updateAdminRole(
+    adminId: string,
+    newRole: string,
+    updatedBy: string,
+  ): Promise<{
+    success: boolean;
+    admin?: AdminUser;
+    auditLog?: AuditLog;
+    error?: string;
+  }>;
   searchAdminUsers(params: {
     query?: string;
     role?: string;
@@ -161,11 +217,17 @@ export interface IStorage {
     limit?: number;
     offset?: number;
   }): Promise<{ bets: any[]; total: number }>;
-  
+
   // Force settlement and refund operations
-  forceBetSettlement(betId: string, outcome: 'win' | 'lose' | 'void', payoutCents: number): Promise<{ success: boolean; bet?: Bet; error?: string }>;
-  refundBet(betId: string): Promise<{ success: boolean; bet?: Bet; error?: string }>;
-  
+  forceBetSettlement(
+    betId: string,
+    outcome: "win" | "lose" | "void",
+    payoutCents: number,
+  ): Promise<{ success: boolean; bet?: Bet; error?: string }>;
+  refundBet(
+    betId: string,
+  ): Promise<{ success: boolean; bet?: Bet; error?: string }>;
+
   // Export functionality
   exportBetsToCSV(params?: {
     search?: string;
@@ -185,9 +247,12 @@ export interface IStorage {
   reorderMarkets(matchId: string, marketOrder: string[]): Promise<void>;
 
   // ===================== MISSING REPORTING METHODS =====================
-  
+
   // Daily/Monthly GGR reports
-  getDailyGgrReport(startDate: Date, endDate: Date): Promise<{
+  getDailyGgrReport(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{
     date: string;
     totalStakeCents: number;
     totalPayoutsCents: number;
@@ -197,8 +262,11 @@ export interface IStorage {
     averageStakeCents: number;
     winRate: number;
   }>;
-  
-  getMonthlyGgrReport(startDate: Date, endDate: Date): Promise<{
+
+  getMonthlyGgrReport(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{
     year: number;
     month: number;
     totalStakeCents: number;
@@ -217,9 +285,14 @@ export interface IStorage {
       bets: number;
     }>;
   }>;
-  
+
   // Sport/League turnover reports
-  getTurnoverBySportReport(startDate: Date, endDate: Date, sport?: string, league?: string): Promise<{
+  getTurnoverBySportReport(
+    startDate: Date,
+    endDate: Date,
+    sport?: string,
+    league?: string,
+  ): Promise<{
     sports: Array<{
       sport: string;
       turnoverCents: number;
@@ -230,9 +303,12 @@ export interface IStorage {
     totalBets: number;
     totalGgrCents: number;
   }>;
-  
+
   // Payout ratio reports
-  getPayoutRatioReport(startDate: Date, endDate: Date): Promise<{
+  getPayoutRatioReport(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{
     totalStakeCents: number;
     totalPayoutsCents: number;
     payoutRatio: number;
@@ -241,9 +317,13 @@ export interface IStorage {
     losingBets: number;
     winRate: number;
   }>;
-  
+
   // Top winners reports
-  getTopWinnersReport(startDate: Date, endDate: Date, limit: number): Promise<{
+  getTopWinnersReport(
+    startDate: Date,
+    endDate: Date,
+    limit: number,
+  ): Promise<{
     winners: Array<{
       userId: string;
       username: string;
@@ -251,9 +331,12 @@ export interface IStorage {
       betCount: number;
     }>;
   }>;
-  
+
   // Chargeback reports
-  getChargebackReport(startDate: Date, endDate: Date): Promise<{
+  getChargebackReport(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{
     chargebacks: Array<{
       id: string;
       userId: string;
@@ -266,7 +349,7 @@ export interface IStorage {
     totalAmountCents: number;
     count: number;
   }>;
-  
+
   // Custom report generation
   generateCustomReport(params: {
     reportType: string;
@@ -281,45 +364,50 @@ export interface IStorage {
     summary: any;
     generatedAt: Date;
   }>;
-  
+
   // Export report data
   exportReportData(params: {
     reportType: string;
-    format: 'csv' | 'excel' | 'json';
+    format: "csv" | "excel" | "json";
     dateFrom: Date;
     dateTo: Date;
     filters?: any;
   }): Promise<string>;
-  
+
   // Scheduled reports
   createScheduledReport(report: {
     name: string;
     reportType: string;
-    frequency: 'daily' | 'weekly' | 'monthly';
+    frequency: "daily" | "weekly" | "monthly";
     recipients: string[];
     filters?: any;
-    format?: 'csv' | 'excel' | 'pdf';
+    format?: "csv" | "excel" | "pdf";
   }): Promise<any>;
-  
+
   // ===================== MISSING DASHBOARD METHODS =====================
-  
+
   // Dashboard alerts
-  getDashboardAlerts(): Promise<Array<{
-    id: string;
-    type: string;
-    title: string;
-    message: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
-    timestamp: Date;
-    isResolved: boolean;
-    actionRequired: boolean;
-  }>>;
-  
-  resolveAlert(alertId: string, adminId: string): Promise<{
+  getDashboardAlerts(): Promise<
+    Array<{
+      id: string;
+      type: string;
+      title: string;
+      message: string;
+      severity: "low" | "medium" | "high" | "critical";
+      timestamp: Date;
+      isResolved: boolean;
+      actionRequired: boolean;
+    }>
+  >;
+
+  resolveAlert(
+    alertId: string,
+    adminId: string,
+  ): Promise<{
     success: boolean;
     message: string;
   }>;
-  
+
   // Notification settings
   updateNotificationSettings(settings: {
     emailSettings: any;
@@ -329,14 +417,17 @@ export interface IStorage {
     updatedBy: string;
     updatedAt: Date;
   }): Promise<any>;
-  
+
   // Dashboard metrics
   getTotalUsers(): Promise<number>;
   getNewUsersCount(since: Date): Promise<number>;
   getTotalBets(): Promise<number>;
   getPendingBetsCount(): Promise<number>;
   getBetsCount(since: Date): Promise<number>;
-  getTurnoverMetrics(todayStart: Date, weekStart: Date): Promise<{
+  getTurnoverMetrics(
+    todayStart: Date,
+    weekStart: Date,
+  ): Promise<{
     todayCents: number;
     weekCents: number;
     totalCents: number;
@@ -345,36 +436,40 @@ export interface IStorage {
     totalCents: number;
     highRiskCount: number;
   }>;
-  getRecentActivity(limit: number): Promise<Array<{
-    id: string;
-    type: string;
-    title?: string;
-    description?: string;
-    action?: string;
-    details?: string;
-    timestamp?: Date;
-    createdAt: Date;
-    userId?: string;
-    adminId?: string;
-    betId?: string;
-    amount?: number;
-    severity?: string;
-  }>>;
-  getSystemAlerts(): Promise<Array<{
-    id: string;
-    type: string;
-    title: string;
-    message?: string;
-    description?: string;
-    severity: string;
-    timestamp?: Date;
-    createdAt: Date;
-    isResolved: boolean;
-    actionRequired: boolean;
-  }>>;
-  
+  getRecentActivity(limit: number): Promise<
+    Array<{
+      id: string;
+      type: string;
+      title?: string;
+      description?: string;
+      action?: string;
+      details?: string;
+      timestamp?: Date;
+      createdAt: Date;
+      userId?: string;
+      adminId?: string;
+      betId?: string;
+      amount?: number;
+      severity?: string;
+    }>
+  >;
+  getSystemAlerts(): Promise<
+    Array<{
+      id: string;
+      type: string;
+      title: string;
+      message?: string;
+      description?: string;
+      severity: string;
+      timestamp?: Date;
+      createdAt: Date;
+      isResolved: boolean;
+      actionRequired: boolean;
+    }>
+  >;
+
   // ===================== MISSING MATCH/MARKET METHODS =====================
-  
+
   getAllMatches(params?: {
     search?: string;
     status?: string;
@@ -388,18 +483,18 @@ export interface IStorage {
     matches: any[];
     total: number;
   }>;
-  
+
   createMarketOutcome(outcome: {
     marketId: string;
     name: string;
     odds: string;
     isActive: boolean;
   }): Promise<any>;
-  
+
   updateMarketOutcomeOdds(outcomeId: string, odds: string): Promise<any>;
-  
+
   // ===================== MISSING USER METHODS =====================
-  
+
   searchUsersData(params: {
     query?: string;
     isActive?: boolean;
@@ -411,7 +506,7 @@ export interface IStorage {
     users: any[];
     total: number;
   }>;
-  
+
   getUserLimits(userId: string): Promise<{
     dailyDepositLimitCents: number;
     weeklyDepositLimitCents: number;
@@ -420,22 +515,25 @@ export interface IStorage {
     sessionTimeLimitMinutes: number;
     cooldownPeriodHours: number;
   } | null>;
-  
-  upsertUserLimits(userId: string, limits: {
-    dailyDepositLimitCents?: number;
-    weeklyDepositLimitCents?: number;
-    monthlyDepositLimitCents?: number;
-    maxBetLimitCents?: number;
-    sessionTimeLimitMinutes?: number;
-    cooldownPeriodHours?: number;
-  }): Promise<any>;
-  
+
+  upsertUserLimits(
+    userId: string,
+    limits: {
+      dailyDepositLimitCents?: number;
+      weeklyDepositLimitCents?: number;
+      monthlyDepositLimitCents?: number;
+      maxBetLimitCents?: number;
+      sessionTimeLimitMinutes?: number;
+      cooldownPeriodHours?: number;
+    },
+  ): Promise<any>;
+
   // ===================== MISSING FINANCIAL METHODS =====================
-  
+
   calculateGGRReport(params: {
     dateFrom: Date;
     dateTo: Date;
-    groupBy?: 'day' | 'week' | 'month';
+    groupBy?: "day" | "week" | "month";
   }): Promise<{
     totalStakeCents: number;
     totalPayoutsCents: number;
@@ -456,7 +554,7 @@ export interface IStorage {
     type: string;
     title: string;
     message: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
+    severity: "low" | "medium" | "high" | "critical";
     actionRequired?: boolean;
   }): Promise<any>;
 }
@@ -487,77 +585,83 @@ export class MemStorage implements IStorage {
   // Create demo account for testing
   async initializeDemoAccount() {
     // Only create demo account in demo mode - critical security check
-    if (process.env.DEMO_MODE !== 'true') {
+    if (process.env.DEMO_MODE !== "true") {
       return;
     }
-    
+
     // Warn if demo mode is enabled in production-like environments
-    if (process.env.NODE_ENV === 'production') {
-      console.warn('⚠️  WARNING: DEMO_MODE is enabled in production environment! This is a security risk.');
-      console.warn('⚠️  Demo accounts should never be available in production.');
+    if (process.env.NODE_ENV === "production") {
+      console.warn(
+        "⚠️  WARNING: DEMO_MODE is enabled in production environment! This is a security risk.",
+      );
+      console.warn(
+        "⚠️  Demo accounts should never be available in production.",
+      );
       return; // Don't create demo accounts in production
     }
-    
+
     try {
       const demoUsername = "demo";
       const demoPassword = "demo123";
       const demoEmail = "demo@primestake.com";
-      
+
       // Check if demo user already exists (idempotent seeding)
       const existingUser = await this.getUserByUsername(demoUsername);
       if (existingUser) {
-        console.log('Demo account already exists');
+        console.log("Demo account already exists");
       } else {
         // Hash password the same way as registration
         const hashedPassword = await bcrypt.hash(demoPassword, 12);
-        
+
         // Create demo user
         const demoUser = await this.createUser({
           username: demoUsername,
           email: demoEmail,
           password: hashedPassword,
           firstName: "Demo",
-          lastName: "User"
+          lastName: "User",
         });
-        
+
         // Give demo user initial balance of £500 (50000 cents)
         await this.updateUserBalance(demoUser.id, 50000);
-        
+
         // Security: Never log credentials in plaintext
-        console.log('Demo account created successfully with initial balance');
+        console.log("Demo account created successfully with initial balance");
       }
-      
+
       // Create demo admin account with unique credentials to avoid conflicts with AdminSeeder
       const adminUsername = "demo-storage-admin"; // Unique username to avoid conflicts
       const adminPassword = "admin123456"; // Strong password for admin
       const adminEmail = "demo.storage.admin@primestake.com"; // Unique email to avoid conflicts
-      
+
       // Check if demo admin already exists (idempotent)
       const existingAdmin = await this.getAdminUserByUsername(adminUsername);
       if (existingAdmin) {
-        console.log('Demo storage admin account already exists');
+        console.log("Demo storage admin account already exists");
         return;
       }
-      
+
       // Also check by email to ensure no conflicts
       const existingAdminByEmail = await this.getAdminUserByEmail(adminEmail);
       if (existingAdminByEmail) {
-        console.log('Demo storage admin account with this email already exists');
+        console.log(
+          "Demo storage admin account with this email already exists",
+        );
         return;
       }
-      
-      // Create demo admin user  
+
+      // Create demo admin user
       const hashedAdminPassword = await argon2.hash(adminPassword);
       const demoAdmin = await this.createAdminUser({
         username: adminUsername,
         email: adminEmail,
         passwordHash: hashedAdminPassword,
-        role: 'admin'
+        role: "admin",
       });
-      
-      console.log('Demo storage admin account created successfully');
+
+      console.log("Demo storage admin account created successfully");
     } catch (error) {
-      console.error('Failed to create demo accounts:', error);
+      console.error("Failed to create demo accounts:", error);
     }
   }
 
@@ -573,53 +677,61 @@ export class MemStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === email,
-    );
+    return Array.from(this.users.values()).find((user) => user.email === email);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
     const now = new Date();
-    const user: User = { 
-      ...insertUser, 
+    const user: User = {
+      ...insertUser,
       id,
       firstName: insertUser.firstName || null,
       lastName: insertUser.lastName || null,
       balance: 0, // Start with 0 cents
       isActive: true,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
     this.users.set(id, user);
     return user;
   }
 
-  async updateUserProfile(userId: string, updates: Partial<InsertUser>): Promise<User | undefined> {
+  async updateUserProfile(
+    userId: string,
+    updates: Partial<InsertUser>,
+  ): Promise<User | undefined> {
     const user = this.users.get(userId);
     if (!user) return undefined;
-    
-    const updatedUser = { 
-      ...user, 
-      ...updates, 
+
+    const updatedUser = {
+      ...user,
+      ...updates,
       id: user.id, // Ensure ID cannot be changed
       balance: user.balance, // Ensure balance cannot be changed via profile update
       createdAt: user.createdAt, // Ensure creation date cannot be changed
-      updatedAt: new Date() 
+      updatedAt: new Date(),
     };
     this.users.set(userId, updatedUser);
     return updatedUser;
   }
 
-  async updateUserBalance(userId: string, newBalanceCents: number): Promise<User | undefined> {
+  async updateUserBalance(
+    userId: string,
+    newBalanceCents: number,
+  ): Promise<User | undefined> {
     const user = this.users.get(userId);
     if (!user) return undefined;
-    
+
     if (newBalanceCents < 0) {
-      throw new Error('Balance cannot be negative');
+      throw new Error("Balance cannot be negative");
     }
-    
-    const updatedUser = { ...user, balance: newBalanceCents, updatedAt: new Date() };
+
+    const updatedUser = {
+      ...user,
+      balance: newBalanceCents,
+      updatedAt: new Date(),
+    };
     this.users.set(userId, updatedUser);
     return updatedUser;
   }
@@ -631,10 +743,10 @@ export class MemStorage implements IStorage {
     const newBet: Bet = {
       id,
       ...bet,
-      status: 'pending',
+      status: "pending",
       placedAt: now,
       settledAt: null,
-      actualWinnings: 0 // Start with 0 cents
+      actualWinnings: 0, // Start with 0 cents
     };
     this.bets.set(id, newBet);
     return newBet;
@@ -646,59 +758,76 @@ export class MemStorage implements IStorage {
 
   async getUserBets(userId: string, limit: number = 50): Promise<Bet[]> {
     return Array.from(this.bets.values())
-      .filter(bet => bet.userId === userId)
+      .filter((bet) => bet.userId === userId)
       .sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime())
       .slice(0, limit);
   }
 
-  async updateBetStatus(betId: string, status: string, actualWinningsCents?: number): Promise<Bet | undefined> {
+  async updateBetStatus(
+    betId: string,
+    status: string,
+    actualWinningsCents?: number,
+  ): Promise<Bet | undefined> {
     const bet = this.bets.get(betId);
     if (!bet) return undefined;
-    
-    const updatedBet = { 
-      ...bet, 
-      status, 
+
+    const updatedBet = {
+      ...bet,
+      status,
       settledAt: new Date(),
-      actualWinnings: actualWinningsCents ?? bet.actualWinnings
+      actualWinnings: actualWinningsCents ?? bet.actualWinnings,
     };
     this.bets.set(betId, updatedBet);
     return updatedBet;
   }
 
   // Bet selection operations
-  async createBetSelection(selection: InsertBetSelection): Promise<BetSelection> {
+  async createBetSelection(
+    selection: InsertBetSelection,
+  ): Promise<BetSelection> {
     const id = randomUUID();
     const newSelection: BetSelection = {
       id,
       ...selection,
-      status: 'pending',
-      result: null
+      status: "pending",
+      result: null,
     };
     this.betSelections.set(id, newSelection);
     return newSelection;
   }
 
   async getBetSelections(betId: string): Promise<BetSelection[]> {
-    return Array.from(this.betSelections.values())
-      .filter(selection => selection.betId === betId);
+    return Array.from(this.betSelections.values()).filter(
+      (selection) => selection.betId === betId,
+    );
   }
 
-  async updateSelectionStatus(selectionId: string, status: string, result?: string): Promise<BetSelection | undefined> {
+  async updateSelectionStatus(
+    selectionId: string,
+    status: string,
+    result?: string,
+  ): Promise<BetSelection | undefined> {
     const selection = this.betSelections.get(selectionId);
     if (!selection) return undefined;
-    
-    const updatedSelection = { ...selection, status, result: result || selection.result };
+
+    const updatedSelection = {
+      ...selection,
+      status,
+      result: result || selection.result,
+    };
     this.betSelections.set(selectionId, updatedSelection);
     return updatedSelection;
   }
 
   // Favorites operations
-  async addFavorite(favorite: InsertFavorite & { userId: string }): Promise<UserFavorite> {
+  async addFavorite(
+    favorite: InsertFavorite & { userId: string },
+  ): Promise<UserFavorite> {
     const id = randomUUID();
     const newFavorite: UserFavorite = {
       id,
       ...favorite,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
     this.userFavorites.set(id, newFavorite);
     return newFavorite;
@@ -706,10 +835,10 @@ export class MemStorage implements IStorage {
 
   async removeFavorite(userId: string, entityId: string): Promise<boolean> {
     const favorites = Array.from(this.userFavorites.entries());
-    const favoriteEntry = favorites.find(([_, fav]) => 
-      fav.userId === userId && fav.entityId === entityId
+    const favoriteEntry = favorites.find(
+      ([_, fav]) => fav.userId === userId && fav.entityId === entityId,
     );
-    
+
     if (favoriteEntry) {
       this.userFavorites.delete(favoriteEntry[0]);
       return true;
@@ -719,34 +848,45 @@ export class MemStorage implements IStorage {
 
   async getUserFavorites(userId: string): Promise<UserFavorite[]> {
     return Array.from(this.userFavorites.values())
-      .filter(favorite => favorite.userId === userId)
+      .filter((favorite) => favorite.userId === userId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
   // Transaction operations
-  async createTransaction(transaction: InsertTransaction & { userId: string }): Promise<Transaction> {
+  async createTransaction(
+    transaction: InsertTransaction & { userId: string },
+  ): Promise<Transaction> {
     const id = randomUUID();
     const newTransaction: Transaction = {
       id,
       ...transaction,
       reference: transaction.reference || null,
       description: transaction.description || null,
-      status: 'completed',
-      createdAt: new Date()
+      status: "completed",
+      createdAt: new Date(),
     };
     this.transactions.set(id, newTransaction);
     return newTransaction;
   }
 
-  async getUserTransactions(userId: string, limit: number = 100): Promise<Transaction[]> {
+  async getUserTransactions(
+    userId: string,
+    limit: number = 100,
+  ): Promise<Transaction[]> {
     return Array.from(this.transactions.values())
-      .filter(transaction => transaction.userId === userId)
+      .filter((transaction) => transaction.userId === userId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit);
   }
 
   // Session operations
-  async createSession(userId: string, sessionToken: string, expiresAt: Date, ipAddress?: string, userAgent?: string): Promise<UserSession> {
+  async createSession(
+    userId: string,
+    sessionToken: string,
+    expiresAt: Date,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<UserSession> {
     const id = randomUUID();
     const session: UserSession = {
       id,
@@ -755,23 +895,24 @@ export class MemStorage implements IStorage {
       ipAddress: ipAddress || null,
       userAgent: userAgent || null,
       expiresAt,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
     this.sessions.set(id, session);
     return session;
   }
 
   async getSession(sessionToken: string): Promise<UserSession | undefined> {
-    return Array.from(this.sessions.values())
-      .find(session => session.sessionToken === sessionToken);
+    return Array.from(this.sessions.values()).find(
+      (session) => session.sessionToken === sessionToken,
+    );
   }
 
   async deleteSession(sessionToken: string): Promise<boolean> {
     const sessions = Array.from(this.sessions.entries());
-    const sessionEntry = sessions.find(([_, session]) => 
-      session.sessionToken === sessionToken
+    const sessionEntry = sessions.find(
+      ([_, session]) => session.sessionToken === sessionToken,
     );
-    
+
     if (sessionEntry) {
       this.sessions.delete(sessionEntry[0]);
       return true;
@@ -782,7 +923,7 @@ export class MemStorage implements IStorage {
   // Atomic bet placement - ensures transaction integrity
   async placeBetAtomic(params: {
     userId: string;
-    betType: 'single' | 'express' | 'system';
+    betType: "single" | "express" | "system";
     totalStakeCents: number;
     selections: Array<{
       fixtureId: string;
@@ -805,31 +946,34 @@ export class MemStorage implements IStorage {
       // Get user and validate balance
       const user = this.users.get(params.userId);
       if (!user || !user.isActive) {
-        return { success: false, error: 'User not found or inactive' };
+        return { success: false, error: "User not found or inactive" };
       }
 
       if (user.balance < params.totalStakeCents) {
-        return { success: false, error: 'Insufficient balance' };
+        return { success: false, error: "Insufficient balance" };
       }
 
       // Calculate total odds and potential winnings
-      const totalOdds = params.selections.reduce((acc, selection) => 
-        acc * parseFloat(selection.odds), 1
+      const totalOdds = params.selections.reduce(
+        (acc, selection) => acc * parseFloat(selection.odds),
+        1,
       );
-      
+
       if (totalOdds < 1.01 || totalOdds > 10000) {
-        return { success: false, error: 'Invalid total odds' };
+        return { success: false, error: "Invalid total odds" };
       }
 
-      const potentialWinningsCents = Math.round(params.totalStakeCents * totalOdds);
-      
+      const potentialWinningsCents = Math.round(
+        params.totalStakeCents * totalOdds,
+      );
+
       // Create bet record
       const bet = await this.createBet({
         userId: params.userId,
         type: params.betType,
         totalStake: params.totalStakeCents,
         potentialWinnings: potentialWinningsCents,
-        totalOdds: totalOdds.toFixed(4)
+        totalOdds: totalOdds.toFixed(4),
       });
 
       // Create bet selections with placeholder market/outcome IDs
@@ -841,35 +985,38 @@ export class MemStorage implements IStorage {
           homeTeam: selectionData.homeTeam,
           awayTeam: selectionData.awayTeam,
           league: selectionData.league,
-          marketId: 'placeholder-market-id', // TODO: Implement proper market lookup
-          outcomeId: 'placeholder-outcome-id', // TODO: Implement proper outcome lookup
+          marketId: "placeholder-market-id", // TODO: Implement proper market lookup
+          outcomeId: "placeholder-outcome-id", // TODO: Implement proper outcome lookup
           market: selectionData.market,
           selection: selectionData.selection,
-          odds: selectionData.odds
+          odds: selectionData.odds,
         });
         selections.push(selection);
       }
 
       // Update user balance (deduct stake)
       const newBalanceCents = user.balance - params.totalStakeCents;
-      const updatedUser = await this.updateUserBalance(params.userId, newBalanceCents);
-      
+      const updatedUser = await this.updateUserBalance(
+        params.userId,
+        newBalanceCents,
+      );
+
       if (!updatedUser) {
         // Rollback: remove bet and selections
         this.bets.delete(bet.id);
-        selections.forEach(s => this.betSelections.delete(s.id));
-        return { success: false, error: 'Failed to update user balance' };
+        selections.forEach((s) => this.betSelections.delete(s.id));
+        return { success: false, error: "Failed to update user balance" };
       }
 
       // Create transaction record
       const transaction = await this.createTransaction({
         userId: params.userId,
-        type: 'bet_stake',
+        type: "bet_stake",
         amount: -params.totalStakeCents,
         balanceBefore: user.balance,
         balanceAfter: newBalanceCents,
         reference: bet.id,
-        description: `Bet placed: ${bet.type} bet with ${selections.length} selection(s)`
+        description: `Bet placed: ${bet.type} bet with ${selections.length} selection(s)`,
       });
 
       return {
@@ -877,21 +1024,22 @@ export class MemStorage implements IStorage {
         bet,
         selections,
         user: updatedUser,
-        transaction
+        transaction,
       };
-
     } catch (error) {
-      console.error('Atomic bet placement error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      console.error("Atomic bet placement error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }
 
   // Settlement operations
   async getPendingBets(): Promise<Bet[]> {
-    return Array.from(this.bets.values()).filter(bet => bet.status === 'pending');
+    return Array.from(this.bets.values()).filter(
+      (bet) => bet.status === "pending",
+    );
   }
 
   // Admin operations
@@ -899,36 +1047,38 @@ export class MemStorage implements IStorage {
     return this.adminUsers.get(id);
   }
 
-  async getAdminUserByUsername(username: string): Promise<AdminUser | undefined> {
+  async getAdminUserByUsername(
+    username: string,
+  ): Promise<AdminUser | undefined> {
     return Array.from(this.adminUsers.values()).find(
-      (admin) => admin.username === username
+      (admin) => admin.username === username,
     );
   }
 
   async getAdminUserByEmail(email: string): Promise<AdminUser | undefined> {
     return Array.from(this.adminUsers.values()).find(
-      (admin) => admin.email === email
+      (admin) => admin.email === email,
     );
   }
 
   async createAdminUser(insertAdmin: InsertAdminUser): Promise<AdminUser> {
     const id = randomUUID();
     const now = new Date();
-    
+
     // Hash password with Argon2
-    const passwordHash = await argon2.hash(insertAdmin.password || '', {
+    const passwordHash = await argon2.hash(insertAdmin.password || "", {
       type: argon2.argon2id,
       memoryCost: 2 ** 16,
       timeCost: 3,
       parallelism: 1,
     });
-    
+
     const admin: AdminUser = {
       id,
       username: insertAdmin.username,
       email: insertAdmin.email,
       passwordHash,
-      role: insertAdmin.role || 'support',
+      role: insertAdmin.role || "support",
       totpSecret: insertAdmin.totpSecret || null,
       isActive: true,
       lastLogin: null,
@@ -937,93 +1087,112 @@ export class MemStorage implements IStorage {
       ipWhitelist: (insertAdmin.ipWhitelist as string[]) || null,
       createdAt: now,
       updatedAt: now,
-      createdBy: null
+      createdBy: null,
     };
-    
+
     this.adminUsers.set(id, admin);
     return admin;
   }
 
-  async updateAdminUser(adminId: string, updates: Partial<InsertAdminUser>): Promise<AdminUser | undefined> {
+  async updateAdminUser(
+    adminId: string,
+    updates: Partial<InsertAdminUser>,
+  ): Promise<AdminUser | undefined> {
     const admin = this.adminUsers.get(adminId);
     if (!admin) return undefined;
-    
+
     const updatedAdmin: AdminUser = {
       ...admin,
       ...updates,
       id: admin.id, // Ensure ID cannot be changed
       createdAt: admin.createdAt, // Ensure creation date cannot be changed
       updatedAt: new Date(),
-      ipWhitelist: (updates.ipWhitelist as string[]) || admin.ipWhitelist
+      ipWhitelist: (updates.ipWhitelist as string[]) || admin.ipWhitelist,
     };
-    
+
     this.adminUsers.set(adminId, updatedAdmin);
     return updatedAdmin;
   }
 
-  async updateAdminLoginAttempts(adminId: string, attempts: number, lockedUntil?: Date): Promise<AdminUser | undefined> {
+  async updateAdminLoginAttempts(
+    adminId: string,
+    attempts: number,
+    lockedUntil?: Date,
+  ): Promise<AdminUser | undefined> {
     const admin = this.adminUsers.get(adminId);
     if (!admin) return undefined;
-    
+
     const updatedAdmin = {
       ...admin,
       loginAttempts: attempts,
       lockedUntil: lockedUntil || null,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
-    
+
     this.adminUsers.set(adminId, updatedAdmin);
     return updatedAdmin;
   }
 
   // Admin session operations
-  async createAdminSession(adminId: string, sessionToken: string, expiresAt: Date, ipAddress?: string, userAgent?: string): Promise<AdminSession> {
+  async createAdminSession(
+    adminId: string,
+    sessionToken: string,
+    expiresAt: Date,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<AdminSession> {
     const id = randomUUID();
     const now = new Date();
-    
+
     const session: AdminSession = {
       id,
       adminId,
       sessionToken,
-      refreshToken: '', // Deprecated - no longer used for security
+      refreshToken: "", // Deprecated - no longer used for security
       ipAddress: ipAddress || null,
       userAgent: userAgent || null,
       twoFactorVerified: false,
       isRevoked: false,
       expiresAt,
-      createdAt: now
+      createdAt: now,
     };
-    
+
     this.adminSessions.set(id, session);
     return session;
   }
 
-  async getAdminSession(sessionToken: string): Promise<AdminSession | undefined> {
-    return Array.from(this.adminSessions.values())
-      .find(session => session.sessionToken === sessionToken);
+  async getAdminSession(
+    sessionToken: string,
+  ): Promise<AdminSession | undefined> {
+    return Array.from(this.adminSessions.values()).find(
+      (session) => session.sessionToken === sessionToken,
+    );
   }
 
-  async updateAdminSession(sessionId: string, updates: Partial<AdminSession>): Promise<AdminSession | undefined> {
+  async updateAdminSession(
+    sessionId: string,
+    updates: Partial<AdminSession>,
+  ): Promise<AdminSession | undefined> {
     const session = this.adminSessions.get(sessionId);
     if (!session) return undefined;
-    
+
     const updatedSession = {
       ...session,
       ...updates,
       id: session.id, // Ensure ID cannot be changed
-      createdAt: session.createdAt // Ensure creation date cannot be changed
+      createdAt: session.createdAt, // Ensure creation date cannot be changed
     };
-    
+
     this.adminSessions.set(sessionId, updatedSession);
     return updatedSession;
   }
 
   async deleteAdminSession(sessionToken: string): Promise<boolean> {
     const sessions = Array.from(this.adminSessions.entries());
-    const sessionEntry = sessions.find(([_, session]) => 
-      session.sessionToken === sessionToken
+    const sessionEntry = sessions.find(
+      ([_, session]) => session.sessionToken === sessionToken,
     );
-    
+
     if (sessionEntry) {
       this.adminSessions.delete(sessionEntry[0]);
       return true;
@@ -1034,14 +1203,14 @@ export class MemStorage implements IStorage {
   async deleteAllAdminSessions(adminId: string): Promise<boolean> {
     let deletedAny = false;
     const sessions = Array.from(this.adminSessions.entries());
-    
+
     for (const [sessionId, session] of sessions) {
       if (session.adminId === adminId) {
         this.adminSessions.delete(sessionId);
         deletedAny = true;
       }
     }
-    
+
     return deletedAny;
   }
 
@@ -1049,7 +1218,7 @@ export class MemStorage implements IStorage {
   async createAuditLog(insertAuditLog: InsertAuditLog): Promise<AuditLog> {
     const id = randomUUID();
     const now = new Date();
-    
+
     const auditLog: AuditLog = {
       id,
       adminId: insertAuditLog.adminId,
@@ -1061,32 +1230,39 @@ export class MemStorage implements IStorage {
       note: insertAuditLog.note || null,
       ipAddress: insertAuditLog.ipAddress || null,
       userAgent: insertAuditLog.userAgent || null,
-      success: insertAuditLog.success !== undefined ? insertAuditLog.success : true,
+      success:
+        insertAuditLog.success !== undefined ? insertAuditLog.success : true,
       errorMessage: insertAuditLog.errorMessage || null,
-      createdAt: now
+      createdAt: now,
     };
-    
+
     this.auditLogs.set(id, auditLog);
     return auditLog;
   }
 
-  async getAuditLogs(limit: number = 50, offset: number = 0): Promise<AuditLog[]> {
+  async getAuditLogs(
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<AuditLog[]> {
     return Array.from(this.auditLogs.values())
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(offset, offset + limit);
   }
 
   // 2FA operations
-  async enableAdmin2FA(adminId: string, totpSecret: string): Promise<AdminUser | undefined> {
+  async enableAdmin2FA(
+    adminId: string,
+    totpSecret: string,
+  ): Promise<AdminUser | undefined> {
     const admin = this.adminUsers.get(adminId);
     if (!admin) return undefined;
-    
+
     const updatedAdmin = {
       ...admin,
       totpSecret,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
-    
+
     this.adminUsers.set(adminId, updatedAdmin);
     return updatedAdmin;
   }
@@ -1094,19 +1270,22 @@ export class MemStorage implements IStorage {
   async disableAdmin2FA(adminId: string): Promise<AdminUser | undefined> {
     const admin = this.adminUsers.get(adminId);
     if (!admin) return undefined;
-    
+
     const updatedAdmin = {
       ...admin,
       totpSecret: null,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
-    
+
     this.adminUsers.set(adminId, updatedAdmin);
     return updatedAdmin;
   }
 
   // RBAC operations
-  async getAdminUsers(limit: number = 50, offset: number = 0): Promise<AdminUser[]> {
+  async getAdminUsers(
+    limit: number = 50,
+    offset: number = 0,
+  ): Promise<AdminUser[]> {
     return Array.from(this.adminUsers.values())
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(offset, offset + limit);
@@ -1114,33 +1293,44 @@ export class MemStorage implements IStorage {
 
   async getAdminsByRole(role: string): Promise<AdminUser[]> {
     return Array.from(this.adminUsers.values())
-      .filter(admin => admin.role === role)
+      .filter((admin) => admin.role === role)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
-  async updateAdminRole(adminId: string, newRole: string, updatedBy: string): Promise<{ success: boolean; admin?: AdminUser; auditLog?: AuditLog; error?: string }> {
+  async updateAdminRole(
+    adminId: string,
+    newRole: string,
+    updatedBy: string,
+  ): Promise<{
+    success: boolean;
+    admin?: AdminUser;
+    auditLog?: AuditLog;
+    error?: string;
+  }> {
     const admin = this.adminUsers.get(adminId);
     if (!admin) {
-      return { success: false, error: 'Admin user not found' };
+      return { success: false, error: "Admin user not found" };
     }
 
     const oldRole = admin.role;
-    
+
     // Prevent self-role modification for security
     if (adminId === updatedBy) {
-      return { success: false, error: 'Cannot modify your own role' };
+      return { success: false, error: "Cannot modify your own role" };
     }
 
     // CRITICAL SECURITY SAFEGUARD: Prevent system lockout
     // If demoting from superadmin, ensure at least one other active superadmin exists
-    if (oldRole === 'superadmin' && newRole !== 'superadmin') {
-      const activeSuperadmins = Array.from(this.adminUsers.values())
-        .filter(a => a.role === 'superadmin' && a.isActive && a.id !== adminId);
-      
+    if (oldRole === "superadmin" && newRole !== "superadmin") {
+      const activeSuperadmins = Array.from(this.adminUsers.values()).filter(
+        (a) => a.role === "superadmin" && a.isActive && a.id !== adminId,
+      );
+
       if (activeSuperadmins.length === 0) {
-        return { 
-          success: false, 
-          error: 'Cannot demote the last active superadmin. At least one superadmin must remain to prevent system lockout.' 
+        return {
+          success: false,
+          error:
+            "Cannot demote the last active superadmin. At least one superadmin must remain to prevent system lockout.",
         };
       }
     }
@@ -1149,7 +1339,7 @@ export class MemStorage implements IStorage {
     const updatedAdmin = {
       ...admin,
       role: newRole,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     this.adminUsers.set(adminId, updatedAdmin);
@@ -1157,8 +1347,8 @@ export class MemStorage implements IStorage {
     // Create audit log for role change
     const auditLog = await this.createAuditLog({
       adminId: updatedBy,
-      actionType: 'admin_role_change',
-      targetType: 'admin_user',
+      actionType: "admin_role_change",
+      targetType: "admin_user",
       targetId: adminId,
       dataBefore: { role: oldRole },
       dataAfter: { role: newRole },
@@ -1166,7 +1356,7 @@ export class MemStorage implements IStorage {
       ipAddress: null,
       userAgent: null,
       success: true,
-      errorMessage: null
+      errorMessage: null,
     });
 
     return { success: true, admin: updatedAdmin, auditLog };
@@ -1184,26 +1374,29 @@ export class MemStorage implements IStorage {
     // Filter by search query (username, email only - AdminUser doesn't have firstName/lastName)
     if (params.query) {
       const query = params.query.toLowerCase();
-      admins = admins.filter(admin => 
-        admin.username.toLowerCase().includes(query) ||
-        admin.email.toLowerCase().includes(query)
+      admins = admins.filter(
+        (admin) =>
+          admin.username.toLowerCase().includes(query) ||
+          admin.email.toLowerCase().includes(query),
       );
     }
 
     // Filter by role
     if (params.role) {
-      admins = admins.filter(admin => admin.role === params.role);
+      admins = admins.filter((admin) => admin.role === params.role);
     }
 
     // Filter by active status
     if (params.isActive !== undefined) {
-      admins = admins.filter(admin => admin.isActive === params.isActive);
+      admins = admins.filter((admin) => admin.isActive === params.isActive);
     }
 
     const total = admins.length;
-    
+
     // Sort by creation date (newest first)
-    admins = admins.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    admins = admins.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
 
     // Apply pagination
     const limit = params.limit || 50;
@@ -1212,140 +1405,144 @@ export class MemStorage implements IStorage {
 
     return { users: admins, total };
   }
-  
+
   // ===================== MATCH MANAGEMENT OPERATIONS =====================
-  
-  async getMatchesByTeamsAndTime(homeTeamId: string, awayTeamId: string, kickoffTime: Date): Promise<any[]> {
+
+  async getMatchesByTeamsAndTime(
+    homeTeamId: string,
+    awayTeamId: string,
+    kickoffTime: Date,
+  ): Promise<any[]> {
     // For now, return empty array (no duplicates found)
     return [];
   }
-  
+
   async createMatch(match: any): Promise<any> {
     const id = randomUUID();
     const newMatch = {
       id,
       ...match,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
     // In a real implementation, this would save to database
     return newMatch;
   }
-  
+
   async getMatch(id: string): Promise<any> {
     // In a real implementation, this would fetch from database
     return {
       id,
-      homeTeamName: 'Home Team',
-      awayTeamName: 'Away Team',
-      status: 'scheduled',
-      kickoffTime: new Date()
+      homeTeamName: "Home Team",
+      awayTeamName: "Away Team",
+      status: "scheduled",
+      kickoffTime: new Date(),
     };
   }
-  
+
   async updateMatch(id: string, updates: any): Promise<any> {
     // In a real implementation, this would update in database
     return {
       id,
       ...updates,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
   }
-  
+
   async softDeleteMatch(id: string, adminId: string): Promise<void> {
     // In a real implementation, this would set isDeleted = true
     console.log(`Match ${id} soft deleted by admin ${adminId}`);
   }
-  
+
   async getActiveBetsByMatch(matchId: string): Promise<Bet[]> {
     // Check if any bets reference this match
     return Array.from(this.bets.values()).filter(
-      bet => bet.status === 'pending' // Would need to check bet selections for match reference
+      (bet) => bet.status === "pending", // Would need to check bet selections for match reference
     );
   }
-  
+
   // ===================== MARKET MANAGEMENT OPERATIONS =====================
-  
+
   async createMarket(market: any): Promise<any> {
     const id = randomUUID();
     const newMarket = {
       id,
       ...market,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
     return newMarket;
   }
-  
+
   async updateMarket(id: string, updates: any): Promise<any> {
     return {
       id,
       ...updates,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
   }
-  
+
   // ===================== EXPOSURE OPERATIONS =====================
-  
+
   async getMatchExposure(matchId: string): Promise<any> {
     return {
       matchId,
       totalExposureCents: 0,
       markets: [],
-      lastCalculated: new Date()
+      lastCalculated: new Date(),
     };
   }
-  
+
   async getMarketExposure(marketId: string): Promise<any> {
     return {
       marketId,
       totalExposureCents: 0,
       outcomes: [],
-      lastCalculated: new Date()
+      lastCalculated: new Date(),
     };
   }
-  
+
   async getOverallExposure(limit: number): Promise<any> {
     return {
       totalExposureCents: 0,
       matches: [],
-      lastCalculated: new Date()
+      lastCalculated: new Date(),
     };
   }
-  
+
   // ===================== PROMOTIONS OPERATIONS =====================
-  
+
   async getPromotions(params: any): Promise<any> {
     return {
       promotions: [],
-      total: 0
+      total: 0,
     };
   }
-  
+
   async getPromotionByCode(code: string): Promise<any> {
     return null; // No promotion found
   }
-  
+
   async createPromotion(promotion: any): Promise<any> {
     const id = randomUUID();
     return {
       id,
       ...promotion,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
   }
-  
+
   async updatePromotion(id: string, updates: any): Promise<any> {
     return {
       id,
       ...updates,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
   }
-  
+
   // ===================== FINANCIAL REPORTING OPERATIONS =====================
-  
+
   async getDailyFinancialReport(date: Date): Promise<any> {
     return {
       date,
@@ -1355,10 +1552,10 @@ export class MemStorage implements IStorage {
       depositsCents: 0,
       withdrawalsCents: 0,
       activePlayers: 0,
-      totalBets: 0
+      totalBets: 0,
     };
   }
-  
+
   async getMonthlyFinancialReport(year: number, month: number): Promise<any> {
     return {
       year,
@@ -1366,39 +1563,39 @@ export class MemStorage implements IStorage {
       totalBetsAmountCents: 0,
       totalWinningsCents: 0,
       ggrCents: 0,
-      dailyBreakdown: []
+      dailyBreakdown: [],
     };
   }
-  
+
   async getPlayerActivityReport(params: any): Promise<any> {
     return {
       players: [],
       totalPlayers: 0,
-      period: params.period
+      period: params.period,
     };
   }
-  
+
   async exportFinancialData(params: any): Promise<any> {
     const data = {
       type: params.type,
       startDate: params.startDate,
       endDate: params.endDate,
-      records: []
+      records: [],
     };
-    
-    if (params.format === 'csv') {
+
+    if (params.format === "csv") {
       return {
-        csv: 'Date,Type,Amount,Description\n' // Empty CSV header
+        csv: "Date,Type,Amount,Description\n", // Empty CSV header
       };
     }
-    
+
     return data;
   }
 
   // ===================== INITIALIZATION =====================
 
   // ===================== MISSING ADMIN OPERATIONS =====================
-  
+
   async getAllBets(params?: {
     search?: string;
     status?: string;
@@ -1416,40 +1613,42 @@ export class MemStorage implements IStorage {
     // Apply filters
     if (params?.search) {
       const searchLower = params.search.toLowerCase();
-      result = result.filter(bet => {
+      result = result.filter((bet) => {
         const user = this.users.get(bet.userId);
-        return bet.id.toLowerCase().includes(searchLower) ||
-               user?.username.toLowerCase().includes(searchLower) ||
-               user?.email.toLowerCase().includes(searchLower);
+        return (
+          bet.id.toLowerCase().includes(searchLower) ||
+          user?.username.toLowerCase().includes(searchLower) ||
+          user?.email.toLowerCase().includes(searchLower)
+        );
       });
     }
 
-    if (params?.status && params.status !== 'all') {
-      result = result.filter(bet => bet.status === params.status);
+    if (params?.status && params.status !== "all") {
+      result = result.filter((bet) => bet.status === params.status);
     }
 
-    if (params?.betType && params.betType !== 'all') {
-      result = result.filter(bet => bet.type === params.betType);
+    if (params?.betType && params.betType !== "all") {
+      result = result.filter((bet) => bet.type === params.betType);
     }
 
     if (params?.userId) {
-      result = result.filter(bet => bet.userId === params.userId);
+      result = result.filter((bet) => bet.userId === params.userId);
     }
 
     if (params?.dateFrom) {
-      result = result.filter(bet => bet.placedAt >= params.dateFrom!);
+      result = result.filter((bet) => bet.placedAt >= params.dateFrom!);
     }
 
     if (params?.dateTo) {
-      result = result.filter(bet => bet.placedAt <= params.dateTo!);
+      result = result.filter((bet) => bet.placedAt <= params.dateTo!);
     }
 
     if (params?.minStake) {
-      result = result.filter(bet => bet.totalStake >= params.minStake!);
+      result = result.filter((bet) => bet.totalStake >= params.minStake!);
     }
 
     if (params?.maxStake) {
-      result = result.filter(bet => bet.totalStake <= params.maxStake!);
+      result = result.filter((bet) => bet.totalStake <= params.maxStake!);
     }
 
     // Sort by date descending
@@ -1466,65 +1665,83 @@ export class MemStorage implements IStorage {
     }
 
     // Format for frontend with user data
-    const formattedBets = result.map(bet => {
+    const formattedBets = result.map((bet) => {
       const user = this.users.get(bet.userId);
-      const selections = Array.from(this.betSelections.values())
-        .filter(sel => sel.betId === bet.id);
-        
+      const selections = Array.from(this.betSelections.values()).filter(
+        (sel) => sel.betId === bet.id,
+      );
+
       return {
         id: bet.id,
         userId: bet.userId,
-        username: user?.username || 'Unknown',
-        userEmail: user?.email || 'Unknown',
-        betType: bet.type as 'single' | 'express' | 'system',
+        username: user?.username || "Unknown",
+        userEmail: user?.email || "Unknown",
+        betType: bet.type as "single" | "express" | "system",
         totalStakeCents: bet.totalStake,
         potentialWinCents: bet.potentialWinnings,
         actualWinCents: bet.actualWinnings || 0,
-        status: bet.status as 'pending' | 'settled_win' | 'settled_lose' | 'voided' | 'refunded',
+        status: bet.status as
+          | "pending"
+          | "settled_win"
+          | "settled_lose"
+          | "voided"
+          | "refunded",
         placedAt: bet.placedAt.toISOString(),
         settledAt: bet.settledAt?.toISOString() || null,
         selections,
         selectionsCount: selections.length,
         totalOdds: parseFloat(bet.totalOdds),
-        ipAddress: null
+        ipAddress: null,
       };
     });
 
     return {
       bets: formattedBets,
-      total
+      total,
     };
   }
 
-  async forceBetSettlement(betId: string, outcome: 'win' | 'lose' | 'void', payoutCents: number): Promise<{ success: boolean; bet?: Bet; error?: string }> {
+  async forceBetSettlement(
+    betId: string,
+    outcome: "win" | "lose" | "void",
+    payoutCents: number,
+  ): Promise<{ success: boolean; bet?: Bet; error?: string }> {
     const bet = this.bets.get(betId);
     if (!bet) {
-      return { success: false, error: 'Bet not found' };
+      return { success: false, error: "Bet not found" };
     }
 
-    if (bet.status !== 'pending') {
-      return { success: false, error: 'Bet is not pending' };
+    if (bet.status !== "pending") {
+      return { success: false, error: "Bet is not pending" };
     }
 
     // Update bet status
-    const newStatus = outcome === 'win' ? 'settled_win' :
-                     outcome === 'lose' ? 'settled_lose' : 'voided';
+    const newStatus =
+      outcome === "win"
+        ? "settled_win"
+        : outcome === "lose"
+          ? "settled_lose"
+          : "voided";
 
     const updatedBet = {
       ...bet,
       status: newStatus,
       settledAt: new Date(),
-      actualWinnings: outcome === 'win' ? payoutCents : 0
+      actualWinnings: outcome === "win" ? payoutCents : 0,
     };
 
     this.bets.set(betId, updatedBet);
 
     // Update user balance if win or void
-    if ((outcome === 'win' && payoutCents > 0) || outcome === 'void') {
+    if ((outcome === "win" && payoutCents > 0) || outcome === "void") {
       const user = this.users.get(bet.userId);
       if (user) {
-        const balanceIncrease = outcome === 'win' ? payoutCents : bet.totalStake;
-        const updatedUser = { ...user, balance: user.balance + balanceIncrease };
+        const balanceIncrease =
+          outcome === "win" ? payoutCents : bet.totalStake;
+        const updatedUser = {
+          ...user,
+          balance: user.balance + balanceIncrease,
+        };
         this.users.set(bet.userId, updatedUser);
 
         // Create transaction record
@@ -1532,14 +1749,14 @@ export class MemStorage implements IStorage {
         const transaction: Transaction = {
           id: transactionId,
           userId: bet.userId,
-          type: outcome === 'win' ? 'bet_win' : 'bet_refund',
-          status: 'completed',
+          type: outcome === "win" ? "bet_win" : "bet_refund",
+          status: "completed",
           amount: balanceIncrease,
           balanceBefore: user.balance,
           balanceAfter: user.balance + balanceIncrease,
           reference: null,
           description: `Bet settlement - Force settled as ${outcome}`,
-          createdAt: new Date()
+          createdAt: new Date(),
         };
         this.transactions.set(transactionId, transaction);
       }
@@ -1548,22 +1765,24 @@ export class MemStorage implements IStorage {
     return { success: true, bet: updatedBet };
   }
 
-  async refundBet(betId: string): Promise<{ success: boolean; bet?: Bet; error?: string }> {
+  async refundBet(
+    betId: string,
+  ): Promise<{ success: boolean; bet?: Bet; error?: string }> {
     const bet = this.bets.get(betId);
     if (!bet) {
-      return { success: false, error: 'Bet not found' };
+      return { success: false, error: "Bet not found" };
     }
 
-    if (bet.status !== 'pending') {
-      return { success: false, error: 'Only pending bets can be refunded' };
+    if (bet.status !== "pending") {
+      return { success: false, error: "Only pending bets can be refunded" };
     }
 
     // Update bet status to refunded
     const updatedBet = {
       ...bet,
-      status: 'refunded',
+      status: "refunded",
       settledAt: new Date(),
-      actualWinnings: 0
+      actualWinnings: 0,
     };
 
     this.bets.set(betId, updatedBet);
@@ -1579,14 +1798,14 @@ export class MemStorage implements IStorage {
       const transaction: Transaction = {
         id: transactionId,
         userId: bet.userId,
-        type: 'bet_refund',
-        status: 'completed',
+        type: "bet_refund",
+        status: "completed",
         amount: bet.totalStake,
         balanceBefore: user.balance,
         balanceAfter: user.balance + bet.totalStake,
         reference: null,
-        description: 'Bet refund - Manual refund by admin',
-        createdAt: new Date()
+        description: "Bet refund - Manual refund by admin",
+        createdAt: new Date(),
       };
       this.transactions.set(transactionId, transaction);
     }
@@ -1605,32 +1824,39 @@ export class MemStorage implements IStorage {
     maxStake?: number;
   }): Promise<string> {
     // Get all bets without pagination for export
-    const { bets: allBets } = await this.getAllBets({ ...params, limit: 10000, offset: 0 });
-    
+    const { bets: allBets } = await this.getAllBets({
+      ...params,
+      limit: 10000,
+      offset: 0,
+    });
+
     // CSV headers
     const headers = [
-      'Bet ID',
-      'Username',
-      'Email', 
-      'Bet Type',
-      'Stake (£)',
-      'Potential Win (£)',
-      'Actual Win (£)',
-      'Status',
-      'Selections',
-      'Total Odds',
-      'Placed At',
-      'Settled At',
-      'Markets'
+      "Bet ID",
+      "Username",
+      "Email",
+      "Bet Type",
+      "Stake (£)",
+      "Potential Win (£)",
+      "Actual Win (£)",
+      "Status",
+      "Selections",
+      "Total Odds",
+      "Placed At",
+      "Settled At",
+      "Markets",
     ];
 
     // Convert bets to CSV rows
-    const rows = allBets.map(bet => {
-      const selectionsText = bet.selections.map((s: any) => 
-        `${s.homeTeam} vs ${s.awayTeam} - ${s.market}: ${s.selection} @${s.odds}`
-      ).join(' | ');
+    const rows = allBets.map((bet) => {
+      const selectionsText = bet.selections
+        .map(
+          (s: any) =>
+            `${s.homeTeam} vs ${s.awayTeam} - ${s.market}: ${s.selection} @${s.odds}`,
+        )
+        .join(" | ");
 
-      const marketsText = bet.selections.map((s: any) => s.market).join(', ');
+      const marketsText = bet.selections.map((s: any) => s.market).join(", ");
 
       return [
         bet.id,
@@ -1644,19 +1870,25 @@ export class MemStorage implements IStorage {
         `"${selectionsText}"`, // Wrap in quotes to handle commas
         bet.totalOdds.toFixed(2),
         bet.placedAt,
-        bet.settledAt || 'N/A',
-        marketsText
+        bet.settledAt || "N/A",
+        marketsText,
       ];
     });
 
     // Combine headers and rows
     const csvContent = [headers, ...rows]
-      .map(row => row.map(field => 
-        typeof field === 'string' && field.includes(',') && !field.startsWith('"') 
-          ? `"${field}"` 
-          : field
-      ).join(','))
-      .join('\n');
+      .map((row) =>
+        row
+          .map((field) =>
+            typeof field === "string" &&
+            field.includes(",") &&
+            !field.startsWith('"')
+              ? `"${field}"`
+              : field,
+          )
+          .join(","),
+      )
+      .join("\n");
 
     return csvContent;
   }
@@ -1664,7 +1896,7 @@ export class MemStorage implements IStorage {
   async getActiveAdminSessions(): Promise<AdminSession[]> {
     const now = new Date();
     return Array.from(this.adminSessions.values())
-      .filter(session => session.expiresAt > now)
+      .filter((session) => session.expiresAt > now)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
@@ -1694,8 +1926,11 @@ export class MemStorage implements IStorage {
   }
 
   // ===================== MISSING REPORTING METHODS =====================
-  
-  async getDailyGgrReport(startDate: Date, endDate: Date): Promise<{
+
+  async getDailyGgrReport(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{
     date: string;
     totalStakeCents: number;
     totalPayoutsCents: number;
@@ -1706,32 +1941,41 @@ export class MemStorage implements IStorage {
     winRate: number;
   }> {
     const allBets = Array.from(this.bets.values());
-    const dayBets = allBets.filter(bet => 
-      bet.placedAt >= startDate && bet.placedAt <= endDate
+    const dayBets = allBets.filter(
+      (bet) => bet.placedAt >= startDate && bet.placedAt <= endDate,
     );
 
-    const totalStakeCents = dayBets.reduce((sum, bet) => sum + bet.totalStake, 0);
-    const settledBets = dayBets.filter(bet => bet.status !== 'pending');
+    const totalStakeCents = dayBets.reduce(
+      (sum, bet) => sum + bet.totalStake,
+      0,
+    );
+    const settledBets = dayBets.filter((bet) => bet.status !== "pending");
     const totalPayoutsCents = settledBets
-      .filter(bet => bet.status === 'settled_win')
+      .filter((bet) => bet.status === "settled_win")
       .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
-    
-    const uniquePlayerIds = new Set(dayBets.map(bet => bet.userId));
-    const winningBets = settledBets.filter(bet => bet.status === 'settled_win').length;
-    
+
+    const uniquePlayerIds = new Set(dayBets.map((bet) => bet.userId));
+    const winningBets = settledBets.filter(
+      (bet) => bet.status === "settled_win",
+    ).length;
+
     return {
-      date: startDate.toISOString().split('T')[0],
+      date: startDate.toISOString().split("T")[0],
       totalStakeCents,
       totalPayoutsCents,
       grossGamingRevenueCents: totalStakeCents - totalPayoutsCents,
       totalBets: dayBets.length,
       activePlayers: uniquePlayerIds.size,
-      averageStakeCents: dayBets.length > 0 ? totalStakeCents / dayBets.length : 0,
-      winRate: settledBets.length > 0 ? winningBets / settledBets.length : 0
+      averageStakeCents:
+        dayBets.length > 0 ? totalStakeCents / dayBets.length : 0,
+      winRate: settledBets.length > 0 ? winningBets / settledBets.length : 0,
     };
   }
 
-  async getMonthlyGgrReport(startDate: Date, endDate: Date): Promise<{
+  async getMonthlyGgrReport(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{
     year: number;
     month: number;
     totalStakeCents: number;
@@ -1751,46 +1995,55 @@ export class MemStorage implements IStorage {
     }>;
   }> {
     const allBets = Array.from(this.bets.values());
-    const monthBets = allBets.filter(bet => 
-      bet.placedAt >= startDate && bet.placedAt <= endDate
+    const monthBets = allBets.filter(
+      (bet) => bet.placedAt >= startDate && bet.placedAt <= endDate,
     );
 
-    const totalStakeCents = monthBets.reduce((sum, bet) => sum + bet.totalStake, 0);
-    const settledBets = monthBets.filter(bet => bet.status !== 'pending');
+    const totalStakeCents = monthBets.reduce(
+      (sum, bet) => sum + bet.totalStake,
+      0,
+    );
+    const settledBets = monthBets.filter((bet) => bet.status !== "pending");
     const totalPayoutsCents = settledBets
-      .filter(bet => bet.status === 'settled_win')
+      .filter((bet) => bet.status === "settled_win")
       .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
-    
-    const uniquePlayerIds = new Set(monthBets.map(bet => bet.userId));
-    const winningBets = settledBets.filter(bet => bet.status === 'settled_win').length;
+
+    const uniquePlayerIds = new Set(monthBets.map((bet) => bet.userId));
+    const winningBets = settledBets.filter(
+      (bet) => bet.status === "settled_win",
+    ).length;
 
     // Generate daily breakdown
     const dailyBreakdown = [];
     const daysInMonth = endDate.getDate();
-    
+
     for (let day = 1; day <= daysInMonth; day++) {
-      const dayStart = new Date(startDate.getFullYear(), startDate.getMonth(), day);
-      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-      
-      const dayBets = monthBets.filter(bet => 
-        bet.placedAt >= dayStart && bet.placedAt < dayEnd
+      const dayStart = new Date(
+        startDate.getFullYear(),
+        startDate.getMonth(),
+        day,
       );
-      
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+      const dayBets = monthBets.filter(
+        (bet) => bet.placedAt >= dayStart && bet.placedAt < dayEnd,
+      );
+
       const dayStake = dayBets.reduce((sum, bet) => sum + bet.totalStake, 0);
       const dayPayouts = dayBets
-        .filter(bet => bet.status === 'settled_win')
+        .filter((bet) => bet.status === "settled_win")
         .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
-      
+
       dailyBreakdown.push({
         day,
         stakeCents: dayStake,
         ggrCents: dayStake - dayPayouts,
-        bets: dayBets.length
+        bets: dayBets.length,
       });
     }
 
-    const dailyGgrAmounts = dailyBreakdown.map(d => d.ggrCents);
-    
+    const dailyGgrAmounts = dailyBreakdown.map((d) => d.ggrCents);
+
     return {
       year: startDate.getFullYear(),
       month: startDate.getMonth() + 1,
@@ -1799,15 +2052,21 @@ export class MemStorage implements IStorage {
       grossGamingRevenueCents: totalStakeCents - totalPayoutsCents,
       totalBets: monthBets.length,
       activePlayers: uniquePlayerIds.size,
-      averageStakeCents: monthBets.length > 0 ? totalStakeCents / monthBets.length : 0,
+      averageStakeCents:
+        monthBets.length > 0 ? totalStakeCents / monthBets.length : 0,
       highestDayCents: Math.max(...dailyGgrAmounts, 0),
       lowestDayCents: Math.min(...dailyGgrAmounts, 0),
       winRate: settledBets.length > 0 ? winningBets / settledBets.length : 0,
-      dailyBreakdown
+      dailyBreakdown,
     };
   }
 
-  async getTurnoverBySportReport(startDate: Date, endDate: Date, sport?: string, league?: string): Promise<{
+  async getTurnoverBySportReport(
+    startDate: Date,
+    endDate: Date,
+    sport?: string,
+    league?: string,
+  ): Promise<{
     sports: Array<{
       sport: string;
       turnoverCents: number;
@@ -1821,17 +2080,35 @@ export class MemStorage implements IStorage {
     // Mock implementation for memory storage
     return {
       sports: [
-        { sport: 'Football', turnoverCents: 50000000, betCount: 1250, ggrCents: 2500000 },
-        { sport: 'Basketball', turnoverCents: 25000000, betCount: 600, ggrCents: 1250000 },
-        { sport: 'Tennis', turnoverCents: 15000000, betCount: 400, ggrCents: 750000 }
+        {
+          sport: "Football",
+          turnoverCents: 50000000,
+          betCount: 1250,
+          ggrCents: 2500000,
+        },
+        {
+          sport: "Basketball",
+          turnoverCents: 25000000,
+          betCount: 600,
+          ggrCents: 1250000,
+        },
+        {
+          sport: "Tennis",
+          turnoverCents: 15000000,
+          betCount: 400,
+          ggrCents: 750000,
+        },
       ],
       totalTurnoverCents: 90000000,
       totalBets: 2250,
-      totalGgrCents: 4500000
+      totalGgrCents: 4500000,
     };
   }
 
-  async getPayoutRatioReport(startDate: Date, endDate: Date): Promise<{
+  async getPayoutRatioReport(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{
     totalStakeCents: number;
     totalPayoutsCents: number;
     payoutRatio: number;
@@ -1841,32 +2118,45 @@ export class MemStorage implements IStorage {
     winRate: number;
   }> {
     const allBets = Array.from(this.bets.values());
-    const periodBets = allBets.filter(bet => 
-      bet.placedAt >= startDate && 
-      bet.placedAt <= endDate &&
-      bet.status !== 'pending'
+    const periodBets = allBets.filter(
+      (bet) =>
+        bet.placedAt >= startDate &&
+        bet.placedAt <= endDate &&
+        bet.status !== "pending",
     );
 
-    const totalStakeCents = periodBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+    const totalStakeCents = periodBets.reduce(
+      (sum, bet) => sum + bet.totalStake,
+      0,
+    );
     const totalPayoutsCents = periodBets
-      .filter(bet => bet.status === 'settled_win')
+      .filter((bet) => bet.status === "settled_win")
       .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
 
-    const winningBets = periodBets.filter(bet => bet.status === 'settled_win').length;
-    const losingBets = periodBets.filter(bet => bet.status === 'settled_lose').length;
+    const winningBets = periodBets.filter(
+      (bet) => bet.status === "settled_win",
+    ).length;
+    const losingBets = periodBets.filter(
+      (bet) => bet.status === "settled_lose",
+    ).length;
 
     return {
       totalStakeCents,
       totalPayoutsCents,
-      payoutRatio: totalStakeCents > 0 ? totalPayoutsCents / totalStakeCents : 0,
+      payoutRatio:
+        totalStakeCents > 0 ? totalPayoutsCents / totalStakeCents : 0,
       betCount: periodBets.length,
       winningBets,
       losingBets,
-      winRate: periodBets.length > 0 ? winningBets / periodBets.length : 0
+      winRate: periodBets.length > 0 ? winningBets / periodBets.length : 0,
     };
   }
 
-  async getTopWinnersReport(startDate: Date, endDate: Date, limit: number): Promise<{
+  async getTopWinnersReport(
+    startDate: Date,
+    endDate: Date,
+    limit: number,
+  ): Promise<{
     winners: Array<{
       userId: string;
       username: string;
@@ -1875,16 +2165,17 @@ export class MemStorage implements IStorage {
     }>;
   }> {
     const allBets = Array.from(this.bets.values());
-    const periodBets = allBets.filter(bet => 
-      bet.placedAt >= startDate && 
-      bet.placedAt <= endDate &&
-      bet.status !== 'pending'
+    const periodBets = allBets.filter(
+      (bet) =>
+        bet.placedAt >= startDate &&
+        bet.placedAt <= endDate &&
+        bet.status !== "pending",
     );
 
     // Group by user
     const userStats = new Map();
-    
-    periodBets.forEach(bet => {
+
+    periodBets.forEach((bet) => {
       const user = this.users.get(bet.userId);
       if (!user) return;
 
@@ -1894,25 +2185,25 @@ export class MemStorage implements IStorage {
           username: user.username,
           totalStake: 0,
           totalWinnings: 0,
-          betCount: 0
+          betCount: 0,
         });
       }
 
       const stats = userStats.get(bet.userId);
       stats.totalStake += bet.totalStake;
       stats.betCount += 1;
-      
-      if (bet.status === 'settled_win') {
+
+      if (bet.status === "settled_win") {
         stats.totalWinnings += bet.actualWinnings || 0;
       }
     });
 
     const winners = Array.from(userStats.values())
-      .map(stats => ({
+      .map((stats) => ({
         userId: stats.userId,
         username: stats.username,
         netWinningsCents: stats.totalWinnings - stats.totalStake,
-        betCount: stats.betCount
+        betCount: stats.betCount,
       }))
       .sort((a, b) => b.netWinningsCents - a.netWinningsCents)
       .slice(0, limit);
@@ -1920,7 +2211,10 @@ export class MemStorage implements IStorage {
     return { winners };
   }
 
-  async getChargebackReport(startDate: Date, endDate: Date): Promise<{
+  async getChargebackReport(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{
     chargebacks: Array<{
       id: string;
       userId: string;
@@ -1937,7 +2231,7 @@ export class MemStorage implements IStorage {
     return {
       chargebacks: [],
       totalAmountCents: 0,
-      count: 0
+      count: 0,
     };
   }
 
@@ -1958,13 +2252,13 @@ export class MemStorage implements IStorage {
       title: `Custom ${params.reportType} Report`,
       data: [],
       summary: {},
-      generatedAt: new Date()
+      generatedAt: new Date(),
     };
   }
 
   async exportReportData(params: {
     reportType: string;
-    format: 'csv' | 'excel' | 'json';
+    format: "csv" | "excel" | "json";
     dateFrom: Date;
     dateTo: Date;
     filters?: any;
@@ -1972,48 +2266,53 @@ export class MemStorage implements IStorage {
     return JSON.stringify({
       reportType: params.reportType,
       format: params.format,
-      exportedAt: new Date().toISOString()
+      exportedAt: new Date().toISOString(),
     });
   }
 
   async createScheduledReport(report: {
     name: string;
     reportType: string;
-    frequency: 'daily' | 'weekly' | 'monthly';
+    frequency: "daily" | "weekly" | "monthly";
     recipients: string[];
     filters?: any;
-    format?: 'csv' | 'excel' | 'pdf';
+    format?: "csv" | "excel" | "pdf";
   }): Promise<any> {
     return {
       id: randomUUID(),
       ...report,
       createdAt: new Date(),
-      isActive: true
+      isActive: true,
     };
   }
 
   // ===================== DASHBOARD METHODS =====================
 
-  async getDashboardAlerts(): Promise<Array<{
-    id: string;
-    type: string;
-    title: string;
-    message: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
-    timestamp: Date;
-    isResolved: boolean;
-    actionRequired: boolean;
-  }>> {
+  async getDashboardAlerts(): Promise<
+    Array<{
+      id: string;
+      type: string;
+      title: string;
+      message: string;
+      severity: "low" | "medium" | "high" | "critical";
+      timestamp: Date;
+      isResolved: boolean;
+      actionRequired: boolean;
+    }>
+  > {
     return [];
   }
 
-  async resolveAlert(alertId: string, adminId: string): Promise<{
+  async resolveAlert(
+    alertId: string,
+    adminId: string,
+  ): Promise<{
     success: boolean;
     message: string;
   }> {
     return {
       success: true,
-      message: 'Alert resolved successfully'
+      message: "Alert resolved successfully",
     };
   }
 
@@ -2033,8 +2332,9 @@ export class MemStorage implements IStorage {
   }
 
   async getNewUsersCount(since: Date): Promise<number> {
-    return Array.from(this.users.values())
-      .filter(user => user.createdAt >= since).length;
+    return Array.from(this.users.values()).filter(
+      (user) => user.createdAt >= since,
+    ).length;
   }
 
   async getTotalBets(): Promise<number> {
@@ -2042,32 +2342,35 @@ export class MemStorage implements IStorage {
   }
 
   async getPendingBetsCount(): Promise<number> {
-    return Array.from(this.bets.values())
-      .filter(bet => bet.status === 'pending').length;
+    return Array.from(this.bets.values()).filter(
+      (bet) => bet.status === "pending",
+    ).length;
   }
 
   async getBetsCount(since: Date): Promise<number> {
-    return Array.from(this.bets.values())
-      .filter(bet => bet.placedAt >= since).length;
+    return Array.from(this.bets.values()).filter((bet) => bet.placedAt >= since)
+      .length;
   }
 
-  async getTurnoverMetrics(todayStart: Date, weekStart: Date): Promise<{
+  async getTurnoverMetrics(
+    todayStart: Date,
+    weekStart: Date,
+  ): Promise<{
     todayCents: number;
     weekCents: number;
     totalCents: number;
   }> {
     const allBets = Array.from(this.bets.values());
-    
+
     const todayCents = allBets
-      .filter(bet => bet.placedAt >= todayStart)
+      .filter((bet) => bet.placedAt >= todayStart)
       .reduce((sum, bet) => sum + bet.totalStake, 0);
-    
+
     const weekCents = allBets
-      .filter(bet => bet.placedAt >= weekStart)
+      .filter((bet) => bet.placedAt >= weekStart)
       .reduce((sum, bet) => sum + bet.totalStake, 0);
-    
-    const totalCents = allBets
-      .reduce((sum, bet) => sum + bet.totalStake, 0);
+
+    const totalCents = allBets.reduce((sum, bet) => sum + bet.totalStake, 0);
 
     return { todayCents, weekCents, totalCents };
   }
@@ -2076,56 +2379,64 @@ export class MemStorage implements IStorage {
     totalCents: number;
     highRiskCount: number;
   }> {
-    const pendingBets = Array.from(this.bets.values())
-      .filter(bet => bet.status === 'pending');
-    
-    const totalCents = pendingBets.reduce((sum, bet) => sum + bet.potentialWinnings, 0);
-    const highRiskCount = pendingBets.filter(bet => bet.potentialWinnings > 100000).length;
+    const pendingBets = Array.from(this.bets.values()).filter(
+      (bet) => bet.status === "pending",
+    );
+
+    const totalCents = pendingBets.reduce(
+      (sum, bet) => sum + bet.potentialWinnings,
+      0,
+    );
+    const highRiskCount = pendingBets.filter(
+      (bet) => bet.potentialWinnings > 100000,
+    ).length;
 
     return { totalCents, highRiskCount };
   }
 
-  async getRecentActivity(limit: number): Promise<Array<{
-    id: string;
-    type: string;
-    title?: string;
-    description?: string;
-    action?: string;
-    details?: string;
-    timestamp?: Date;
-    createdAt: Date;
-    userId?: string;
-    adminId?: string;
-    betId?: string;
-    amount?: number;
-    severity?: string;
-  }>> {
+  async getRecentActivity(limit: number): Promise<
+    Array<{
+      id: string;
+      type: string;
+      title?: string;
+      description?: string;
+      action?: string;
+      details?: string;
+      timestamp?: Date;
+      createdAt: Date;
+      userId?: string;
+      adminId?: string;
+      betId?: string;
+      amount?: number;
+      severity?: string;
+    }>
+  > {
     const recentBets = Array.from(this.bets.values())
       .sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime())
       .slice(0, Math.floor(limit / 2))
-      .map(bet => ({
+      .map((bet) => ({
         id: bet.id,
-        type: 'bet_placed' as string,
-        title: 'New Bet Placed',
+        type: "bet_placed" as string,
+        title: "New Bet Placed",
         description: `Bet placed for £${(bet.totalStake / 100).toFixed(2)}`,
         createdAt: bet.placedAt,
         userId: bet.userId,
         amount: bet.totalStake,
-        severity: 'info'
+        severity: "info",
       }));
 
     const recentAudits = Array.from(this.auditLogs.values())
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, Math.floor(limit / 2))
-      .map(audit => ({
+      .map((audit) => ({
         id: audit.id,
-        type: 'admin_action' as string,
-        title: 'Admin Action',
-        description: audit.actionType.replace('_', ' ').toUpperCase(),
+        type: "admin_action" as string,
+        title: "Admin Action",
+        description: audit.actionType.replace("_", " ").toUpperCase(),
         action: audit.actionType,
         createdAt: audit.createdAt,
         adminId: audit.adminId,
-        severity: 'info'
+        severity: "info",
       }));
 
     return [...recentBets, ...recentAudits]
@@ -2133,47 +2444,57 @@ export class MemStorage implements IStorage {
       .slice(0, limit);
   }
 
-  async getSystemAlerts(): Promise<Array<{
-    id: string;
-    type: string;
-    title: string;
-    message?: string;
-    description?: string;
-    severity: string;
-    timestamp?: Date;
-    createdAt: Date;
-    isResolved: boolean;
-    actionRequired: boolean;
-  }>> {
+  async getSystemAlerts(): Promise<
+    Array<{
+      id: string;
+      type: string;
+      title: string;
+      message?: string;
+      description?: string;
+      severity: string;
+      timestamp?: Date;
+      createdAt: Date;
+      isResolved: boolean;
+      actionRequired: boolean;
+    }>
+  > {
     const alerts = [];
-    const pendingBets = Array.from(this.bets.values()).filter(bet => bet.status === 'pending');
-    
-    const totalExposure = pendingBets.reduce((sum, bet) => sum + bet.potentialWinnings, 0);
-    const highRiskCount = pendingBets.filter(bet => bet.potentialWinnings > 100000).length;
+    const pendingBets = Array.from(this.bets.values()).filter(
+      (bet) => bet.status === "pending",
+    );
 
-    if (totalExposure > 10000000) { // > £100,000
+    const totalExposure = pendingBets.reduce(
+      (sum, bet) => sum + bet.potentialWinnings,
+      0,
+    );
+    const highRiskCount = pendingBets.filter(
+      (bet) => bet.potentialWinnings > 100000,
+    ).length;
+
+    if (totalExposure > 10000000) {
+      // > £100,000
       alerts.push({
-        id: 'high-total-exposure',
-        type: 'high_exposure',
-        title: 'High Total Exposure Alert',
+        id: "high-total-exposure",
+        type: "high_exposure",
+        title: "High Total Exposure Alert",
         message: `Total exposure: £${(totalExposure / 100).toLocaleString()}`,
-        severity: 'high',
+        severity: "high",
         createdAt: new Date(),
         isResolved: false,
-        actionRequired: true
+        actionRequired: true,
       });
     }
 
     if (highRiskCount > 0) {
       alerts.push({
-        id: 'high-risk-bets',
-        type: 'high_exposure',
-        title: 'High Risk Bets Detected',
+        id: "high-risk-bets",
+        type: "high_exposure",
+        title: "High Risk Bets Detected",
         message: `${highRiskCount} bets with potential payouts over £1,000`,
-        severity: 'medium',
+        severity: "medium",
         createdAt: new Date(),
         isResolved: false,
-        actionRequired: true
+        actionRequired: true,
       });
     }
 
@@ -2207,7 +2528,7 @@ export class MemStorage implements IStorage {
     return {
       id: randomUUID(),
       ...outcome,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
   }
 
@@ -2215,7 +2536,7 @@ export class MemStorage implements IStorage {
     return {
       id: outcomeId,
       odds,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
   }
 
@@ -2236,40 +2557,41 @@ export class MemStorage implements IStorage {
 
     if (params.query) {
       const searchLower = params.query.toLowerCase();
-      result = result.filter(user => 
-        user.username.toLowerCase().includes(searchLower) ||
-        user.email.toLowerCase().includes(searchLower) ||
-        user.firstName?.toLowerCase().includes(searchLower) ||
-        user.lastName?.toLowerCase().includes(searchLower)
+      result = result.filter(
+        (user) =>
+          user.username.toLowerCase().includes(searchLower) ||
+          user.email.toLowerCase().includes(searchLower) ||
+          user.firstName?.toLowerCase().includes(searchLower) ||
+          user.lastName?.toLowerCase().includes(searchLower),
       );
     }
 
     if (params.isActive !== undefined) {
-      result = result.filter(user => user.isActive === params.isActive);
+      result = result.filter((user) => user.isActive === params.isActive);
     }
 
     if (params.dateFrom) {
-      result = result.filter(user => user.createdAt >= params.dateFrom!);
+      result = result.filter((user) => user.createdAt >= params.dateFrom!);
     }
 
     if (params.dateTo) {
-      result = result.filter(user => user.createdAt <= params.dateTo!);
+      result = result.filter((user) => user.createdAt <= params.dateTo!);
     }
 
     const total = result.length;
     const offset = params.offset || 0;
     const limit = params.limit || 50;
-    
+
     result = result
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(offset, offset + limit);
 
     return {
-      users: result.map(user => ({
+      users: result.map((user) => ({
         ...user,
-        password: undefined // Remove password from results
+        password: undefined, // Remove password from results
       })),
-      total
+      total,
     };
   }
 
@@ -2287,22 +2609,25 @@ export class MemStorage implements IStorage {
       monthlyDepositLimitCents: 2000000, // £20,000
       maxBetLimitCents: 50000, // £500
       sessionTimeLimitMinutes: 240, // 4 hours
-      cooldownPeriodHours: 24 // 24 hours
+      cooldownPeriodHours: 24, // 24 hours
     };
   }
 
-  async upsertUserLimits(userId: string, limits: {
-    dailyDepositLimitCents?: number;
-    weeklyDepositLimitCents?: number;
-    monthlyDepositLimitCents?: number;
-    maxBetLimitCents?: number;
-    sessionTimeLimitMinutes?: number;
-    cooldownPeriodHours?: number;
-  }): Promise<any> {
+  async upsertUserLimits(
+    userId: string,
+    limits: {
+      dailyDepositLimitCents?: number;
+      weeklyDepositLimitCents?: number;
+      monthlyDepositLimitCents?: number;
+      maxBetLimitCents?: number;
+      sessionTimeLimitMinutes?: number;
+      cooldownPeriodHours?: number;
+    },
+  ): Promise<any> {
     return {
       userId,
       ...limits,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
   }
 
@@ -2311,7 +2636,7 @@ export class MemStorage implements IStorage {
   async calculateGGRReport(params: {
     dateFrom: Date;
     dateTo: Date;
-    groupBy?: 'day' | 'week' | 'month';
+    groupBy?: "day" | "week" | "month";
   }): Promise<{
     totalStakeCents: number;
     totalPayoutsCents: number;
@@ -2327,24 +2652,29 @@ export class MemStorage implements IStorage {
     }>;
   }> {
     const allBets = Array.from(this.bets.values());
-    const periodBets = allBets.filter(bet => 
-      bet.placedAt >= params.dateFrom && bet.placedAt <= params.dateTo
+    const periodBets = allBets.filter(
+      (bet) => bet.placedAt >= params.dateFrom && bet.placedAt <= params.dateTo,
     );
 
-    const totalStakeCents = periodBets.reduce((sum, bet) => sum + bet.totalStake, 0);
+    const totalStakeCents = periodBets.reduce(
+      (sum, bet) => sum + bet.totalStake,
+      0,
+    );
     const totalPayoutsCents = periodBets
-      .filter(bet => bet.status === 'settled_win')
+      .filter((bet) => bet.status === "settled_win")
       .reduce((sum, bet) => sum + (bet.actualWinnings || 0), 0);
-    
-    const uniquePlayerIds = new Set(periodBets.map(bet => bet.userId));
-    
-    const breakdown = [{
-      period: params.dateFrom.toISOString().split('T')[0],
-      stakeCents: totalStakeCents,
-      payoutsCents: totalPayoutsCents,
-      ggrCents: totalStakeCents - totalPayoutsCents,
-      betCount: periodBets.length
-    }];
+
+    const uniquePlayerIds = new Set(periodBets.map((bet) => bet.userId));
+
+    const breakdown = [
+      {
+        period: params.dateFrom.toISOString().split("T")[0],
+        stakeCents: totalStakeCents,
+        payoutsCents: totalPayoutsCents,
+        ggrCents: totalStakeCents - totalPayoutsCents,
+        betCount: periodBets.length,
+      },
+    ];
 
     return {
       totalStakeCents,
@@ -2352,7 +2682,7 @@ export class MemStorage implements IStorage {
       ggrCents: totalStakeCents - totalPayoutsCents,
       betCount: periodBets.length,
       playerCount: uniquePlayerIds.size,
-      breakdown
+      breakdown,
     };
   }
 
@@ -2360,18 +2690,18 @@ export class MemStorage implements IStorage {
     type: string;
     title: string;
     message: string;
-    severity: 'low' | 'medium' | 'high' | 'critical';
+    severity: "low" | "medium" | "high" | "critical";
     actionRequired?: boolean;
   }): Promise<any> {
     return {
       id: randomUUID(),
       ...alert,
       createdAt: new Date(),
-      isResolved: false
+      isResolved: false,
     };
   }
 }
 
-import { DatabaseStorage } from './database-storage';
+import { DatabaseStorage } from "./database-storage";
 
 export const storage = new DatabaseStorage();
