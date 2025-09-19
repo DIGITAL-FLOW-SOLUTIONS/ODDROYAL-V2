@@ -976,7 +976,7 @@ export default function AdminMatchesMarkets() {
           )}
         </div>
       ) : (
-        /* Table View - Traditional table layout */
+        /* Table View - Hierarchical table showing all matches in unified table format */
         <Card>
           <CardHeader>
             <CardTitle>Matches ({totalMatches.toLocaleString()})</CardTitle>
@@ -987,11 +987,12 @@ export default function AdminMatchesMarkets() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Sport</TableHead>
-                    <TableHead>Match</TableHead>
                     <TableHead>League</TableHead>
+                    <TableHead>Match</TableHead>
                     <TableHead>Kickoff Time</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Score</TableHead>
+                    <TableHead>Odds Summary</TableHead>
                     <TableHead>Markets</TableHead>
                     <TableHead>Exposure</TableHead>
                     <TableHead>Source</TableHead>
@@ -1002,7 +1003,7 @@ export default function AdminMatchesMarkets() {
                   {isLoading ? (
                     Array.from({ length: 5 }).map((_, index) => (
                       <TableRow key={index}>
-                        <TableCell colSpan={10} className="h-12">
+                        <TableCell colSpan={11} className="h-12">
                           <div className="flex items-center justify-center">
                             <RefreshCw className="w-4 h-4 animate-spin mr-2" />
                             Loading matches...
@@ -1012,7 +1013,7 @@ export default function AdminMatchesMarkets() {
                     ))
                   ) : matches.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center py-8">
+                      <TableCell colSpan={11} className="text-center py-8">
                         <div className="text-muted-foreground">
                           {Object.values(filters).some(v => v && v !== 'all') ? 
                             'No matches found matching your filters' : 
@@ -1022,109 +1023,196 @@ export default function AdminMatchesMarkets() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    matches.map((match: Match) => (
-                      <TableRow key={match.id} className="hover-elevate">
-                        <TableCell>
-                          <Badge variant="outline" className="flex items-center gap-1">
-                            <Globe className="w-3 h-3" />
-                            {match.sport || 'Football'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          <div>
-                            <div className="font-semibold" data-testid={`text-match-${match.id}`}>
-                              {match.homeTeamName} vs {match.awayTeamName}
+                    /* Render matches grouped by sport and league within unified table */
+                    groupedMatches.flatMap((sportGroup) => 
+                      sportGroup.leagues.flatMap((league) => [
+                        /* Sport/League header row */
+                        <TableRow key={`${sportGroup.sport.name}-${league.id}-header`} className="bg-muted/50 border-b-2">
+                          <TableCell className="font-bold">
+                            <div className="flex items-center gap-2">
+                              <Globe className="w-4 h-4 text-primary" />
+                              {sportGroup.sport.displayName}
+                              {sportGroup.liveCount > 0 && (
+                                <Badge variant="destructive" className="text-xs px-1 py-0 h-5 ml-2">
+                                  {sportGroup.liveCount} LIVE
+                                </Badge>
+                              )}
                             </div>
-                            <div className="text-xs text-muted-foreground">
-                              ID: {match.id.slice(-8)}
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            <div className="flex items-center gap-2">
+                              <Trophy className="w-4 h-4 text-primary" />
+                              {league.name}
+                              <Badge variant="outline" className="text-xs px-1 py-0 h-5 ml-2">
+                                {league.matches.length}
+                              </Badge>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-muted-foreground" />
-                            <span data-testid={`text-league-${match.id}`}>
-                              {match.leagueName}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm" data-testid={`text-kickoff-${match.id}`}>
-                              {formatMatchTime(match.kickoffTime)}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={MATCH_STATUS_COLORS[match.status] as any}
-                            className="flex items-center gap-1"
-                            data-testid={`badge-status-${match.id}`}
+                          </TableCell>
+                          <TableCell colSpan={9} className="text-sm text-muted-foreground italic">
+                            {league.matches.length} matches in this league
+                          </TableCell>
+                        </TableRow>,
+                        /* Match rows for this league */
+                        ...league.matches.map((match: Match) => (
+                          <TableRow 
+                            key={match.id} 
+                            className={`hover-elevate cursor-pointer border-l-4 ${ 
+                              match.status === 'live' 
+                                ? 'bg-red-50 dark:bg-red-950/20 border-l-red-500' 
+                                : 'border-l-transparent'
+                            }`}
+                            onClick={() => openMarketEditor(match)}
+                            data-testid={`row-match-${match.id}`}
                           >
-                            {getStatusIcon(match.status)}
-                            {match.status.charAt(0).toUpperCase() + match.status.slice(1)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {match.status === 'finished' || match.status === 'live' ? (
-                            <span className="font-mono" data-testid={`text-score-${match.id}`}>
-                              {match.homeScore} - {match.awayScore}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Target className="w-4 h-4 text-muted-foreground" />
-                            <span data-testid={`text-markets-count-${match.id}`}>
-                              {match.marketsCount}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span 
-                            className={`font-mono ${match.totalExposure > 100000 ? 'text-red-500' : 'text-green-500'}`}
-                            data-testid={`text-exposure-${match.id}`}
-                          >
-                            £{(match.totalExposure / 100).toLocaleString()}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={match.isManual ? 'default' : 'secondary'}>
-                            {match.isManual ? 'Manual' : 'SportMonks'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                size="icon"
-                                data-testid={`button-match-actions-${match.id}`}
+                            <TableCell className="text-muted-foreground text-sm pl-6">
+                              {/* Empty for better visual hierarchy - sport shown in header */}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm pl-6">
+                              {/* Empty for better visual hierarchy - league shown in header */}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              <div>
+                                <div className="font-semibold flex items-center gap-2" data-testid={`text-match-${match.id}`}>
+                                  {match.homeTeamName} vs {match.awayTeamName}
+                                  {match.status === 'live' && (
+                                    <Badge variant="destructive" className="text-xs px-1 py-0 h-5">
+                                      LIVE
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  ID: {match.id.slice(-8)}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-sm" data-testid={`text-kickoff-${match.id}`}>
+                                  {formatMatchTime(match.kickoffTime)}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                variant={MATCH_STATUS_COLORS[match.status] as any}
+                                className="flex items-center gap-1"
+                                data-testid={`badge-status-${match.id}`}
                               >
-                                <MoreHorizontal className="w-4 h-4" />
+                                {getStatusIcon(match.status)}
+                                {match.status.charAt(0).toUpperCase() + match.status.slice(1)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {match.status === 'finished' || match.status === 'live' ? (
+                                <span className="font-mono" data-testid={`text-score-${match.id}`}>
+                                  {match.homeScore} - {match.awayScore}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openMarketEditor(match);
+                                }}
+                                className="text-xs"
+                                data-testid={`button-odds-${match.id}`}
+                              >
+                                <TrendingUp className="w-3 h-3 mr-1" />
+                                View Odds
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openMarketEditor(match)}>
-                                <Target className="w-4 h-4 mr-2" />
-                                Manage Markets
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setLocation(`/prime-admin/matches/${match.id}/exposure`)}>
-                                <Activity className="w-4 h-4 mr-2" />
-                                View Exposure
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openDeleteModal(match)}>
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Delete Match
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Target className="w-4 h-4 text-muted-foreground" />
+                                <span data-testid={`text-markets-count-${match.id}`}>
+                                  {match.marketsCount}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span 
+                                className={`font-mono ${match.totalExposure > 100000 ? 'text-red-500' : 'text-green-500'}`}
+                                data-testid={`text-exposure-${match.id}`}
+                              >
+                                £{(match.totalExposure / 100).toLocaleString()}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={match.isManual ? 'default' : 'secondary'}>
+                                {match.isManual ? 'Manual' : 'SportMonks'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {match.isManual ? (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={(e) => e.stopPropagation()}
+                                      data-testid={`button-match-actions-${match.id}`}
+                                    >
+                                      <MoreHorizontal className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={(e) => {
+                                      e.stopPropagation();
+                                      openMarketEditor(match);
+                                    }}>
+                                      <Target className="w-4 h-4 mr-2" />
+                                      Manage Markets
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => {
+                                      e.stopPropagation();
+                                      toast({ title: 'Edit Match', description: 'Edit functionality coming soon' });
+                                    }} data-testid={`action-edit-${match.id}`}>
+                                      <Settings className="w-4 h-4 mr-2" />
+                                      Edit Match
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => {
+                                      e.stopPropagation();
+                                      toast({ title: 'Override Match', description: 'Override functionality coming soon' });
+                                    }} data-testid={`action-override-${match.id}`}>
+                                      <AlertCircle className="w-4 h-4 mr-2" />
+                                      Override Result
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => {
+                                      e.stopPropagation();
+                                      setLocation(`/prime-admin/matches/${match.id}/exposure`);
+                                    }}>
+                                      <Activity className="w-4 h-4 mr-2" />
+                                      View Exposure
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem 
+                                      className="text-red-600"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openDeleteModal(match);
+                                      }}
+                                      data-testid={`action-delete-${match.id}`}
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Delete Match
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              ) : (
+                                <div className="text-center text-xs text-muted-foreground" data-testid={`text-view-only-${match.id}`}>
+                                  View Only
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ])
+                    )
                   )}
                 </TableBody>
               </Table>
