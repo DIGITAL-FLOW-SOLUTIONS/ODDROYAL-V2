@@ -328,38 +328,77 @@ export default function AdminMatchesMarkets() {
     }
   });
 
-  // Additional markets state
-  const [availableMarkets, setAvailableMarkets] = useState<MarketSetup[]>([
-    {
-      type: 'totals',
-      name: 'Total Goals Over/Under',
-      line: 2.5,
-      enabled: false,
+  // Additional markets state - now dynamic
+  const [availableMarkets, setAvailableMarkets] = useState<MarketSetup[]>([]);
+  
+  // Handicap formatting utilities
+  const formatHandicapSign = (line: number): string => {
+    if (line === 0) return '0';
+    return line > 0 ? `+${line}` : line.toString();
+  };
+  
+  const formatHandicapOppositeSign = (line: number): string => {
+    if (line === 0) return '0';
+    return line > 0 ? `-${line}` : `+${Math.abs(line)}`;
+  };
+  
+  const formatHandicapName = (line: number): string => {
+    return `Asian Handicap ${formatHandicapSign(line)}`;
+  };
+  
+  const formatHandicapOutcomeLabel = (teamName: string, line: number, side: 'home' | 'away'): string => {
+    const sign = side === 'home' ? formatHandicapSign(line) : formatHandicapOppositeSign(line);
+    return `${teamName} (${sign})`;
+  };
+  
+  // Market templates for adding new markets
+  const marketTemplates = {
+    totals: (line: number = 2.5) => ({
+      type: 'totals' as const,
+      name: `Total Goals Over/Under ${line}`,
+      line,
+      enabled: true,
       outcomes: [
-        { key: 'over', label: 'Over 2.5', odds: 1.85 },
-        { key: 'under', label: 'Under 2.5', odds: 1.95 }
+        { key: 'over', label: `Over ${line}`, odds: 1.85 },
+        { key: 'under', label: `Under ${line}`, odds: 1.95 }
       ]
-    },
-    {
-      type: 'btts',
+    }),
+    btts: () => ({
+      type: 'btts' as const,
       name: 'Both Teams To Score',
-      enabled: false,
+      enabled: true,
       outcomes: [
         { key: 'yes', label: 'Yes', odds: 1.75 },
         { key: 'no', label: 'No', odds: 2.05 }
       ]
-    },
-    {
-      type: 'handicap',
-      name: 'Asian Handicap',
-      line: 0,
-      enabled: false,
+    }),
+    handicap: (line: number = 0) => ({
+      type: 'handicap' as const,
+      name: formatHandicapName(line),
+      line,
+      enabled: true,
       outcomes: [
-        { key: 'home', label: 'Home Team (+0)', odds: 1.90 },
-        { key: 'away', label: 'Away Team (+0)', odds: 1.90 }
+        { key: 'home', label: formatHandicapOutcomeLabel(createMatchData.homeTeamName || 'Home', line, 'home'), odds: 1.90 },
+        { key: 'away', label: formatHandicapOutcomeLabel(createMatchData.awayTeamName || 'Away', line, 'away'), odds: 1.90 }
       ]
-    }
-  ]);
+    })
+  };
+  
+  // Function to add a new market
+  const addMarket = (type: keyof typeof marketTemplates, line?: number) => {
+    const newMarket = marketTemplates[type](line);
+    setAvailableMarkets(prev => [...prev, newMarket]);
+  };
+  
+  // Function to remove a market
+  const removeMarket = (index: number) => {
+    setAvailableMarkets(prev => prev.filter((_, i) => i !== index));
+  };
+  
+  // Function to reset markets to default state
+  const resetMarkets = () => {
+    setAvailableMarkets([]);
+  };
 
   // Pagination
   const [pagination, setPagination] = useState({
@@ -468,38 +507,8 @@ export default function AdminMatchesMarkets() {
           away: 2.80
         }
       });
-      // Reset additional markets
-      setAvailableMarkets([
-        {
-          type: 'totals',
-          name: 'Total Goals Over/Under',
-          line: 2.5,
-          enabled: false,
-          outcomes: [
-            { key: 'over', label: 'Over 2.5', odds: 1.85 },
-            { key: 'under', label: 'Under 2.5', odds: 1.95 }
-          ]
-        },
-        {
-          type: 'btts',
-          name: 'Both Teams To Score',
-          enabled: false,
-          outcomes: [
-            { key: 'yes', label: 'Yes', odds: 1.75 },
-            { key: 'no', label: 'No', odds: 2.05 }
-          ]
-        },
-        {
-          type: 'handicap',
-          name: 'Asian Handicap',
-          line: 0,
-          enabled: false,
-          outcomes: [
-            { key: 'home', label: 'Home Team (+0)', odds: 1.90 },
-            { key: 'away', label: 'Away Team (+0)', odds: 1.90 }
-          ]
-        }
-      ]);
+      // Reset additional markets to empty state
+      resetMarkets();
     },
     onError: (error) => {
       toast({
@@ -1327,37 +1336,7 @@ export default function AdminMatchesMarkets() {
         if (!open) {
           setCreateStep(1);
           // Reset additional markets when modal is closed
-          setAvailableMarkets([
-            {
-              type: 'totals',
-              name: 'Total Goals Over/Under',
-              line: 2.5,
-              enabled: false,
-              outcomes: [
-                { key: 'over', label: 'Over 2.5', odds: 1.85 },
-                { key: 'under', label: 'Under 2.5', odds: 1.95 }
-              ]
-            },
-            {
-              type: 'btts',
-              name: 'Both Teams To Score',
-              enabled: false,
-              outcomes: [
-                { key: 'yes', label: 'Yes', odds: 1.75 },
-                { key: 'no', label: 'No', odds: 2.05 }
-              ]
-            },
-            {
-              type: 'handicap',
-              name: 'Asian Handicap',
-              line: 0,
-              enabled: false,
-              outcomes: [
-                { key: 'home', label: 'Home Team (+0)', odds: 1.90 },
-                { key: 'away', label: 'Away Team (+0)', odds: 1.90 }
-              ]
-            }
-          ]);
+          resetMarkets();
         }
       }}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto" data-testid="modal-create-match">
@@ -1547,12 +1526,59 @@ export default function AdminMatchesMarkets() {
                 
                 {/* Additional Markets Configuration */}
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <TrendingUp className="w-4 h-4" />
-                    <span className="font-medium">Additional Markets</span>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4" />
+                      <span className="font-medium">Additional Markets</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" data-testid="button-add-market">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Market
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => addMarket('totals', 1.5)}>
+                            Over/Under 1.5 Goals
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => addMarket('totals', 2.5)}>
+                            Over/Under 2.5 Goals
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => addMarket('totals', 3.5)}>
+                            Over/Under 3.5 Goals
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => addMarket('btts')}>
+                            Both Teams To Score
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => addMarket('handicap', -1)}>
+                            Handicap -1
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => addMarket('handicap', 0)}>
+                            Handicap 0
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => addMarket('handicap', 1)}>
+                            Handicap +1
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                   
-                  {availableMarkets.map((market, index) => (
+                  {availableMarkets.length === 0 ? (
+                    <div className="p-8 text-center border-2 border-dashed border-muted rounded-lg">
+                      <Target className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                      <h3 className="text-lg font-medium mb-2">No Additional Markets</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Add markets like Over/Under Goals, Both Teams To Score, or Asian Handicap using the "Add Market" button above.
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Each market can be configured with custom odds and lines for comprehensive betting options.
+                      </p>
+                    </div>
+                  ) : (
+                    availableMarkets.map((market, index) => (
                     <div key={market.type} className={`p-4 rounded-lg border transition-all ${
                       market.enabled ? 'border-primary bg-primary/5' : 'border-muted bg-muted/20'
                     }`}>
@@ -1568,14 +1594,25 @@ export default function AdminMatchesMarkets() {
                                 setAvailableMarkets(newMarkets);
                               }}
                               className="w-4 h-4"
-                              data-testid={`checkbox-market-${market.type}`}
+                              data-testid={`checkbox-market-${market.type}-${index}`}
                             />
                             <span className="font-medium">{market.name}</span>
                           </label>
                         </div>
-                        {market.enabled && (
-                          <Badge variant="default">Active</Badge>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {market.enabled && (
+                            <Badge variant="default">Active</Badge>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeMarket(index)}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            data-testid={`button-remove-market-${index}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                       
                       {market.enabled && (
@@ -1593,15 +1630,15 @@ export default function AdminMatchesMarkets() {
                                   const newLine = parseFloat(e.target.value) || 0;
                                   newMarkets[index].line = newLine;
                                   
-                                  // Update outcome labels based on line
+                                  // Update outcome labels and market name based on line
                                   if (market.type === 'totals') {
                                     newMarkets[index].outcomes[0].label = `Over ${newLine}`;
                                     newMarkets[index].outcomes[1].label = `Under ${newLine}`;
+                                    newMarkets[index].name = `Total Goals Over/Under ${newLine}`;
                                   } else if (market.type === 'handicap') {
-                                    const homeHandicap = newLine >= 0 ? `+${newLine}` : newLine.toString();
-                                    const awayHandicap = newLine <= 0 ? `+${Math.abs(newLine)}` : `-${newLine}`;
-                                    newMarkets[index].outcomes[0].label = `${createMatchData.homeTeamName || 'Home'} (${homeHandicap})`;
-                                    newMarkets[index].outcomes[1].label = `${createMatchData.awayTeamName || 'Away'} (${awayHandicap})`;
+                                    newMarkets[index].outcomes[0].label = formatHandicapOutcomeLabel(createMatchData.homeTeamName || 'Home', newLine, 'home');
+                                    newMarkets[index].outcomes[1].label = formatHandicapOutcomeLabel(createMatchData.awayTeamName || 'Away', newLine, 'away');
+                                    newMarkets[index].name = formatHandicapName(newLine);
                                   }
                                   
                                   setAvailableMarkets(newMarkets);
@@ -1639,7 +1676,8 @@ export default function AdminMatchesMarkets() {
                         </div>
                       )}
                     </div>
-                  ))}
+                    ))
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
