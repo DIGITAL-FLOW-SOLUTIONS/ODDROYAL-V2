@@ -83,6 +83,7 @@ interface MatchEvent {
   id?: string;
   type: 'goal' | 'yellow_card' | 'red_card' | 'substitution' | 'penalty';
   minute: number;
+  second?: number;
   team: 'home' | 'away';
   playerName?: string;
   description: string;
@@ -176,6 +177,7 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
   const [eventData, setEventData] = useState<Partial<MatchEvent>>({
     type: 'goal',
     minute: 1,
+    second: 0,
     team: 'home',
     playerName: '',
     description: ''
@@ -186,6 +188,7 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
       onAddEvent({
         type: eventData.type as MatchEvent['type'],
         minute: eventData.minute,
+        second: eventData.second || 0,
         team: eventData.team as 'home' | 'away',
         playerName: eventData.playerName,
         description: eventData.description
@@ -195,6 +198,7 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
       setEventData({
         type: 'goal',
         minute: 1,
+        second: 0,
         team: 'home',
         playerName: '',
         description: ''
@@ -232,25 +236,42 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
             max="120"
             value={eventData.minute}
             onChange={(e) => setEventData(prev => ({ ...prev, minute: parseInt(e.target.value) || 1 }))}
+            data-testid="input-event-minute"
           />
         </div>
       </div>
       
-      <div>
-        <Label>Team</Label>
-        <Select
-          value={eventData.team}
-          onValueChange={(value) => setEventData(prev => ({ ...prev, team: value as 'home' | 'away' }))}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="home">{homeTeam || 'Home Team'}</SelectItem>
-            <SelectItem value="away">{awayTeam || 'Away Team'}</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Second (Optional)</Label>
+          <Input
+            type="number"
+            min="0"
+            max="59"
+            value={eventData.second}
+            onChange={(e) => setEventData(prev => ({ ...prev, second: parseInt(e.target.value) || 0 }))}
+            placeholder="0-59 seconds"
+            data-testid="input-event-second"
+          />
+        </div>
+        
+        <div>
+          <Label>Team</Label>
+          <Select
+            value={eventData.team}
+            onValueChange={(value) => setEventData(prev => ({ ...prev, team: value as 'home' | 'away' }))}
+          >
+            <SelectTrigger data-testid="select-event-team">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="home">{homeTeam || 'Home Team'}</SelectItem>
+              <SelectItem value="away">{awayTeam || 'Away Team'}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+      
       
       <div>
         <Label>Player Name (Optional)</Label>
@@ -267,6 +288,7 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
           value={eventData.description}
           onChange={(e) => setEventData(prev => ({ ...prev, description: e.target.value }))}
           placeholder={`e.g., ${eventData.playerName || 'Player'} scores a ${eventData.type === 'goal' ? 'goal' : eventData.type}`}
+          data-testid="input-event-description"
         />
       </div>
       
@@ -1766,37 +1788,146 @@ export default function AdminMatchesMarkets() {
                 </div>
                 
                 <div className="p-4 border-2 border-dashed border-muted rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">Match Events (Goals, Cards, etc.)</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium">Match Events (Goals, Cards, etc.)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          const minute = Math.max(1, Math.floor(Math.random() * 90) + 1);
+                          const event = {
+                            type: 'goal' as const,
+                            minute,
+                            team: 'home' as const,
+                            playerName: '',
+                            description: `Home team goal at ${minute}'`
+                          };
+                          setCreateMatchData(prev => ({
+                            ...prev,
+                            events: [...prev.events, event].sort((a, b) => a.minute - b.minute),
+                            simulatedResult: {
+                              ...prev.simulatedResult,
+                              homeScore: prev.simulatedResult.homeScore + 1,
+                              winner: prev.simulatedResult.homeScore + 1 > prev.simulatedResult.awayScore ? 'home' : 
+                                     prev.simulatedResult.homeScore + 1 === prev.simulatedResult.awayScore ? 'draw' : prev.simulatedResult.winner
+                            }
+                          }));
+                        }}
+                        data-testid="button-quick-home-goal"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Home Goal
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          const minute = Math.max(1, Math.floor(Math.random() * 90) + 1);
+                          const event = {
+                            type: 'goal' as const,
+                            minute,
+                            team: 'away' as const,
+                            playerName: '',
+                            description: `Away team goal at ${minute}'`
+                          };
+                          setCreateMatchData(prev => ({
+                            ...prev,
+                            events: [...prev.events, event].sort((a, b) => a.minute - b.minute),
+                            simulatedResult: {
+                              ...prev.simulatedResult,
+                              awayScore: prev.simulatedResult.awayScore + 1,
+                              winner: prev.simulatedResult.awayScore + 1 > prev.simulatedResult.homeScore ? 'away' : 
+                                     prev.simulatedResult.awayScore + 1 === prev.simulatedResult.homeScore ? 'draw' : prev.simulatedResult.winner
+                            }
+                          }));
+                        }}
+                        data-testid="button-quick-away-goal"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Away Goal
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Add specific match events with timing for realistic simulation
+                    Add specific match events with timing for realistic simulation. Quick buttons add random-timed goals and auto-update scores.
                   </p>
                   
                   {createMatchData.events.length > 0 && (
                     <div className="space-y-2 mb-3">
-                      {createMatchData.events.map((event, index) => (
-                        <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded border">
-                          <Badge variant="outline">{event.minute}'</Badge>
-                          <span className="text-sm">{event.description}</span>
-                          <Badge variant={event.team === 'home' ? 'default' : 'secondary'}>
-                            {event.team === 'home' ? createMatchData.homeTeamName : createMatchData.awayTeamName}
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setCreateMatchData(prev => ({
-                                ...prev,
-                                events: prev.events.filter((_, i) => i !== index)
-                              }));
-                            }}
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))}
+                      {createMatchData.events
+                        .sort((a, b) => {
+                          if (a.minute !== b.minute) return a.minute - b.minute;
+                          return (a.second || 0) - (b.second || 0);
+                        })
+                        .map((event, index) => {
+                          const eventIcon = event.type === 'goal' ? '⚽' : 
+                                          event.type === 'yellow_card' ? '🟨' : 
+                                          event.type === 'red_card' ? '🟥' : 
+                                          event.type === 'substitution' ? '🔄' : 
+                                          event.type === 'penalty' ? '🥅' : '📝';
+                          
+                          return (
+                            <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded border">
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm">{eventIcon}</span>
+                                <Badge variant="outline">
+                                  {event.second && event.second > 0 ? 
+                                    `${event.minute}:${event.second.toString().padStart(2, '0')}'` : 
+                                    `${event.minute}'`
+                                  }
+                                </Badge>
+                              </div>
+                              <span className="text-sm flex-1">{event.description}</span>
+                              <Badge variant={event.team === 'home' ? 'default' : 'secondary'}>
+                                {event.team === 'home' ? createMatchData.homeTeamName || 'Home' : createMatchData.awayTeamName || 'Away'}
+                              </Badge>
+                              {event.playerName && (
+                                <Badge variant="outline" className="text-xs">
+                                  {event.playerName}
+                                </Badge>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const isGoal = event.type === 'goal';
+                                  setCreateMatchData(prev => {
+                                    const newEvents = prev.events.filter((_, i) => i !== index);
+                                    const newSimulatedResult = isGoal ? {
+                                      ...prev.simulatedResult,
+                                      homeScore: event.team === 'home' ? 
+                                        Math.max(0, prev.simulatedResult.homeScore - 1) : 
+                                        prev.simulatedResult.homeScore,
+                                      awayScore: event.team === 'away' ? 
+                                        Math.max(0, prev.simulatedResult.awayScore - 1) : 
+                                        prev.simulatedResult.awayScore
+                                    } : prev.simulatedResult;
+                                    
+                                    // Update winner based on new scores
+                                    if (isGoal) {
+                                      newSimulatedResult.winner = 
+                                        newSimulatedResult.homeScore > newSimulatedResult.awayScore ? 'home' :
+                                        newSimulatedResult.awayScore > newSimulatedResult.homeScore ? 'away' : 'draw';
+                                    }
+                                    
+                                    return {
+                                      ...prev,
+                                      events: newEvents,
+                                      simulatedResult: newSimulatedResult
+                                    };
+                                  });
+                                }}
+                                data-testid={`button-remove-event-${index}`}
+                              >
+                                <XCircle className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          );
+                        })}
                     </div>
                   )}
                   
