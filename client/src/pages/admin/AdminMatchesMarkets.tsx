@@ -168,11 +168,83 @@ const MATCH_STATUS_ICONS = {
   postponed: PauseCircle
 } as const;
 
+// Enhanced validation functions
+const validateEventData = (eventData: Partial<MatchEvent>, existingEvents: MatchEvent[]): string | null => {
+  if (!eventData.minute || eventData.minute < 1 || eventData.minute > 120) {
+    return 'Minute must be between 1 and 120';
+  }
+  
+  if (eventData.second && (eventData.second < 0 || eventData.second > 59)) {
+    return 'Seconds must be between 0 and 59';
+  }
+  
+  if (!eventData.type || !eventData.team || !eventData.description?.trim()) {
+    return 'All required fields must be filled';
+  }
+  
+  // Check for duplicate events at the same time
+  const timeKey = `${eventData.minute}:${eventData.second || 0}`;
+  const duplicateEvent = existingEvents.find(event => 
+    `${event.minute}:${event.second || 0}` === timeKey && 
+    event.type === eventData.type &&
+    event.team === eventData.team
+  );
+  
+  if (duplicateEvent) {
+    return `A ${eventData.type} event for ${eventData.team} team already exists at ${timeKey}'`;
+  }
+  
+  return null;
+};
+
+const validateMarketConfiguration = (markets: MarketSetup[]): string | null => {
+  for (const market of markets) {
+    if (!market.enabled) continue;
+    
+    // Check odds validation
+    const invalidOdds = market.outcomes.some(outcome => 
+      !outcome.odds || parseFloat(outcome.odds.toString()) < 1.01
+    );
+    
+    if (invalidOdds) {
+      return `${market.name}: All odds must be 1.01 or higher`;
+    }
+    
+    // Check line requirements
+    if ((market.type === 'totals' || market.type === 'handicap') && 
+        (market.line === undefined || market.line === null)) {
+      return `${market.name}: Line value is required for ${market.type} markets`;
+    }
+    
+    // Validate totals line range
+    if (market.type === 'totals' && market.line !== undefined && 
+        (market.line < 0.5 || market.line > 10)) {
+      return `${market.name}: Totals line must be between 0.5 and 10`;
+    }
+    
+    // Validate handicap line range
+    if (market.type === 'handicap' && market.line !== undefined && 
+        (market.line < -5 || market.line > 5)) {
+      return `${market.name}: Handicap line must be between -5 and +5`;
+    }
+  }
+  
+  return null;
+};
+
+const validateDefaultOdds = (defaultOdds: { home: number; draw: number; away: number; }): string | null => {
+  if (defaultOdds.home < 1.01) return 'Home odds must be 1.01 or higher';
+  if (defaultOdds.draw < 1.01) return 'Draw odds must be 1.01 or higher';
+  if (defaultOdds.away < 1.01) return 'Away odds must be 1.01 or higher';
+  return null;
+};
+
 // Add Event Form Component
-function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
+function AddEventForm({ homeTeam, awayTeam, onAddEvent, existingEvents = [] }: {
   homeTeam: string;
   awayTeam: string;
   onAddEvent: (event: MatchEvent) => void;
+  existingEvents?: MatchEvent[];
 }) {
   const [eventData, setEventData] = useState<Partial<MatchEvent>>({
     type: 'goal',
@@ -183,7 +255,16 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
     description: ''
   });
   
+  const [validationError, setValidationError] = useState<string | null>(null);
+  
   const handleSubmit = () => {
+    const error = validateEventData(eventData, existingEvents);
+    
+    if (error) {
+      setValidationError(error);
+      return;
+    }
+    
     if (eventData.minute && eventData.type && eventData.team && eventData.description) {
       onAddEvent({
         type: eventData.type as MatchEvent['type'],
@@ -191,8 +272,10 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
         second: eventData.second || 0,
         team: eventData.team as 'home' | 'away',
         playerName: eventData.playerName,
-        description: eventData.description
+        description: eventData.description.trim()
       });
+      
+      setValidationError(null);
       
       // Reset form
       setEventData({
@@ -205,6 +288,14 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
       });
     }
   };
+  
+  // Clear validation error when form data changes
+  const updateEventData = (updates: Partial<MatchEvent>) => {
+    setEventData(prev => ({ ...prev, ...updates }));
+    if (validationError) {
+      setValidationError(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -213,7 +304,7 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
           <Label>Event Type</Label>
           <Select
             value={eventData.type}
-            onValueChange={(value) => setEventData(prev => ({ ...prev, type: value as MatchEvent['type'] }))}
+            onValueChange={(value) => updateEventData({ type: value as MatchEvent['type'] })}
           >
             <SelectTrigger>
               <SelectValue />
@@ -235,7 +326,7 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
             min="1"
             max="120"
             value={eventData.minute}
-            onChange={(e) => setEventData(prev => ({ ...prev, minute: parseInt(e.target.value) || 1 }))}
+            onChange={(e) => updateEventData({ minute: Math.min(120, Math.max(1, parseInt(e.target.value) || 1)) })}
             data-testid="input-event-minute"
           />
         </div>
@@ -249,7 +340,7 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
             min="0"
             max="59"
             value={eventData.second}
-            onChange={(e) => setEventData(prev => ({ ...prev, second: parseInt(e.target.value) || 0 }))}
+            onChange={(e) => updateEventData({ second: Math.min(59, Math.max(0, parseInt(e.target.value) || 0)) })}
             placeholder="0-59 seconds"
             data-testid="input-event-second"
           />
@@ -259,7 +350,7 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
           <Label>Team</Label>
           <Select
             value={eventData.team}
-            onValueChange={(value) => setEventData(prev => ({ ...prev, team: value as 'home' | 'away' }))}
+            onValueChange={(value) => updateEventData({ team: value as 'home' | 'away' })}
           >
             <SelectTrigger data-testid="select-event-team">
               <SelectValue />
@@ -277,7 +368,7 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
         <Label>Player Name (Optional)</Label>
         <Input
           value={eventData.playerName}
-          onChange={(e) => setEventData(prev => ({ ...prev, playerName: e.target.value }))}
+          onChange={(e) => updateEventData({ playerName: e.target.value })}
           placeholder="Enter player name"
         />
       </div>
@@ -286,18 +377,28 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
         <Label>Event Description</Label>
         <Input
           value={eventData.description}
-          onChange={(e) => setEventData(prev => ({ ...prev, description: e.target.value }))}
+          onChange={(e) => updateEventData({ description: e.target.value })}
           placeholder={`e.g., ${eventData.playerName || 'Player'} scores a ${eventData.type === 'goal' ? 'goal' : eventData.type}`}
           data-testid="input-event-description"
         />
       </div>
       
+      {validationError && (
+        <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-700 dark:text-red-300">{validationError}</p>
+        </div>
+      )}
+      
       <DialogFooter>
         <DialogClose asChild>
           <Button variant="outline">Cancel</Button>
         </DialogClose>
-        <DialogClose asChild>
-          <Button onClick={handleSubmit} disabled={!eventData.minute || !eventData.description}>
+        <DialogClose asChild disabled={!!validationError}>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={!eventData.minute || !eventData.description?.trim() || !!validationError}
+            data-testid="button-submit-event"
+          >
             Add Event
           </Button>
         </DialogClose>
@@ -1948,10 +2049,14 @@ export default function AdminMatchesMarkets() {
                       <AddEventForm 
                         homeTeam={createMatchData.homeTeamName}
                         awayTeam={createMatchData.awayTeamName}
+                        existingEvents={createMatchData.events}
                         onAddEvent={(event) => {
                           setCreateMatchData(prev => ({
                             ...prev,
-                            events: [...prev.events, event]
+                            events: [...prev.events, event].sort((a, b) => {
+                              if (a.minute !== b.minute) return a.minute - b.minute;
+                              return (a.second || 0) - (b.second || 0);
+                            })
                           }));
                         }}
                       />
@@ -1996,10 +2101,33 @@ export default function AdminMatchesMarkets() {
                 {createStep < 3 ? (
                   <Button
                     onClick={() => {
-                      // Collect enabled markets when moving from Step 2 to Step 3
+                      // Validate and collect markets when moving from Step 2 to Step 3
                       if (createStep === 2) {
                         const enabledMarkets = availableMarkets.filter(market => market.enabled);
-                        // Clean markets by removing client-only fields and validating
+                        
+                        // Validate markets
+                        const marketError = validateMarketConfiguration(enabledMarkets);
+                        if (marketError) {
+                          toast({
+                            title: "Validation Error",
+                            description: marketError,
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
+                        // Validate default odds
+                        const oddsError = validateDefaultOdds(createMatchData.defaultOdds);
+                        if (oddsError) {
+                          toast({
+                            title: "Validation Error", 
+                            description: oddsError,
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                        
+                        // Clean markets by removing client-only fields
                         const marketsToCreate = enabledMarkets.map(({enabled, ...market}) => ({
                           ...market,
                           outcomes: market.outcomes.map(outcome => ({
@@ -2013,6 +2141,20 @@ export default function AdminMatchesMarkets() {
                           markets: marketsToCreate
                         }));
                       }
+                      
+                      // Validate Step 1 data before proceeding
+                      if (createStep === 1) {
+                        const oddsError = validateDefaultOdds(createMatchData.defaultOdds);
+                        if (oddsError) {
+                          toast({
+                            title: "Validation Error",
+                            description: oddsError,
+                            variant: "destructive"
+                          });
+                          return;
+                        }
+                      }
+                      
                       setCreateStep(prev => prev + 1);
                     }}
                     disabled={
@@ -2024,11 +2166,13 @@ export default function AdminMatchesMarkets() {
                         !createMatchData.kickoffTime
                       )) || 
                       (createStep === 2 && (
-                        // Check for validation errors in enabled markets
-                        availableMarkets.some(market => market.enabled && (
-                          market.outcomes.some(outcome => !outcome.odds || parseFloat(outcome.odds.toString()) < 1.01) ||
-                          ((market.type === 'totals' || market.type === 'handicap') && (market.line === undefined || market.line === null))
-                        ))
+                        // Check for validation errors in enabled markets and default odds
+                        (() => {
+                          const enabledMarkets = availableMarkets.filter(m => m.enabled);
+                          const marketError = validateMarketConfiguration(enabledMarkets);
+                          const oddsError = validateDefaultOdds(createMatchData.defaultOdds);
+                          return !!(marketError || oddsError);
+                        })()
                       ))
                     }
                     data-testid="button-next-step"
@@ -2039,6 +2183,29 @@ export default function AdminMatchesMarkets() {
                 ) : (
                   <Button
                     onClick={() => {
+                      // Final validation before submission
+                      const enabledMarkets = availableMarkets.filter(market => market.enabled);
+                      const marketError = validateMarketConfiguration(enabledMarkets);
+                      const oddsError = validateDefaultOdds(createMatchData.defaultOdds);
+                      
+                      if (marketError) {
+                        toast({
+                          title: "Validation Error",
+                          description: marketError,
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
+                      if (oddsError) {
+                        toast({
+                          title: "Validation Error", 
+                          description: oddsError,
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
                       // Create default 1x2 market with user-provided odds
                       const defaultMarket: MarketSetup = {
                         type: '1x2',
