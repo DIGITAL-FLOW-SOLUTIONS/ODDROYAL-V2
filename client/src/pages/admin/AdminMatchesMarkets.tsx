@@ -96,6 +96,9 @@ interface MarketSetup {
     label: string;
     odds: number;
   }[];
+  // Additional properties for specific market types
+  line?: number; // For totals and handicap markets
+  enabled?: boolean;
 }
 
 interface Sport {
@@ -325,6 +328,39 @@ export default function AdminMatchesMarkets() {
     }
   });
 
+  // Additional markets state
+  const [availableMarkets, setAvailableMarkets] = useState<MarketSetup[]>([
+    {
+      type: 'totals',
+      name: 'Total Goals Over/Under',
+      line: 2.5,
+      enabled: false,
+      outcomes: [
+        { key: 'over', label: 'Over 2.5', odds: 1.85 },
+        { key: 'under', label: 'Under 2.5', odds: 1.95 }
+      ]
+    },
+    {
+      type: 'btts',
+      name: 'Both Teams To Score',
+      enabled: false,
+      outcomes: [
+        { key: 'yes', label: 'Yes', odds: 1.75 },
+        { key: 'no', label: 'No', odds: 2.05 }
+      ]
+    },
+    {
+      type: 'handicap',
+      name: 'Asian Handicap',
+      line: 0,
+      enabled: false,
+      outcomes: [
+        { key: 'home', label: 'Home Team (+0)', odds: 1.90 },
+        { key: 'away', label: 'Away Team (+0)', odds: 1.90 }
+      ]
+    }
+  ]);
+
   // Pagination
   const [pagination, setPagination] = useState({
     page: 1,
@@ -412,6 +448,7 @@ export default function AdminMatchesMarkets() {
         description: "Match created successfully",
       });
       setShowCreateModal(false);
+      setCreateStep(1);
       setCreateMatchData({
         sport: '',
         leagueName: '',
@@ -431,6 +468,38 @@ export default function AdminMatchesMarkets() {
           away: 2.80
         }
       });
+      // Reset additional markets
+      setAvailableMarkets([
+        {
+          type: 'totals',
+          name: 'Total Goals Over/Under',
+          line: 2.5,
+          enabled: false,
+          outcomes: [
+            { key: 'over', label: 'Over 2.5', odds: 1.85 },
+            { key: 'under', label: 'Under 2.5', odds: 1.95 }
+          ]
+        },
+        {
+          type: 'btts',
+          name: 'Both Teams To Score',
+          enabled: false,
+          outcomes: [
+            { key: 'yes', label: 'Yes', odds: 1.75 },
+            { key: 'no', label: 'No', odds: 2.05 }
+          ]
+        },
+        {
+          type: 'handicap',
+          name: 'Asian Handicap',
+          line: 0,
+          enabled: false,
+          outcomes: [
+            { key: 'home', label: 'Home Team (+0)', odds: 1.90 },
+            { key: 'away', label: 'Away Team (+0)', odds: 1.90 }
+          ]
+        }
+      ]);
     },
     onError: (error) => {
       toast({
@@ -1257,6 +1326,38 @@ export default function AdminMatchesMarkets() {
         setShowCreateModal(open);
         if (!open) {
           setCreateStep(1);
+          // Reset additional markets when modal is closed
+          setAvailableMarkets([
+            {
+              type: 'totals',
+              name: 'Total Goals Over/Under',
+              line: 2.5,
+              enabled: false,
+              outcomes: [
+                { key: 'over', label: 'Over 2.5', odds: 1.85 },
+                { key: 'under', label: 'Under 2.5', odds: 1.95 }
+              ]
+            },
+            {
+              type: 'btts',
+              name: 'Both Teams To Score',
+              enabled: false,
+              outcomes: [
+                { key: 'yes', label: 'Yes', odds: 1.75 },
+                { key: 'no', label: 'No', odds: 2.05 }
+              ]
+            },
+            {
+              type: 'handicap',
+              name: 'Asian Handicap',
+              line: 0,
+              enabled: false,
+              outcomes: [
+                { key: 'home', label: 'Home Team (+0)', odds: 1.90 },
+                { key: 'away', label: 'Away Team (+0)', odds: 1.90 }
+              ]
+            }
+          ]);
         }
       }}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto" data-testid="modal-create-match">
@@ -1444,13 +1545,101 @@ export default function AdminMatchesMarkets() {
                   </div>
                 </div>
                 
-                <div className="p-4 border-2 border-dashed border-muted rounded-lg text-center">
-                  <Target className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-muted-foreground mb-2">Additional Markets</p>
-                  <Button variant="outline" size="sm" data-testid="button-add-market">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Market (Over/Under, Asian Handicap, etc.)
-                  </Button>
+                {/* Additional Markets Configuration */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingUp className="w-4 h-4" />
+                    <span className="font-medium">Additional Markets</span>
+                  </div>
+                  
+                  {availableMarkets.map((market, index) => (
+                    <div key={market.type} className={`p-4 rounded-lg border transition-all ${
+                      market.enabled ? 'border-primary bg-primary/5' : 'border-muted bg-muted/20'
+                    }`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={market.enabled}
+                              onChange={(e) => {
+                                const newMarkets = [...availableMarkets];
+                                newMarkets[index].enabled = e.target.checked;
+                                setAvailableMarkets(newMarkets);
+                              }}
+                              className="w-4 h-4"
+                              data-testid={`checkbox-market-${market.type}`}
+                            />
+                            <span className="font-medium">{market.name}</span>
+                          </label>
+                        </div>
+                        {market.enabled && (
+                          <Badge variant="default">Active</Badge>
+                        )}
+                      </div>
+                      
+                      {market.enabled && (
+                        <div className="space-y-3">
+                          {/* Line/Handicap input for totals and handicap markets */}
+                          {(market.type === 'totals' || market.type === 'handicap') && (
+                            <div>
+                              <Label>{market.type === 'totals' ? 'Goal Line' : 'Handicap Line'}</Label>
+                              <Input
+                                type="number"
+                                step={market.type === 'handicap' ? '0.25' : '0.5'}
+                                value={market.line}
+                                onChange={(e) => {
+                                  const newMarkets = [...availableMarkets];
+                                  const newLine = parseFloat(e.target.value) || 0;
+                                  newMarkets[index].line = newLine;
+                                  
+                                  // Update outcome labels based on line
+                                  if (market.type === 'totals') {
+                                    newMarkets[index].outcomes[0].label = `Over ${newLine}`;
+                                    newMarkets[index].outcomes[1].label = `Under ${newLine}`;
+                                  } else if (market.type === 'handicap') {
+                                    const homeHandicap = newLine >= 0 ? `+${newLine}` : newLine.toString();
+                                    const awayHandicap = newLine <= 0 ? `+${Math.abs(newLine)}` : `-${newLine}`;
+                                    newMarkets[index].outcomes[0].label = `${createMatchData.homeTeamName || 'Home'} (${homeHandicap})`;
+                                    newMarkets[index].outcomes[1].label = `${createMatchData.awayTeamName || 'Away'} (${awayHandicap})`;
+                                  }
+                                  
+                                  setAvailableMarkets(newMarkets);
+                                }}
+                                className="mt-1"
+                                data-testid={`input-line-${market.type}`}
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Odds inputs */}
+                          <div className="grid grid-cols-2 gap-3">
+                            {market.outcomes.map((outcome, outcomeIndex) => (
+                              <div key={outcome.key}>
+                                <Label>{outcome.label}</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="1.01"
+                                  value={outcome.odds}
+                                  onChange={(e) => {
+                                    const newMarkets = [...availableMarkets];
+                                    const odds = parseFloat(e.target.value);
+                                    if (odds >= 1.01 || e.target.value === '') {
+                                      newMarkets[index].outcomes[outcomeIndex].odds = odds || 1.01;
+                                      setAvailableMarkets(newMarkets);
+                                    }
+                                  }}
+                                  className="mt-1"
+                                  data-testid={`input-odds-${market.type}-${outcome.key}`}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
                 
                 <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
@@ -1637,15 +1826,41 @@ export default function AdminMatchesMarkets() {
                 
                 {createStep < 3 ? (
                   <Button
-                    onClick={() => setCreateStep(prev => prev + 1)}
+                    onClick={() => {
+                      // Collect enabled markets when moving from Step 2 to Step 3
+                      if (createStep === 2) {
+                        const enabledMarkets = availableMarkets.filter(market => market.enabled);
+                        // Clean markets by removing client-only fields and validating
+                        const marketsToCreate = enabledMarkets.map(({enabled, ...market}) => ({
+                          ...market,
+                          outcomes: market.outcomes.map(outcome => ({
+                            ...outcome,
+                            odds: parseFloat(outcome.odds.toString()) || 1.01
+                          }))
+                        }));
+                        
+                        setCreateMatchData(prev => ({
+                          ...prev,
+                          markets: marketsToCreate
+                        }));
+                      }
+                      setCreateStep(prev => prev + 1);
+                    }}
                     disabled={
-                      createStep === 1 && (
+                      (createStep === 1 && (
                         !createMatchData.sport ||
                         !createMatchData.leagueName ||
                         !createMatchData.homeTeamName ||
                         !createMatchData.awayTeamName ||
                         !createMatchData.kickoffTime
-                      )
+                      )) || 
+                      (createStep === 2 && (
+                        // Check for validation errors in enabled markets
+                        availableMarkets.some(market => market.enabled && (
+                          market.outcomes.some(outcome => !outcome.odds || parseFloat(outcome.odds.toString()) < 1.01) ||
+                          ((market.type === 'totals' || market.type === 'handicap') && (market.line === undefined || market.line === null))
+                        ))
+                      ))
                     }
                     data-testid="button-next-step"
                   >
@@ -1666,13 +1881,40 @@ export default function AdminMatchesMarkets() {
                         ]
                       };
                       
+                      // Collect and validate all enabled markets one final time
+                      const enabledMarkets = availableMarkets.filter(market => market.enabled);
+                      
+                      // Validate markets before submitting
+                      const invalidMarkets = enabledMarkets.filter(market => 
+                        market.outcomes.some(outcome => !outcome.odds || parseFloat(outcome.odds.toString()) < 1.01) ||
+                        ((market.type === 'totals' || market.type === 'handicap') && (market.line === undefined || market.line === null))
+                      );
+                      
+                      if (invalidMarkets.length > 0) {
+                        toast({
+                          title: "Invalid Markets",
+                          description: "Please check all odds are 1.01 or higher and lines are set for totals/handicap markets",
+                          variant: "destructive"
+                        });
+                        return;
+                      }
+                      
+                      // Clean markets by removing client-only fields
+                      const marketsToCreate = enabledMarkets.map(({enabled, ...market}) => ({
+                        ...market,
+                        outcomes: market.outcomes.map(outcome => ({
+                          ...outcome,
+                          odds: parseFloat(outcome.odds.toString())
+                        }))
+                      }));
+                      
                       createMatchMutation.mutate({
                         sport: createMatchData.sport,
                         leagueName: createMatchData.leagueName,
                         homeTeamName: createMatchData.homeTeamName,
                         awayTeamName: createMatchData.awayTeamName,
                         kickoffTime: createMatchData.kickoffTime,
-                        markets: [defaultMarket, ...createMatchData.markets],
+                        markets: [defaultMarket, ...marketsToCreate],
                         events: createMatchData.events,
                         simulatedResult: createMatchData.simulatedResult,
                         defaultOdds: createMatchData.defaultOdds
