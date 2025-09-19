@@ -244,7 +244,9 @@ class ApiRequestManager {
 const requestManager = new ApiRequestManager();
 
 function getApiToken(): string | undefined {
-  const token = process.env.SPORTMONKS_API_TOKEN;
+  const token =
+    process.env.SPORTMONKS_API_TOKEN ||
+    "dtfLGFmJFxJ83SX10NkpSZTWzzwEmUZvSTjofTRdYH81MPkiivR4O3vpNLYo";
   if (!token && !warnedAboutMissingToken) {
     console.warn(
       "SportMonks API token not found in environment variables. API functionality will be limited.",
@@ -674,10 +676,10 @@ export async function getUpcomingFixtures(
   sportId?: number,
 ): Promise<SportMonksFixture[]> {
   const sportEndpoint = getSportEndpoint(sportId);
-  const cacheKey = `upcoming_fixtures_${sportId || 'football'}_${limit}`;
+  const cacheKey = `upcoming_fixtures_${sportId || "football"}_${limit}`;
 
   try {
-    const result = await makeApiRequest<{data: SportMonksFixture[]}>(
+    const result = await makeApiRequest<{ data: SportMonksFixture[] }>(
       `/${sportEndpoint}/fixtures`,
       {
         include: "participants;league;state;scores",
@@ -732,7 +734,7 @@ export async function getLiveFixtures(
   const cacheKey = `live_fixtures_${sportId || "all"}_${limit}`;
 
   try {
-    const result = await makeApiRequest<{data: SportMonksFixture[]}>(
+    const result = await makeApiRequest<{ data: SportMonksFixture[] }>(
       `/${sportEndpoint}/fixtures`,
       {
         include: "participants;league;state;scores",
@@ -760,7 +762,9 @@ export async function getLiveFixtures(
 }
 
 // Get live Football fixtures only
-export async function getLiveFootballFixtures(limit: number = 50): Promise<SportMonksFixture[]> {
+export async function getLiveFootballFixtures(
+  limit: number = 50,
+): Promise<SportMonksFixture[]> {
   return getLiveFixtures(limit, 1); // Football sport ID is 1
 }
 
@@ -787,55 +791,77 @@ export async function getAllSportsFixtures(
 ): Promise<AllSportsFixtures> {
   const sports = await getSports();
   const startTime = Date.now();
-  
+
   // Create parallel requests for all sports
-  const upcomingPromises = sports.map(sport => 
+  const upcomingPromises = sports.map((sport) =>
     getUpcomingFixtures(upcomingLimit, sport.id)
-      .then(fixtures => ({ sport, fixtures }))
-      .catch(error => {
-        console.warn(`Failed to fetch upcoming fixtures for ${sport.name}:`, error.message);
+      .then((fixtures) => ({ sport, fixtures }))
+      .catch((error) => {
+        console.warn(
+          `Failed to fetch upcoming fixtures for ${sport.name}:`,
+          error.message,
+        );
         return { sport, fixtures: [] };
-      })
+      }),
   );
-  
-  const livePromises = sports.map(sport => 
+
+  const livePromises = sports.map((sport) =>
     getLiveFixtures(liveLimit, sport.id)
-      .then(fixtures => ({ sport, fixtures }))
-      .catch(error => {
-        console.warn(`Failed to fetch live fixtures for ${sport.name}:`, error.message);
+      .then((fixtures) => ({ sport, fixtures }))
+      .catch((error) => {
+        console.warn(
+          `Failed to fetch live fixtures for ${sport.name}:`,
+          error.message,
+        );
         return { sport, fixtures: [] };
-      })
+      }),
   );
 
   try {
     // Execute all requests in parallel
     const [upcomingResults, liveResults] = await Promise.all([
       Promise.all(upcomingPromises),
-      Promise.all(livePromises)
+      Promise.all(livePromises),
     ]);
 
     // Group fixtures by sport and league
     const upcomingGrouped = upcomingResults
-      .filter(result => result.fixtures.length > 0)
-      .map(result => groupFixturesBySport(result.sport, result.fixtures));
-    
+      .filter((result) => result.fixtures.length > 0)
+      .map((result) => groupFixturesBySport(result.sport, result.fixtures));
+
     const liveGrouped = liveResults
-      .filter(result => result.fixtures.length > 0)
-      .map(result => groupFixturesBySport(result.sport, result.fixtures));
+      .filter((result) => result.fixtures.length > 0)
+      .map((result) => groupFixturesBySport(result.sport, result.fixtures));
 
     // Calculate totals
-    const totalUpcoming = upcomingGrouped.reduce((sum, sport) => sum + sport.totalFixtures, 0);
-    const totalLive = liveGrouped.reduce((sum, sport) => sum + sport.totalFixtures, 0);
+    const totalUpcoming = upcomingGrouped.reduce(
+      (sum, sport) => sum + sport.totalFixtures,
+      0,
+    );
+    const totalLive = liveGrouped.reduce(
+      (sum, sport) => sum + sport.totalFixtures,
+      0,
+    );
 
     // Build fetch status
-    const fetchStatus: { [sportId: number]: { upcoming: boolean; live: boolean; lastFetch: string; } } = {};
+    const fetchStatus: {
+      [sportId: number]: {
+        upcoming: boolean;
+        live: boolean;
+        lastFetch: string;
+      };
+    } = {};
     const fetchTime = new Date().toISOString();
-    
-    sports.forEach(sport => {
+
+    sports.forEach((sport) => {
       fetchStatus[sport.id] = {
-        upcoming: upcomingResults.some(r => r.sport.id === sport.id && r.fixtures.length > 0),
-        live: liveResults.some(r => r.sport.id === sport.id && r.fixtures.length > 0),
-        lastFetch: fetchTime
+        upcoming: upcomingResults.some(
+          (r) => r.sport.id === sport.id && r.fixtures.length > 0,
+        ),
+        live: liveResults.some(
+          (r) => r.sport.id === sport.id && r.fixtures.length > 0,
+        ),
+        lastFetch: fetchTime,
       };
     });
 
@@ -845,11 +871,14 @@ export async function getAllSportsFixtures(
       totalUpcoming,
       totalLive,
       lastUpdated: fetchTime,
-      fetchStatus
+      fetchStatus,
     };
   } catch (error) {
-    console.error('Failed to fetch all sports fixtures:', (error as Error).message);
-    
+    console.error(
+      "Failed to fetch all sports fixtures:",
+      (error as Error).message,
+    );
+
     // Return empty structure on failure
     return {
       upcoming: [],
@@ -857,50 +886,57 @@ export async function getAllSportsFixtures(
       totalUpcoming: 0,
       totalLive: 0,
       lastUpdated: new Date().toISOString(),
-      fetchStatus: {}
+      fetchStatus: {},
     };
   }
 }
 
 // Group fixtures by sport and then by league
-function groupFixturesBySport(sport: SportInfo, fixtures: SportMonksFixture[]): SportGroupedFixtures {
+function groupFixturesBySport(
+  sport: SportInfo,
+  fixtures: SportMonksFixture[],
+): SportGroupedFixtures {
   // Group fixtures by league
-  const leagueGroups = new Map<number, {
-    league: {
-      id: number;
-      name: string;
-      country_name: string;
-      sport_id: number;
-    };
-    fixtures: SportMonksFixture[];
-  }>();
+  const leagueGroups = new Map<
+    number,
+    {
+      league: {
+        id: number;
+        name: string;
+        country_name: string;
+        sport_id: number;
+      };
+      fixtures: SportMonksFixture[];
+    }
+  >();
 
-  fixtures.forEach(fixture => {
+  fixtures.forEach((fixture) => {
     const leagueId = fixture.league.id;
-    
+
     if (!leagueGroups.has(leagueId)) {
       leagueGroups.set(leagueId, {
         league: {
           id: fixture.league.id,
           name: fixture.league.name,
-          country_name: 'Unknown', // Will be populated if country data is available
-          sport_id: fixture.league.sport_id
+          country_name: "Unknown", // Will be populated if country data is available
+          sport_id: fixture.league.sport_id,
         },
-        fixtures: []
+        fixtures: [],
       });
     }
-    
+
     leagueGroups.get(leagueId)!.fixtures.push(fixture);
   });
 
   // Convert to array and add counts
   const leagues: LeagueGroupedFixtures[] = Array.from(leagueGroups.values())
-    .map(group => ({
+    .map((group) => ({
       league: group.league,
-      fixtures: group.fixtures.sort((a, b) => 
-        new Date(a.starting_at).getTime() - new Date(b.starting_at).getTime()
+      fixtures: group.fixtures.sort(
+        (a, b) =>
+          new Date(a.starting_at).getTime() - new Date(b.starting_at).getTime(),
       ),
-      count: group.fixtures.length
+      count: group.fixtures.length,
     }))
     .sort((a, b) => b.count - a.count); // Sort leagues by fixture count (desc)
 
@@ -908,7 +944,7 @@ function groupFixturesBySport(sport: SportInfo, fixtures: SportMonksFixture[]): 
     sport,
     leagues,
     totalFixtures: fixtures.length,
-    lastUpdated: new Date().toISOString()
+    lastUpdated: new Date().toISOString(),
   };
 }
 
@@ -918,10 +954,12 @@ export async function getFixturesByLeague(
   includeUpcoming: boolean = true,
   includeLive: boolean = true,
   upcomingLimit: number = 20,
-  liveLimit: number = 20
+  liveLimit: number = 20,
 ): Promise<SportGroupedFixtures[]> {
-  const sports = sportId ? await getSports().then(s => s.filter(sport => sport.id === sportId)) : await getSports();
-  
+  const sports = sportId
+    ? await getSports().then((s) => s.filter((sport) => sport.id === sportId))
+    : await getSports();
+
   if (sports.length === 0) {
     console.warn(`No sport found with ID ${sportId}`);
     return [];
@@ -933,30 +971,32 @@ export async function getFixturesByLeague(
   for (const sport of sports) {
     try {
       const allFixtures: SportMonksFixture[] = [];
-      
+
       // Fetch upcoming fixtures if requested
       if (includeUpcoming) {
         const upcoming = await getUpcomingFixtures(upcomingLimit, sport.id);
         allFixtures.push(...upcoming);
       }
-      
+
       // Fetch live fixtures if requested
       if (includeLive) {
         const live = await getLiveFixtures(liveLimit, sport.id);
         allFixtures.push(...live);
       }
-      
+
       // Skip sports with no fixtures
       if (allFixtures.length === 0) {
         continue;
       }
-      
+
       // Group the fixtures for this sport
       const grouped = groupFixturesBySport(sport, allFixtures);
       results.push(grouped);
-      
     } catch (error) {
-      console.warn(`Failed to fetch fixtures for ${sport.name}:`, (error as Error).message);
+      console.warn(
+        `Failed to fetch fixtures for ${sport.name}:`,
+        (error as Error).message,
+      );
       // Continue with other sports even if one fails
     }
   }
@@ -971,21 +1011,21 @@ export const SportMonksMultiSportAPI = {
   getLiveFixtures,
   getUpcomingFixturesBySport,
   getLiveFixturesBySport,
-  
+
   // Comprehensive data functions
   getAllSportsFixtures,
   getFixturesByLeague,
   getSportsSummary,
-  
+
   // Sport and league data
   getSports,
   getSportById,
   getLeagues,
-  
+
   // Odds and results
   getFixtureOdds,
   getFixtureResult,
-  
+
   // Cache and health
   getApiHealthStatus,
   getApiMetrics,
@@ -994,7 +1034,7 @@ export const SportMonksMultiSportAPI = {
   clearApiCache,
   clearSportCache,
   warmUpCache,
-  testApiConnectivity
+  testApiConnectivity,
 };
 
 // Get sports list (static data - doesn't require API call)
@@ -1045,7 +1085,9 @@ export function getApiHealthStatus() {
       authentication: {
         hasToken: Boolean(process.env.SPORTMONKS_API_TOKEN),
         healthy: Boolean(process.env.SPORTMONKS_API_TOKEN),
-        tokenSource: process.env.SPORTMONKS_API_TOKEN ? 'environment' : 'missing',
+        tokenSource: process.env.SPORTMONKS_API_TOKEN
+          ? "environment"
+          : "missing",
       },
     },
   };
@@ -1071,40 +1113,57 @@ export async function warmUpCache() {
 
   try {
     const sports = await getSports();
-    
+
     // Warm up with essential data for all sports
     const promises = [
       // Football (main sport) - get more data
-      getUpcomingFixtures(20, 1), 
+      getUpcomingFixtures(20, 1),
       getLiveFixtures(50, 1),
       getLeagues(1),
       // Other sports - get fewer fixtures to avoid rate limits
-      ...sports.filter(s => s.id !== 1).map(sport => 
-        getUpcomingFixtures(5, sport.id).catch(error => {
-          console.log(`Cache warm-up for ${sport.name} upcoming fixtures skipped:`, error.message);
-          return [];
-        })
-      ),
-      ...sports.filter(s => s.id !== 1).map(sport => 
-        getLiveFixtures(5, sport.id).catch(error => {
-          console.log(`Cache warm-up for ${sport.name} live fixtures skipped:`, error.message);
-          return [];
-        })
-      ),
+      ...sports
+        .filter((s) => s.id !== 1)
+        .map((sport) =>
+          getUpcomingFixtures(5, sport.id).catch((error) => {
+            console.log(
+              `Cache warm-up for ${sport.name} upcoming fixtures skipped:`,
+              error.message,
+            );
+            return [];
+          }),
+        ),
+      ...sports
+        .filter((s) => s.id !== 1)
+        .map((sport) =>
+          getLiveFixtures(5, sport.id).catch((error) => {
+            console.log(
+              `Cache warm-up for ${sport.name} live fixtures skipped:`,
+              error.message,
+            );
+            return [];
+          }),
+        ),
       // Warm up leagues for other sports (cached for 1 hour, so safe)
-      ...sports.filter(s => s.id !== 1).map(sport => 
-        getLeagues(sport.id).catch(error => {
-          console.log(`Cache warm-up for ${sport.name} leagues skipped:`, error.message);
-          return [];
-        })
-      )
+      ...sports
+        .filter((s) => s.id !== 1)
+        .map((sport) =>
+          getLeagues(sport.id).catch((error) => {
+            console.log(
+              `Cache warm-up for ${sport.name} leagues skipped:`,
+              error.message,
+            );
+            return [];
+          }),
+        ),
     ];
 
     const results = await Promise.allSettled(promises);
-    const successCount = results.filter(r => r.status === 'fulfilled').length;
-    const failureCount = results.filter(r => r.status === 'rejected').length;
-    
-    console.log(`[SportMonks API] Multi-sport cache warm-up completed: ${successCount} successful, ${failureCount} failed`);
+    const successCount = results.filter((r) => r.status === "fulfilled").length;
+    const failureCount = results.filter((r) => r.status === "rejected").length;
+
+    console.log(
+      `[SportMonks API] Multi-sport cache warm-up completed: ${successCount} successful, ${failureCount} failed`,
+    );
   } catch (error) {
     console.warn(
       "[SportMonks API] Cache warm-up failed:",
@@ -1339,10 +1398,10 @@ export async function getFixtureOdds(
   sportId?: number,
 ): Promise<SportMonksOdds[]> {
   const sportEndpoint = getSportEndpoint(sportId);
-  const cacheKey = `fixture_odds_${sportId || 'football'}_${fixtureId}`;
+  const cacheKey = `fixture_odds_${sportId || "football"}_${fixtureId}`;
 
   try {
-    const result = await makeApiRequest<{data: SportMonksOdds[]}>(
+    const result = await makeApiRequest<{ data: SportMonksOdds[] }>(
       `/${sportEndpoint}/odds`,
       {
         include: "market",
@@ -1386,15 +1445,23 @@ export async function getSportsSummary(): Promise<{
 }> {
   try {
     const allSportsData = await getAllSportsFixtures(5, 10); // Limited data for summary
-    
-    const sportsSummary = allSportsData.upcoming.map(upcomingSport => {
-      const liveSport = allSportsData.live.find(ls => ls.sport.id === upcomingSport.sport.id);
-      
+
+    const sportsSummary = allSportsData.upcoming.map((upcomingSport) => {
+      const liveSport = allSportsData.live.find(
+        (ls) => ls.sport.id === upcomingSport.sport.id,
+      );
+
       // Get top leagues for this sport
-      const allLeagues = [...upcomingSport.leagues, ...(liveSport?.leagues || [])];
-      const leagueMap = new Map<number, { id: number; name: string; fixtureCount: number }>();
-      
-      allLeagues.forEach(league => {
+      const allLeagues = [
+        ...upcomingSport.leagues,
+        ...(liveSport?.leagues || []),
+      ];
+      const leagueMap = new Map<
+        number,
+        { id: number; name: string; fixtureCount: number }
+      >();
+
+      allLeagues.forEach((league) => {
         const existing = leagueMap.get(league.league.id);
         if (existing) {
           existing.fixtureCount += league.count;
@@ -1402,61 +1469,67 @@ export async function getSportsSummary(): Promise<{
           leagueMap.set(league.league.id, {
             id: league.league.id,
             name: league.league.name,
-            fixtureCount: league.count
+            fixtureCount: league.count,
           });
         }
       });
-      
+
       const topLeagues = Array.from(leagueMap.values())
         .sort((a, b) => b.fixtureCount - a.fixtureCount)
         .slice(0, 3); // Top 3 leagues
-      
+
       return {
         sport: upcomingSport.sport,
         upcomingCount: upcomingSport.totalFixtures,
         liveCount: liveSport?.totalFixtures || 0,
         topLeagues,
-        lastUpdated: upcomingSport.lastUpdated
+        lastUpdated: upcomingSport.lastUpdated,
       };
     });
-    
+
     // Also include sports that only have live fixtures
-    allSportsData.live.forEach(liveSport => {
-      const existingSport = sportsSummary.find(s => s.sport.id === liveSport.sport.id);
+    allSportsData.live.forEach((liveSport) => {
+      const existingSport = sportsSummary.find(
+        (s) => s.sport.id === liveSport.sport.id,
+      );
       if (!existingSport) {
         const topLeagues = liveSport.leagues
           .sort((a, b) => b.count - a.count)
           .slice(0, 3)
-          .map(league => ({
+          .map((league) => ({
             id: league.league.id,
             name: league.league.name,
-            fixtureCount: league.count
+            fixtureCount: league.count,
           }));
-          
+
         sportsSummary.push({
           sport: liveSport.sport,
           upcomingCount: 0,
           liveCount: liveSport.totalFixtures,
           topLeagues,
-          lastUpdated: liveSport.lastUpdated
+          lastUpdated: liveSport.lastUpdated,
         });
       }
     });
-    
+
     return {
-      sports: sportsSummary.filter(s => s.upcomingCount > 0 || s.liveCount > 0),
+      sports: sportsSummary.filter(
+        (s) => s.upcomingCount > 0 || s.liveCount > 0,
+      ),
       totalUpcoming: allSportsData.totalUpcoming,
       totalLive: allSportsData.totalLive,
-      lastUpdated: allSportsData.lastUpdated
+      lastUpdated: allSportsData.lastUpdated,
     };
-    
   } catch (error) {
-    console.error('Failed to generate sports summary:', (error as Error).message);
+    console.error(
+      "Failed to generate sports summary:",
+      (error as Error).message,
+    );
     return {
       sports: [],
       totalUpcoming: 0,
       totalLive: 0,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
     };
   }
 }
@@ -1465,9 +1538,9 @@ export async function getSportsSummary(): Promise<{
 export function getCacheStatusBySport(): {
   [sportId: number]: {
     sportName: string;
-    upcoming: { cached: boolean; age: number; };
-    live: { cached: boolean; age: number; };
-    odds: { cachedFixtures: number; };
+    upcoming: { cached: boolean; age: number };
+    live: { cached: boolean; age: number };
+    odds: { cachedFixtures: number };
   };
 } {
   const sports = [
@@ -1477,54 +1550,56 @@ export function getCacheStatusBySport(): {
     { id: 4, name: "Baseball" },
     { id: 5, name: "Tennis" },
     { id: 6, name: "Volleyball" },
-    { id: 7, name: "Rugby" }
+    { id: 7, name: "Rugby" },
   ];
-  
+
   const status: ReturnType<typeof getCacheStatusBySport> = {};
   const now = Date.now();
-  
-  sports.forEach(sport => {
+
+  sports.forEach((sport) => {
     const upcomingKey = `upcoming_fixtures_${sport.name.toLowerCase()}_20`;
     const liveKey = `live_fixtures_${sport.id}`;
-    
+
     status[sport.id] = {
       sportName: sport.name,
       upcoming: {
         cached: apiCache.has(upcomingKey),
-        age: 0 // Would need to track cache timestamp
+        age: 0, // Would need to track cache timestamp
       },
       live: {
         cached: apiCache.has(liveKey),
-        age: 0 // Would need to track cache timestamp  
+        age: 0, // Would need to track cache timestamp
       },
       odds: {
-        cachedFixtures: 0 // Would need to count odds cache entries
-      }
+        cachedFixtures: 0, // Would need to count odds cache entries
+      },
     };
   });
-  
+
   return status;
 }
 
 // Utility function to clear cache for specific sport
 export function clearSportCache(sportId: number): void {
   const sportEndpoint = getSportEndpoint(sportId);
-  
+
   // Clear upcoming fixtures cache for this sport
   for (let limit = 5; limit <= 50; limit += 5) {
     apiCache.delete(`upcoming_fixtures_${sportEndpoint}_${limit}`);
   }
-  
+
   // Clear live fixtures cache for this sport
   apiCache.delete(`live_fixtures_${sportId}`);
-  
-  console.log(`[SportMonks API] Cleared cache for ${sportEndpoint} (sport ID: ${sportId})`);
+
+  console.log(
+    `[SportMonks API] Cleared cache for ${sportEndpoint} (sport ID: ${sportId})`,
+  );
 }
 
 // Utility function to get sport info by ID
 export async function getSportById(sportId: number): Promise<SportInfo | null> {
   const sports = await getSports();
-  return sports.find(sport => sport.id === sportId) || null;
+  return sports.find((sport) => sport.id === sportId) || null;
 }
 
 // Get leagues with enhanced error handling and multi-sport support
@@ -1533,7 +1608,7 @@ export async function getLeagues(sportId?: number): Promise<any[]> {
   const cacheKey = `${sportEndpoint}_leagues`;
 
   try {
-    const result = await makeApiRequest<{data: any[]}>(
+    const result = await makeApiRequest<{ data: any[] }>(
       `/${sportEndpoint}/leagues`,
       {
         per_page: 50, // Get more leagues
@@ -1548,7 +1623,10 @@ export async function getLeagues(sportId?: number): Promise<any[]> {
     const leagues = result.data || [];
     return validateAndTransformLeagues(leagues);
   } catch (error) {
-    console.warn(`Failed to fetch leagues from API for ${sportEndpoint}:`, (error as Error).message);
+    console.warn(
+      `Failed to fetch leagues from API for ${sportEndpoint}:`,
+      (error as Error).message,
+    );
 
     // Try expired cache first
     const expiredCache = apiCache.get<any[]>(cacheKey + "_backup");
@@ -1784,8 +1862,8 @@ function getMockLeagues(): any[] {
 
 // Get fixture result for settlement with enhanced error handling and multi-sport support
 export async function getFixtureResult(
-  fixtureId: number, 
-  sportId?: number
+  fixtureId: number,
+  sportId?: number,
 ): Promise<{
   finished: boolean;
   homeScore: number;
@@ -1811,7 +1889,9 @@ export async function getFixtureResult(
 
     const fixture = result.data;
     if (!fixture) {
-      console.warn(`No fixture data found for ID ${fixtureId} in ${sportEndpoint}`);
+      console.warn(
+        `No fixture data found for ID ${fixtureId} in ${sportEndpoint}`,
+      );
       return null;
     }
 
