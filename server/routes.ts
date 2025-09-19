@@ -2581,12 +2581,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: any, res) => {
       try {
         const { insertMatchSchema } = await import('@shared/schema');
-        const validatedData = insertMatchSchema.parse(req.body);
+        
+        // Extract additional data that's not part of the base match schema
+        const { markets = [], events = [], simulatedResult, defaultOdds, ...matchData } = req.body;
+        
+        // Create team IDs from team names for now (in a real app these would be provided)
+        const homeTeamId = `team_${matchData.homeTeamName?.toLowerCase().replace(/\s+/g, '_') || 'home'}`;
+        const awayTeamId = `team_${matchData.awayTeamName?.toLowerCase().replace(/\s+/g, '_') || 'away'}`;
+        const leagueId = `league_${matchData.leagueName?.toLowerCase().replace(/\s+/g, '_') || 'custom'}`;
+        
+        const fullMatchData = {
+          ...matchData,
+          homeTeamId,
+          awayTeamId,
+          leagueId,
+          kickoffTime: new Date(matchData.kickoffTime),
+          simulatedResult: simulatedResult || null
+        };
+        
+        const validatedData = insertMatchSchema.parse(fullMatchData);
         
         // Check for existing match with same teams and time
         const existingMatches = await storage.getMatchesByTeamsAndTime(
-          validatedData.homeTeamId, 
-          validatedData.awayTeamId, 
+          homeTeamId, 
+          awayTeamId, 
           validatedData.kickoffTime
         );
         
@@ -2603,10 +2621,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdBy: req.adminUser.id
         });
         
+        // Create simulated events for the match (sorted by minute with proper orderIndex)
+        if (events && events.length > 0) {
+          // Sort events by minute to ensure proper ordering
+          const sortedEvents = events.sort((a, b) => a.minute - b.minute);
+          
+          for (let i = 0; i < sortedEvents.length; i++) {
+            const event = sortedEvents[i];
+            // Calculate scheduled time relative to kickoff
+            const scheduledTime = new Date(validatedData.kickoffTime.getTime() + (event.minute * 60 * 1000));
+            
+            await storage.createMatchEvent({
+              matchId: match.id,
+              type: event.type,
+              minute: event.minute,
+              second: event.second || 0,
+              team: event.team,
+              playerName: event.playerName || '',
+              description: event.description,
+              isSimulated: true,
+              isExecuted: false,
+              orderIndex: i, // Proper ordering for events at same minute
+              scheduledTime,
+              createdBy: req.adminUser.id
+            });
+          }
+        }
+        
+        // Create markets: either provided markets or default 1x2 market from defaultOdds
+        const marketsToCreate = [];
+        
+        if (markets && markets.length > 0) {
+          marketsToCreate.push(...markets);
+        } else if (defaultOdds && (defaultOdds.home || defaultOdds.draw || defaultOdds.away)) {
+          // Create default 1x2 market when no markets provided but defaultOdds available
+          marketsToCreate.push({
+            type: '1x2',
+            name: 'Match Winner',
+            outcomes: [
+              { key: 'home', label: `${fullMatchData.homeTeamName} Win`, odds: defaultOdds.home || 2.50 },
+              { key: 'draw', label: 'Draw', odds: defaultOdds.draw || 3.20 },
+              { key: 'away', label: `${fullMatchData.awayTeamName} Win`, odds: defaultOdds.away || 2.80 }
+            ]
+          });
+        }
+        
+        // Create markets and outcomes
+        for (const market of marketsToCreate) {
+          const createdMarket = await storage.createMarket({
+            matchId: match.id,
+            key: market.type,
+            name: market.name,
+            type: market.type,
+            status: 'open',
+            minStakeCents: 100, // £1 minimum
+            maxStakeCents: 10000000, // £100k maximum  
+            maxLiabilityCents: 100000000, // £1M maximum liability
+            displayOrder: 0,
+            isPublished: true,
+            createdBy: req.adminUser.id
+          });
+          
+          // Create outcomes for the market
+          if (market.outcomes && market.outcomes.length > 0) {
+            for (let i = 0; i < market.outcomes.length; i++) {
+              const outcome = market.outcomes[i];
+              await storage.createMarketOutcome({
+                marketId: createdMarket.id,
+                key: outcome.key,
+                label: outcome.label,
+                odds: outcome.odds.toString(),
+                status: 'active',
+                liabilityLimitCents: 50000000, // £500k default
+                displayOrder: i,
+                updatedBy: req.adminUser.id
+              });
+            }
+          }
+        }
+        
         res.json({
           success: true,
           data: match,
-          message: 'Match created successfully'
+          message: 'Match created successfully with events and markets'
         });
       } catch (error) {
         console.error('Create match error:', error);

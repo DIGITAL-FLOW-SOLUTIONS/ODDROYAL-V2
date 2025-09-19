@@ -40,7 +40,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -141,6 +141,11 @@ interface CreateMatchData {
     awayScore: number;
     winner: 'home' | 'away' | 'draw';
   };
+  defaultOdds: {
+    home: number;
+    draw: number;
+    away: number;
+  };
 }
 
 const MATCH_STATUS_COLORS = {
@@ -158,6 +163,123 @@ const MATCH_STATUS_ICONS = {
   cancelled: XCircle,
   postponed: PauseCircle
 } as const;
+
+// Add Event Form Component
+function AddEventForm({ homeTeam, awayTeam, onAddEvent }: {
+  homeTeam: string;
+  awayTeam: string;
+  onAddEvent: (event: MatchEvent) => void;
+}) {
+  const [eventData, setEventData] = useState<Partial<MatchEvent>>({
+    type: 'goal',
+    minute: 1,
+    team: 'home',
+    playerName: '',
+    description: ''
+  });
+  
+  const handleSubmit = () => {
+    if (eventData.minute && eventData.type && eventData.team && eventData.description) {
+      onAddEvent({
+        type: eventData.type as MatchEvent['type'],
+        minute: eventData.minute,
+        team: eventData.team as 'home' | 'away',
+        playerName: eventData.playerName,
+        description: eventData.description
+      });
+      
+      // Reset form
+      setEventData({
+        type: 'goal',
+        minute: 1,
+        team: 'home',
+        playerName: '',
+        description: ''
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Event Type</Label>
+          <Select
+            value={eventData.type}
+            onValueChange={(value) => setEventData(prev => ({ ...prev, type: value as MatchEvent['type'] }))}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="goal">Goal</SelectItem>
+              <SelectItem value="yellow_card">Yellow Card</SelectItem>
+              <SelectItem value="red_card">Red Card</SelectItem>
+              <SelectItem value="substitution">Substitution</SelectItem>
+              <SelectItem value="penalty">Penalty</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div>
+          <Label>Minute</Label>
+          <Input
+            type="number"
+            min="1"
+            max="120"
+            value={eventData.minute}
+            onChange={(e) => setEventData(prev => ({ ...prev, minute: parseInt(e.target.value) || 1 }))}
+          />
+        </div>
+      </div>
+      
+      <div>
+        <Label>Team</Label>
+        <Select
+          value={eventData.team}
+          onValueChange={(value) => setEventData(prev => ({ ...prev, team: value as 'home' | 'away' }))}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="home">{homeTeam || 'Home Team'}</SelectItem>
+            <SelectItem value="away">{awayTeam || 'Away Team'}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div>
+        <Label>Player Name (Optional)</Label>
+        <Input
+          value={eventData.playerName}
+          onChange={(e) => setEventData(prev => ({ ...prev, playerName: e.target.value }))}
+          placeholder="Enter player name"
+        />
+      </div>
+      
+      <div>
+        <Label>Event Description</Label>
+        <Input
+          value={eventData.description}
+          onChange={(e) => setEventData(prev => ({ ...prev, description: e.target.value }))}
+          placeholder={`e.g., ${eventData.playerName || 'Player'} scores a ${eventData.type === 'goal' ? 'goal' : eventData.type}`}
+        />
+      </div>
+      
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button variant="outline">Cancel</Button>
+        </DialogClose>
+        <DialogClose asChild>
+          <Button onClick={handleSubmit} disabled={!eventData.minute || !eventData.description}>
+            Add Event
+          </Button>
+        </DialogClose>
+      </DialogFooter>
+    </div>
+  );
+}
 
 export default function AdminMatchesMarkets() {
   const { toast } = useToast();
@@ -195,6 +317,11 @@ export default function AdminMatchesMarkets() {
       homeScore: 0,
       awayScore: 0,
       winner: 'draw'
+    },
+    defaultOdds: {
+      home: 2.50,
+      draw: 3.20,
+      away: 2.80
     }
   });
 
@@ -297,6 +424,11 @@ export default function AdminMatchesMarkets() {
           homeScore: 0,
           awayScore: 0,
           winner: 'draw'
+        },
+        defaultOdds: {
+          home: 2.50,
+          draw: 3.20,
+          away: 2.80
         }
       });
     },
@@ -1172,7 +1304,15 @@ export default function AdminMatchesMarkets() {
                       <Input
                         type="number"
                         step="0.01"
-                        placeholder="2.50"
+                        min="1.01"
+                        value={createMatchData.defaultOdds.home}
+                        onChange={(e) => setCreateMatchData(prev => ({
+                          ...prev,
+                          defaultOdds: {
+                            ...prev.defaultOdds,
+                            home: parseFloat(e.target.value) || 1.01
+                          }
+                        }))}
                         className="mt-1"
                         data-testid="input-home-odds"
                       />
@@ -1182,7 +1322,15 @@ export default function AdminMatchesMarkets() {
                       <Input
                         type="number"
                         step="0.01"
-                        placeholder="3.20"
+                        min="1.01"
+                        value={createMatchData.defaultOdds.draw}
+                        onChange={(e) => setCreateMatchData(prev => ({
+                          ...prev,
+                          defaultOdds: {
+                            ...prev.defaultOdds,
+                            draw: parseFloat(e.target.value) || 1.01
+                          }
+                        }))}
                         className="mt-1"
                         data-testid="input-draw-odds"
                       />
@@ -1192,7 +1340,15 @@ export default function AdminMatchesMarkets() {
                       <Input
                         type="number"
                         step="0.01"
-                        placeholder="2.80"
+                        min="1.01"
+                        value={createMatchData.defaultOdds.away}
+                        onChange={(e) => setCreateMatchData(prev => ({
+                          ...prev,
+                          defaultOdds: {
+                            ...prev.defaultOdds,
+                            away: parseFloat(e.target.value) || 1.01
+                          }
+                        }))}
                         className="mt-1"
                         data-testid="input-away-odds"
                       />
@@ -1302,10 +1458,59 @@ export default function AdminMatchesMarkets() {
                   <p className="text-sm text-muted-foreground mb-3">
                     Add specific match events with timing for realistic simulation
                   </p>
-                  <Button variant="outline" size="sm" data-testid="button-add-event">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Match Event
-                  </Button>
+                  
+                  {createMatchData.events.length > 0 && (
+                    <div className="space-y-2 mb-3">
+                      {createMatchData.events.map((event, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded border">
+                          <Badge variant="outline">{event.minute}'</Badge>
+                          <span className="text-sm">{event.description}</span>
+                          <Badge variant={event.team === 'home' ? 'default' : 'secondary'}>
+                            {event.team === 'home' ? createMatchData.homeTeamName : createMatchData.awayTeamName}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setCreateMatchData(prev => ({
+                                ...prev,
+                                events: prev.events.filter((_, i) => i !== index)
+                              }));
+                            }}
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" data-testid="button-add-event">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Match Event
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add Match Event</DialogTitle>
+                        <DialogDescription>
+                          Add events like goals, cards, or substitutions to simulate realistic match flow
+                        </DialogDescription>
+                      </DialogHeader>
+                      <AddEventForm 
+                        homeTeam={createMatchData.homeTeamName}
+                        awayTeam={createMatchData.awayTeamName}
+                        onAddEvent={(event) => {
+                          setCreateMatchData(prev => ({
+                            ...prev,
+                            events: [...prev.events, event]
+                          }));
+                        }}
+                      />
+                    </DialogContent>
+                  </Dialog>
                 </div>
                 
                 <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg">
@@ -1362,15 +1567,27 @@ export default function AdminMatchesMarkets() {
                 ) : (
                   <Button
                     onClick={() => {
+                      // Create default 1x2 market with user-provided odds
+                      const defaultMarket: MarketSetup = {
+                        type: '1x2',
+                        name: 'Match Winner',
+                        outcomes: [
+                          { key: 'home', label: `${createMatchData.homeTeamName} Win`, odds: createMatchData.defaultOdds.home },
+                          { key: 'draw', label: 'Draw', odds: createMatchData.defaultOdds.draw },
+                          { key: 'away', label: `${createMatchData.awayTeamName} Win`, odds: createMatchData.defaultOdds.away }
+                        ]
+                      };
+                      
                       createMatchMutation.mutate({
                         sport: createMatchData.sport,
                         leagueName: createMatchData.leagueName,
                         homeTeamName: createMatchData.homeTeamName,
                         awayTeamName: createMatchData.awayTeamName,
                         kickoffTime: createMatchData.kickoffTime,
-                        markets: createMatchData.markets,
+                        markets: [defaultMarket, ...createMatchData.markets],
                         events: createMatchData.events,
-                        simulatedResult: createMatchData.simulatedResult
+                        simulatedResult: createMatchData.simulatedResult,
+                        defaultOdds: createMatchData.defaultOdds
                       });
                     }}
                     disabled={createMatchMutation.isPending}
