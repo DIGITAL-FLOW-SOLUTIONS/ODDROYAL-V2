@@ -2168,8 +2168,8 @@ export default function AdminMatchesMarkets() {
                       (createStep === 2 && (
                         // Check for validation errors in enabled markets and default odds
                         (() => {
-                          const enabledMarkets = availableMarkets.filter(m => m.enabled);
-                          const marketError = validateMarketConfiguration(enabledMarkets);
+                          const enabledMktCheck = availableMarkets.filter(m => m.enabled);
+                          const marketError = validateMarketConfiguration(enabledMktCheck);
                           const oddsError = validateDefaultOdds(createMatchData.defaultOdds);
                           return !!(marketError || oddsError);
                         })()
@@ -2184,8 +2184,8 @@ export default function AdminMatchesMarkets() {
                   <Button
                     onClick={() => {
                       // Final validation before submission
-                      const enabledMarkets = availableMarkets.filter(market => market.enabled);
-                      const marketError = validateMarketConfiguration(enabledMarkets);
+                      const finalEnabledMarkets = availableMarkets.filter(market => market.enabled);
+                      const marketError = validateMarketConfiguration(finalEnabledMarkets);
                       const oddsError = validateDefaultOdds(createMatchData.defaultOdds);
                       
                       if (marketError) {
