@@ -33,7 +33,9 @@ import {
   DollarSign,
   AlertCircle,
   TrendingUp,
-  Info
+  Info,
+  Shield,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +51,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, adminApiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { useAdminAuth } from "@/contexts/AdminAuthContext";
 
 // Types
 interface Match {
@@ -410,6 +413,7 @@ function AddEventForm({ homeTeam, awayTeam, onAddEvent, existingEvents = [] }: {
 export default function AdminMatchesMarkets() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { isAuthenticated, admin, refreshAdmin } = useAdminAuth();
   
   // State management
   const [filters, setFilters] = useState<MatchFilters>({
@@ -424,6 +428,9 @@ export default function AdminMatchesMarkets() {
   
   const [showFilters, setShowFilters] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSessionWarning, setShowSessionWarning] = useState(false);
+  const [sessionTimeRemaining, setSessionTimeRemaining] = useState<number | null>(null);
+  const [sessionCheckInterval, setSessionCheckInterval] = useState<NodeJS.Timeout | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [viewMode, setViewMode] = useState<'grouped' | 'table'>('grouped');
@@ -453,6 +460,94 @@ export default function AdminMatchesMarkets() {
 
   // Additional markets state - now dynamic
   const [availableMarkets, setAvailableMarkets] = useState<MarketSetup[]>([]);
+  
+  // Session management utilities
+  const checkSessionValidiy = async (): Promise<{ valid: boolean; remainingMs?: number; error?: string }> => {
+    try {
+      const adminAuthToken = localStorage.getItem('adminAuthToken');
+      if (!adminAuthToken) {
+        return { valid: false, error: 'No session token' };
+      }
+      
+      const response = await adminApiRequest('GET', '/api/admin/auth/session-status');
+      if (!response.ok) {
+        if (response.status === 401) {
+          return { valid: false, error: 'Session expired' };
+        }
+        return { valid: false, error: 'Session check failed' };
+      }
+      
+      const data = await response.json();
+      return {
+        valid: true,
+        remainingMs: data.data?.remainingMs || 0
+      };
+    } catch (error) {
+      return { valid: false, error: 'Network error' };
+    }
+  };
+  
+  const handleSessionExpiry = () => {
+    // Save current form data before clearing session
+    const formDraftKey = 'admin-create-match-draft';
+    localStorage.setItem(formDraftKey, JSON.stringify({
+      createMatchData,
+      availableMarkets,
+      createStep,
+      timestamp: Date.now()
+    }));
+    
+    toast({
+      title: "Session Expired",
+      description: "Your admin session has expired. Your work has been saved as a draft. Please log in again.",
+      variant: "destructive",
+      duration: 10000
+    });
+    
+    setShowCreateModal(false);
+    setShowSessionWarning(false);
+    setLocation('/prime-admin/login');
+  };
+  
+  const extendSession = async () => {
+    try {
+      const response = await adminApiRequest('POST', '/api/admin/auth/extend-session');
+      if (response.ok) {
+        toast({
+          title: "Session Extended",
+          description: "Your session has been extended for another 8 hours.",
+        });
+        setShowSessionWarning(false);
+        setSessionTimeRemaining(null);
+      }
+    } catch (error) {
+      console.error('Failed to extend session:', error);
+    }
+  };
+  
+  const restoreFormData = () => {
+    const formDraftKey = 'admin-create-match-draft';
+    const savedData = localStorage.getItem(formDraftKey);
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        // Only restore if saved within last 24 hours
+        if (Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000) {
+          setCreateMatchData(parsed.createMatchData || createMatchData);
+          setAvailableMarkets(parsed.availableMarkets || []);
+          setCreateStep(parsed.createStep || 1);
+          
+          toast({
+            title: "Draft Restored",
+            description: "Your previous work has been restored from draft.",
+          });
+        }
+        localStorage.removeItem(formDraftKey);
+      } catch (error) {
+        console.error('Failed to restore form data:', error);
+      }
+    }
+  };
   
   // Handicap formatting utilities
   const formatHandicapSign = (line: number): string => {
@@ -522,6 +617,29 @@ export default function AdminMatchesMarkets() {
   const resetMarkets = () => {
     setAvailableMarkets([]);
   };
+  
+  // Auto-save form data to localStorage
+  const saveFormDraft = () => {
+    const formDraftKey = 'admin-create-match-draft';
+    const draftData = {
+      createMatchData,
+      availableMarkets,
+      createStep,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(formDraftKey, JSON.stringify(draftData));
+  };
+  
+  // Auto-save form data whenever it changes
+  useEffect(() => {
+    if (showCreateModal) {
+      const saveTimer = setTimeout(() => {
+        saveFormDraft();
+      }, 2000); // Auto-save after 2 seconds of inactivity
+      
+      return () => clearTimeout(saveTimer);
+    }
+  }, [createMatchData, availableMarkets, createStep, showCreateModal]);
 
   // Pagination
   const [pagination, setPagination] = useState({
@@ -593,15 +711,83 @@ export default function AdminMatchesMarkets() {
   useEffect(() => {
     setPagination(prev => ({ ...prev, total: totalMatches }));
   }, [totalMatches]);
+  
+  // Session monitoring effect
+  useEffect(() => {
+    if (showCreateModal && isAuthenticated) {
+      // Check session immediately when modal opens
+      checkSessionValidiy().then(result => {
+        if (!result.valid) {
+          handleSessionExpiry();
+          return;
+        }
+        
+        // If less than 30 minutes remaining, show warning
+        if (result.remainingMs && result.remainingMs < 30 * 60 * 1000) {
+          setSessionTimeRemaining(result.remainingMs);
+          setShowSessionWarning(true);
+        }
+      });
+      
+      // Set up periodic session checks every 5 minutes
+      const interval = setInterval(async () => {
+        const result = await checkSessionValidiy();
+        if (!result.valid) {
+          handleSessionExpiry();
+          return;
+        }
+        
+        if (result.remainingMs) {
+          setSessionTimeRemaining(result.remainingMs);
+          // Show warning if less than 30 minutes remaining
+          if (result.remainingMs < 30 * 60 * 1000) {
+            setShowSessionWarning(true);
+          }
+          // Auto-logout if less than 5 minutes
+          if (result.remainingMs < 5 * 60 * 1000) {
+            handleSessionExpiry();
+          }
+        }
+      }, 5 * 60 * 1000); // Check every 5 minutes
+      
+      setSessionCheckInterval(interval);
+      
+      return () => {
+        if (interval) {
+          clearInterval(interval);
+        }
+      };
+    }
+  }, [showCreateModal, isAuthenticated]);
+  
+  // Restore form data on component mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      restoreFormData();
+    }
+  }, [isAuthenticated]);
 
   // Mutations
   const createMatchMutation = useMutation({
     mutationFn: async (data: CreateMatchData) => {
-      const response = await adminApiRequest('POST', '/api/admin/matches', data);
-      if (!response.ok) {
-        throw new Error('Failed to create match');
+      try {
+        const response = await adminApiRequest('POST', '/api/admin/matches', data);
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('SESSION_EXPIRED');
+          }
+          if (response.status === 403) {
+            throw new Error('ACCESS_DENIED');
+          }
+          throw new Error('Failed to create match');
+        }
+        return response.json();
+      } catch (error: any) {
+        if (error.message === 'CSRF_TOKEN_INVALID') {
+          throw new Error('CSRF_TOKEN_INVALID');
+        }
+        throw error;
       }
-      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/matches'] });
@@ -609,6 +795,10 @@ export default function AdminMatchesMarkets() {
         title: "Success",
         description: "Match created successfully",
       });
+      
+      // Clear draft data on success
+      localStorage.removeItem('admin-create-match-draft');
+      
       setShowCreateModal(false);
       setCreateStep(1);
       setCreateMatchData({
@@ -632,11 +822,44 @@ export default function AdminMatchesMarkets() {
       });
       // Reset additional markets to empty state
       resetMarkets();
+      
+      // Clear session warning if any
+      setShowSessionWarning(false);
+      setSessionTimeRemaining(null);
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      if (error.message === 'SESSION_EXPIRED') {
+        handleSessionExpiry();
+        return;
+      }
+      
+      if (error.message === 'ACCESS_DENIED') {
+        toast({
+          title: "Access Denied",
+          description: "Your session has expired or you don't have permission to create matches. Please log in again.",
+          variant: "destructive",
+          duration: 8000
+        });
+        handleSessionExpiry();
+        return;
+      }
+      
+      if (error.message === 'CSRF_TOKEN_INVALID') {
+        toast({
+          title: "Security Token Expired",
+          description: "Your security token has expired. Please try again or refresh the page.",
+          variant: "destructive",
+          duration: 8000
+        });
+        // Try to refresh CSRF token
+        refreshAdmin();
+        return;
+      }
+      
+      // Generic error handling
       toast({
         title: "Error",
-        description: "Failed to create match",
+        description: error.message || "Failed to create match. Please try again.",
         variant: "destructive",
       });
     },
@@ -847,7 +1070,27 @@ export default function AdminMatchesMarkets() {
             Import SportMonks
           </Button>
           <Button
-            onClick={() => setShowCreateModal(true)}
+            onClick={async () => {
+              // Validate session before opening modal
+              const sessionResult = await checkSessionValidiy();
+              if (!sessionResult.valid) {
+                toast({
+                  title: "Session Expired",
+                  description: sessionResult.error || "Your admin session has expired. Please log in again.",
+                  variant: "destructive",
+                });
+                setLocation('/prime-admin/login');
+                return;
+              }
+              
+              // Check if session is expiring soon
+              if (sessionResult.remainingMs && sessionResult.remainingMs < 30 * 60 * 1000) {
+                setSessionTimeRemaining(sessionResult.remainingMs);
+                setShowSessionWarning(true);
+              }
+              
+              setShowCreateModal(true);
+            }}
             data-testid="button-create-match"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -2308,6 +2551,51 @@ export default function AdminMatchesMarkets() {
               data-testid="button-confirm-delete-match"
             >
               {deleteMatchMutation.isPending ? 'Deleting...' : 'Delete Match'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Session Warning Dialog */}
+      <Dialog open={showSessionWarning} onOpenChange={setShowSessionWarning}>
+        <DialogContent className="sm:max-w-md" data-testid="modal-session-warning">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Session Expiring Soon
+            </DialogTitle>
+            <DialogDescription>
+              Your admin session will expire in {sessionTimeRemaining ? Math.ceil(sessionTimeRemaining / (60 * 1000)) : 0} minutes.
+              Would you like to extend your session?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-amber-600" />
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                Your work will be automatically saved as a draft if the session expires.
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter className="flex justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowSessionWarning(false);
+                // Continue working with current session
+              }}
+              data-testid="button-continue-session"
+            >
+              Continue Working
+            </Button>
+            <Button
+              onClick={extendSession}
+              data-testid="button-extend-session"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Extend Session
             </Button>
           </DialogFooter>
         </DialogContent>

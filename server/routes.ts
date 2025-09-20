@@ -1167,6 +1167,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Session Status Check
+  app.get("/api/admin/auth/session-status", authenticateAdmin, async (req: any, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const sessionToken = authHeader?.replace('Bearer ', '');
+      
+      if (!sessionToken) {
+        return res.status(401).json({
+          success: false,
+          error: 'No session token provided'
+        });
+      }
+      
+      const session = await storage.getAdminSession(sessionToken);
+      if (!session) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid session token'
+        });
+      }
+      
+      const now = new Date();
+      const remainingMs = session.expiresAt.getTime() - now.getTime();
+      
+      if (remainingMs <= 0) {
+        await storage.deleteAdminSession(sessionToken);
+        return res.status(401).json({
+          success: false,
+          error: 'Session expired'
+        });
+      }
+      
+      res.json({
+        success: true,
+        data: {
+          remainingMs,
+          expiresAt: session.expiresAt,
+          adminId: session.adminId
+        }
+      });
+      
+    } catch (error) {
+      console.error('Session status check error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check session status'
+      });
+    }
+  });
+  
+  // Extend Session
+  app.post("/api/admin/auth/extend-session", authenticateAdmin, auditAction('session_extend'), async (req: any, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const sessionToken = authHeader?.replace('Bearer ', '');
+      
+      if (!sessionToken) {
+        return res.status(401).json({
+          success: false,
+          error: 'No session token provided'
+        });
+      }
+      
+      const session = await storage.getAdminSession(sessionToken);
+      if (!session) {
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid session token'
+        });
+      }
+      
+      // Extend session by 12 hours for production readiness
+      const newExpiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
+      
+      await storage.updateAdminSession(session.id, {
+        expiresAt: newExpiresAt
+      });
+      
+      res.json({
+        success: true,
+        data: {
+          expiresAt: newExpiresAt,
+          message: 'Session extended successfully'
+        }
+      });
+      
+    } catch (error) {
+      console.error('Session extension error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to extend session'
+      });
+    }
+  });
+  
   // Get Current Admin User
   app.get("/api/admin/auth/me", ...SecurityMiddlewareOrchestrator.getCSRFProvisionMiddleware(), authenticateAdmin, async (req: any, res) => {
     try {

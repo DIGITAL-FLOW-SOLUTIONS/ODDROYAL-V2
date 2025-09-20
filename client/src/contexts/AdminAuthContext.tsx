@@ -254,11 +254,7 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
         throw new Error('Not authenticated');
       }
       
-      const response = await apiRequest('POST', '/api/admin/auth/setup-2fa', {}, {
-        headers: {
-          'Authorization': `Bearer ${adminAuthToken}`
-        }
-      });
+      const response = await adminApiRequest('POST', '/api/admin/auth/setup-2fa', {});
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -284,11 +280,7 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
         throw new Error('Not authenticated');
       }
       
-      const response = await apiRequest('POST', '/api/admin/auth/verify-2fa', { secret, totpCode }, {
-        headers: {
-          'Authorization': `Bearer ${adminAuthToken}`
-        }
-      });
+      const response = await adminApiRequest('POST', '/api/admin/auth/verify-2fa', { secret, totpCode });
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -321,11 +313,7 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
         throw new Error('Not authenticated');
       }
       
-      const response = await apiRequest('POST', '/api/admin/auth/disable-2fa', { totpCode }, {
-        headers: {
-          'Authorization': `Bearer ${adminAuthToken}`
-        }
-      });
+      const response = await adminApiRequest('POST', '/api/admin/auth/disable-2fa', { totpCode });
       
       if (!response.ok) {
         const errorData = await response.json();

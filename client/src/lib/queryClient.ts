@@ -67,12 +67,48 @@ export async function adminApiRequest(
     credentials: "include",
   });
 
-  // Check for CSRF token errors and try to refresh
+  // Enhanced CSRF token error handling with automatic refresh
   if (res.status === 403) {
     const errorData = await res.json().catch(() => null);
     if (errorData?.error?.includes('CSRF')) {
-      // Clear invalid CSRF token and let the caller handle the retry
+      // Clear invalid CSRF token
       localStorage.removeItem('adminCSRFToken');
+      
+      // Try to refresh CSRF token automatically
+      try {
+        const refreshResponse = await fetch('/api/admin/csrf-token', {
+          credentials: "include",
+          headers: {
+            'Authorization': `Bearer ${adminAuthToken}`
+          }
+        });
+        
+        if (refreshResponse.ok) {
+          const refreshResult = await refreshResponse.json();
+          const newCSRFToken = refreshResponse.headers.get('X-CSRF-Token') || refreshResult.data?.csrfToken;
+          
+          if (newCSRFToken) {
+            localStorage.setItem('adminCSRFToken', newCSRFToken);
+            
+            // Retry the original request with new CSRF token
+            const retryHeaders = { ...headers };
+            retryHeaders['X-CSRF-Token'] = newCSRFToken;
+            
+            const retryRes = await fetch(url, {
+              method,
+              headers: retryHeaders,
+              body: data ? JSON.stringify(data) : undefined,
+              credentials: "include",
+            });
+            
+            await throwIfResNotOk(retryRes);
+            return retryRes;
+          }
+        }
+      } catch (refreshError) {
+        console.error('Failed to refresh CSRF token:', refreshError);
+      }
+      
       throw new Error('CSRF_TOKEN_INVALID');
     }
   }

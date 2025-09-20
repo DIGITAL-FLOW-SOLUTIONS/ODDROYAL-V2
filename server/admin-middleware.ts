@@ -14,6 +14,12 @@ declare global {
         role: AdminRole;
         twoFactorVerified: boolean;
       };
+      sessionMetadata?: {
+        sessionId: string;
+        adminId: string;
+        expiresAt: Date;
+        twoFactorVerified: boolean;
+      };
     }
   }
 }
@@ -45,13 +51,27 @@ export async function authenticateAdmin(req: Request, res: Response, next: NextF
     }
     
     // Check if session has expired
-    if (session.expiresAt < new Date()) {
+    const now = new Date();
+    if (session.expiresAt < now) {
       // Clean up expired session
       await storage.deleteAdminSession(sessionToken);
       return res.status(401).json({
         success: false,
         error: 'Admin session expired'
       });
+    }
+    
+    // Implement sliding window session extension for production readiness
+    // Extend session if it's within the last 2 hours of expiry and user is active
+    const timeUntilExpiry = session.expiresAt.getTime() - now.getTime();
+    const twoHoursInMs = 2 * 60 * 60 * 1000;
+    
+    if (timeUntilExpiry < twoHoursInMs) {
+      const newExpiresAt = new Date(now.getTime() + 12 * 60 * 60 * 1000); // Extend by 12 hours for production
+      await storage.updateAdminSession(session.id, {
+        expiresAt: newExpiresAt
+      });
+      console.log(`Auto-extended session for admin ${session.adminId} until ${newExpiresAt}`);
     }
     
     // Get admin user
@@ -77,6 +97,14 @@ export async function authenticateAdmin(req: Request, res: Response, next: NextF
       username: adminUser.username,
       email: adminUser.email,
       role: adminUser.role as AdminRole,
+      twoFactorVerified: session.twoFactorVerified
+    };
+    
+    // Log session usage for audit purposes (prevent logging sensitive session data)
+    req.sessionMetadata = {
+      sessionId: session.id,
+      adminId: session.adminId,
+      expiresAt: session.expiresAt,
       twoFactorVerified: session.twoFactorVerified
     };
     
