@@ -91,7 +91,7 @@ export default function PopularEvents({
       // Loading skeleton
       return Array.from({ length: 3 }).map((_, index) => (
         <div key={`skeleton-${index}`} className="flex-shrink-0">
-          <Card className="w-80 bg-card border border-card-border">
+          <Card className="w-80" style={{ backgroundColor: 'hsl(var(--surface-3))', borderColor: 'hsl(var(--surface-4))' }}>
             <CardContent className="p-4">
               <div className="animate-pulse">
                 <div className="h-4 bg-muted rounded mb-3"></div>
@@ -125,7 +125,7 @@ export default function PopularEvents({
         transition={{ delay: index * 0.1 }}
         className="flex-shrink-0"
       >
-        <Card className="w-80 bg-card border border-card-border hover-elevate cursor-pointer">
+        <Card className="w-80 hover-elevate cursor-pointer" style={{ backgroundColor: 'hsl(var(--surface-3))', borderColor: 'hsl(var(--surface-4))' }}>
           <CardContent className="p-4">
             {/* Match header */}
             <div className="flex items-center justify-between mb-3">
@@ -184,33 +184,30 @@ export default function PopularEvents({
               {match.odds && (
                 <div className="grid grid-cols-3 gap-2 mt-4">
                   <Button
-                    variant="outline"
                     size="sm"
                     onClick={() => handleOddsClick(match, 'home')}
-                    className="flex flex-col gap-1 h-auto py-2 hover-elevate"
+                    className="flex flex-col gap-1 h-auto py-2 odds-button"
                     data-testid={`button-odds-home-${match.id}`}
                   >
-                    <span className="text-xs text-muted-foreground">1</span>
+                    <span className="text-xs opacity-90">1</span>
                     <span className="font-semibold">{match.odds.home.toFixed(2)}</span>
                   </Button>
                   <Button
-                    variant="outline"
                     size="sm"
                     onClick={() => handleOddsClick(match, 'draw')}
-                    className="flex flex-col gap-1 h-auto py-2 hover-elevate"
+                    className="flex flex-col gap-1 h-auto py-2 odds-button"
                     data-testid={`button-odds-draw-${match.id}`}
                   >
-                    <span className="text-xs text-muted-foreground">X</span>
+                    <span className="text-xs opacity-90">X</span>
                     <span className="font-semibold">{match.odds.draw.toFixed(2)}</span>
                   </Button>
                   <Button
-                    variant="outline"
                     size="sm"
                     onClick={() => handleOddsClick(match, 'away')}
-                    className="flex flex-col gap-1 h-auto py-2 hover-elevate"
+                    className="flex flex-col gap-1 h-auto py-2 odds-button"
                     data-testid={`button-odds-away-${match.id}`}
                   >
-                    <span className="text-xs text-muted-foreground">2</span>
+                    <span className="text-xs opacity-90">2</span>
                     <span className="font-semibold">{match.odds.away.toFixed(2)}</span>
                   </Button>
                 </div>

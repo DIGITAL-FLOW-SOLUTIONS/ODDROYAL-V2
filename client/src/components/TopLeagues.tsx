@@ -102,7 +102,8 @@ export default function TopLeagues({
           <Button
             variant={selectedLeague === "all" ? "default" : "outline"}
             onClick={() => handleLeagueClick("all")}
-            className="flex flex-col items-center gap-2 h-auto p-4 w-24 hover-elevate"
+            className={`flex flex-col items-center gap-2 h-auto p-4 w-24 hover-elevate ${selectedLeague === "all" ? "odds-button" : ""}`}
+            style={selectedLeague === "all" ? {} : { backgroundColor: 'hsl(var(--surface-3))', borderColor: 'hsl(var(--surface-4))' }}
             data-testid="button-league-all"
           >
             <Trophy className="h-6 w-6" />
@@ -124,7 +125,8 @@ export default function TopLeagues({
             <Button
               variant={selectedLeague === league.id ? "default" : "outline"}
               onClick={() => handleLeagueClick(league.id)}
-              className="flex flex-col items-center gap-2 h-auto p-4 w-24 hover-elevate"
+              className={`flex flex-col items-center gap-2 h-auto p-4 w-24 hover-elevate ${selectedLeague === league.id ? "odds-button" : ""}`}
+              style={selectedLeague === league.id ? {} : { backgroundColor: 'hsl(var(--surface-3))', borderColor: 'hsl(var(--surface-4))' }}
               data-testid={`button-league-${league.id}`}
             >
               <league.icon className="h-6 w-6" />

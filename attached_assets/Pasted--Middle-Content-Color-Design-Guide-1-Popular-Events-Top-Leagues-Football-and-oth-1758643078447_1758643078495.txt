@@ -1,0 +1,71 @@
+## 🎨 Middle Content Color Design Guide
+
+### 1. **Popular Events / Top Leagues / Football (and other sports) cards**
+
+* **Card Container Background**:
+  Use a **middle green shade** (something like `#2F5F3C` or HSL `150 35% 25%`).
+  Rounded corners and a subtle shadow to make them pop.
+  Same base background across **Popular Events, Top Leagues, Football, Basketball, etc.**
+
+* **Card Border**:
+  A slightly **darker green stroke** (`#24492D`, HSL `150 40% 18%`) to create separation from the background.
+
+---
+
+### 2. **Popular Events → Event Cards**
+
+* **Event Card Background**: Same middle green as parent container but slightly elevated (`#356B43`, HSL `150 35% 28%`).
+* **Text Color**: White (`#FFFFFF`) or off-white (`#F1F5F2`) for good contrast.
+* **Odds Buttons**:
+
+  * Base: **lighter green shade** (`#4FAF64`, HSL `140 45% 40%`).
+  * Hover: **mid-deep green shade** (`#3C8C4D`, HSL `140 45% 30%`).
+  * Text inside odds: bold white.
+
+---
+
+### 3. **Top Leagues Section**
+
+* **League Cards**:
+  Background same as popular events (`#356B43`).
+  League logos/icons sit inside centered grid.
+  Text: white (`#FFFFFF`), with hover accent (`#A8F5B4` or HSL `140 70% 85%`).
+
+---
+
+### 4. **Sports Content → Football Example**
+
+Each sport section follows the same **card-within-card structure**:
+
+* **Sport Card Container**: Middle green background (`#2F5F3C`).
+* **League Card Background**: Slightly lighter green (`#3C754A`).
+* **League Header (gradient)**:
+  A smooth gradient bar at the top (e.g. from `#4FAF64` → `#2F5F3C`).
+  Text: bold white (`#FFFFFF`), small league icon inline.
+
+---
+
+### 5. **Matches inside League Card**
+
+* **Match Row Background**: Even lighter green wash (`#497D56`, HSL `150 30% 35%`).
+* **Text**: White for teams, soft gray-green for metadata (time, date).
+* **Odds (1 X 2)**:
+
+  * Base: lighter green shade (`#4FAF64`).
+  * Hover: mid-deep green shade (`#3C8C4D`).
+  * Text: bold white.
+  * Subtle shadow on hover for depth.
+
+---
+
+### 6. **Spacing & Shadows**
+
+* **Spacing**: Consistent padding (`16px` outer, `12px` inner\`).
+* **Shadows**:
+
+  * Card container: `0 2px 6px rgba(0,0,0,0.25)`.
+  * Odds buttons: inset border highlight on hover.
+
+---
+
+✅ This approach ensures the **popular events, top leagues, and sport cards** all share a consistent **green hierarchy**, while **odds buttons and league headers pop** through lighter/gradient treatments.

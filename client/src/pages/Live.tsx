@@ -219,31 +219,32 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
               const isExpanded = expandedLeagues.has(group.leagueName);
               
               return (
-                <div key={group.leagueName} className="bg-surface-1 rounded-md mb-2">
+                <div key={group.leagueName} className="rounded-md mb-2" style={{ backgroundColor: 'hsl(var(--surface-2))', borderColor: 'hsl(var(--surface-4))' }}>
                   {/* League Header */}
                   <div
                     onClick={() => toggleLeague(group.leagueName)}
-                    className="flex items-center justify-between p-3 bg-surface-4 text-foreground cursor-pointer rounded-t-md"
+                    className="flex items-center justify-between p-3 league-header-gradient cursor-pointer rounded-t-md"
+                    style={{ color: 'white' }}
                     data-testid={`button-league-${group.leagueName.replace(/\s+/g, '-').toLowerCase()}`}
                   >
                     <div className="flex items-center gap-3">
-                      <Gamepad2 className="h-5 w-5" />
-                      <span className="font-semibold">{group.leagueName}</span>
-                      <Badge className="bg-surface-6 text-foreground border-0">
+                      <Gamepad2 className="h-5 w-5 text-white" />
+                      <span className="font-semibold text-white">{group.leagueName}</span>
+                      <Badge className="bg-white/20 text-white border-white/30">
                         {group.matches.length}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-6">
                       {/* Odds Headers */}
-                      <div className="flex items-center gap-4 text-sm font-medium">
+                      <div className="flex items-center gap-4 text-sm font-medium text-white/90">
                         <span className="w-6 text-center">1</span>
                         <span className="w-6 text-center">X</span>
                         <span className="w-6 text-center">2</span>
                       </div>
                       {isExpanded ? (
-                        <ChevronUp className="h-4 w-4" />
+                        <ChevronUp className="h-4 w-4 text-white" />
                       ) : (
-                        <ChevronDown className="h-4 w-4" />
+                        <ChevronDown className="h-4 w-4 text-white" />
                       )}
                     </div>
                   </div>
@@ -261,11 +262,12 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                           const isMatchExpanded = expandedMatches.has(match.id);
                           
                           return (
-                            <div key={match.id} className="bg-surface-5 border-0 mb-1 rounded-md last:mb-0">
+                            <div key={match.id} className="border-0 mb-1 rounded-md last:mb-0" style={{ backgroundColor: 'hsl(var(--surface-3))' }}>
                               {/* Match Row */}
                               <div
                                 onClick={() => toggleMatchExpansion(match.id)}
-                                className="flex items-center justify-between p-3 bg-surface-5 cursor-pointer rounded-md"
+                                className="flex items-center justify-between p-3 cursor-pointer rounded-md hover-elevate"
+                                style={{ backgroundColor: 'hsl(var(--surface-5))' }}
                                 data-testid={`button-match-${match.id}`}
                               >
                                 <div className="flex-1">
@@ -294,38 +296,35 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                 {/* Odds Buttons */}
                                 <div className="flex items-center gap-2 ml-4">
                                   <Button
-                                    variant="outline"
                                     size="sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleLiveOddsClick(match.id, "1x2", "home", match.odds["1x2"].home, match.homeTeam, match.awayTeam);
                                     }}
                                     data-testid={`button-odds-home-${match.id}`}
-                                    className="text-xs font-semibold min-w-[48px]"
+                                    className="text-xs font-semibold min-w-[48px] odds-button"
                                   >
                                     {match.odds["1x2"].home.toFixed(2)}
                                   </Button>
                                   <Button
-                                    variant="outline"
                                     size="sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleLiveOddsClick(match.id, "1x2", "draw", match.odds["1x2"].draw, match.homeTeam, match.awayTeam);
                                     }}
                                     data-testid={`button-odds-draw-${match.id}`}
-                                    className="text-xs font-semibold min-w-[48px]"
+                                    className="text-xs font-semibold min-w-[48px] odds-button"
                                   >
                                     {match.odds["1x2"].draw.toFixed(2)}
                                   </Button>
                                   <Button
-                                    variant="outline"
                                     size="sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleLiveOddsClick(match.id, "1x2", "away", match.odds["1x2"].away, match.homeTeam, match.awayTeam);
                                     }}
                                     data-testid={`button-odds-away-${match.id}`}
-                                    className="text-xs font-semibold min-w-[48px]"
+                                    className="text-xs font-semibold min-w-[48px] odds-button"
                                   >
                                     {match.odds["1x2"].away.toFixed(2)}
                                   </Button>
@@ -345,7 +344,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                     animate={{ height: "auto", opacity: 1 }}
                                     exit={{ height: 0, opacity: 0 }}
                                     transition={{ duration: 0.2 }}
-                                    className="bg-sidebar/20"
+                                    style={{ backgroundColor: 'hsl(var(--surface-3))' }}
                                   >
                                     <div className="p-4 space-y-3 border-t border-border/30">
                                       <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
@@ -359,31 +358,29 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                           <div className="flex gap-2">
                                             {match.odds.totalgoals?.over35 && (
                                               <Button
-                                                variant="outline"
                                                 size="default"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   handleLiveOddsClick(match.id, "totalgoals", "over35", match.odds.totalgoals!.over35!, match.homeTeam, match.awayTeam);
                                                 }}
                                                 data-testid={`button-over-${match.id}`}
-                                                className="flex flex-col gap-1"
+                                                className="flex flex-col gap-1 odds-button"
                                               >
-                                                <span className="text-xs text-muted-foreground">Over 3.5</span>
+                                                <span className="text-xs opacity-90">Over 3.5</span>
                                                 <span className="font-semibold">{match.odds.totalgoals!.over35!.toFixed(2)}</span>
                                               </Button>
                                             )}
                                             {match.odds.totalgoals?.under35 && (
                                               <Button
-                                                variant="outline"
                                                 size="default"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   handleLiveOddsClick(match.id, "totalgoals", "under35", match.odds.totalgoals!.under35!, match.homeTeam, match.awayTeam);
                                                 }}
                                                 data-testid={`button-under-${match.id}`}
-                                                className="flex flex-col gap-1"
+                                                className="flex flex-col gap-1 odds-button"
                                               >
-                                                <span className="text-xs text-muted-foreground">Under 3.5</span>
+                                                <span className="text-xs opacity-90">Under 3.5</span>
                                                 <span className="font-semibold">{match.odds.totalgoals!.under35!.toFixed(2)}</span>
                                               </Button>
                                             )}
@@ -398,46 +395,43 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                           <div className="flex gap-2">
                                             {match.odds.nextgoal?.home && (
                                               <Button
-                                                variant="outline"
                                                 size="default"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   handleLiveOddsClick(match.id, "nextgoal", "nextgoal_home", match.odds.nextgoal!.home!, match.homeTeam, match.awayTeam);
                                                 }}
                                                 data-testid={`button-next-goal-home-${match.id}`}
-                                                className="flex flex-col gap-1"
+                                                className="flex flex-col gap-1 odds-button"
                                               >
-                                                <span className="text-xs text-muted-foreground">Home</span>
+                                                <span className="text-xs opacity-90">Home</span>
                                                 <span className="font-semibold">{match.odds.nextgoal!.home!.toFixed(2)}</span>
                                               </Button>
                                             )}
                                             {match.odds.nextgoal?.away && (
                                               <Button
-                                                variant="outline"
                                                 size="default"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   handleLiveOddsClick(match.id, "nextgoal", "nextgoal_away", match.odds.nextgoal!.away!, match.homeTeam, match.awayTeam);
                                                 }}
                                                 data-testid={`button-next-goal-away-${match.id}`}
-                                                className="flex flex-col gap-1"
+                                                className="flex flex-col gap-1 odds-button"
                                               >
-                                                <span className="text-xs text-muted-foreground">Away</span>
+                                                <span className="text-xs opacity-90">Away</span>
                                                 <span className="font-semibold">{match.odds.nextgoal!.away!.toFixed(2)}</span>
                                               </Button>
                                             )}
                                             {match.odds.nextgoal?.none && (
                                               <Button
-                                                variant="outline"
                                                 size="default"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   handleLiveOddsClick(match.id, "nextgoal", "nextgoal_none", match.odds.nextgoal!.none!, match.homeTeam, match.awayTeam);
                                                 }}
                                                 data-testid={`button-next-goal-none-${match.id}`}
-                                                className="flex flex-col gap-1"
+                                                className="flex flex-col gap-1 odds-button"
                                               >
-                                                <span className="text-xs text-muted-foreground">No Goal</span>
+                                                <span className="text-xs opacity-90">No Goal</span>
                                                 <span className="font-semibold">{match.odds.nextgoal!.none!.toFixed(2)}</span>
                                               </Button>
                                             )}

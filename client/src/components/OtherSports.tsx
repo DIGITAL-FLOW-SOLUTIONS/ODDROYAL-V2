@@ -83,30 +83,33 @@ export default function OtherSports({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: sportIndex * 0.1 }}
         >
-          <Card className="overflow-hidden">
+          <Card className="overflow-hidden" style={{ backgroundColor: 'hsl(var(--surface-2))', borderColor: 'hsl(var(--surface-4))' }}>
             <Collapsible 
               open={expandedSports[sport.id]} 
               onOpenChange={() => toggleSport(sport.id)}
             >
               <CollapsibleTrigger asChild>
-                <CardHeader className="pb-3 hover:bg-accent/50 cursor-pointer transition-colors">
+                <CardHeader className="pb-3 league-header-gradient cursor-pointer transition-colors" style={{ color: 'white' }}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <sport.icon className="h-5 w-5 text-primary" />
-                      <CardTitle className="text-lg font-semibold">
+                      <sport.icon className="h-5 w-5 text-white" />
+                      <CardTitle className="text-lg font-semibold text-white">
                         {sport.name}
                       </CardTitle>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge className="text-xs bg-white/20 text-white border-white/30">
                         {sport.matches.length} matches
                       </Badge>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {expandedSports[sport.id] ? 'Collapse' : 'Expand'}
-                      </span>
+                    <div className="flex items-center gap-6">
+                      {/* Odds Headers */}
+                      <div className="flex items-center gap-4 text-sm font-medium text-white/90">
+                        <span className="w-6 text-center">1</span>
+                        {sport.hasDrawOdds && <span className="w-6 text-center">X</span>}
+                        <span className="w-6 text-center">2</span>
+                      </div>
                       <ChevronDown 
-                        className={`h-4 w-4 transition-transform ${
+                        className={`h-4 w-4 transition-transform text-white ${
                           expandedSports[sport.id] ? 'rotate-180' : ''
                         }`} 
                       />
@@ -116,21 +119,8 @@ export default function OtherSports({
               </CollapsibleTrigger>
 
               <CollapsibleContent>
-                <CardContent className="pt-0">
-                  <div className="space-y-0">
-                    {/* Table header */}
-                    <div className={`grid gap-2 py-3 border-b border-border text-xs font-medium text-muted-foreground ${
-                      sport.hasDrawOdds ? 'grid-cols-12' : 'grid-cols-10'
-                    }`}>
-                      <div className="col-span-1 text-center">Time</div>
-                      <div className="col-span-5">Match</div>
-                      <div className={`text-center ${sport.hasDrawOdds ? 'col-span-2' : 'col-span-2'}`}>1</div>
-                      {sport.hasDrawOdds && (
-                        <div className="col-span-2 text-center">X</div>
-                      )}
-                      <div className={`text-center ${sport.hasDrawOdds ? 'col-span-2' : 'col-span-2'}`}>2</div>
-                    </div>
-
+                <CardContent className="pt-0" style={{ backgroundColor: 'hsl(var(--surface-3))' }}>
+                  <div className="space-y-1">
                     {/* Match rows */}
                     <AnimatePresence>
                       {sport.matches.map((match, matchIndex) => (
@@ -140,9 +130,10 @@ export default function OtherSports({
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
                           transition={{ delay: matchIndex * 0.05 }}
-                          className={`grid gap-2 py-4 border-b border-border last:border-b-0 hover:bg-accent/30 transition-colors ${
+                          className={`grid gap-2 py-3 border-b border-border/30 last:border-b-0 hover-elevate transition-colors rounded-md mb-1 ${
                             sport.hasDrawOdds ? 'grid-cols-12' : 'grid-cols-10'
                           }`}
+                          style={{ backgroundColor: 'hsl(var(--surface-5))' }}
                           data-testid={`match-row-${match.id}`}
                         >
                           {/* Time */}
@@ -202,10 +193,9 @@ export default function OtherSports({
                           {/* Odds columns */}
                           <div className={`flex items-center justify-center ${sport.hasDrawOdds ? 'col-span-2' : 'col-span-2'}`}>
                             <Button
-                              variant="outline"
                               size="sm"
                               onClick={() => handleOddsClick(match, 'home', sport)}
-                              className="w-full h-8 text-xs font-semibold hover-elevate"
+                              className="w-full h-8 text-xs font-semibold odds-button"
                               data-testid={`odds-home-${match.id}`}
                             >
                               {match.odds.home.toFixed(2)}
@@ -215,10 +205,9 @@ export default function OtherSports({
                           {sport.hasDrawOdds && match.odds.draw && (
                             <div className="col-span-2 flex items-center justify-center">
                               <Button
-                                variant="outline"
                                 size="sm"
                                 onClick={() => handleOddsClick(match, 'draw', sport)}
-                                className="w-full h-8 text-xs font-semibold hover-elevate"
+                                className="w-full h-8 text-xs font-semibold odds-button"
                                 data-testid={`odds-draw-${match.id}`}
                               >
                                 {match.odds.draw.toFixed(2)}
@@ -228,10 +217,9 @@ export default function OtherSports({
 
                           <div className={`flex items-center justify-center ${sport.hasDrawOdds ? 'col-span-2' : 'col-span-2'}`}>
                             <Button
-                              variant="outline"
                               size="sm"
                               onClick={() => handleOddsClick(match, 'away', sport)}
-                              className="w-full h-8 text-xs font-semibold hover-elevate"
+                              className="w-full h-8 text-xs font-semibold odds-button"
                               data-testid={`odds-away-${match.id}`}
                             >
                               {match.odds.away.toFixed(2)}

@@ -133,13 +133,13 @@ export default function FootballMatches({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: leagueIndex * 0.1 }}
           >
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden" style={{ backgroundColor: 'hsl(var(--surface-2))', borderColor: 'hsl(var(--surface-4))' }}>
               <Collapsible 
                 open={expandedLeagues[league.id]} 
                 onOpenChange={() => toggleLeague(league.id)}
               >
                 <CollapsibleTrigger asChild>
-                  <CardHeader className="pb-3 hover:bg-accent/50 cursor-pointer transition-colors">
+                  <CardHeader className="pb-3 league-header-gradient cursor-pointer transition-colors" style={{ color: 'white' }}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {league.logo && (
@@ -149,17 +149,23 @@ export default function FootballMatches({
                             className="w-6 h-6 rounded"
                           />
                         )}
-                        <CardTitle className="text-lg font-semibold">
+                        <CardTitle className="text-lg font-semibold text-white">
                           {league.name}
                         </CardTitle>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge className="text-xs bg-white/20 text-white border-white/30">
                           {league.matches.length} matches
                         </Badge>
                       </div>
                       
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-6">
+                        {/* Odds Headers */}
+                        <div className="flex items-center gap-4 text-sm font-medium text-white/90">
+                          <span className="w-6 text-center">1</span>
+                          <span className="w-6 text-center">X</span>
+                          <span className="w-6 text-center">2</span>
+                        </div>
                         <ChevronDown 
-                          className={`h-4 w-4 transition-transform ${
+                          className={`h-4 w-4 transition-transform text-white ${
                             expandedLeagues[league.id] ? 'rotate-180' : ''
                           }`} 
                         />
@@ -169,17 +175,8 @@ export default function FootballMatches({
                 </CollapsibleTrigger>
 
                 <CollapsibleContent>
-                  <CardContent className="pt-0">
-                    <div className="space-y-0">
-                      {/* Table header */}
-                      <div className="grid grid-cols-12 gap-2 py-3 border-b border-border text-xs font-medium text-muted-foreground">
-                        <div className="col-span-1 text-center">Time</div>
-                        <div className="col-span-5">Match</div>
-                        <div className="col-span-2 text-center">1</div>
-                        <div className="col-span-2 text-center">X</div>
-                        <div className="col-span-2 text-center">2</div>
-                      </div>
-
+                  <CardContent className="pt-0" style={{ backgroundColor: 'hsl(var(--surface-3))' }}>
+                    <div className="space-y-1">
                       {/* Match rows */}
                       <AnimatePresence>
                         {league.matches.map((match, matchIndex) => (
@@ -190,7 +187,8 @@ export default function FootballMatches({
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ delay: matchIndex * 0.05 }}
                             onClick={() => handleMatchClick(match.id)}
-                            className="grid grid-cols-12 gap-2 py-4 border-b border-border last:border-b-0 hover:bg-accent/30 transition-colors cursor-pointer"
+                            className="grid grid-cols-12 gap-2 py-3 border-b border-border/30 last:border-b-0 hover-elevate transition-colors cursor-pointer rounded-md mb-1"
+                            style={{ backgroundColor: 'hsl(var(--surface-5))' }}
                             data-testid={`match-row-${match.id}`}
                           >
                             {/* Time */}
@@ -255,13 +253,12 @@ export default function FootballMatches({
                               <>
                                 <div className="col-span-2 flex items-center justify-center">
                                   <Button
-                                    variant="outline"
                                     size="sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleOddsClick(match, 'home');
                                     }}
-                                    className="w-full h-8 text-xs font-semibold hover-elevate"
+                                    className="w-full h-8 text-xs font-semibold odds-button"
                                     data-testid={`odds-home-${match.id}`}
                                   >
                                     {match.odds.home.toFixed(2)}
@@ -270,13 +267,12 @@ export default function FootballMatches({
 
                                 <div className="col-span-2 flex items-center justify-center">
                                   <Button
-                                    variant="outline"
                                     size="sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleOddsClick(match, 'draw');
                                     }}
-                                    className="w-full h-8 text-xs font-semibold hover-elevate"
+                                    className="w-full h-8 text-xs font-semibold odds-button"
                                     data-testid={`odds-draw-${match.id}`}
                                   >
                                     {match.odds.draw.toFixed(2)}
@@ -285,13 +281,12 @@ export default function FootballMatches({
 
                                 <div className="col-span-2 flex items-center justify-center">
                                   <Button
-                                    variant="outline"
                                     size="sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleOddsClick(match, 'away');
                                     }}
-                                    className="w-full h-8 text-xs font-semibold hover-elevate"
+                                    className="w-full h-8 text-xs font-semibold odds-button"
                                     data-testid={`odds-away-${match.id}`}
                                   >
                                     {match.odds.away.toFixed(2)}

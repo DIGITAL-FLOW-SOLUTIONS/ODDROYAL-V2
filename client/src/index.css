@@ -48,22 +48,27 @@
   --sidebar-border: 200 15% 25%;
   --sidebar-ring: 142.1 76.2% 45%;
   
-  /* Surface Hierarchy - Professional Background Layers */
+  /* Surface Hierarchy - Green Theme Background Layers */
   --surface-0: 200 30% 8%;   /* Base background (same as --background) */
   --surface-1: 200 28% 10%;  /* Shell/sidebars */
-  --surface-2: 200 25% 12%;  /* Large panels/containers */
-  --surface-3: 200 22% 14%;  /* Sport group blocks */
-  --surface-4: 200 20% 16%;  /* League blocks */
-  --surface-5: 200 18% 18%;  /* Match rows/odds grids */
+  --surface-2: 150 35% 25%;  /* Large panels/containers - Middle green (#2F5F3C) */
+  --surface-3: 150 35% 28%;  /* Sport group blocks - Elevated green (#356B43) */
+  --surface-4: 150 40% 18%;  /* League blocks - Darker green (#24492D) */
+  --surface-5: 150 30% 35%;  /* Match rows/odds grids - Lighter green (#497D56) */
   --surface-6: 200 15% 20%;  /* Odds cells/inputs */
   
   /* Brand-Tinted Surfaces for Selection */
-  --brand-surface-1: 142 50% 15%;   /* Selected sport/league */
-  --brand-surface-2: 142 45% 18%;   /* Selected odds/active states */
+  --brand-surface-1: 150 35% 25%;   /* Selected sport/league - Middle green */
+  --brand-surface-2: 140 45% 40%;   /* Selected odds/active states - Odds button green */
   
   /* Context-Specific Surfaces */
   --live-surface-1: 32 60% 15%;     /* Live events emphasis */
   --muted-surface: 200 8% 12%;      /* Disabled/muted elements */
+  
+  /* Green Theme Odds Button Colors */
+  --odds-button-base: 140 45% 40%;    /* #4FAF64 - Base odds button color */
+  --odds-button-hover: 140 45% 30%;   /* #3C8C4D - Hover odds button color */
+  --odds-button-text: 0 0% 100%;      /* White text for odds buttons */
   
   --font-sans: Inter, system-ui, sans-serif;
   --font-serif: Georgia, serif;
@@ -159,22 +164,27 @@
   --sidebar-border: 240 3.7% 15.9%;
   --sidebar-ring: 217.2 91.2% 59.8%;
   
-  /* Surface Hierarchy - Professional Background Layers (Dark Mode) */
+  /* Surface Hierarchy - Green Theme Background Layers (Dark Mode) */
   --surface-0: 240 10% 3.9%;   /* Base background (same as --background) */
   --surface-1: 240 8% 6%;      /* Shell/sidebars */
-  --surface-2: 240 6% 8%;      /* Large panels/containers */
-  --surface-3: 240 5% 10%;     /* Sport group blocks */
-  --surface-4: 240 4% 12%;     /* League blocks */
-  --surface-5: 240 3% 14%;     /* Match rows/odds grids */
+  --surface-2: 150 35% 25%;    /* Large panels/containers - Middle green (#2F5F3C) */
+  --surface-3: 150 35% 28%;    /* Sport group blocks - Elevated green (#356B43) */
+  --surface-4: 150 40% 18%;    /* League blocks - Darker green (#24492D) */
+  --surface-5: 150 30% 35%;    /* Match rows/odds grids - Lighter green (#497D56) */
   --surface-6: 240 2% 16%;     /* Odds cells/inputs */
   
   /* Brand-Tinted Surfaces for Selection (Dark Mode) */
-  --brand-surface-1: 142 40% 12%;   /* Selected sport/league */
-  --brand-surface-2: 142 35% 15%;   /* Selected odds/active states */
+  --brand-surface-1: 150 35% 25%;   /* Selected sport/league - Middle green */
+  --brand-surface-2: 140 45% 40%;   /* Selected odds/active states - Odds button green */
   
   /* Context-Specific Surfaces (Dark Mode) */
   --live-surface-1: 32 50% 12%;     /* Live events emphasis */
   --muted-surface: 240 5% 8%;       /* Disabled/muted elements */
+  
+  /* Green Theme Odds Button Colors (Dark Mode) */
+  --odds-button-base: 140 45% 40%;    /* #4FAF64 - Base odds button color */
+  --odds-button-hover: 140 45% 30%;   /* #3C8C4D - Hover odds button color */
+  --odds-button-text: 0 0% 100%;      /* White text for odds buttons */
   
   --font-sans: Inter, system-ui, sans-serif;
   --font-serif: Georgia, serif;
@@ -329,6 +339,24 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
     /* Safari and Chrome */
+  }
+
+  /* Green Theme Odds Button Styles */
+  .odds-button {
+    background-color: hsl(var(--odds-button-base));
+    color: hsl(var(--odds-button-text));
+    border: 1px solid hsl(var(--odds-button-base));
+    font-weight: 600;
+  }
+
+  .odds-button:hover {
+    background-color: hsl(var(--odds-button-hover));
+    border-color: hsl(var(--odds-button-hover));
+  }
+
+  /* League header gradient style */
+  .league-header-gradient {
+    background: linear-gradient(135deg, hsl(var(--odds-button-base)), hsl(var(--surface-2)));
   }
 
   /* Sportsbook 3-column grid layout */
