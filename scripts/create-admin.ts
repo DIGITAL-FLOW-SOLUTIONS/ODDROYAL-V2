@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 /**
- * Script to create a new admin user for PRIMESTAKE Admin Panel
+ * Script to create a new admin user for OddRoyal Admin Panel
  * 
  * Usage: npm run admin:create
  * 
@@ -46,7 +46,7 @@ class AdminUserCreator {
    */
   async run(): Promise<void> {
     try {
-      console.log('🔐 PRIMESTAKE Admin User Creation Tool');
+      console.log('🔐 OddRoyal Admin User Creation Tool');
       console.log('=====================================\n');
 
       // Validate environment
@@ -198,8 +198,8 @@ class AdminUserCreator {
 
     // Generate TOTP secret for 2FA
     const totpSecret = speakeasy.generateSecret({
-      name: `PRIMESTAKE Admin (${data.username})`,
-      issuer: 'PRIMESTAKE',
+      name: `OddRoyal Admin (${data.username})`,
+      issuer: 'OddRoyal',
       length: 32
     });
 

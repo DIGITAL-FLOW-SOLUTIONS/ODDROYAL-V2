@@ -1,9 +1,9 @@
-# Redis deployment for PRIMESTAKE caching and sessions
+# Redis deployment for OddRoyal caching and sessions
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis-deployment
-  namespace: primestake
+  namespace: oddroyal
   labels:
     app: redis
     component: cache
@@ -42,7 +42,7 @@ spec:
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: REDIS_PASSWORD
         volumeMounts:
         - name: redis-storage
@@ -91,7 +91,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: redis-service
-  namespace: primestake
+  namespace: oddroyal
   labels:
     app: redis
     component: cache
@@ -111,7 +111,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: redis-pvc
-  namespace: primestake
+  namespace: oddroyal
   labels:
     app: redis
     component: cache
@@ -129,10 +129,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: redis-config
-  namespace: primestake
+  namespace: oddroyal
 data:
   redis.conf: |
-    # Redis configuration for PRIMESTAKE
+    # Redis configuration for OddRoyal
     
     # Network and security
     bind 0.0.0.0

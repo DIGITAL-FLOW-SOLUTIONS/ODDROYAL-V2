@@ -1,4 +1,4 @@
-# Multi-stage Docker build for PRIMESTAKE Admin Panel
+# Multi-stage Docker build for OddRoyal Admin Panel
 # Production-ready containerized environment
 
 # Build stage
@@ -36,21 +36,21 @@ RUN apk update && apk upgrade && \
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S primestake -u 1001
+    adduser -S oddroyal -u 1001
 
 WORKDIR /app
 
 # Copy built application from builder stage
-COPY --from=builder --chown=primestake:nodejs /app/dist ./dist
-COPY --from=builder --chown=primestake:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=primestake:nodejs /app/package*.json ./
+COPY --from=builder --chown=oddroyal:nodejs /app/dist ./dist
+COPY --from=builder --chown=oddroyal:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=oddroyal:nodejs /app/package*.json ./
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/uploads && \
-    chown -R primestake:nodejs /app/logs /app/uploads
+    chown -R oddroyal:nodejs /app/logs /app/uploads
 
 # Switch to non-root user
-USER primestake
+USER oddroyal
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

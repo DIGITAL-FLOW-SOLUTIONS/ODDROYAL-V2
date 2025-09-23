@@ -1,9 +1,9 @@
-# Kubernetes namespace for PRIMESTAKE Admin Panel
+# Kubernetes namespace for OddRoyal Admin Panel
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: primestake
+  name: oddroyal
   labels:
-    name: primestake
+    name: oddroyal
     env: production
-    app: primestake-admin
+    app: oddroyal-admin

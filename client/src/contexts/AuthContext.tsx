@@ -130,7 +130,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
         toast({
           title: "Registration Successful",
-          description: `Welcome to PRIMESTAKE, ${response.data.user.username}!`
+          description: `Welcome to OddRoyal, ${response.data.user.username}!`
         });
       }
     },

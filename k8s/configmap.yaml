@@ -1,9 +1,9 @@
-# Configuration management for PRIMESTAKE
+# Configuration management for OddRoyal
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: primestake-config
-  namespace: primestake
+  name: oddroyal-config
+  namespace: oddroyal
 data:
   NODE_ENV: "production"
   PORT: "3000"
@@ -18,7 +18,7 @@ data:
   # Database configuration (non-sensitive)
   PGHOST: "postgres-service"
   PGPORT: "5432"
-  PGDATABASE: "primestake"
+  PGDATABASE: "oddroyal"
   
   # Redis configuration (non-sensitive)  
   REDIS_HOST: "redis-service"

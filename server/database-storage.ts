@@ -2852,7 +2852,7 @@ export class DatabaseStorage implements IStorage {
     try {
       const demoUsername = "demo";
       const demoPassword = "demo123";
-      const demoEmail = "demo@primestake.com";
+      const demoEmail = "demo@oddroyal.com";
       
       // Check if demo user already exists (idempotent seeding)
       const existingUser = await this.getUserByUsername(demoUsername);
@@ -2881,7 +2881,7 @@ export class DatabaseStorage implements IStorage {
       // Create demo admin account
       const adminUsername = "admin";
       const adminPassword = "admin123456"; // Strong password for admin
-      const adminEmail = "admin@primestake.com";
+      const adminEmail = "admin@oddroyal.com";
       
       // Check if demo admin already exists
       const existingAdmin = await this.getAdminUserByUsername(adminUsername);

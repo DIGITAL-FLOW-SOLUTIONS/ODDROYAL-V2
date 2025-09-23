@@ -294,7 +294,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                     <Crown className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h2 className="font-bold text-lg">PRIMESTAKE</h2>
+                    <h2 className="font-bold text-lg">OddRoyal</h2>
                     <p className="text-xs text-muted-foreground">Admin Panel</p>
                   </div>
                 </div>

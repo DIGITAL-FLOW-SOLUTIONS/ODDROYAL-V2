@@ -1,9 +1,9 @@
-# PostgreSQL deployment for PRIMESTAKE
+# PostgreSQL deployment for OddRoyal
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres-deployment
-  namespace: primestake
+  namespace: oddroyal
   labels:
     app: postgres
     component: database
@@ -30,17 +30,17 @@ spec:
         - name: POSTGRES_DB
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: PGDATABASE
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: POSTGRES_USER
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: POSTGRES_PASSWORD
         - name: POSTGRES_INITDB_ARGS
           value: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
@@ -95,7 +95,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres-service
-  namespace: primestake
+  namespace: oddroyal
   labels:
     app: postgres
     component: database
@@ -115,7 +115,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: postgres-pvc
-  namespace: primestake
+  namespace: oddroyal
   labels:
     app: postgres
     component: database
@@ -133,20 +133,20 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: postgres-init-scripts
-  namespace: primestake
+  namespace: oddroyal
 data:
   init-db.sql: |
-    -- Initialize PRIMESTAKE database
+    -- Initialize OddRoyal database
     
     -- Create extensions
     CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
     CREATE EXTENSION IF NOT EXISTS "pgcrypto";
     
     -- Create additional databases if needed
-    -- CREATE DATABASE primestake_test;
+    -- CREATE DATABASE oddroyal_test;
     
     -- Set timezone
-    ALTER DATABASE primestake SET timezone TO 'UTC';
+    ALTER DATABASE oddroyal SET timezone TO 'UTC';
     
     -- Performance optimizations
     ALTER SYSTEM SET shared_preload_libraries = 'pg_stat_statements';

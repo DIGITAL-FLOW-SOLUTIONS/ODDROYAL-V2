@@ -38,7 +38,7 @@ function AdminAuthGuard({ children }: AdminAuthGuardProps) {
               >
                 <Crown className="w-8 h-8 text-white" />
               </motion.div>
-              <h2 className="text-xl font-semibold mb-2">PRIMESTAKE Admin</h2>
+              <h2 className="text-xl font-semibold mb-2">OddRoyal Admin</h2>
               <p className="text-muted-foreground mb-4">Authenticating...</p>
               <div className="flex items-center justify-center gap-2">
                 <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />

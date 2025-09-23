@@ -12,7 +12,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="space-y-4">
             <div className="font-display text-xl font-bold text-primary">
-              PRIME<span className="text-destructive">STAKE</span>
+              Odd<span className="text-destructive">Royal</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Premium sports betting platform with competitive odds and secure transactions.
@@ -85,7 +85,7 @@ export default function Footer() {
 
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-xs text-muted-foreground">
-            © {currentYear} PRIMESTAKE. All rights reserved.
+            © {currentYear} OddRoyal. All rights reserved.
           </div>
           
           <div className="flex items-center gap-4 text-xs text-muted-foreground">

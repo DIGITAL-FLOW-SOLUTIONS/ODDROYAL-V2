@@ -1,11 +1,11 @@
-# PRIMESTAKE Application deployment
+# OddRoyal Application deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: primestake-deployment
-  namespace: primestake
+  name: oddroyal-deployment
+  namespace: oddroyal
   labels:
-    app: primestake
+    app: oddroyal
     component: application
 spec:
   replicas: 3  # Multiple replicas for high availability
@@ -16,22 +16,22 @@ spec:
       maxUnavailable: 1
   selector:
     matchLabels:
-      app: primestake
+      app: oddroyal
   template:
     metadata:
       labels:
-        app: primestake
+        app: oddroyal
         component: application
     spec:
-      serviceAccountName: primestake-service-account
+      serviceAccountName: oddroyal-service-account
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
         runAsGroup: 1001
         fsGroup: 1001
       containers:
-      - name: primestake
-        image: primestake/admin-panel:latest  # Replace with your actual image
+      - name: oddroyal
+        image: oddroyal/admin-panel:latest  # Replace with your actual image
         ports:
         - containerPort: 3000
           name: http
@@ -40,134 +40,134 @@ spec:
         - name: NODE_ENV
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: NODE_ENV
         - name: PORT
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: PORT
         - name: ADMIN_BASE_PATH
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: ADMIN_BASE_PATH
         - name: ADMIN_2FA_ENFORCED
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: ADMIN_2FA_ENFORCED
         - name: RATE_LIMIT_WINDOW_MS
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: RATE_LIMIT_WINDOW_MS
         - name: RATE_LIMIT_MAX_REQUESTS
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: RATE_LIMIT_MAX_REQUESTS
         - name: LOG_LEVEL
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: LOG_LEVEL
         - name: DEMO_MODE
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: DEMO_MODE
         - name: MAINTENANCE_MODE
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: MAINTENANCE_MODE
         - name: PGHOST
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: PGHOST
         - name: PGPORT
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: PGPORT
         - name: PGDATABASE
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: PGDATABASE
         - name: REDIS_HOST
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: REDIS_HOST
         - name: REDIS_PORT
           valueFrom:
             configMapKeyRef:
-              name: primestake-config
+              name: oddroyal-config
               key: REDIS_PORT
         
         # Secrets
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: DATABASE_URL
         - name: PGUSER
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: POSTGRES_USER
         - name: PGPASSWORD
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: POSTGRES_PASSWORD
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: REDIS_PASSWORD
         - name: REDIS_URL
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: REDIS_URL
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: JWT_SECRET
         - name: ADMIN_JWT_SECRET
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: ADMIN_JWT_SECRET
         - name: SESSION_SECRET
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: SESSION_SECRET
         - name: ENCRYPTION_KEY
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: ENCRYPTION_KEY
         - name: SPORTMONKS_API_KEY
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: SPORTMONKS_API_KEY
         - name: STRIPE_SECRET_KEY
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: STRIPE_SECRET_KEY
         - name: SENTRY_DSN
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: SENTRY_DSN
         
         volumeMounts:
@@ -219,7 +219,7 @@ spec:
         - sh
         - -c
         - |
-          until pg_isready -h postgres-service -p 5432 -U primestake; do
+          until pg_isready -h postgres-service -p 5432 -U oddroyal; do
             echo "Waiting for PostgreSQL to be ready..."
             sleep 2
           done
@@ -228,7 +228,7 @@ spec:
         - name: PGUSER
           valueFrom:
             secretKeyRef:
-              name: primestake-secrets
+              name: oddroyal-secrets
               key: POSTGRES_USER
       
       - name: wait-for-redis
@@ -246,10 +246,10 @@ spec:
       volumes:
       - name: app-logs
         persistentVolumeClaim:
-          claimName: primestake-logs-pvc
+          claimName: oddroyal-logs-pvc
       - name: app-uploads
         persistentVolumeClaim:
-          claimName: primestake-uploads-pvc
+          claimName: oddroyal-uploads-pvc
       - name: temp-storage
         emptyDir: {}
       
@@ -260,17 +260,17 @@ spec:
         whenUnsatisfiable: DoNotSchedule
         labelSelector:
           matchLabels:
-            app: primestake
+            app: oddroyal
 
 ---
-# PRIMESTAKE Service
+# OddRoyal Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: primestake-service
-  namespace: primestake
+  name: oddroyal-service
+  namespace: oddroyal
   labels:
-    app: primestake
+    app: oddroyal
     component: application
 spec:
   type: ClusterIP
@@ -280,15 +280,15 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: primestake
+    app: oddroyal
 
 ---
 # Persistent Volume Claims for application data
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: primestake-logs-pvc
-  namespace: primestake
+  name: oddroyal-logs-pvc
+  namespace: oddroyal
 spec:
   accessModes:
     - ReadWriteMany  # Multiple pods need access
@@ -301,8 +301,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: primestake-uploads-pvc
-  namespace: primestake
+  name: oddroyal-uploads-pvc
+  namespace: oddroyal
 spec:
   accessModes:
     - ReadWriteMany
@@ -312,24 +312,24 @@ spec:
   storageClassName: standard
 
 ---
-# Service Account for PRIMESTAKE
+# Service Account for OddRoyal
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: primestake-service-account
-  namespace: primestake
+  name: oddroyal-service-account
+  namespace: oddroyal
   labels:
-    app: primestake
+    app: oddroyal
 
 ---
 # Pod Disruption Budget for high availability
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: primestake-pdb
-  namespace: primestake
+  name: oddroyal-pdb
+  namespace: oddroyal
 spec:
   minAvailable: 1
   selector:
     matchLabels:
-      app: primestake
+      app: oddroyal

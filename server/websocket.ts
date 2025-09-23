@@ -70,7 +70,7 @@ export function initializeWebSocket(server: any) {
     // Send welcome message with connection info
     ws.send(JSON.stringify({
       type: 'connection',
-      message: 'Connected to PRIMESTAKE live updates',
+      message: 'Connected to OddRoyal live updates',
       timestamp: new Date().toISOString()
     }));
     

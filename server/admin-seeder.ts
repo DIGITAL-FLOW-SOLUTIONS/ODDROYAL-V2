@@ -25,7 +25,7 @@ export class AdminSeeder {
       // Generate secure default credentials
       const defaultUsername = process.env.ADMIN_USERNAME || 'superadmin';
       const defaultPassword = process.env.ADMIN_PASSWORD || this.generateSecurePassword();
-      const defaultEmail = process.env.ADMIN_EMAIL || 'admin@primestake.com';
+      const defaultEmail = process.env.ADMIN_EMAIL || 'admin@oddroyal.com';
       
       // Check if username/email already exists
       const existingUser = await db
@@ -64,8 +64,8 @@ export class AdminSeeder {
       
       // Generate 2FA secret for superadmin (optional setup)
       const totpSecret = speakeasy.generateSecret({
-        name: `PrimeStake Admin (${defaultUsername})`,
-        issuer: 'PrimeStake',
+        name: `OddRoyal Admin (${defaultUsername})`,
+        issuer: 'OddRoyal',
         length: 32
       });
       
@@ -125,7 +125,7 @@ export class AdminSeeder {
       
       const demoUsername = 'demo-admin';
       const demoPassword = 'demo123';
-      const demoEmail = 'demo-admin@primestake.com';
+      const demoEmail = 'demo-admin@oddroyal.com';
       
       // Check if demo admin already exists
       const existingDemo = await db

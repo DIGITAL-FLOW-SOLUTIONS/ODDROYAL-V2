@@ -88,7 +88,7 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
       >
         <div className="relative z-10">
           <h1 className="text-4xl font-display font-bold mb-2">
-            Welcome to PRIMESTAKE
+            Welcome to OddRoyal
           </h1>
           <p className="text-xl opacity-90 mb-4">
             Premium Sports Betting with Competitive Odds

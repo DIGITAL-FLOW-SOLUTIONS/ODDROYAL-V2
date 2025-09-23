@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 /**
- * Demo Setup Script for PRIMESTAKE Admin Panel
+ * Demo Setup Script for OddRoyal Admin Panel
  * 
  * This script sets up a complete demo environment with:
  * - Demo admin user with known credentials
@@ -50,7 +50,7 @@ class DemoSetup {
     betCount: 100
   }): Promise<void> {
     try {
-      console.log('🎮 PRIMESTAKE Demo Environment Setup');
+      console.log('🎮 OddRoyal Demo Environment Setup');
       console.log('====================================\n');
 
       // Validate environment
@@ -106,7 +106,7 @@ class DemoSetup {
     const adminUsers = [
       {
         username: 'admin',
-        email: 'admin@primestake.demo',
+        email: 'admin@oddroyal.demo',
         password: 'admin123456',
         role: 'admin' as const,
         firstName: 'Admin',
@@ -114,7 +114,7 @@ class DemoSetup {
       },
       {
         username: 'superadmin',
-        email: 'superadmin@primestake.demo',
+        email: 'superadmin@oddroyal.demo',
         password: 'superadmin123456',
         role: 'superadmin' as const,
         firstName: 'Super',
@@ -122,7 +122,7 @@ class DemoSetup {
       },
       {
         username: 'riskmanager',
-        email: 'risk@primestake.demo',
+        email: 'risk@oddroyal.demo',
         password: 'risk123456',
         role: 'risk_manager' as const,
         firstName: 'Risk',
@@ -130,7 +130,7 @@ class DemoSetup {
       },
       {
         username: 'finance',
-        email: 'finance@primestake.demo',
+        email: 'finance@oddroyal.demo',
         password: 'finance123456',
         role: 'finance' as const,
         firstName: 'Finance',
@@ -151,8 +151,8 @@ class DemoSetup {
 
       // Generate TOTP secret (demo mode - simplified)
       const totpSecret = speakeasy.generateSecret({
-        name: `PRIMESTAKE Demo (${userData.username})`,
-        issuer: 'PRIMESTAKE Demo'
+        name: `OddRoyal Demo (${userData.username})`,
+        issuer: 'OddRoyal Demo'
       }).base32!;
 
       // Create admin user
@@ -327,7 +327,7 @@ class DemoSetup {
 
     for (let i = 1; i <= count; i++) {
       const username = `demouser${i}`;
-      const email = `user${i}@demo.primestake.com`;
+      const email = `user${i}@demo.oddroyal.com`;
 
       // Check if user exists
       const existing = await this.storage.getUserByUsername(username);

@@ -52,7 +52,7 @@ function AdminLogin() {
         // Successful login without 2FA requirement
         toast({
           title: "Login Successful",
-          description: "Welcome to PRIMESTAKE Admin Panel"
+          description: "Welcome to OddRoyal Admin Panel"
         });
         setLocation('/prime-admin');
       }
@@ -94,7 +94,7 @@ function AdminLogin() {
             <Crown className="w-8 h-8 text-white" />
           </motion.div>
           <h1 className="text-3xl font-bold mb-2" data-testid="text-admin-auth-title">
-            PRIMESTAKE
+            OddRoyal
           </h1>
           <p className="text-muted-foreground">Admin Panel Access</p>
         </div>

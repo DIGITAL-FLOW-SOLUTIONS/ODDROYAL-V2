@@ -101,8 +101,8 @@ export class EmailReportService {
         try {
           await this.transporter.sendMail({
             from: {
-              name: 'PRIMESTAKE Reports',
-              address: process.env.SMTP_FROM || process.env.SMTP_USER || 'reports@primestake.com'
+              name: 'OddRoyal Reports',
+              address: process.env.SMTP_FROM || process.env.SMTP_USER || 'reports@oddroyal.com'
             },
             to: recipient,
             subject: emailSubject,
@@ -161,7 +161,7 @@ export class EmailReportService {
             },
             includeCharts: true,
             companyInfo: {
-              name: 'PRIMESTAKE',
+              name: 'OddRoyal',
               address: 'Professional Sports Betting Platform'
             }
           });
@@ -239,7 +239,7 @@ export class EmailReportService {
     chartData?: any[][];
   } {
     const result = {
-      summary: [['PRIMESTAKE - ' + this.getReportTitle(reportType)], [''], ['Generated:', new Date().toLocaleString()], ['']],
+      summary: [['OddRoyal - ' + this.getReportTitle(reportType)], [''], ['Generated:', new Date().toLocaleString()], ['']],
       details: undefined as any[][] | undefined,
       chartData: undefined as any[][] | undefined
     };
@@ -337,7 +337,7 @@ export class EmailReportService {
     const frequency = scheduledReport.frequency.charAt(0).toUpperCase() + scheduledReport.frequency.slice(1);
     const dateStr = new Date().toLocaleDateString('en-GB');
     
-    return `PRIMESTAKE ${frequency} ${reportTitle} - ${dateStr}`;
+    return `OddRoyal ${frequency} ${reportTitle} - ${dateStr}`;
   }
   
   /**
@@ -426,7 +426,7 @@ export class EmailReportService {
         </head>
         <body>
           <div class="header">
-            <h1>PRIMESTAKE</h1>
+            <h1>OddRoyal</h1>
             <h2>${reportTitle}</h2>
             <p>${dateStr}</p>
           </div>
@@ -452,13 +452,13 @@ export class EmailReportService {
             </ul>
             
             <p>For questions about this report or to modify your subscription preferences, 
-               please contact your system administrator or the PRIMESTAKE support team.</p>
+               please contact your system administrator or the OddRoyal support team.</p>
           </div>
           
           <div class="footer">
             <p><strong>CONFIDENTIAL:</strong> This report contains confidential business information. 
                Please handle in accordance with your organization's data protection policies.</p>
-            <p>© ${new Date().getFullYear()} PRIMESTAKE. All rights reserved.</p>
+            <p>© ${new Date().getFullYear()} OddRoyal. All rights reserved.</p>
           </div>
         </body>
       </html>

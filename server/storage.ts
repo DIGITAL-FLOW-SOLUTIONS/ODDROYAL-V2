@@ -715,7 +715,7 @@ export class MemStorage implements IStorage {
     try {
       const demoUsername = "demo";
       const demoPassword = "demo123";
-      const demoEmail = "demo@primestake.com";
+      const demoEmail = "demo@oddroyal.com";
 
       // Check if demo user already exists (idempotent seeding)
       const existingUser = await this.getUserByUsername(demoUsername);
@@ -744,7 +744,7 @@ export class MemStorage implements IStorage {
       // Create demo admin account with unique credentials to avoid conflicts with AdminSeeder
       const adminUsername = "demo-storage-admin"; // Unique username to avoid conflicts
       const adminPassword = "admin123456"; // Strong password for admin
-      const adminEmail = "demo.storage.admin@primestake.com"; // Unique email to avoid conflicts
+      const adminEmail = "demo.storage.admin@oddroyal.com"; // Unique email to avoid conflicts
 
       // Check if demo admin already exists (idempotent)
       const existingAdmin = await this.getAdminUserByUsername(adminUsername);

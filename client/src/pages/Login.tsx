@@ -61,7 +61,7 @@ function Login() {
   return (
     <div className="container mx-auto max-w-md p-6">
       <div className="text-center mb-6">
-        <h1 className="text-3xl font-bold" data-testid="text-auth-title">PRIMESTAKE</h1>
+        <h1 className="text-3xl font-bold" data-testid="text-auth-title">OddRoyal</h1>
         <p className="text-muted-foreground">Your Premier Sports Betting Platform</p>
       </div>
 

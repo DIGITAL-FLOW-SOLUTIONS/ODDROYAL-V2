@@ -712,7 +712,7 @@ function AdminDashboard() {
               Admin Dashboard
             </h1>
             <p className="text-muted-foreground">
-              Welcome back, {admin?.username}. Real-time insights for PRIMESTAKE.
+              Welcome back, {admin?.username}. Real-time insights for OddRoyal.
             </p>
           </div>
           <div className="flex items-center gap-2">

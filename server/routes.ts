@@ -1326,8 +1326,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Generate TOTP secret
       const secret = speakeasy.generateSecret({
-        name: `PRIMESTAKE Admin (${adminUser.username})`,
-        issuer: 'PRIMESTAKE'
+        name: `OddRoyal Admin (${adminUser.username})`,
+        issuer: 'OddRoyal'
       });
       
       // Generate QR code
@@ -3633,7 +3633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             dateRange: { from: startDate, to: endDate },
             includeCharts: true,
             companyInfo: {
-              name: 'PRIMESTAKE',
+              name: 'OddRoyal',
               address: 'Professional Sports Betting Platform'
             }
           });
@@ -3664,7 +3664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Add summary sheet
           const summaryData = [
-            ['PRIMESTAKE - ' + reportTitle],
+            ['OddRoyal - ' + reportTitle],
             ['Generated:', new Date().toLocaleString()],
             ['Period:', `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`],
             [''] // Empty row
