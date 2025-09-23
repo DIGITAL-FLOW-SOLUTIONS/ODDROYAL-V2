@@ -1,6 +1,6 @@
 # Overview
 
-PRIMESTAKE is a premium sports betting web application featuring real-time sports data, live odds, and a comprehensive betting interface. The platform focuses on football (soccer) betting with live match tracking, pre-match odds, and an integrated bet slip system. Built as a modern full-stack application with React frontend and Express backend, it integrates with SportMonks API for live sports data and features a mobile-first, dark-themed design optimized for quick betting decisions.
+OddRoyal is a premium sports betting web application featuring real-time sports data, live odds, and a comprehensive betting interface. The platform focuses on football (soccer) betting with live match tracking, pre-match odds, and an integrated bet slip system. Built as a modern full-stack application with React frontend and Express backend, it integrates with SportMonks API for live sports data and features a mobile-first, dark-themed design optimized for quick betting decisions.
 
 # User Preferences
 
