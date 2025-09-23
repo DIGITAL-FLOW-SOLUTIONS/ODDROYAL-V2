@@ -47,6 +47,24 @@
   --sidebar-accent-foreground: 0 0% 85%;
   --sidebar-border: 200 15% 25%;
   --sidebar-ring: 142.1 76.2% 45%;
+  
+  /* Surface Hierarchy - Professional Background Layers */
+  --surface-0: 200 30% 8%;   /* Base background (same as --background) */
+  --surface-1: 200 28% 10%;  /* Shell/sidebars */
+  --surface-2: 200 25% 12%;  /* Large panels/containers */
+  --surface-3: 200 22% 14%;  /* Sport group blocks */
+  --surface-4: 200 20% 16%;  /* League blocks */
+  --surface-5: 200 18% 18%;  /* Match rows/odds grids */
+  --surface-6: 200 15% 20%;  /* Odds cells/inputs */
+  
+  /* Brand-Tinted Surfaces for Selection */
+  --brand-surface-1: 142 50% 15%;   /* Selected sport/league */
+  --brand-surface-2: 142 45% 18%;   /* Selected odds/active states */
+  
+  /* Context-Specific Surfaces */
+  --live-surface-1: 32 60% 15%;     /* Live events emphasis */
+  --muted-surface: 200 8% 12%;      /* Disabled/muted elements */
+  
   --font-sans: Inter, system-ui, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
@@ -140,6 +158,24 @@
   --sidebar-accent-foreground: 240 4.8% 95.9%;
   --sidebar-border: 240 3.7% 15.9%;
   --sidebar-ring: 217.2 91.2% 59.8%;
+  
+  /* Surface Hierarchy - Professional Background Layers (Dark Mode) */
+  --surface-0: 240 10% 3.9%;   /* Base background (same as --background) */
+  --surface-1: 240 8% 6%;      /* Shell/sidebars */
+  --surface-2: 240 6% 8%;      /* Large panels/containers */
+  --surface-3: 240 5% 10%;     /* Sport group blocks */
+  --surface-4: 240 4% 12%;     /* League blocks */
+  --surface-5: 240 3% 14%;     /* Match rows/odds grids */
+  --surface-6: 240 2% 16%;     /* Odds cells/inputs */
+  
+  /* Brand-Tinted Surfaces for Selection (Dark Mode) */
+  --brand-surface-1: 142 40% 12%;   /* Selected sport/league */
+  --brand-surface-2: 142 35% 15%;   /* Selected odds/active states */
+  
+  /* Context-Specific Surfaces (Dark Mode) */
+  --live-surface-1: 32 50% 12%;     /* Live events emphasis */
+  --muted-surface: 240 5% 8%;       /* Disabled/muted elements */
+  
   --font-sans: Inter, system-ui, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;

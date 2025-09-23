@@ -81,6 +81,24 @@ export default {
           busy: "rgb(239 68 68)",
           offline: "rgb(156 163 175)",
         },
+        // Surface Hierarchy System - Professional Background Layers
+        surface: {
+          0: "hsl(var(--surface-0) / <alpha-value>)",
+          1: "hsl(var(--surface-1) / <alpha-value>)",
+          2: "hsl(var(--surface-2) / <alpha-value>)",
+          3: "hsl(var(--surface-3) / <alpha-value>)",
+          4: "hsl(var(--surface-4) / <alpha-value>)",
+          5: "hsl(var(--surface-5) / <alpha-value>)",
+          6: "hsl(var(--surface-6) / <alpha-value>)",
+        },
+        "brand-surface": {
+          1: "hsl(var(--brand-surface-1) / <alpha-value>)",
+          2: "hsl(var(--brand-surface-2) / <alpha-value>)",
+        },
+        "live-surface": {
+          1: "hsl(var(--live-surface-1) / <alpha-value>)",
+        },
+        "muted-surface": "hsl(var(--muted-surface) / <alpha-value>)",
       },
       fontFamily: {
         sans: [
