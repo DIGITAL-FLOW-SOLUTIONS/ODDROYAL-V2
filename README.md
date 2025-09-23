@@ -1,6 +1,6 @@
-# PRIMESTAKE Admin Panel
+# OddRoyal Admin Panel
 
-Production-grade admin panel for PRIMESTAKE sportsbook with comprehensive betting management, risk control, and administrative features.
+Production-grade admin panel for OddRoyal sportsbook with comprehensive betting management, risk control, and administrative features.
 
 ## 🚀 Features
 
@@ -25,8 +25,8 @@ Production-grade admin panel for PRIMESTAKE sportsbook with comprehensive bettin
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/your-org/primestake-admin-panel.git
-cd primestake-admin-panel
+git clone https://github.com/your-org/oddroyal-admin-panel.git
+cd oddroyal-admin-panel
 ```
 
 ### 2. Install Dependencies
@@ -41,12 +41,12 @@ Create `.env` file with required secrets:
 
 ```bash
 # Database Configuration
-DATABASE_URL=postgresql://username:password@localhost:5432/primestake
+DATABASE_URL=postgresql://username:password@localhost:5432/oddroyal
 PGHOST=localhost
 PGPORT=5432
-PGUSER=primestake
+PGUSER=oddroyal
 PGPASSWORD=your-secure-password
-PGDATABASE=primestake
+PGDATABASE=oddroyal
 
 # Redis Configuration
 REDIS_URL=redis://localhost:6379
@@ -108,7 +108,7 @@ The admin panel will be available at: `http://localhost:3000/prime-admin`
 ## 🏗️ Project Structure
 
 ```
-primestake-admin-panel/
+oddroyal-admin-panel/
 ├── client/                     # Frontend React application
 │   ├── src/
 │   │   ├── components/        # UI components
@@ -205,7 +205,7 @@ docker-compose up -d
 docker-compose ps
 
 # View logs
-docker-compose logs -f primestake-app
+docker-compose logs -f oddroyal-app
 ```
 
 ### Using Kubernetes
@@ -215,10 +215,10 @@ docker-compose logs -f primestake-app
 kubectl apply -f k8s/
 
 # Check deployment status
-kubectl get pods -n primestake
+kubectl get pods -n oddroyal
 
 # Access logs
-kubectl logs -f deployment/primestake-deployment -n primestake
+kubectl logs -f deployment/oddroyal-deployment -n oddroyal
 ```
 
 ### Environment-Specific Deployments
@@ -416,7 +416,7 @@ npm run admin:reset-2fa -- username
 # Increase interval for high-load systems
 
 # Monitor memory usage
-docker stats primestake-app
+docker stats oddroyal-app
 ```
 
 ### Debug Mode
@@ -503,13 +503,13 @@ All admin endpoints require:
 
 ```bash
 # Build Docker image
-docker build -t primestake/admin-panel:latest .
+docker build -t oddroyal/admin-panel:latest .
 
 # Push to registry
-docker push primestake/admin-panel:latest
+docker push oddroyal/admin-panel:latest
 
 # Deploy to Kubernetes
-kubectl set image deployment/primestake-deployment primestake=primestake/admin-panel:latest -n primestake
+kubectl set image deployment/oddroyal-deployment oddroyal=oddroyal/admin-panel:latest -n oddroyal
 ```
 
 ## 📞 Support & Maintenance
@@ -532,9 +532,9 @@ kubectl set image deployment/primestake-deployment primestake=primestake/admin-p
 
 ### Production Support Contacts
 
-- **Emergency**: emergency@primestake.com
-- **Technical Support**: tech-support@primestake.com
-- **Security Issues**: security@primestake.com
+- **Emergency**: emergency@oddroyal.com
+- **Technical Support**: tech-support@oddroyal.com
+- **Security Issues**: security@oddroyal.com
 
 ---
 
@@ -542,4 +542,4 @@ kubectl set image deployment/primestake-deployment primestake=primestake/admin-p
 
 This software is proprietary and confidential. Unauthorized copying, distribution, or use is strictly prohibited.
 
-**© 2024 PRIMESTAKE. All rights reserved.**
+**© 2024 OddRoyal. All rights reserved.**
