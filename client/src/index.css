@@ -4,15 +4,16 @@
 
 /* LIGHT MODE */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(0, 0, 0, .10);
+  --badge-outline: rgba(0, 0, 0, .05);
 
   /* Automatic computation of border around primary / danger buttons */
-  --opaque-button-border-intensity: -8; /* In terms of percentages */
+  --opaque-button-border-intensity: -8;
+  /* In terms of percentages */
 
   /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(0, 0, 0, .03);
+  --elevate-2: rgba(0, 0, 0, .08);
 
   --background: 0 0% 98%;
 
@@ -79,7 +80,8 @@
   --font-sans: Open Sans, sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
-  --radius: .5rem; /* 8px */
+  --radius: .5rem;
+  /* 8px */
   --shadow-2xs: 0px 2px 0px 0px hsl(220 13% 9% / 0.05);
   --shadow-xs: 0px 2px 0px 0px hsl(220 13% 9% / 0.08);
   --shadow-sm: 0px 2px 0px 0px hsl(220 13% 9% / 0.05), 0px 1px 2px -1px hsl(220 13% 9% / 0.15);
@@ -123,14 +125,15 @@
 }
 
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  --button-outline: rgba(255, 255, 255, .10);
+  --badge-outline: rgba(255, 255, 255, .05);
 
-  --opaque-button-border-intensity: 9;  /* In terms of percentages */
+  --opaque-button-border-intensity: 9;
+  /* In terms of percentages */
 
   /* Backgrounds applied on top of other backgrounds when hovered/active */
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --elevate-1: rgba(255, 255, 255, .04);
+  --elevate-2: rgba(255, 255, 255, .09);
 
   --background: 220 13% 9%;
 
@@ -328,12 +331,15 @@
 
   /* Hide scrollbar while keeping scroll functionality */
   .scrollbar-hide {
-    -ms-overflow-style: none;  /* Internet Explorer 10+ */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    /* Internet Explorer 10+ */
+    scrollbar-width: none;
+    /* Firefox */
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
-    display: none;  /* Safari and Chrome */
+    display: none;
+    /* Safari and Chrome */
   }
 
   /* Sportsbook 3-column grid layout */
@@ -341,7 +347,7 @@
     display: grid;
     grid-template-columns: var(--sidebar-width) 1fr 20rem;
     grid-template-rows: auto 1fr auto;
-    grid-template-areas: 
+    grid-template-areas:
       "sidebar header header"
       "sidebar main betslip"
       "sidebar footer footer";
@@ -363,7 +369,8 @@
 
   .sportsbook-main {
     grid-area: main;
-    min-width: 0; /* Allow flexbox shrinking */
+    min-width: 0;
+    /* Allow flexbox shrinking */
   }
 
   .sportsbook-betslip {
@@ -389,12 +396,12 @@
   @media (max-width: 1023px) {
     .sportsbook-layout {
       grid-template-columns: var(--sidebar-width) 1fr;
-      grid-template-areas: 
+      grid-template-areas:
         "sidebar header"
         "sidebar main"
         "sidebar footer";
     }
-    
+
     /* When sidebar is collapsed on tablet view */
     .sportsbook-layout:has([data-state="collapsed"]) {
       grid-template-columns: var(--sidebar-width-icon) 1fr;
@@ -405,7 +412,7 @@
     .sportsbook-layout {
       grid-template-columns: 1fr;
       grid-template-rows: auto auto 1fr auto;
-      grid-template-areas: 
+      grid-template-areas:
         "sidebar"
         "header"
         "main"
