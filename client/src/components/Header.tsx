@@ -28,7 +28,7 @@ export default function Header() {
         <SidebarTrigger data-testid="button-sidebar-toggle" />
         <div className="flex items-center gap-2">
           <div className="font-display text-xl font-bold text-primary">
-            PRIME<span className="text-destructive">STAKE</span>
+            ODD<span className="text-destructive">ROYAL</span>
           </div>
         </div>
       </div>
