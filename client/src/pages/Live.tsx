@@ -267,7 +267,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                               <div
                                 onClick={() => toggleMatchExpansion(match.id)}
                                 className="flex items-center justify-between p-3 cursor-pointer rounded-md hover-elevate"
-                                style={{ backgroundColor: 'hsl(var(--surface-5))' }}
+                                style={{ backgroundColor: 'white' }}
                                 data-testid={`button-match-${match.id}`}
                               >
                                 <div className="flex-1">

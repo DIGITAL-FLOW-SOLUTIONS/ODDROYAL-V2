@@ -188,7 +188,7 @@ export default function FootballMatches({
                             transition={{ delay: matchIndex * 0.05 }}
                             onClick={() => handleMatchClick(match.id)}
                             className="grid grid-cols-12 gap-2 py-3 border-b border-border/30 last:border-b-0 hover-elevate transition-colors cursor-pointer rounded-md mb-1"
-                            style={{ backgroundColor: 'hsl(var(--surface-5))' }}
+                            style={{ backgroundColor: 'white' }}
                             data-testid={`match-row-${match.id}`}
                           >
                             {/* Time */}

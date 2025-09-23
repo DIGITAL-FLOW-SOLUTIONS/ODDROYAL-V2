@@ -133,7 +133,7 @@ export default function OtherSports({
                           className={`grid gap-2 py-3 border-b border-border/30 last:border-b-0 hover-elevate transition-colors rounded-md mb-1 ${
                             sport.hasDrawOdds ? 'grid-cols-12' : 'grid-cols-10'
                           }`}
-                          style={{ backgroundColor: 'hsl(var(--surface-5))' }}
+                          style={{ backgroundColor: 'white' }}
                           data-testid={`match-row-${match.id}`}
                         >
                           {/* Time */}

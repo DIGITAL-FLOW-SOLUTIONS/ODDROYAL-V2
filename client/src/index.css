@@ -354,9 +354,9 @@
     border-color: hsl(var(--odds-button-hover));
   }
 
-  /* League header gradient style */
+  /* League header gradient style - green, red, yellow */
   .league-header-gradient {
-    background: linear-gradient(135deg, hsl(var(--odds-button-base)), hsl(var(--surface-2)));
+    background: linear-gradient(135deg, #4FAF64, #E74C3C, #F1C40F);
   }
 
   /* Sportsbook 3-column grid layout */
