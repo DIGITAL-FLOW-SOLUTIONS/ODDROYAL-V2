@@ -107,7 +107,7 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
               size="icon"
               onClick={toggleFavorite}
               data-testid={`button-favorite-${match.id}`}
-              className="h-6 w-6 hover-elevate bg-surface-6 border-0 rounded-md"
+              className="h-6 w-6 bg-surface-6 border-0 rounded-md"
             >
               <Star 
                 className={`h-3 w-3 ${isFavorite ? 'fill-yellow-500 text-yellow-500' : ''}`} 
@@ -151,7 +151,7 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
               size="sm"
               onClick={(e) => handleAddToBetSlip("home", match.odds.home, e)}
               data-testid={`button-odds-home-${match.id}`}
-              className="flex flex-col gap-1 h-auto py-2 hover-elevate bg-surface-6 text-foreground border-0"
+              className="flex flex-col gap-1 h-auto py-2 bg-surface-6 text-foreground border-0"
             >
               <span className="text-xs text-muted-foreground">1</span>
               <span className="font-semibold">{match.odds.home.toFixed(2)}</span>
@@ -162,7 +162,7 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
                 size="sm"
                 onClick={(e) => handleAddToBetSlip("draw", match.odds.draw!, e)}
                 data-testid={`button-odds-draw-${match.id}`}
-                className="flex flex-col gap-1 h-auto py-2 hover-elevate bg-surface-6 text-foreground border-0"
+                className="flex flex-col gap-1 h-auto py-2 bg-surface-6 text-foreground border-0"
               >
                 <span className="text-xs text-muted-foreground">X</span>
                 <span className="font-semibold">{match.odds.draw.toFixed(2)}</span>
@@ -173,7 +173,7 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
               size="sm"
               onClick={(e) => handleAddToBetSlip("away", match.odds.away, e)}
               data-testid={`button-odds-away-${match.id}`}
-              className="flex flex-col gap-1 h-auto py-2 hover-elevate bg-surface-6 text-foreground border-0"
+              className="flex flex-col gap-1 h-auto py-2 bg-surface-6 text-foreground border-0"
             >
               <span className="text-xs text-muted-foreground">2</span>
               <span className="font-semibold">{match.odds.away.toFixed(2)}</span>

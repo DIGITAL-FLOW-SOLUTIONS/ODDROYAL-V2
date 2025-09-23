@@ -65,7 +65,7 @@ export default function SportsSidebar() {
                     asChild
                     isActive={location === "/"}
                     data-testid="link-homepage"
-                    className={`hover-elevate ${location === "/" ? "bg-brand-surface-1 text-primary-foreground" : "bg-surface-3"} border-0 rounded-md`}
+                    className={`${location === "/" ? "bg-brand-surface-1 text-primary-foreground" : "bg-surface-3"} border-0 rounded-md`}
                   >
                     <Link href="/">
                       <Home className="h-4 w-4" />
@@ -93,7 +93,7 @@ export default function SportsSidebar() {
                 >
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton className="hover-elevate bg-surface-3 border-0 rounded-md" data-testid="button-football-toggle">
+                      <SidebarMenuButton className="bg-surface-3 border-0 rounded-md" data-testid="button-football-toggle">
                         <Trophy className="h-4 w-4" />
                         <span className="flex-1">Football</span>
                         <div className="flex items-center gap-2">
@@ -119,7 +119,7 @@ export default function SportsSidebar() {
                               asChild
                               isActive={location === "/line"}
                               data-testid="link-prematch"
-                              className={`hover-elevate ${location === "/line" ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-4"} border-0 rounded-md`}
+                              className={`${location === "/line" ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-4"} border-0 rounded-md`}
                             >
                               <Link href="/line">
                                 <Calendar className="h-3 w-3" />
@@ -135,7 +135,7 @@ export default function SportsSidebar() {
                               asChild
                               isActive={location === "/live"}
                               data-testid="link-live"
-                              className={`hover-elevate ${location === "/live" ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-4"} border-0 rounded-md`}
+                              className={`${location === "/live" ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-4"} border-0 rounded-md`}
                             >
                               <Link href="/live">
                                 <Zap className="h-3 w-3" />
@@ -186,7 +186,7 @@ export default function SportsSidebar() {
                     <SidebarMenuButton
                       asChild
                       data-testid={`link-league-${league.id}`}
-                      className="hover-elevate bg-surface-4 border-0 rounded-md"
+                      className="bg-surface-4 border-0 rounded-md"
                     >
                       <Link href={`/league/${league.id}`}>
                         <league.icon className="h-4 w-4" />
@@ -250,7 +250,7 @@ export default function SportsSidebar() {
                 transition={{ delay: 0.4 }}
               >
                 <SidebarMenuItem>
-                  <SidebarMenuButton data-testid="link-favorites" className="hover-elevate bg-surface-3 border-0 rounded-md">
+                  <SidebarMenuButton data-testid="link-favorites" className="bg-surface-3 border-0 rounded-md">
                     <Star className="h-4 w-4" />
                     <span>Favorites</span>
                     <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">12</Badge>
@@ -263,7 +263,7 @@ export default function SportsSidebar() {
                 transition={{ delay: 0.45 }}
               >
                 <SidebarMenuItem>
-                  <SidebarMenuButton data-testid="link-my-bets" className="hover-elevate bg-surface-3 border-0 rounded-md">
+                  <SidebarMenuButton data-testid="link-my-bets" className="bg-surface-3 border-0 rounded-md">
                     <PlayCircle className="h-4 w-4" />
                     <span>My Bets</span>
                     <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">3</Badge>

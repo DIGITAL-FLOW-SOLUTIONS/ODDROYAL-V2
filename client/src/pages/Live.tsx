@@ -177,7 +177,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
 
 
   return (
-    <div className="flex-1 bg-card text-card-foreground">
+    <div className="flex-1 bg-surface-0 text-foreground">
       {/* Banner */}
       <div className="w-full">
         <img 
@@ -189,7 +189,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
       </div>
 
       {/* Live Football Header */}
-      <div className="flex items-center gap-2 p-3 bg-sidebar border-b border-sidebar-border">
+      <div className="flex items-center gap-2 p-3 bg-surface-2 border-0">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
           <h2 className="text-lg font-semibold text-foreground">Live Football</h2>
@@ -219,17 +219,17 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
               const isExpanded = expandedLeagues.has(group.leagueName);
               
               return (
-                <div key={group.leagueName} className="bg-card">
+                <div key={group.leagueName} className="bg-surface-1 rounded-md mb-2">
                   {/* League Header */}
                   <div
                     onClick={() => toggleLeague(group.leagueName)}
-                    className="flex items-center justify-between p-3 bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90 transition-colors"
+                    className="flex items-center justify-between p-3 bg-surface-4 text-foreground cursor-pointer rounded-t-md"
                     data-testid={`button-league-${group.leagueName.replace(/\s+/g, '-').toLowerCase()}`}
                   >
                     <div className="flex items-center gap-3">
                       <Gamepad2 className="h-5 w-5" />
                       <span className="font-semibold">{group.leagueName}</span>
-                      <Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground">
+                      <Badge className="bg-surface-6 text-foreground border-0">
                         {group.matches.length}
                       </Badge>
                     </div>
@@ -261,11 +261,11 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                           const isMatchExpanded = expandedMatches.has(match.id);
                           
                           return (
-                            <div key={match.id} className="border-b border-border/50 last:border-b-0">
+                            <div key={match.id} className="bg-surface-5 border-0 mb-1 rounded-md last:mb-0">
                               {/* Match Row */}
                               <div
                                 onClick={() => toggleMatchExpansion(match.id)}
-                                className="flex items-center justify-between p-3 hover:bg-sidebar/30 cursor-pointer transition-colors"
+                                className="flex items-center justify-between p-3 bg-surface-5 cursor-pointer rounded-md"
                                 data-testid={`button-match-${match.id}`}
                               >
                                 <div className="flex-1">
