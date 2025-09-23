@@ -83,7 +83,16 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["var(--font-sans)"],
+        sans: [
+          "var(--font-sans)",
+          "ui-sans-serif",
+          "system-ui",
+          "sans-serif",
+          "Apple Color Emoji",
+          "Segoe UI Emoji",
+          "Segoe UI Symbol",
+          "Noto Color Emoji"
+        ],
         serif: ["var(--font-serif)"],
         mono: ["var(--font-mono)"],
         display: ["var(--font-sans)"],
