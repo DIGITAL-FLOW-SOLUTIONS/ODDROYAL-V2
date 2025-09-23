@@ -47,15 +47,15 @@ export default function SportsSidebar() {
   ];
 
   return (
-    <Sidebar>
-      <SidebarContent>
+    <Sidebar className="bg-surface-1 border-0">
+      <SidebarContent className="bg-surface-1 gap-2 p-2">
         {/* Main Navigation */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground">
+        <SidebarGroup className="bg-surface-2 rounded-md p-3">
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground mb-2">
             Navigation
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               <motion.div
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
@@ -65,7 +65,7 @@ export default function SportsSidebar() {
                     asChild
                     isActive={location === "/"}
                     data-testid="link-homepage"
-                    className="hover-elevate"
+                    className={`hover-elevate ${location === "/" ? "bg-brand-surface-1 text-primary-foreground" : "bg-surface-3"} border-0 rounded-md`}
                   >
                     <Link href="/">
                       <Home className="h-4 w-4" />
@@ -79,12 +79,12 @@ export default function SportsSidebar() {
         </SidebarGroup>
 
         {/* Football Section - Expandable */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground">
+        <SidebarGroup className="bg-surface-2 rounded-md p-3">
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground mb-2">
             Football
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               <Collapsible open={footballExpanded} onOpenChange={setFootballExpanded}>
                 <motion.div
                   initial={{ x: -20, opacity: 0 }}
@@ -93,14 +93,14 @@ export default function SportsSidebar() {
                 >
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton className="hover-elevate" data-testid="button-football-toggle">
+                      <SidebarMenuButton className="hover-elevate bg-surface-3 border-0 rounded-md" data-testid="button-football-toggle">
                         <Trophy className="h-4 w-4" />
                         <span className="flex-1">Football</span>
                         <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-xs px-1 py-0">
+                          <Badge className="text-xs px-1 py-0 bg-live-surface-1 text-red-100 border-0">
                             Hot
                           </Badge>
-                          <Badge variant="outline" className="text-xs px-1.5 py-0">
+                          <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">
                             89
                           </Badge>
                           <ChevronRight className={`h-3 w-3 transition-transform ${footballExpanded ? 'rotate-90' : ''}`} />
@@ -119,12 +119,12 @@ export default function SportsSidebar() {
                               asChild
                               isActive={location === "/line"}
                               data-testid="link-prematch"
-                              className="hover-elevate"
+                              className={`hover-elevate ${location === "/line" ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-4"} border-0 rounded-md`}
                             >
                               <Link href="/line">
                                 <Calendar className="h-3 w-3" />
                                 <span>Pre-match</span>
-                                <Badge variant="outline" className="text-xs px-1.5 py-0 ml-auto">
+                                <Badge className="text-xs px-1.5 py-0 ml-auto bg-surface-6 text-foreground border-0">
                                   67
                                 </Badge>
                               </Link>
@@ -135,14 +135,14 @@ export default function SportsSidebar() {
                               asChild
                               isActive={location === "/live"}
                               data-testid="link-live"
-                              className="hover-elevate"
+                              className={`hover-elevate ${location === "/live" ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-4"} border-0 rounded-md`}
                             >
                               <Link href="/live">
                                 <Zap className="h-3 w-3" />
                                 <span>Live</span>
                                 <div className="flex items-center gap-2 ml-auto">
                                   <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
-                                  <Badge variant="outline" className="text-xs px-1.5 py-0">
+                                  <Badge className="text-xs px-1.5 py-0 bg-surface-6 text-foreground border-0">
                                     12
                                   </Badge>
                                 </div>
@@ -160,12 +160,12 @@ export default function SportsSidebar() {
         </SidebarGroup>
 
         {/* Top Leagues */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground">
+        <SidebarGroup className="bg-surface-2 rounded-md p-3">
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground mb-2">
             Top Leagues
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {[
                 { id: "uefa-champions", name: "UEFA Champions League", icon: Crown },
                 { id: "egypt-premier", name: "Egypt Premier League", icon: Flag },
@@ -186,7 +186,7 @@ export default function SportsSidebar() {
                     <SidebarMenuButton
                       asChild
                       data-testid={`link-league-${league.id}`}
-                      className="hover-elevate"
+                      className="hover-elevate bg-surface-4 border-0 rounded-md"
                     >
                       <Link href={`/league/${league.id}`}>
                         <league.icon className="h-4 w-4" />
@@ -202,12 +202,12 @@ export default function SportsSidebar() {
         </SidebarGroup>
 
         {/* Other Sports */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground">
+        <SidebarGroup className="bg-surface-2 rounded-md p-3">
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground mb-2">
             Other Sports
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {otherSports.map((sport, index) => (
                 <motion.div
                   key={sport.id}
@@ -219,12 +219,12 @@ export default function SportsSidebar() {
                     <SidebarMenuButton
                       disabled
                       data-testid={`link-sport-${sport.id}`}
-                      className="opacity-50 cursor-not-allowed"
+                      className="opacity-50 cursor-not-allowed bg-muted-surface border-0 rounded-md"
                     >
                       <sport.icon className="h-4 w-4" />
                       <span className="flex-1">{sport.name}</span>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs px-1.5 py-0">
+                        <Badge className="text-xs px-1.5 py-0 bg-surface-6 text-muted-foreground border-0">
                           {sport.matchCount}
                         </Badge>
                         <span className="text-xs text-muted-foreground">Soon</span>
@@ -238,22 +238,22 @@ export default function SportsSidebar() {
         </SidebarGroup>
 
         {/* Quick Access */}
-        <SidebarGroup className="mt-6">
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground">
+        <SidebarGroup className="mt-6 bg-surface-2 rounded-md p-3">
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground mb-2">
             Quick Access
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               <motion.div
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.4 }}
               >
                 <SidebarMenuItem>
-                  <SidebarMenuButton data-testid="link-favorites" className="hover-elevate">
+                  <SidebarMenuButton data-testid="link-favorites" className="hover-elevate bg-surface-3 border-0 rounded-md">
                     <Star className="h-4 w-4" />
                     <span>Favorites</span>
-                    <Badge variant="outline" className="text-xs px-1.5 py-0">12</Badge>
+                    <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">12</Badge>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </motion.div>
@@ -263,10 +263,10 @@ export default function SportsSidebar() {
                 transition={{ delay: 0.45 }}
               >
                 <SidebarMenuItem>
-                  <SidebarMenuButton data-testid="link-my-bets" className="hover-elevate">
+                  <SidebarMenuButton data-testid="link-my-bets" className="hover-elevate bg-surface-3 border-0 rounded-md">
                     <PlayCircle className="h-4 w-4" />
                     <span>My Bets</span>
-                    <Badge variant="outline" className="text-xs px-1.5 py-0">3</Badge>
+                    <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">3</Badge>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </motion.div>

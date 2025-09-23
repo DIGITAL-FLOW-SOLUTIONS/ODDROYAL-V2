@@ -83,16 +83,19 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
       transition={{ duration: 0.2 }}
     >
       <Card 
-        className="hover-elevate cursor-pointer" 
+        className="hover-elevate cursor-pointer bg-surface-5 border-0" 
         data-testid={`card-match-${match.id}`}
         onClick={handleCardClick}
       >
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 bg-surface-4 rounded-t-md">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Badge 
-                variant={match.status === "live" ? "destructive" : "secondary"}
-                className="text-xs"
+                className={`text-xs border-0 ${
+                  match.status === "live" 
+                    ? "bg-live-surface-1 text-red-100" 
+                    : "bg-surface-6 text-foreground"
+                }`}
                 data-testid={`status-${match.id}`}
               >
                 {match.status === "live" ? `${match.minute}'` : formatTime(match.kickoffTime)}
@@ -104,7 +107,7 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
               size="icon"
               onClick={toggleFavorite}
               data-testid={`button-favorite-${match.id}`}
-              className="h-6 w-6 hover-elevate"
+              className="h-6 w-6 hover-elevate bg-surface-6 border-0 rounded-md"
             >
               <Star 
                 className={`h-3 w-3 ${isFavorite ? 'fill-yellow-500 text-yellow-500' : ''}`} 
@@ -122,7 +125,7 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
                   {match.homeTeam.name}
                 </span>
                 {match.status === "live" && match.homeTeam.score !== undefined && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge className="text-xs bg-surface-6 text-foreground border-0">
                     {match.homeTeam.score}
                   </Badge>
                 )}
@@ -134,7 +137,7 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
                   {match.awayTeam.name}
                 </span>
                 {match.status === "live" && match.awayTeam.score !== undefined && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge className="text-xs bg-surface-6 text-foreground border-0">
                     {match.awayTeam.score}
                   </Badge>
                 )}
@@ -145,11 +148,10 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
           {/* Odds */}
           <div className="grid grid-cols-3 gap-2">
             <Button
-              variant="outline"
               size="sm"
               onClick={(e) => handleAddToBetSlip("home", match.odds.home, e)}
               data-testid={`button-odds-home-${match.id}`}
-              className="flex flex-col gap-1 h-auto py-2 hover-elevate"
+              className="flex flex-col gap-1 h-auto py-2 hover-elevate bg-surface-6 text-foreground border-0"
             >
               <span className="text-xs text-muted-foreground">1</span>
               <span className="font-semibold">{match.odds.home.toFixed(2)}</span>
@@ -157,11 +159,10 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
             
             {match.odds.draw && (
               <Button
-                variant="outline"
                 size="sm"
                 onClick={(e) => handleAddToBetSlip("draw", match.odds.draw!, e)}
                 data-testid={`button-odds-draw-${match.id}`}
-                className="flex flex-col gap-1 h-auto py-2 hover-elevate"
+                className="flex flex-col gap-1 h-auto py-2 hover-elevate bg-surface-6 text-foreground border-0"
               >
                 <span className="text-xs text-muted-foreground">X</span>
                 <span className="font-semibold">{match.odds.draw.toFixed(2)}</span>
@@ -169,11 +170,10 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
             )}
             
             <Button
-              variant="outline"
               size="sm"
               onClick={(e) => handleAddToBetSlip("away", match.odds.away, e)}
               data-testid={`button-odds-away-${match.id}`}
-              className="flex flex-col gap-1 h-auto py-2 hover-elevate"
+              className="flex flex-col gap-1 h-auto py-2 hover-elevate bg-surface-6 text-foreground border-0"
             >
               <span className="text-xs text-muted-foreground">2</span>
               <span className="font-semibold">{match.odds.away.toFixed(2)}</span>
