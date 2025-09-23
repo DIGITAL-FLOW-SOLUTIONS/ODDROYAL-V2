@@ -1,4 +1,4 @@
-# PRIMESTAKE Design Guidelines
+# OddRoyal Design Guidelines
 
 ## Design Approach
 **Reference-Based Approach** inspired by Playwin.top with modern betting site conventions. Focus on high-contrast, data-dense interface optimized for quick decision-making and mobile-first experience.
