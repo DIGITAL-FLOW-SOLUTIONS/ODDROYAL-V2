@@ -9,6 +9,7 @@ import {
   ChevronUp,
   Zap,
   Circle,
+  Star,
   // Sport icons from lucide-react
   Gamepad2,
   Zap as Hockey,
@@ -234,13 +235,14 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                         {group.matches.length}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-6">
-                      {/* Odds Headers */}
-                      <div className="flex items-center gap-4 text-sm font-medium text-white/90">
-                        <span className="w-6 text-center">1</span>
-                        <span className="w-6 text-center">X</span>
-                        <span className="w-6 text-center">2</span>
+                    <div className="flex items-center gap-2">
+                      {/* Odds Headers - aligned with columns below */}
+                      <div className="grid grid-cols-3 gap-2 text-sm font-medium text-white/90 w-48">
+                        <span className="text-center">1</span>
+                        <span className="text-center">X</span>
+                        <span className="text-center">2</span>
                       </div>
+                      <div className="w-6"></div> {/* Space for star icon */}
                       {isExpanded ? (
                         <ChevronUp className="h-4 w-4 text-white" />
                       ) : (
@@ -258,18 +260,18 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
                       >
-                        {group.matches.map((match) => {
-                          const isMatchExpanded = expandedMatches.has(match.id);
-                          
-                          return (
-                            <div key={match.id} className="border-0 mb-1 rounded-md last:mb-0" style={{ backgroundColor: 'hsl(var(--surface-3))' }}>
-                              {/* Match Row */}
-                              <div
-                                onClick={() => toggleMatchExpansion(match.id)}
-                                className="flex items-center justify-between p-3 cursor-pointer rounded-md hover-elevate"
-                                style={{ backgroundColor: 'white' }}
-                                data-testid={`button-match-${match.id}`}
-                              >
+                        <div className="space-y-0" style={{ backgroundColor: 'white' }}>
+                          {group.matches.map((match) => {
+                            const isMatchExpanded = expandedMatches.has(match.id);
+                            
+                            return (
+                              <div key={match.id} className="border-0 mb-1 rounded-md last:mb-0">
+                                {/* Match Row */}
+                                <div
+                                  onClick={() => toggleMatchExpansion(match.id)}
+                                  className="flex items-center justify-between p-3 cursor-pointer rounded-md hover:bg-gray-50 border-b border-gray-200 last:border-b-0"
+                                  data-testid={`button-match-${match.id}`}
+                                >
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
                                     <div className="flex-1 min-w-0">
@@ -282,10 +284,10 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                         </span>
                                       </div>
                                       <div className="mt-1 space-y-0.5">
-                                        <div className="text-sm font-medium truncate" data-testid={`text-home-team-${match.id}`}>
+                                        <div className="text-sm font-medium text-black truncate" data-testid={`text-home-team-${match.id}`}>
                                           {match.homeTeam}
                                         </div>
-                                        <div className="text-sm text-muted-foreground truncate" data-testid={`text-away-team-${match.id}`}>
+                                        <div className="text-sm text-black truncate" data-testid={`text-away-team-${match.id}`}>
                                           {match.awayTeam}
                                         </div>
                                       </div>
@@ -327,6 +329,19 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                     className="text-xs font-semibold min-w-[48px] odds-button"
                                   >
                                     {match.odds["1x2"].away.toFixed(2)}
+                                  </Button>
+                                  {/* Star icon */}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 hover:text-yellow-500"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Add to favorites functionality
+                                    }}
+                                    data-testid={`favorite-${match.id}`}
+                                  >
+                                    <Star className="h-4 w-4 text-gray-400" />
                                   </Button>
                                   {isMatchExpanded ? (
                                     <ChevronUp className="h-3 w-3 ml-2" />
@@ -445,6 +460,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                             </div>
                           );
                         })}
+                        </div>
                       </motion.div>
                     )}
                   </AnimatePresence>

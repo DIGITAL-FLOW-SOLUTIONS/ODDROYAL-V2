@@ -101,13 +101,14 @@ export default function OtherSports({
                       </Badge>
                     </div>
                     
-                    <div className="flex items-center gap-6">
-                      {/* Odds Headers */}
-                      <div className="flex items-center gap-4 text-sm font-medium text-white/90">
-                        <span className="w-6 text-center">1</span>
-                        {sport.hasDrawOdds && <span className="w-6 text-center">X</span>}
-                        <span className="w-6 text-center">2</span>
+                    <div className="flex items-center gap-2">
+                      {/* Odds Headers - aligned with columns below */}
+                      <div className={`grid gap-2 text-sm font-medium text-white/90 ${sport.hasDrawOdds ? 'grid-cols-3 w-48' : 'grid-cols-2 w-32'}`}>
+                        <span className="text-center">1</span>
+                        {sport.hasDrawOdds && <span className="text-center">X</span>}
+                        <span className="text-center">2</span>
                       </div>
+                      <div className="w-6"></div> {/* Space for star icon */}
                       <ChevronDown 
                         className={`h-4 w-4 transition-transform text-white ${
                           expandedSports[sport.id] ? 'rotate-180' : ''
@@ -119,8 +120,8 @@ export default function OtherSports({
               </CollapsibleTrigger>
 
               <CollapsibleContent>
-                <CardContent className="pt-0" style={{ backgroundColor: 'hsl(var(--surface-3))' }}>
-                  <div className="space-y-1">
+                <CardContent className="pt-0 pb-0" style={{ backgroundColor: 'white' }}>
+                  <div className="space-y-0">
                     {/* Match rows */}
                     <AnimatePresence>
                       {sport.matches.map((match, matchIndex) => (
@@ -130,24 +131,23 @@ export default function OtherSports({
                           animate={{ opacity: 1, height: "auto" }}
                           exit={{ opacity: 0, height: 0 }}
                           transition={{ delay: matchIndex * 0.05 }}
-                          className={`grid gap-2 py-3 border-b border-border/30 last:border-b-0 hover-elevate transition-colors rounded-md mb-1 ${
-                            sport.hasDrawOdds ? 'grid-cols-12' : 'grid-cols-10'
+                          className={`grid gap-2 py-3 border-b border-gray-200 last:border-b-0 hover:bg-gray-50 transition-colors ${
+                            sport.hasDrawOdds ? 'grid-cols-13' : 'grid-cols-11'
                           }`}
-                          style={{ backgroundColor: 'white' }}
                           data-testid={`match-row-${match.id}`}
                         >
                           {/* Time */}
                           <div className="col-span-1 flex items-center justify-center">
                             <div className="flex flex-col items-center text-xs">
-                              <Clock className="h-3 w-3 text-muted-foreground mb-1" />
-                              <span className="text-muted-foreground">
+                              <Clock className="h-3 w-3 text-gray-500 mb-1" />
+                              <span className="text-black font-medium">
                                 {formatTime(match.kickoffTime)}
                               </span>
                             </div>
                           </div>
 
                           {/* Match teams/players */}
-                          <div className="col-span-5 flex flex-col justify-center space-y-1">
+                          <div className="col-span-8 flex flex-col justify-center space-y-1">
                             <div className="flex items-center gap-2">
                               {match.homeTeam.logo && (
                                 <img 
@@ -156,7 +156,7 @@ export default function OtherSports({
                                   className="w-4 h-4 rounded"
                                 />
                               )}
-                              <span className="text-sm font-medium" data-testid={`home-team-${match.id}`}>
+                              <span className="text-sm font-medium text-black" data-testid={`home-team-${match.id}`}>
                                 {match.homeTeam.name}
                               </span>
                             </div>
@@ -168,30 +168,21 @@ export default function OtherSports({
                                   className="w-4 h-4 rounded"
                                 />
                               )}
-                              <span className="text-sm font-medium" data-testid={`away-team-${match.id}`}>
+                              <span className="text-sm font-medium text-black" data-testid={`away-team-${match.id}`}>
                                 {match.awayTeam.name}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-4 w-4 hover-elevate"
-                                onClick={() => onAddToFavorites?.(match.id)}
-                                data-testid={`favorite-${match.id}`}
-                              >
-                                <Star className="h-3 w-3" />
-                              </Button>
-                              {match.additionalMarkets && (
-                                <span className="text-xs text-muted-foreground">
+                            {match.additionalMarkets && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-gray-600">
                                   +{match.additionalMarkets} markets
                                 </span>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </div>
 
                           {/* Odds columns */}
-                          <div className={`flex items-center justify-center ${sport.hasDrawOdds ? 'col-span-2' : 'col-span-2'}`}>
+                          <div className="col-span-1 flex items-center justify-center">
                             <Button
                               size="sm"
                               onClick={() => handleOddsClick(match, 'home', sport)}
@@ -203,7 +194,7 @@ export default function OtherSports({
                           </div>
 
                           {sport.hasDrawOdds && match.odds.draw && (
-                            <div className="col-span-2 flex items-center justify-center">
+                            <div className="col-span-1 flex items-center justify-center">
                               <Button
                                 size="sm"
                                 onClick={() => handleOddsClick(match, 'draw', sport)}
@@ -215,7 +206,7 @@ export default function OtherSports({
                             </div>
                           )}
 
-                          <div className={`flex items-center justify-center ${sport.hasDrawOdds ? 'col-span-2' : 'col-span-2'}`}>
+                          <div className="col-span-1 flex items-center justify-center">
                             <Button
                               size="sm"
                               onClick={() => handleOddsClick(match, 'away', sport)}
@@ -223,6 +214,22 @@ export default function OtherSports({
                               data-testid={`odds-away-${match.id}`}
                             >
                               {match.odds.away.toFixed(2)}
+                            </Button>
+                          </div>
+
+                          {/* Star icon at the end */}
+                          <div className="col-span-1 flex items-center justify-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 hover:text-yellow-500"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onAddToFavorites?.(match.id);
+                              }}
+                              data-testid={`favorite-${match.id}`}
+                            >
+                              <Star className="h-4 w-4 text-gray-400" />
                             </Button>
                           </div>
                         </motion.div>
