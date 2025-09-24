@@ -15,7 +15,7 @@ type ThemeProviderState = {
 };
 
 const initialState: ThemeProviderState = {
-  theme: "dark", // Default to dark for betting site
+  theme: "light", // Default to light for betting site
   setTheme: () => null,
   toggleTheme: () => null,
 };
@@ -29,7 +29,7 @@ export function ThemeProvider({
   ...props
 }: ThemeProviderProps) {
   const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
+    () => (localStorage.getItem(storageKey) as Theme) || defaultTheme,
   );
 
   useEffect(() => {
@@ -67,4 +67,4 @@ export const useTheme = () => {
     throw new Error("useTheme must be used within a ThemeProvider");
 
   return context;
-}
+};

@@ -19,12 +19,12 @@ interface BetSlipProps {
   isPlacingBet?: boolean;
 }
 
-export default function BetSlip({ 
-  selections, 
-  onRemoveSelection, 
-  onClearAll, 
+export default function BetSlip({
+  selections,
+  onRemoveSelection,
+  onClearAll,
   onPlaceBet,
-  isPlacingBet = false
+  isPlacingBet = false,
 }: BetSlipProps) {
   const [stakes, setStakes] = useState<{ [key: string]: number }>({});
   const [expressStake, setExpressStake] = useState<number>(0);
@@ -33,13 +33,13 @@ export default function BetSlip({
 
   // Calculate potential returns
   const calculateSingleReturns = () => {
-    return selections.map(selection => {
+    return selections.map((selection) => {
       const stake = stakes[selection.id] || 0;
       return {
         ...selection,
         stake,
         potentialReturn: stake * selection.odds,
-        profit: (stake * selection.odds) - stake
+        profit: stake * selection.odds - stake,
       };
     });
   };
@@ -50,33 +50,36 @@ export default function BetSlip({
     return {
       totalOdds,
       potentialReturn,
-      profit: potentialReturn - expressStake
+      profit: potentialReturn - expressStake,
     };
   };
 
   const calculateSystemReturn = () => {
-    if (selections.length < 3) return { combinations: 0, potentialReturn: 0, profit: 0 };
-    
+    if (selections.length < 3)
+      return { combinations: 0, potentialReturn: 0, profit: 0 };
+
     // Calculate number of 2-fold combinations (most common system bet)
     const combinations = (selections.length * (selections.length - 1)) / 2;
-    
+
     // Calculate expected return based on simplified system bet calculation
     // For a proper implementation, we'd need to calculate all possible combinations
     // and their probabilities, but for now we'll use a simplified formula
-    const avgOdds = selections.reduce((acc, sel) => acc + sel.odds, 0) / selections.length;
+    const avgOdds =
+      selections.reduce((acc, sel) => acc + sel.odds, 0) / selections.length;
     const estimatedSuccessRate = 0.4; // Assume 40% success rate for system bets
-    const potentialReturn = systemStake * combinations * Math.pow(avgOdds, 2) * estimatedSuccessRate;
-    
+    const potentialReturn =
+      systemStake * combinations * Math.pow(avgOdds, 2) * estimatedSuccessRate;
+
     return {
       combinations: Math.floor(combinations),
       potentialReturn,
-      profit: potentialReturn - systemStake
+      profit: potentialReturn - systemStake,
     };
   };
 
   const updateStake = (selectionId: string, value: string) => {
     const numValue = parseFloat(value) || 0;
-    setStakes(prev => ({ ...prev, [selectionId]: numValue }));
+    setStakes((prev) => ({ ...prev, [selectionId]: numValue }));
   };
 
   const validateBetData = (betData: any) => {
@@ -84,11 +87,13 @@ export default function BetSlip({
       return betPlacementSchema.parse(betData);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const errorMessage = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
+        const errorMessage = error.errors
+          .map((e) => `${e.path.join(".")}: ${e.message}`)
+          .join("; ");
         toast({
           title: "Bet Validation Error",
           description: errorMessage,
-          variant: "destructive"
+          variant: "destructive",
         });
       }
       throw error;
@@ -100,114 +105,118 @@ export default function BetSlip({
       switch (type) {
         case "single":
           // Validate that we have at least one selection with stake
-          const validSingleBets = selections.filter(sel => stakes[sel.id] && stakes[sel.id] > 0);
+          const validSingleBets = selections.filter(
+            (sel) => stakes[sel.id] && stakes[sel.id] > 0,
+          );
           if (validSingleBets.length === 0) {
             toast({
               title: "No Stakes Set",
               description: "Please set stakes for at least one selection.",
-              variant: "destructive"
+              variant: "destructive",
             });
             return;
           }
-          
+
           // For single bets, place each selection with a stake as a separate bet
           for (const sel of validSingleBets) {
             const betData = {
               type: "single" as const,
               totalStake: stakes[sel.id].toFixed(2),
-              selections: [{
-                fixtureId: sel.fixtureId || sel.matchId,
-                homeTeam: sel.homeTeam,
-                awayTeam: sel.awayTeam,
-                league: sel.league,
-                market: sel.market || "1x2",
-                selection: sel.selection || sel.type,
-                odds: sel.odds.toFixed(4)
-              }]
+              selections: [
+                {
+                  fixtureId: sel.fixtureId || sel.matchId,
+                  homeTeam: sel.homeTeam,
+                  awayTeam: sel.awayTeam,
+                  league: sel.league,
+                  market: sel.market || "1x2",
+                  selection: sel.selection || sel.type,
+                  odds: sel.odds.toFixed(4),
+                },
+              ],
             };
-            
+
             // Validate before sending
             const validatedBetData = validateBetData(betData);
             onPlaceBet(validatedBetData);
             console.log("Placed single bet:", validatedBetData);
-            
+
             // Small delay to avoid overwhelming the server
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
           }
           break;
-          
+
         case "express":
           if (expressStake === 0) {
             toast({
               title: "No Stake Set",
               description: "Please set a stake for the express bet.",
-              variant: "destructive"
+              variant: "destructive",
             });
             return;
           }
-          
+
           if (selections.length < 2) {
             toast({
               title: "Insufficient Selections",
               description: "Express bets require at least 2 selections.",
-              variant: "destructive"
+              variant: "destructive",
             });
             return;
           }
-          
+
           const expressBetData = {
             type: "express" as const,
             totalStake: expressStake.toFixed(2),
-            selections: selections.map(sel => ({
+            selections: selections.map((sel) => ({
               fixtureId: sel.fixtureId || sel.matchId,
               homeTeam: sel.homeTeam,
               awayTeam: sel.awayTeam,
               league: sel.league,
               market: sel.market || "1x2",
               selection: sel.selection || sel.type,
-              odds: sel.odds.toFixed(4)
-            }))
+              odds: sel.odds.toFixed(4),
+            })),
           };
-          
+
           // Validate before sending
           const validatedExpressBetData = validateBetData(expressBetData);
           onPlaceBet(validatedExpressBetData);
           console.log("Placed express bet:", validatedExpressBetData);
           break;
-          
+
         case "system":
           if (systemStake === 0) {
             toast({
               title: "No Stake Set",
               description: "Please set a stake for the system bet.",
-              variant: "destructive"
+              variant: "destructive",
             });
             return;
           }
-          
+
           if (selections.length < 3) {
             toast({
               title: "Insufficient Selections",
               description: "System bets require at least 3 selections.",
-              variant: "destructive"
+              variant: "destructive",
             });
             return;
           }
-          
+
           const systemBetData = {
             type: "system" as const,
             totalStake: systemStake.toFixed(2),
-            selections: selections.map(sel => ({
+            selections: selections.map((sel) => ({
               fixtureId: sel.fixtureId || sel.matchId,
               homeTeam: sel.homeTeam,
               awayTeam: sel.awayTeam,
               league: sel.league,
               market: sel.market || "1x2",
               selection: sel.selection || sel.type,
-              odds: sel.odds.toFixed(4)
-            }))
+              odds: sel.odds.toFixed(4),
+            })),
           };
-          
+
           // Validate before sending
           const validatedSystemBetData = validateBetData(systemBetData);
           onPlaceBet(validatedSystemBetData);
@@ -219,13 +228,13 @@ export default function BetSlip({
       toast({
         title: "Bet Placement Failed",
         description: "Please check your selections and try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   return (
-    <Card className="w-full" data-testid="card-bet-slip">
+    <Card className="bg-surface-2 w-full" data-testid="card-bet-slip">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-display">Bet Slip</CardTitle>
@@ -259,9 +268,15 @@ export default function BetSlip({
         ) : (
           <Tabs defaultValue="ordinary" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="ordinary" data-testid="tab-ordinary">Ordinary</TabsTrigger>
-              <TabsTrigger value="express" data-testid="tab-express">Express</TabsTrigger>
-              <TabsTrigger value="system" data-testid="tab-system">System</TabsTrigger>
+              <TabsTrigger value="ordinary" data-testid="tab-ordinary">
+                Ordinary
+              </TabsTrigger>
+              <TabsTrigger value="express" data-testid="tab-express">
+                Express
+              </TabsTrigger>
+              <TabsTrigger value="system" data-testid="tab-system">
+                System
+              </TabsTrigger>
             </TabsList>
 
             {/* Single Bets */}
@@ -283,7 +298,8 @@ export default function BetSlip({
                           {selection.homeTeam} vs {selection.awayTeam}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {selection.league} • {selection.selection || selection.type}
+                          {selection.league} •{" "}
+                          {selection.selection || selection.type}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -301,13 +317,15 @@ export default function BetSlip({
                         </Button>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Input
                         type="number"
                         placeholder="Stake"
                         value={stakes[selection.id] || ""}
-                        onChange={(e) => updateStake(selection.id, e.target.value)}
+                        onChange={(e) =>
+                          updateStake(selection.id, e.target.value)
+                        }
                         data-testid={`input-stake-${selection.id}`}
                         className="h-8"
                       />
@@ -315,14 +333,24 @@ export default function BetSlip({
                         <div className="text-xs space-y-1">
                           <div className="flex justify-between">
                             <span>Potential Return:</span>
-                            <span className="font-medium text-chart-4" data-testid={`text-return-${selection.id}`}>
-                              ${(stakes[selection.id] * selection.odds).toFixed(2)}
+                            <span
+                              className="font-medium text-chart-4"
+                              data-testid={`text-return-${selection.id}`}
+                            >
+                              $
+                              {(stakes[selection.id] * selection.odds).toFixed(
+                                2,
+                              )}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span>Profit:</span>
                             <span className="font-medium text-chart-4">
-                              ${((stakes[selection.id] * selection.odds) - stakes[selection.id]).toFixed(2)}
+                              $
+                              {(
+                                stakes[selection.id] * selection.odds -
+                                stakes[selection.id]
+                              ).toFixed(2)}
                             </span>
                           </div>
                         </div>
@@ -331,10 +359,13 @@ export default function BetSlip({
                   </motion.div>
                 ))}
               </AnimatePresence>
-              
+
               <Button
                 onClick={() => handlePlaceBet("single")}
-                disabled={Object.values(stakes).every(stake => stake === 0) || isPlacingBet}
+                disabled={
+                  Object.values(stakes).every((stake) => stake === 0) ||
+                  isPlacingBet
+                }
                 data-testid="button-place-single-bet"
                 className="w-full hover-elevate"
               >
@@ -348,10 +379,17 @@ export default function BetSlip({
               <div className="bg-card border border-card-border rounded-md p-3">
                 <div className="space-y-2 mb-3">
                   {selections.map((selection, index) => (
-                    <div key={selection.id} className="flex items-center justify-between">
+                    <div
+                      key={selection.id}
+                      className="flex items-center justify-between"
+                    >
                       <div className="flex-1">
-                        <p className="text-sm">{selection.homeTeam} vs {selection.awayTeam}</p>
-                        <p className="text-xs text-muted-foreground">{selection.selection || selection.type}</p>
+                        <p className="text-sm">
+                          {selection.homeTeam} vs {selection.awayTeam}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {selection.selection || selection.type}
+                        </p>
                       </div>
                       <Badge variant="outline" className="text-xs">
                         {selection.odds.toFixed(2)}
@@ -359,29 +397,37 @@ export default function BetSlip({
                     </div>
                   ))}
                 </div>
-                
+
                 <div className="border-t border-border pt-2 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Total Odds:</span>
-                    <span className="font-medium" data-testid="text-express-odds">
+                    <span
+                      className="font-medium"
+                      data-testid="text-express-odds"
+                    >
                       {calculateExpressReturn().totalOdds.toFixed(2)}
                     </span>
                   </div>
-                  
+
                   <Input
                     type="number"
                     placeholder="Express stake"
                     value={expressStake || ""}
-                    onChange={(e) => setExpressStake(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setExpressStake(parseFloat(e.target.value) || 0)
+                    }
                     data-testid="input-express-stake"
                     className="h-8"
                   />
-                  
+
                   {expressStake > 0 && (
                     <div className="space-y-1 text-xs">
                       <div className="flex justify-between">
                         <span>Potential Return:</span>
-                        <span className="font-medium text-chart-4" data-testid="text-express-return">
+                        <span
+                          className="font-medium text-chart-4"
+                          data-testid="text-express-return"
+                        >
                           ${calculateExpressReturn().potentialReturn.toFixed(2)}
                         </span>
                       </div>
@@ -395,10 +441,12 @@ export default function BetSlip({
                   )}
                 </div>
               </div>
-              
+
               <Button
                 onClick={() => handlePlaceBet("express")}
-                disabled={expressStake === 0 || selections.length < 2 || isPlacingBet}
+                disabled={
+                  expressStake === 0 || selections.length < 2 || isPlacingBet
+                }
                 data-testid="button-place-express-bet"
                 className="w-full hover-elevate"
               >
@@ -410,15 +458,22 @@ export default function BetSlip({
             {/* System Bet */}
             <TabsContent value="system" className="space-y-3">
               <div className="bg-card border border-card-border rounded-md p-3">
-                <p className="text-sm mb-2">System bet (minimum 3 selections required)</p>
-                
+                <p className="text-sm mb-2">
+                  System bet (minimum 3 selections required)
+                </p>
+
                 {selections.length >= 3 && (
                   <>
                     <div className="space-y-2 mb-3">
                       {selections.map((selection) => (
-                        <div key={selection.id} className="flex items-center justify-between">
+                        <div
+                          key={selection.id}
+                          className="flex items-center justify-between"
+                        >
                           <div className="flex-1">
-                            <p className="text-sm">{selection.homeTeam} vs {selection.awayTeam}</p>
+                            <p className="text-sm">
+                              {selection.homeTeam} vs {selection.awayTeam}
+                            </p>
                           </div>
                           <Badge variant="outline" className="text-xs">
                             {selection.odds.toFixed(2)}
@@ -426,30 +481,41 @@ export default function BetSlip({
                         </div>
                       ))}
                     </div>
-                    
+
                     <div className="border-t border-border pt-2 space-y-2">
                       <div className="flex justify-between text-sm">
                         <span>Combinations:</span>
-                        <span className="font-medium" data-testid="text-system-combinations">
+                        <span
+                          className="font-medium"
+                          data-testid="text-system-combinations"
+                        >
                           {calculateSystemReturn().combinations}
                         </span>
                       </div>
-                      
+
                       <Input
                         type="number"
                         placeholder="System stake"
                         value={systemStake || ""}
-                        onChange={(e) => setSystemStake(parseFloat(e.target.value) || 0)}
+                        onChange={(e) =>
+                          setSystemStake(parseFloat(e.target.value) || 0)
+                        }
                         data-testid="input-system-stake"
                         className="h-8"
                       />
-                      
+
                       {systemStake > 0 && (
                         <div className="space-y-1 text-xs">
                           <div className="flex justify-between">
                             <span>Potential Return:</span>
-                            <span className="font-medium text-chart-4" data-testid="text-system-return">
-                              ${calculateSystemReturn().potentialReturn.toFixed(2)}
+                            <span
+                              className="font-medium text-chart-4"
+                              data-testid="text-system-return"
+                            >
+                              $
+                              {calculateSystemReturn().potentialReturn.toFixed(
+                                2,
+                              )}
                             </span>
                           </div>
                           <div className="flex justify-between">
@@ -464,10 +530,12 @@ export default function BetSlip({
                   </>
                 )}
               </div>
-              
+
               <Button
                 onClick={() => handlePlaceBet("system")}
-                disabled={systemStake === 0 || selections.length < 3 || isPlacingBet}
+                disabled={
+                  systemStake === 0 || selections.length < 3 || isPlacingBet
+                }
                 data-testid="button-place-system-bet"
                 className="w-full hover-elevate"
               >
