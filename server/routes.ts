@@ -37,6 +37,7 @@ import {
   auditAction, 
   adminRateLimit 
 } from './admin-middleware';
+import { authenticateUser } from './auth-middleware';
 import {
   requirePermission,
   requireRole,
@@ -467,21 +468,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const depositAmount = parseFloat(amount);
       const depositAmountCents = currencyUtils.poundsToCents(depositAmount);
       
-      const oldBalanceCents = req.user.balance;
+      // Get current balance from Supabase profiles
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('balance_cents')
+        .eq('id', req.user.id)
+        .single();
+        
+      if (profileError || !profile) {
+        return res.status(404).json({
+          success: false,
+          error: "User profile not found"
+        });
+      }
+      
+      const oldBalanceCents = profile.balance_cents;
       const newBalanceCents = oldBalanceCents + depositAmountCents;
       
-      // Update user balance
-      await storage.updateUserBalance(req.user.id, newBalanceCents);
+      // Update user balance in Supabase
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({ balance_cents: newBalanceCents })
+        .eq('id', req.user.id);
+        
+      if (updateError) {
+        throw new Error('Failed to update balance: ' + updateError.message);
+      }
       
-      // Create transaction record
-      await storage.createTransaction({
-        userId: req.user.id,
-        type: 'deposit',
-        amount: depositAmountCents,
-        balanceBefore: oldBalanceCents,
-        balanceAfter: newBalanceCents,
-        description: `Deposit of ${currencyUtils.formatCurrency(depositAmountCents)}`
-      });
+      // Create transaction record in Supabase
+      const { error: transactionError } = await supabaseAdmin
+        .from('transactions')
+        .insert({
+          user_id: req.user.id,
+          type: 'deposit',
+          amount_cents: depositAmountCents,
+          balance_before_cents: oldBalanceCents,
+          balance_after_cents: newBalanceCents,
+          description: `Deposit of ${currencyUtils.formatCurrency(depositAmountCents)}`
+        });
+        
+      if (transactionError) {
+        // Try to rollback balance update
+        await supabaseAdmin
+          .from('profiles')
+          .update({ balance_cents: oldBalanceCents })
+          .eq('id', req.user.id);
+          
+        throw new Error('Failed to create transaction record: ' + transactionError.message);
+      }
       
       res.json({ 
         success: true, 
@@ -520,7 +554,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const withdrawAmount = parseFloat(amount);
       const withdrawAmountCents = currencyUtils.poundsToCents(withdrawAmount);
       
-      const oldBalanceCents = req.user.balance;
+      // Get current balance from Supabase profiles
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('balance_cents')
+        .eq('id', req.user.id)
+        .single();
+        
+      if (profileError || !profile) {
+        return res.status(404).json({
+          success: false,
+          error: "User profile not found"
+        });
+      }
+      
+      const oldBalanceCents = profile.balance_cents;
       
       // Check if user has sufficient funds
       if (oldBalanceCents < withdrawAmountCents) {
@@ -532,18 +580,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const newBalanceCents = oldBalanceCents - withdrawAmountCents;
       
-      // Update user balance
-      await storage.updateUserBalance(req.user.id, newBalanceCents);
+      // Update user balance in Supabase
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({ balance_cents: newBalanceCents })
+        .eq('id', req.user.id);
+        
+      if (updateError) {
+        throw new Error('Failed to update balance: ' + updateError.message);
+      }
       
-      // Create transaction record
-      await storage.createTransaction({
-        userId: req.user.id,
-        type: 'withdrawal',
-        amount: -withdrawAmountCents,
-        balanceBefore: oldBalanceCents,
-        balanceAfter: newBalanceCents,
-        description: `Withdrawal of ${currencyUtils.formatCurrency(withdrawAmountCents)}`
-      });
+      // Create transaction record in Supabase
+      const { error: transactionError } = await supabaseAdmin
+        .from('transactions')
+        .insert({
+          user_id: req.user.id,
+          type: 'withdrawal',
+          amount_cents: -withdrawAmountCents,
+          balance_before_cents: oldBalanceCents,
+          balance_after_cents: newBalanceCents,
+          description: `Withdrawal of ${currencyUtils.formatCurrency(withdrawAmountCents)}`
+        });
+        
+      if (transactionError) {
+        // Try to rollback balance update
+        await supabaseAdmin
+          .from('profiles')
+          .update({ balance_cents: oldBalanceCents })
+          .eq('id', req.user.id);
+          
+        throw new Error('Failed to create transaction record: ' + transactionError.message);
+      }
       
       res.json({ 
         success: true, 
@@ -747,45 +814,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Helper middleware to authenticate requests
-  async function authenticateUser(req: any, res: any, next: any) {
-    try {
-      const sessionToken = req.headers.authorization?.replace('Bearer ', '');
-      
-      if (!sessionToken) {
-        return res.status(401).json({ 
-          success: false, 
-          error: "Authentication required" 
-        });
-      }
-      
-      const session = await storage.getSession(sessionToken);
-      if (!session || session.expiresAt < new Date()) {
-        return res.status(401).json({ 
-          success: false, 
-          error: "Invalid or expired session" 
-        });
-      }
-      
-      const user = await storage.getUser(session.userId);
-      if (!user || !user.isActive) {
-        return res.status(401).json({ 
-          success: false, 
-          error: "User not found or inactive" 
-        });
-      }
-      
-      req.user = user;
-      next();
-      
-    } catch (error) {
-      console.error('Authentication error:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: "Authentication failed" 
-      });
-    }
-  }
 
   // Betting Routes (Protected)
   
@@ -795,19 +823,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate request data using shared schema with comprehensive business rules
       const validatedData = betPlacementSchema.parse(req.body);
       
-      const user = req.user;
+      // Get user profile from Supabase to check account status and balance
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', req.user.id)
+        .single();
+        
+      if (profileError || !profile) {
+        return res.status(404).json({ 
+          success: false, 
+          error: "User profile not found" 
+        });
+      }
       
       // Validate user account status
-      if (!user || !user.isActive) {
+      if (!profile.is_active) {
         return res.status(403).json({ 
           success: false, 
           error: "Account is not active" 
         });
       }
 
-      // Use atomic bet placement to ensure transaction integrity
+      // Check if user has sufficient balance
+      const stakeCents = validatedData.totalStake;
+      if (profile.balance_cents < stakeCents) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Insufficient funds" 
+        });
+      }
+
+      // For now, use the storage.placeBetAtomic (this needs to be updated to use Supabase)
+      // TODO: Implement Supabase-based atomic bet placement
       const result = await storage.placeBetAtomic({
-        userId: user.id,
+        userId: req.user.id,
         betType: validatedData.type,
         totalStakeCents: validatedData.totalStake, // Already converted to cents by schema
         selections: validatedData.selections
