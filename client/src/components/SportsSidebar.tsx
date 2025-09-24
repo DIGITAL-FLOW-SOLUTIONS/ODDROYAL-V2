@@ -51,8 +51,10 @@ export default function SportsSidebar() {
       <SidebarContent className="bg-surface-1 gap-2 p-2">
         {/* Main Navigation */}
         <SidebarGroup className="bg-surface-2 rounded-md p-3">
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground mb-2">
-            Navigation
+          <SidebarGroupLabel className="font-display text-sm font-bold mb-2">
+            <Link href="/" data-testid="link-logo-sidebar" className="hover-elevate">
+              <span className="text-primary">ODD</span><span className="text-destructive">ROYAL</span>
+            </Link>
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
@@ -108,7 +110,7 @@ export default function SportsSidebar() {
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <SidebarMenuSub>
+                      <SidebarMenuSub className="space-y-1">
                         <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}

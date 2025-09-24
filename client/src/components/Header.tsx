@@ -27,9 +27,9 @@ export default function Header() {
       <div className="flex items-center gap-4">
         <SidebarTrigger data-testid="button-sidebar-toggle" />
         <div className="flex items-center gap-2">
-          <div className="font-display text-xl font-bold text-primary">
+          <Link href="/" data-testid="link-logo-header" className="font-display text-xl font-bold text-primary hover-elevate">
             ODD<span className="text-destructive">ROYAL</span>
-          </div>
+          </Link>
         </div>
       </div>
 
