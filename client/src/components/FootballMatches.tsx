@@ -263,7 +263,7 @@ export default function FootballMatches({
                                   </Button>
                                 </div>
 
-                                <div className="col-span-1 flex items-center justify-center">
+                                <div className="col-span-1 flex items-center justify-center pl-[10px] pr-[10px]">
                                   <Button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -276,7 +276,7 @@ export default function FootballMatches({
                                   </Button>
                                 </div>
 
-                                <div className="col-span-1 flex items-center justify-center">
+                                <div className="col-span-1 flex items-center justify-center pl-[10px] pr-[10px]">
                                   <Button
                                     onClick={(e) => {
                                       e.stopPropagation();
