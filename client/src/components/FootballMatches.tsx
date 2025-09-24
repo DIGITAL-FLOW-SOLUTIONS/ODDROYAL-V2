@@ -249,46 +249,48 @@ export default function FootballMatches({
 
                             {/* Odds columns - Only show if odds are available */}
                             {match.odds ? (
-                              <>
-                                <div className="col-span-1 flex items-center justify-center pl-[10px] pr-[10px]">
-                                  <Button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOddsClick(match, 'home');
-                                    }}
-                                    className="w-full font-semibold odds-button ml-[10px] mr-[10px]"
-                                    data-testid={`odds-home-${match.id}`}
-                                  >
-                                    {match.odds.home.toFixed(2)}
-                                  </Button>
-                                </div>
+                              <div className="col-span-3" style={{ marginRight: '20px' }}>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div className="flex items-center justify-center pl-[20px] pr-[20px]">
+                                    <Button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOddsClick(match, 'home');
+                                      }}
+                                      className="w-full font-semibold odds-button ml-[20px] mr-[20px]"
+                                      data-testid={`odds-home-${match.id}`}
+                                    >
+                                      {match.odds.home.toFixed(2)}
+                                    </Button>
+                                  </div>
 
-                                <div className="col-span-1 flex items-center justify-center pl-[10px] pr-[10px]">
-                                  <Button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOddsClick(match, 'draw');
-                                    }}
-                                    className="w-full font-semibold odds-button ml-[10px] mr-[10px]"
-                                    data-testid={`odds-draw-${match.id}`}
-                                  >
-                                    {match.odds.draw.toFixed(2)}
-                                  </Button>
-                                </div>
+                                  <div className="flex items-center justify-center pl-[20px] pr-[20px]">
+                                    <Button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOddsClick(match, 'draw');
+                                      }}
+                                      className="w-full font-semibold odds-button ml-[20px] mr-[20px]"
+                                      data-testid={`odds-draw-${match.id}`}
+                                    >
+                                      {match.odds.draw.toFixed(2)}
+                                    </Button>
+                                  </div>
 
-                                <div className="col-span-1 flex items-center justify-center pl-[10px] pr-[10px]">
-                                  <Button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOddsClick(match, 'away');
-                                    }}
-                                    className="w-full font-semibold odds-button ml-[10px] mr-[10px]"
-                                    data-testid={`odds-away-${match.id}`}
-                                  >
-                                    {match.odds.away.toFixed(2)}
-                                  </Button>
+                                  <div className="flex items-center justify-center pl-[20px] pr-[20px]">
+                                    <Button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOddsClick(match, 'away');
+                                      }}
+                                      className="w-full font-semibold odds-button ml-[20px] mr-[20px]"
+                                      data-testid={`odds-away-${match.id}`}
+                                    >
+                                      {match.odds.away.toFixed(2)}
+                                    </Button>
+                                  </div>
                                 </div>
-                              </>
+                              </div>
                             ) : (
                               <div className="col-span-3 flex items-center justify-center text-sm text-gray-500">
                                 Odds not available
