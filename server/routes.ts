@@ -85,61 +85,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Registration
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const validatedData = insertUserSchema.extend({
-        confirmPassword: z.string().min(6)
+      const validatedData = z.object({
+        username: z.string().min(3).max(50),
+        email: z.string().email(),
+        password: z.string().min(6),
+        confirmPassword: z.string().min(6),
+        firstName: z.string().min(1).max(100).optional(),
+        lastName: z.string().min(1).max(100).optional()
       }).refine(
         (data) => data.password === data.confirmPassword,
         { message: "Passwords don't match", path: ["confirmPassword"] }
       ).parse(req.body);
       
-      // Check if user already exists
-      const existingUserByUsername = await storage.getUserByUsername(validatedData.username);
-      const existingUserByEmail = await storage.getUserByEmail(validatedData.email);
-      
-      if (existingUserByUsername) {
+      // Check if username already exists in profiles
+      const { data: existingProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('username')
+        .eq('username', validatedData.username)
+        .single();
+        
+      if (existingProfile) {
         return res.status(400).json({ 
           success: false, 
           error: "Username already exists" 
         });
       }
       
-      if (existingUserByEmail) {
+      // Create user with Supabase Auth
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: validatedData.email,
+        password: validatedData.password,
+        email_confirm: true // Auto-confirm email in development
+      });
+      
+      if (authError) {
+        console.error('Supabase auth error:', authError);
         return res.status(400).json({ 
           success: false, 
-          error: "Email already exists" 
+          error: authError.message 
         });
       }
       
-      // Hash password
-      const hashedPassword = await bcrypt.hash(validatedData.password, 12);
+      if (!authData.user) {
+        return res.status(500).json({ 
+          success: false, 
+          error: "Failed to create user" 
+        });
+      }
       
-      // Create user
-      const user = await storage.createUser({
-        username: validatedData.username,
-        email: validatedData.email,
-        password: hashedPassword,
-        firstName: validatedData.firstName,
-        lastName: validatedData.lastName
+      // Create user profile
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          username: validatedData.username,
+          first_name: validatedData.firstName || null,
+          last_name: validatedData.lastName || null,
+          balance_cents: 0,
+          is_active: true
+        });
+        
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        // Clean up auth user if profile creation fails
+        await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+        return res.status(500).json({ 
+          success: false, 
+          error: "Failed to create user profile" 
+        });
+      }
+      
+      // Generate access token for immediate login
+      const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: validatedData.email
       });
       
-      // Create session
-      const sessionToken = randomUUID();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-      await storage.createSession(
-        user.id, 
-        sessionToken, 
-        expiresAt, 
-        req.ip,
-        req.get('User-Agent')
-      );
+      if (sessionError) {
+        console.error('Session generation error:', sessionError);
+      }
       
-      // Return user (without password) and session
-      const { password: _, ...userWithoutPassword } = user;
       res.json({ 
         success: true, 
         data: { 
-          user: userWithoutPassword, 
-          sessionToken 
+          user: {
+            id: authData.user.id,
+            email: authData.user.email,
+            username: validatedData.username,
+            firstName: validatedData.firstName || null,
+            lastName: validatedData.lastName || null,
+            balance: "0.00"
+          },
+          message: "Registration successful. Please sign in to continue."
         } 
       });
       
@@ -159,7 +196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // User Login
+  // User Login  
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = z.object({
@@ -167,44 +204,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: z.string().min(1)
       }).parse(req.body);
       
-      // Find user by username or email
-      const user = await storage.getUserByUsername(username) || 
-                   await storage.getUserByEmail(username);
+      // Check if username is email or find email by username
+      let email = username;
+      if (!username.includes('@')) {
+        // Username provided, need to find email
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('username', username)
+          .single();
+          
+        if (!profile) {
+          return res.status(401).json({ 
+            success: false, 
+            error: "Invalid credentials" 
+          });
+        }
+        
+        // Get email from auth.users
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+        if (!authUser.user?.email) {
+          return res.status(401).json({ 
+            success: false, 
+            error: "Invalid credentials" 
+          });
+        }
+        email = authUser.user.email;
+      }
       
-      if (!user || !user.isActive) {
+      // Sign in with Supabase Auth
+      const { data: authData, error: authError } = await supabaseAdmin.auth.signInWithPassword({
+        email: email,
+        password: password
+      });
+      
+      if (authError || !authData.user) {
         return res.status(401).json({ 
           success: false, 
           error: "Invalid credentials" 
         });
       }
       
-      // Verify password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
+      // Get user profile
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+        
+      if (profileError || !profile) {
         return res.status(401).json({ 
           success: false, 
-          error: "Invalid credentials" 
+          error: "User profile not found" 
         });
       }
       
-      // Create session
-      const sessionToken = randomUUID();
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-      await storage.createSession(
-        user.id, 
-        sessionToken, 
-        expiresAt, 
-        req.ip,
-        req.get('User-Agent')
-      );
+      if (!profile.is_active) {
+        return res.status(403).json({ 
+          success: false, 
+          error: "Account is inactive" 
+        });
+      }
       
-      // Return user (without password) and session
-      const { password: _, ...userWithoutPassword } = user;
+      // Return user data and Supabase access token
       res.json({ 
         success: true, 
         data: { 
-          user: userWithoutPassword, 
-          sessionToken 
+          user: {
+            id: profile.id,
+            email: authData.user.email,
+            username: profile.username,
+            firstName: profile.first_name,
+            lastName: profile.last_name,
+            balance: currencyUtils.centsToPounds(profile.balance_cents).toString()
+          },
+          sessionToken: authData.session?.access_token || '',
+          refreshToken: authData.session?.refresh_token || ''
         } 
       });
       
@@ -224,13 +299,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // User Logout
-  app.post("/api/auth/logout", async (req, res) => {
+  app.post("/api/auth/logout", authenticateUser, async (req: any, res) => {
     try {
-      const { sessionToken } = z.object({
-        sessionToken: z.string()
-      }).parse(req.body);
-      
-      await storage.deleteSession(sessionToken);
+      // With Supabase Auth, logout is typically handled on the client side
+      // Server-side logout would involve invalidating the JWT token
+      // Since JWTs are stateless, we can't invalidate them server-side
+      // The client should call supabase.auth.signOut()
       
       res.json({ 
         success: true, 
@@ -247,42 +321,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get Current User (validate session)
-  app.get("/api/auth/me", async (req, res) => {
+  app.get("/api/auth/me", authenticateUser, async (req: any, res) => {
     try {
-      const sessionToken = req.headers.authorization?.replace('Bearer ', '');
+      // User is already validated by authenticateUser middleware
+      const userId = req.user.id;
       
-      if (!sessionToken) {
-        return res.status(401).json({ 
+      // Get user profile from database
+      const { data: profile, error } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+      if (error || !profile) {
+        return res.status(404).json({ 
           success: false, 
-          error: "No session token provided" 
+          error: "User profile not found" 
         });
       }
       
-      const session = await storage.getSession(sessionToken);
-      if (!session || session.expiresAt < new Date()) {
-        return res.status(401).json({ 
+      if (!profile.is_active) {
+        return res.status(403).json({ 
           success: false, 
-          error: "Invalid or expired session" 
+          error: "User account is inactive" 
         });
       }
       
-      const user = await storage.getUser(session.userId);
-      if (!user || !user.isActive) {
-        return res.status(401).json({ 
-          success: false, 
-          error: "User not found or inactive" 
-        });
-      }
-      
-      // Return user without password and convert balance to pounds
-      const { password: _, balance, ...userRest } = user;
-      const userWithoutPassword = {
-        ...userRest,
-        balance: currencyUtils.centsToPounds(balance).toString() // Convert cents to pounds for frontend
-      };
       res.json({ 
         success: true, 
-        data: userWithoutPassword 
+        data: {
+          id: profile.id,
+          email: req.user.email,
+          username: profile.username,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          balance: currencyUtils.centsToPounds(profile.balance_cents).toString()
+        }
       });
       
     } catch (error) {
@@ -297,34 +371,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Profile and Wallet Routes
   
   // Update Profile (username/email)
-  app.patch("/api/auth/profile", async (req, res) => {
+  app.patch("/api/auth/profile", authenticateUser, async (req: any, res) => {
     try {
-      const sessionToken = req.headers.authorization?.replace('Bearer ', '');
-      
-      if (!sessionToken) {
-        return res.status(401).json({ 
-          success: false, 
-          error: "No session token provided" 
-        });
-      }
-      
-      const session = await storage.getSession(sessionToken);
-      if (!session || session.expiresAt < new Date()) {
-        return res.status(401).json({ 
-          success: false, 
-          error: "Invalid or expired session" 
-        });
-      }
-      
       const { username, email } = z.object({
         username: z.string().min(1).optional(),
         email: z.string().email().optional()
       }).parse(req.body);
       
-      // Check if username/email already exists for other users
+      // Check if username already exists for other users
       if (username) {
-        const existingUser = await storage.getUserByUsername(username);
-        if (existingUser && existingUser.id !== session.userId) {
+        const { data: existingProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('username', username)
+          .neq('id', req.user.id)
+          .single();
+          
+        if (existingProfile) {
           return res.status(400).json({ 
             success: false, 
             error: "Username already exists" 
@@ -332,9 +395,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Check if email already exists for other users
       if (email) {
-        const existingUser = await storage.getUserByEmail(email);
-        if (existingUser && existingUser.id !== session.userId) {
+        const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
+        const emailExists = existingUser.users.some(user => 
+          user.email === email && user.id !== req.user.id
+        );
+        
+        if (emailExists) {
           return res.status(400).json({ 
             success: false, 
             error: "Email already exists" 
@@ -342,8 +410,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Update user profile
-      await storage.updateUserProfile(session.userId, { username, email });
+      // Update profile in database
+      if (username) {
+        const { error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .update({ username })
+          .eq('id', req.user.id);
+          
+        if (profileError) {
+          throw new Error('Failed to update profile: ' + profileError.message);
+        }
+      }
+      
+      // Update email in Supabase Auth if provided
+      if (email) {
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+          req.user.id,
+          { email }
+        );
+        
+        if (authError) {
+          throw new Error('Failed to update email: ' + authError.message);
+        }
+      }
       
       res.json({ 
         success: true, 
