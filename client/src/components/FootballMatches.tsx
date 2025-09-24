@@ -161,7 +161,6 @@ export default function FootballMatches({
                           <span className="text-center">X</span>
                           <span className="text-center">2</span>
                         </div>
-                        <div className="w-6"></div> {/* Space for star icon */}
                         <ChevronDown 
                           className={`h-4 w-4 transition-transform text-white ${
                             expandedLeagues[league.id] ? 'rotate-180' : ''
@@ -185,7 +184,7 @@ export default function FootballMatches({
                             exit={{ opacity: 0, height: 0 }}
                             transition={{ delay: matchIndex * 0.05 }}
                             onClick={() => handleMatchClick(match.id)}
-                            className="grid grid-cols-13 gap-2 py-3 border-b border-gray-200 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer"
+                            className="grid grid-cols-12 gap-2 py-3 border-b border-gray-200 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer"
                             data-testid={`match-row-${match.id}`}
                           >
                             {/* Time */}
@@ -198,8 +197,24 @@ export default function FootballMatches({
                               </div>
                             </div>
 
+                            {/* Star icon - moved next to time */}
+                            <div className="col-span-1 flex items-center justify-center">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 hover:text-yellow-500"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onAddToFavorites?.(match.id);
+                                }}
+                                data-testid={`favorite-${match.id}`}
+                              >
+                                <Star className="h-4 w-4 text-gray-400" />
+                              </Button>
+                            </div>
+
                             {/* Match teams */}
-                            <div className="col-span-8 flex flex-col justify-center space-y-1">
+                            <div className="col-span-7 flex flex-col justify-center space-y-1">
                               <div className="flex items-center gap-2">
                                 {match.homeTeam.logo && (
                                   <img 
@@ -281,21 +296,6 @@ export default function FootballMatches({
                               </div>
                             )}
 
-                            {/* Star icon at the end */}
-                            <div className="col-span-1 flex items-center justify-center">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 hover:text-yellow-500"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onAddToFavorites?.(match.id);
-                                }}
-                                data-testid={`favorite-${match.id}`}
-                              >
-                                <Star className="h-4 w-4 text-gray-400" />
-                              </Button>
-                            </div>
                           </motion.div>
                         ))}
                       </AnimatePresence>

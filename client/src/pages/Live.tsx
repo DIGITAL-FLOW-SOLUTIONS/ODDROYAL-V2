@@ -239,7 +239,6 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                         <span className="text-center">X</span>
                         <span className="text-center">2</span>
                       </div>
-                      <div className="w-6"></div> {/* Space for star icon */}
                       {isExpanded ? (
                         <ChevronUp className="h-4 w-4 text-white" />
                       ) : (
@@ -269,23 +268,39 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                   className="flex items-center justify-between p-3 cursor-pointer rounded-md hover:bg-gray-50 border-b border-gray-200 last:border-b-0"
                                   data-testid={`button-match-${match.id}`}
                                 >
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <Badge variant="destructive" className="animate-pulse text-xs">
-                                          LIVE {match.minute}'
-                                        </Badge>
-                                        <span className="text-sm font-medium text-destructive">
-                                          {match.homeScore} - {match.awayScore}
-                                        </span>
-                                      </div>
-                                      <div className="mt-1 space-y-0.5">
-                                        <div className="text-sm font-medium text-black truncate" data-testid={`text-home-team-${match.id}`}>
-                                          {match.homeTeam}
+                                <div className="flex items-center gap-2">
+                                  {/* Star icon - moved to front */}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 hover:text-yellow-500"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Add to favorites functionality
+                                    }}
+                                    data-testid={`favorite-${match.id}`}
+                                  >
+                                    <Star className="h-4 w-4 text-gray-400" />
+                                  </Button>
+                                  
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          <Badge variant="destructive" className="animate-pulse text-xs">
+                                            LIVE {match.minute}'
+                                          </Badge>
+                                          <span className="text-sm font-medium text-destructive">
+                                            {match.homeScore} - {match.awayScore}
+                                          </span>
                                         </div>
-                                        <div className="text-sm text-black truncate" data-testid={`text-away-team-${match.id}`}>
-                                          {match.awayTeam}
+                                        <div className="mt-1 space-y-0.5">
+                                          <div className="text-sm font-medium text-black truncate" data-testid={`text-home-team-${match.id}`}>
+                                            {match.homeTeam}
+                                          </div>
+                                          <div className="text-sm text-black truncate" data-testid={`text-away-team-${match.id}`}>
+                                            {match.awayTeam}
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
@@ -326,20 +341,6 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                       {match.odds["1x2"].away.toFixed(2)}
                                     </Button>
                                   </div>
-                                  <div className="w-6"></div> {/* Space for star icon */}
-                                  {/* Star icon */}
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 hover:text-yellow-500"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Add to favorites functionality
-                                    }}
-                                    data-testid={`favorite-${match.id}`}
-                                  >
-                                    <Star className="h-4 w-4 text-gray-400" />
-                                  </Button>
                                   {isMatchExpanded ? (
                                     <ChevronUp className="h-3 w-3 ml-2" />
                                   ) : (
