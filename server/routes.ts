@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
+import { supabaseAdmin } from "./supabase";
 import { pdfReportService } from "./pdf-service";
 import { emailReportService } from "./email-service";
 import XLSX from 'xlsx';
