@@ -4,7 +4,11 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, Clock, Star, Trophy } from "lucide-react";
 
 interface Team {
@@ -37,28 +41,38 @@ interface League {
 interface FootballMatchesProps {
   leagues: League[];
   isLoading?: boolean;
-  onOddsClick?: (matchId: string, market: string, type: string, odds: number) => void;
+  onOddsClick?: (
+    matchId: string,
+    market: string,
+    type: string,
+    odds: number,
+  ) => void;
   onAddToFavorites?: (matchId: string) => void;
 }
 
-export default function FootballMatches({ 
-  leagues, 
+export default function FootballMatches({
+  leagues,
   isLoading = false,
-  onOddsClick, 
-  onAddToFavorites 
+  onOddsClick,
+  onAddToFavorites,
 }: FootballMatchesProps) {
   const [, setLocation] = useLocation();
-  const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>(
-    leagues.reduce((acc, league, index) => ({
-      ...acc,
-      [league.id]: index === 0 // First league expanded by default
-    }), {})
+  const [expandedLeagues, setExpandedLeagues] = useState<
+    Record<string, boolean>
+  >(
+    leagues.reduce(
+      (acc, league, index) => ({
+        ...acc,
+        [league.id]: index === 0, // First league expanded by default
+      }),
+      {},
+    ),
   );
 
   const toggleLeague = (leagueId: string) => {
-    setExpandedLeagues(prev => ({
+    setExpandedLeagues((prev) => ({
       ...prev,
-      [leagueId]: !prev[leagueId]
+      [leagueId]: !prev[leagueId],
     }));
   };
 
@@ -72,8 +86,13 @@ export default function FootballMatches({
 
   const handleOddsClick = (match: Match, type: string) => {
     if (onOddsClick && match.odds) {
-      const odds = type === 'home' ? match.odds.home : type === 'draw' ? match.odds.draw : match.odds.away;
-      onOddsClick(match.id, '1x2', type, odds);
+      const odds =
+        type === "home"
+          ? match.odds.home
+          : type === "draw"
+            ? match.odds.draw
+            : match.odds.away;
+      onOddsClick(match.id, "1x2", type, odds);
     }
   };
 
@@ -112,7 +131,9 @@ export default function FootballMatches({
           <h2 className="text-xl font-display font-bold">Football</h2>
         </div>
         <div className="text-center py-8">
-          <p className="text-muted-foreground">No football matches available at the moment.</p>
+          <p className="text-muted-foreground">
+            No football matches available at the moment.
+          </p>
         </div>
       </div>
     );
@@ -132,18 +153,27 @@ export default function FootballMatches({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: leagueIndex * 0.1 }}
           >
-            <Card className="overflow-hidden" style={{ backgroundColor: 'hsl(var(--surface-2))', borderColor: 'hsl(var(--surface-4))' }}>
-              <Collapsible 
-                open={expandedLeagues[league.id]} 
+            <Card
+              className="overflow-hidden"
+              style={{
+                backgroundColor: "hsl(var(--surface-2))",
+                borderColor: "hsl(var(--surface-4))",
+              }}
+            >
+              <Collapsible
+                open={expandedLeagues[league.id]}
                 onOpenChange={() => toggleLeague(league.id)}
               >
                 <CollapsibleTrigger asChild>
-                  <CardHeader className="pb-3 league-header-gradient cursor-pointer transition-colors" style={{ color: 'white' }}>
+                  <CardHeader
+                    className="pb-3 league-header-gradient cursor-pointer transition-colors"
+                    style={{ color: "white" }}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {league.logo && (
-                          <img 
-                            src={league.logo} 
+                          <img
+                            src={league.logo}
                             alt={league.name}
                             className="w-6 h-6 rounded"
                           />
@@ -152,7 +182,7 @@ export default function FootballMatches({
                           {league.name}
                         </CardTitle>
                       </div>
-                      
+
                       <div className="flex items-center gap-2">
                         {/* Odds Headers using same grid layout as rows */}
                         <div className="grid grid-cols-3 gap-2 text-sm font-medium text-white/90 w-48">
@@ -160,10 +190,10 @@ export default function FootballMatches({
                           <span className="text-center">X</span>
                           <span className="text-center">2</span>
                         </div>
-                        <ChevronDown 
+                        <ChevronDown
                           className={`h-4 w-4 transition-transform text-white ${
-                            expandedLeagues[league.id] ? 'rotate-180' : ''
-                          }`} 
+                            expandedLeagues[league.id] ? "rotate-180" : ""
+                          }`}
                         />
                       </div>
                     </div>
@@ -171,7 +201,10 @@ export default function FootballMatches({
                 </CollapsibleTrigger>
 
                 <CollapsibleContent>
-                  <CardContent className="pt-0 pb-0" style={{ backgroundColor: 'white' }}>
+                  <CardContent
+                    className="pt-0 pb-0"
+                    style={{ backgroundColor: "white" }}
+                  >
                     <div className="space-y-0">
                       {/* Match rows */}
                       <AnimatePresence>
@@ -216,25 +249,31 @@ export default function FootballMatches({
                             <div className="col-span-7 flex flex-col justify-center space-y-1">
                               <div className="flex items-center gap-2">
                                 {match.homeTeam.logo && (
-                                  <img 
-                                    src={match.homeTeam.logo} 
+                                  <img
+                                    src={match.homeTeam.logo}
                                     alt={match.homeTeam.name}
                                     className="w-4 h-4 rounded"
                                   />
                                 )}
-                                <span className="text-sm font-medium text-black" data-testid={`home-team-${match.id}`}>
+                                <span
+                                  className="text-sm font-medium text-black"
+                                  data-testid={`home-team-${match.id}`}
+                                >
                                   {match.homeTeam.name}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
                                 {match.awayTeam.logo && (
-                                  <img 
-                                    src={match.awayTeam.logo} 
+                                  <img
+                                    src={match.awayTeam.logo}
                                     alt={match.awayTeam.name}
                                     className="w-4 h-4 rounded"
                                   />
                                 )}
-                                <span className="text-sm font-medium text-black" data-testid={`away-team-${match.id}`}>
+                                <span
+                                  className="text-sm font-medium text-black"
+                                  data-testid={`away-team-${match.id}`}
+                                >
                                   {match.awayTeam.name}
                                 </span>
                               </div>
@@ -249,46 +288,43 @@ export default function FootballMatches({
 
                             {/* Odds columns - Only show if odds are available */}
                             {match.odds ? (
-                              <div className="col-span-3" style={{ marginRight: '20px' }}>
-                                <div className="grid grid-cols-3 gap-2">
-                                  <div className="flex items-center justify-center pl-[20px] pr-[20px]">
-                                    <Button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOddsClick(match, 'home');
-                                      }}
-                                      className="w-full font-semibold odds-button ml-[20px] mr-[20px]"
-                                      data-testid={`odds-home-${match.id}`}
-                                    >
-                                      {match.odds.home.toFixed(2)}
-                                    </Button>
-                                  </div>
+                              <div className="col-span-3">
+                                <div className="grid grid-cols-3 gap-3">
+                                  <Button
+                                    style={{ marginLeft: "-70px" }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOddsClick(match, "home");
+                                    }}
+                                    className="w-16 font-semibold odds-button"
+                                    data-testid={`odds-home-${match.id}`}
+                                  >
+                                    {match.odds.home.toFixed(2)}
+                                  </Button>
 
-                                  <div className="flex items-center justify-center pl-[20px] pr-[20px]">
-                                    <Button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOddsClick(match, 'draw');
-                                      }}
-                                      className="w-full font-semibold odds-button ml-[20px] mr-[20px]"
-                                      data-testid={`odds-draw-${match.id}`}
-                                    >
-                                      {match.odds.draw.toFixed(2)}
-                                    </Button>
-                                  </div>
+                                  <Button
+                                    style={{ marginLeft: "-50px" }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOddsClick(match, "draw");
+                                    }}
+                                    className="w-16 font-semibold odds-button"
+                                    data-testid={`odds-draw-${match.id}`}
+                                  >
+                                    {match.odds.draw.toFixed(2)}
+                                  </Button>
 
-                                  <div className="flex items-center justify-center pl-[20px] pr-[20px]">
-                                    <Button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOddsClick(match, 'away');
-                                      }}
-                                      className="w-full font-semibold odds-button ml-[20px] mr-[20px]"
-                                      data-testid={`odds-away-${match.id}`}
-                                    >
-                                      {match.odds.away.toFixed(2)}
-                                    </Button>
-                                  </div>
+                                  <Button
+                                    style={{ marginLeft: "-30px" }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOddsClick(match, "away");
+                                    }}
+                                    className="w-16 font-semibold odds-button"
+                                    data-testid={`odds-away-${match.id}`}
+                                  >
+                                    {match.odds.away.toFixed(2)}
+                                  </Button>
                                 </div>
                               </div>
                             ) : (
@@ -296,7 +332,6 @@ export default function FootballMatches({
                                 Odds not available
                               </div>
                             )}
-
                           </motion.div>
                         ))}
                       </AnimatePresence>
