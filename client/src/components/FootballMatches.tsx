@@ -154,14 +154,17 @@ export default function FootballMatches({
                         </CardTitle>
                       </div>
                       
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center">
+                        {/* Spacer to align with team column */}
+                        <div className="w-8"></div> {/* Space for time column */}
+                        <div className="flex-1"></div> {/* Space for teams column */}
                         {/* Odds Headers - aligned with columns below */}
-                        <div className="grid grid-cols-3 gap-2 text-sm font-medium text-white/90 w-48">
+                        <div className="grid grid-cols-3 gap-2 text-sm font-medium text-white/90 min-w-[144px]">
                           <span className="text-center">1</span>
                           <span className="text-center">X</span>
                           <span className="text-center">2</span>
                         </div>
-                        <div className="w-6"></div> {/* Space for star icon */}
+                        <div className="w-8"></div> {/* Space for star icon */}
                         <ChevronDown 
                           className={`h-4 w-4 transition-transform text-white ${
                             expandedLeagues[league.id] ? 'rotate-180' : ''
@@ -243,7 +246,7 @@ export default function FootballMatches({
                                       e.stopPropagation();
                                       handleOddsClick(match, 'home');
                                     }}
-                                    className="w-full h-8 text-xs font-semibold odds-button"
+                                    className="min-w-[44px] h-8 text-xs font-semibold odds-button"
                                     data-testid={`odds-home-${match.id}`}
                                   >
                                     {match.odds.home.toFixed(2)}
@@ -257,7 +260,7 @@ export default function FootballMatches({
                                       e.stopPropagation();
                                       handleOddsClick(match, 'draw');
                                     }}
-                                    className="w-full h-8 text-xs font-semibold odds-button"
+                                    className="min-w-[44px] h-8 text-xs font-semibold odds-button"
                                     data-testid={`odds-draw-${match.id}`}
                                   >
                                     {match.odds.draw.toFixed(2)}
@@ -271,7 +274,7 @@ export default function FootballMatches({
                                       e.stopPropagation();
                                       handleOddsClick(match, 'away');
                                     }}
-                                    className="w-full h-8 text-xs font-semibold odds-button"
+                                    className="min-w-[44px] h-8 text-xs font-semibold odds-button"
                                     data-testid={`odds-away-${match.id}`}
                                   >
                                     {match.odds.away.toFixed(2)}
