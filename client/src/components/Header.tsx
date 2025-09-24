@@ -120,34 +120,34 @@ export default function Header() {
               >
                 <User className="h-4 w-4" />
                 <span className="hidden sm:inline text-sm">
-                  {user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.username}
+                  Account
                 </span>
                 <ChevronDown className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem asChild>
-                <Link href="/dashboard" className="flex items-center gap-2">
-                  <BarChart className="h-4 w-4" />
-                  Dashboard
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/wallet" className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4" />
-                  Wallet
+                <Link href="/profile" className="flex items-center gap-2">
+                  <Settings className="h-4 w-4" />
+                  My Profile
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/bets" className="flex items-center gap-2">
                   <History className="h-4 w-4" />
-                  Bet History
+                  My Bets
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/profile" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  Profile
+                <Link href="/results" className="flex items-center gap-2">
+                  <BarChart className="h-4 w-4" />
+                  My Results
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/wallet" className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4" />
+                  My Wallet
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
