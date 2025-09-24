@@ -1,13 +1,4 @@
-import { db } from './db';
-import { 
-  bets, 
-  betSelections, 
-  exposureSnapshots, 
-  matches, 
-  markets, 
-  marketOutcomes 
-} from '@shared/schema';
-import { eq, and, isNull, sql } from 'drizzle-orm';
+import { supabaseAdmin } from './supabase';
 
 /**
  * Interface for exposure calculation results

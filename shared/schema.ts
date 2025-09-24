@@ -293,3 +293,119 @@ export const loginUserSchema = z.object({
 });
 
 export type LoginUser = z.infer<typeof loginUserSchema>;
+
+// ===================== ADMIN ROLES AND PERMISSIONS =====================
+
+export const AdminRoles = [
+  "superadmin", 
+  "admin", 
+  "risk_manager", 
+  "finance", 
+  "compliance", 
+  "support"
+] as const;
+
+export type AdminRole = typeof AdminRoles[number];
+
+// Role permissions mapping
+export const rolePermissions: Record<AdminRole, string[]> = {
+  superadmin: ['*'], // All permissions
+  admin: [
+    'users:read', 'users:write', 'users:update', 'users:ban',
+    'bets:read', 'bets:review', 'bets:settle', 'bets:void',
+    'transactions:read', 'transactions:write',
+    'reports:read', 'reports:generate',
+    'limits:read', 'limits:update',
+    'admins:read', 'admins:create',
+    'matches:read', 'matches:update',
+    'markets:read', 'markets:update',
+    'system:read'
+  ],
+  risk_manager: [
+    'users:read', 'users:ban',
+    'bets:read', 'bets:review', 'bets:settle', 'bets:void',
+    'limits:read', 'limits:update',
+    'reports:read', 'reports:generate',
+    'matches:read', 'markets:read',
+    'exposure:read'
+  ],
+  finance: [
+    'users:read',
+    'transactions:read', 'transactions:write',
+    'reports:read', 'reports:generate',
+    'bets:read'
+  ],
+  compliance: [
+    'users:read', 'users:ban',
+    'bets:read', 'bets:review',
+    'transactions:read',
+    'reports:read', 'reports:generate',
+    'limits:read', 'limits:update',
+    'audit:read'
+  ],
+  support: [
+    'users:read',
+    'bets:read',
+    'transactions:read',
+    'reports:read'
+  ]
+};
+
+// Utility function to check if a role has a specific permission
+export function hasPermission(role: AdminRole, permission: string): boolean {
+  if (role === 'superadmin') return true;
+  const permissions = rolePermissions[role] || [];
+  return permissions.includes(permission) || permissions.includes('*');
+}
+
+// ===================== BET PLACEMENT SCHEMA =====================
+
+export const betPlacementSchema = z.object({
+  betType: z.enum(["single", "express", "system"]),
+  totalStakeCents: z.number().int().positive().max(10000000), // Max £100,000
+  selections: z.array(z.object({
+    fixtureId: z.string(),
+    homeTeam: z.string(),
+    awayTeam: z.string(),
+    league: z.string(),
+    market: z.string(),
+    selection: z.string(),
+    odds: z.string().refine((val) => parseFloat(val) >= 1.01 && parseFloat(val) <= 1000, {
+      message: "Odds must be between 1.01 and 1000"
+    }),
+  })).min(1).max(20), // Max 20 selections per bet
+});
+
+// ===================== ADMIN LOGIN SCHEMA =====================
+
+export const loginAdminSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+  totpCode: z.string().optional(),
+});
+
+// ===================== CURRENCY UTILITIES =====================
+
+export const currencyUtils = {
+  centsToPounds: (cents: number): string => {
+    return (cents / 100).toFixed(2);
+  },
+  
+  poundsToCents: (pounds: number): number => {
+    return Math.round(pounds * 100);
+  },
+  
+  formatCurrency: (cents: number): string => {
+    return `£${(cents / 100).toFixed(2)}`;
+  },
+  
+  formatCurrencyShort: (cents: number): string => {
+    const pounds = cents / 100;
+    if (pounds >= 1000000) {
+      return `£${(pounds / 1000000).toFixed(1)}M`;
+    } else if (pounds >= 1000) {
+      return `£${(pounds / 1000).toFixed(1)}K`;
+    }
+    return `£${pounds.toFixed(2)}`;
+  }
+};

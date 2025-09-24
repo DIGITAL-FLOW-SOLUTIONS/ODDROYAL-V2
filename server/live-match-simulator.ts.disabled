@@ -1,6 +1,4 @@
-import { eq, and, sql, lte } from "drizzle-orm";
-import { db } from "./db";
-import { matches, matchEvents, markets, marketOutcomes } from "@shared/schema";
+import { supabaseAdmin } from "./supabase";
 import { broadcastMatchUpdate, broadcastMarketUpdate, broadcastEventUpdate } from "./websocket";
 
 interface LiveMatchUpdate {

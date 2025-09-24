@@ -2,10 +2,10 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { settlementWorker } from "./settlement-worker";
-import { exposureEngine } from "./exposure-engine";
-import { liveMatchSimulator } from "./live-match-simulator";
+// import { exposureEngine } from "./exposure-engine";
+// import { liveMatchSimulator } from "./live-match-simulator";
 import { storage } from "./storage";
-import { AdminSeeder } from "./admin-seeder";
+// import { AdminSeeder } from "./admin-seeder";
 
 // Demo mode disabled for production security
 // Demo mode can be manually enabled by setting DEMO_MODE=true in environment variables if needed for development
@@ -72,25 +72,29 @@ app.use((req, res, next) => {
   
   // Initialize admin accounts (before server starts)
   console.log("🔐 Initializing admin accounts...");
-  const adminSeedResult = await AdminSeeder.seedDefaultAdmin();
-  if (adminSeedResult.success) {
-    console.log("✅ Admin initialization successful");
-  } else {
-    console.warn("⚠️ Admin initialization failed:", adminSeedResult.error);
-  }
+  // const adminSeedResult = await AdminSeeder.seedDefaultAdmin();
+  // if (adminSeedResult.success) {
+  //   console.log("✅ Admin initialization successful");
+  // } else {
+  //   console.warn("⚠️ Admin initialization failed:", adminSeedResult.error);
+  // }
   
   // Initialize demo admin in development mode
-  if (process.env.NODE_ENV === 'development') {
-    const demoSeedResult = await AdminSeeder.seedDemoAdmin();
-    if (demoSeedResult.success) {
-      console.log("✅ Demo admin initialization successful");
-    } else {
-      console.warn("⚠️ Demo admin initialization failed:", demoSeedResult.error);
-    }
-  }
+  // if (process.env.NODE_ENV === 'development') {
+  //   const demoSeedResult = await AdminSeeder.seedDemoAdmin();
+  //   if (demoSeedResult.success) {
+  //     console.log("✅ Demo admin initialization successful");
+  //   } else {
+  //     console.warn("⚠️ Demo admin initialization failed:", demoSeedResult.error);
+  //   }
+  // }
   
   // Initialize demo user account if in demo mode (before server starts)
-  await storage.initializeDemoAccount();
+  try {
+    await storage.initializeDemoAccount();
+  } catch (error) {
+    console.warn("⚠️ Demo account initialization failed:", error);
+  }
 
   server.listen({
     port,
@@ -103,10 +107,10 @@ app.use((req, res, next) => {
     settlementWorker.start();
     
     // Start exposure calculation engine
-    exposureEngine.start(1); // Update exposure cache every minute
+    // exposureEngine.start(1); // Update exposure cache every minute
     
     // Start live match simulation engine
-    console.log("🔴 Starting Live Match Simulation Engine...");
-    liveMatchSimulator.start(30, 1); // Check every 30 seconds, real-time speed
+    // console.log("🔴 Starting Live Match Simulation Engine...");
+    // liveMatchSimulator.start(30, 1); // Check every 30 seconds, real-time speed
   });
 })();
