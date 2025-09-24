@@ -152,9 +152,6 @@ export default function FootballMatches({
                         <CardTitle className="text-lg font-semibold text-white">
                           {league.name}
                         </CardTitle>
-                        <Badge className="text-xs bg-white/20 text-white border-white/30">
-                          {league.matches.length} matches
-                        </Badge>
                       </div>
                       
                       <div className="flex items-center gap-2">
