@@ -468,60 +468,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const depositAmount = parseFloat(amount);
       const depositAmountCents = currencyUtils.poundsToCents(depositAmount);
       
-      // Get current balance from Supabase profiles
-      const { data: profile, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .select('balance_cents')
-        .eq('id', req.user.id)
-        .single();
-        
-      if (profileError || !profile) {
-        return res.status(404).json({
-          success: false,
-          error: "User profile not found"
-        });
+      // Use atomic deposit function for guaranteed consistency
+      const { data: result, error } = await supabaseAdmin.rpc('atomic_deposit', {
+        p_user_id: req.user.id,
+        p_amount_cents: depositAmountCents,
+        p_description: `Deposit of ${currencyUtils.formatCurrency(depositAmountCents)}`
+      });
+      
+      if (error) {
+        throw new Error('Database error: ' + error.message);
       }
       
-      const oldBalanceCents = profile.balance_cents;
-      const newBalanceCents = oldBalanceCents + depositAmountCents;
-      
-      // Update user balance in Supabase
-      const { error: updateError } = await supabaseAdmin
-        .from('profiles')
-        .update({ balance_cents: newBalanceCents })
-        .eq('id', req.user.id);
-        
-      if (updateError) {
-        throw new Error('Failed to update balance: ' + updateError.message);
-      }
-      
-      // Create transaction record in Supabase
-      const { error: transactionError } = await supabaseAdmin
-        .from('transactions')
-        .insert({
-          user_id: req.user.id,
-          type: 'deposit',
-          amount_cents: depositAmountCents,
-          balance_before_cents: oldBalanceCents,
-          balance_after_cents: newBalanceCents,
-          description: `Deposit of ${currencyUtils.formatCurrency(depositAmountCents)}`
+      if (!result.success) {
+        return res.status(400).json({ 
+          success: false, 
+          error: result.error 
         });
-        
-      if (transactionError) {
-        // Try to rollback balance update
-        await supabaseAdmin
-          .from('profiles')
-          .update({ balance_cents: oldBalanceCents })
-          .eq('id', req.user.id);
-          
-        throw new Error('Failed to create transaction record: ' + transactionError.message);
       }
       
       res.json({ 
         success: true, 
         data: {
           amount: depositAmount,
-          newBalance: currencyUtils.centsToPounds(newBalanceCents)
+          newBalance: currencyUtils.centsToPounds(result.new_balance_cents),
+          transactionId: result.transaction_id
         }
       });
       
@@ -554,69 +524,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const withdrawAmount = parseFloat(amount);
       const withdrawAmountCents = currencyUtils.poundsToCents(withdrawAmount);
       
-      // Get current balance from Supabase profiles
-      const { data: profile, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .select('balance_cents')
-        .eq('id', req.user.id)
-        .single();
-        
-      if (profileError || !profile) {
-        return res.status(404).json({
-          success: false,
-          error: "User profile not found"
-        });
+      // Use atomic withdrawal function for guaranteed consistency
+      const { data: result, error } = await supabaseAdmin.rpc('atomic_withdrawal', {
+        p_user_id: req.user.id,
+        p_amount_cents: withdrawAmountCents,
+        p_description: `Withdrawal of ${currencyUtils.formatCurrency(withdrawAmountCents)}`
+      });
+      
+      if (error) {
+        throw new Error('Database error: ' + error.message);
       }
       
-      const oldBalanceCents = profile.balance_cents;
-      
-      // Check if user has sufficient funds
-      if (oldBalanceCents < withdrawAmountCents) {
+      if (!result.success) {
         return res.status(400).json({ 
           success: false, 
-          error: "Insufficient funds" 
+          error: result.error 
         });
-      }
-      
-      const newBalanceCents = oldBalanceCents - withdrawAmountCents;
-      
-      // Update user balance in Supabase
-      const { error: updateError } = await supabaseAdmin
-        .from('profiles')
-        .update({ balance_cents: newBalanceCents })
-        .eq('id', req.user.id);
-        
-      if (updateError) {
-        throw new Error('Failed to update balance: ' + updateError.message);
-      }
-      
-      // Create transaction record in Supabase
-      const { error: transactionError } = await supabaseAdmin
-        .from('transactions')
-        .insert({
-          user_id: req.user.id,
-          type: 'withdrawal',
-          amount_cents: -withdrawAmountCents,
-          balance_before_cents: oldBalanceCents,
-          balance_after_cents: newBalanceCents,
-          description: `Withdrawal of ${currencyUtils.formatCurrency(withdrawAmountCents)}`
-        });
-        
-      if (transactionError) {
-        // Try to rollback balance update
-        await supabaseAdmin
-          .from('profiles')
-          .update({ balance_cents: oldBalanceCents })
-          .eq('id', req.user.id);
-          
-        throw new Error('Failed to create transaction record: ' + transactionError.message);
       }
       
       res.json({ 
         success: true, 
         data: {
           amount: withdrawAmount,
-          newBalance: currencyUtils.centsToPounds(newBalanceCents)
+          newBalance: currencyUtils.centsToPounds(result.new_balance_cents),
+          transactionId: result.transaction_id
         }
       });
       
