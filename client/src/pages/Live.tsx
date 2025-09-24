@@ -224,7 +224,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                   {/* League Header */}
                   <div
                     onClick={() => toggleLeague(group.leagueName)}
-                    className="flex items-center justify-between p-3 league-header-gradient cursor-pointer rounded-t-md"
+                    className="grid grid-cols-[1fr_12rem_auto] items-center p-3 league-header-gradient cursor-pointer rounded-t-md"
                     style={{ color: 'white' }}
                     data-testid={`button-league-${group.leagueName.replace(/\s+/g, '-').toLowerCase()}`}
                   >
@@ -232,13 +232,13 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                       <Gamepad2 className="h-5 w-5 text-white" />
                       <span className="font-semibold text-white">{group.leagueName}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {/* Odds Headers - aligned with columns below */}
-                      <div className="grid grid-cols-3 gap-2 text-sm font-medium text-white/90 w-48">
-                        <span className="text-center">1</span>
-                        <span className="text-center">X</span>
-                        <span className="text-center">2</span>
-                      </div>
+                    {/* Odds Headers - aligned with columns below */}
+                    <div className="grid grid-cols-3 gap-2 text-sm font-medium text-white/90">
+                      <span className="text-center">1</span>
+                      <span className="text-center">X</span>
+                      <span className="text-center">2</span>
+                    </div>
+                    <div className="flex justify-end">
                       {isExpanded ? (
                         <ChevronUp className="h-4 w-4 text-white" />
                       ) : (
@@ -265,58 +265,53 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                 {/* Match Row */}
                                 <div
                                   onClick={() => toggleMatchExpansion(match.id)}
-                                  className="flex items-center justify-between p-3 cursor-pointer rounded-md hover:bg-gray-50 border-b border-gray-200 last:border-b-0"
+                                  className="grid grid-cols-[1fr_12rem_auto] items-center p-3 cursor-pointer rounded-md hover:bg-gray-50 border-b border-gray-200 last:border-b-0"
                                   data-testid={`button-match-${match.id}`}
                                 >
-                                <div className="flex items-center gap-2">
-                                  {/* Star icon - moved to front */}
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 hover:text-yellow-500"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // Add to favorites functionality
-                                    }}
-                                    data-testid={`favorite-${match.id}`}
-                                  >
-                                    <Star className="h-4 w-4 text-gray-400" />
-                                  </Button>
-                                  
-                                  <div className="flex-1">
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2">
-                                          <Badge variant="destructive" className="animate-pulse text-xs">
-                                            LIVE {match.minute}'
-                                          </Badge>
-                                          <span className="text-sm font-medium text-destructive">
-                                            {match.homeScore} - {match.awayScore}
-                                          </span>
+                                  <div className="flex items-center gap-2">
+                                    {/* Star icon - moved to front */}
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 hover:text-yellow-500"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Add to favorites functionality
+                                      }}
+                                      data-testid={`favorite-${match.id}`}
+                                    >
+                                      <Star className="h-4 w-4 text-gray-400" />
+                                    </Button>
+                                    
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant="destructive" className="animate-pulse text-xs">
+                                          LIVE {match.minute}'
+                                        </Badge>
+                                        <span className="text-sm font-medium text-destructive">
+                                          {match.homeScore} - {match.awayScore}
+                                        </span>
+                                      </div>
+                                      <div className="mt-1 space-y-0.5">
+                                        <div className="text-sm font-medium text-black truncate" data-testid={`text-home-team-${match.id}`}>
+                                          {match.homeTeam}
                                         </div>
-                                        <div className="mt-1 space-y-0.5">
-                                          <div className="text-sm font-medium text-black truncate" data-testid={`text-home-team-${match.id}`}>
-                                            {match.homeTeam}
-                                          </div>
-                                          <div className="text-sm text-black truncate" data-testid={`text-away-team-${match.id}`}>
-                                            {match.awayTeam}
-                                          </div>
+                                        <div className="text-sm text-black truncate" data-testid={`text-away-team-${match.id}`}>
+                                          {match.awayTeam}
                                         </div>
                                       </div>
                                     </div>
                                   </div>
-                                </div>
-                                
-                                {/* Odds Buttons */}
-                                <div className="flex items-center gap-2 ml-4">
-                                  <div className="grid grid-cols-3 gap-2 w-48">
+                                  
+                                  {/* Odds Buttons */}
+                                  <div className="grid grid-cols-3 gap-2">
                                     <Button
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleLiveOddsClick(match.id, "1x2", "home", match.odds["1x2"].home, match.homeTeam, match.awayTeam);
                                       }}
                                       data-testid={`button-odds-home-${match.id}`}
-                                      className="font-semibold odds-button text-center justify-center"
+                                      className="font-semibold odds-button"
                                     >
                                       {match.odds["1x2"].home.toFixed(2)}
                                     </Button>
@@ -326,7 +321,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                         handleLiveOddsClick(match.id, "1x2", "draw", match.odds["1x2"].draw, match.homeTeam, match.awayTeam);
                                       }}
                                       data-testid={`button-odds-draw-${match.id}`}
-                                      className="font-semibold odds-button text-center justify-center"
+                                      className="font-semibold odds-button"
                                     >
                                       {match.odds["1x2"].draw.toFixed(2)}
                                     </Button>
@@ -336,18 +331,20 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                         handleLiveOddsClick(match.id, "1x2", "away", match.odds["1x2"].away, match.homeTeam, match.awayTeam);
                                       }}
                                       data-testid={`button-odds-away-${match.id}`}
-                                      className="font-semibold odds-button text-center justify-center"
+                                      className="font-semibold odds-button"
                                     >
                                       {match.odds["1x2"].away.toFixed(2)}
                                     </Button>
                                   </div>
-                                  {isMatchExpanded ? (
-                                    <ChevronUp className="h-3 w-3 ml-2" />
-                                  ) : (
-                                    <ChevronDown className="h-3 w-3 ml-2" />
-                                  )}
+                                  
+                                  <div className="flex justify-end">
+                                    {isMatchExpanded ? (
+                                      <ChevronUp className="h-3 w-3" />
+                                    ) : (
+                                      <ChevronDown className="h-3 w-3" />
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
 
                               {/* Expandable Match Details */}
                               <AnimatePresence>
