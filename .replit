@@ -23,6 +23,10 @@ localPort = 38375
 externalPort = 3001
 
 [[ports]]
+localPort = 38387
+externalPort = 8008
+
+[[ports]]
 localPort = 38647
 externalPort = 3003
 
@@ -79,4 +83,4 @@ args = "npm run dev"
 waitForPort = 5000
 
 [agent]
-integrations = ["javascript_stripe:1.0.0", "javascript_database:1.0.0"]
+integrations = ["javascript_stripe:1.0.0", "javascript_database:1.0.0", "javascript_supabase:1.0.0"]
