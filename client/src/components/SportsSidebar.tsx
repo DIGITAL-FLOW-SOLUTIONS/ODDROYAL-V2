@@ -99,7 +99,7 @@ export default function SportsSidebar() {
                         <Trophy className="h-4 w-4" />
                         <span className="flex-1">Football</span>
                         <div className="flex items-center gap-2">
-                          <Badge className="text-xs px-1 py-0 bg-live-surface-1 text-red-100 border-0">
+                          <Badge className="text-xs px-1 py-0 bg-destructive text-destructive-foreground border-0">
                             Hot
                           </Badge>
                           <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">
