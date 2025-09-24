@@ -99,9 +99,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { message: "Passwords don't match", path: ["confirmPassword"] }
       ).parse(req.body);
       
-      // Check if username already exists in users
+      // Check if username already exists in profiles
       const { data: existingProfile } = await supabaseAdmin
-        .from('users')
+        .from('profiles')
         .select('username')
         .eq('username', validatedData.username)
         .single();
@@ -137,14 +137,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create user profile
       const { error: profileError } = await supabaseAdmin
-        .from('users')
+        .from('profiles')
         .insert({
           id: authData.user.id,
           username: validatedData.username,
           email: validatedData.email,
           first_name: validatedData.firstName || null,
           last_name: validatedData.lastName || null,
-          balance: 0,
+          balance_cents: 0,
           is_active: true
         });
         
@@ -158,14 +158,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Generate access token for immediate login
-      const { data: sessionData, error: sessionError } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'magiclink',
-        email: validatedData.email
+      // Sign in the new user immediately for seamless registration
+      const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
+        email: validatedData.email,
+        password: validatedData.password
       });
       
-      if (sessionError) {
-        console.error('Session generation error:', sessionError);
+      if (signInError) {
+        console.error('Auto sign-in error:', signInError);
+        // Still return success but without session token
+        return res.json({ 
+          success: true, 
+          data: { 
+            user: {
+              id: authData.user.id,
+              email: authData.user.email,
+              username: validatedData.username,
+              firstName: validatedData.firstName || null,
+              lastName: validatedData.lastName || null,
+              balance: "0.00"
+            },
+            message: "Registration successful. Please sign in to continue."
+          } 
+        });
       }
       
       res.json({ 
@@ -179,7 +194,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             lastName: validatedData.lastName || null,
             balance: "0.00"
           },
-          message: "Registration successful. Please sign in to continue."
+          sessionToken: signInData.session?.access_token || '',
+          refreshToken: signInData.session?.refresh_token || ''
         } 
       });
       
