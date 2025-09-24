@@ -257,7 +257,7 @@ export default function FootballMatches({
                                       e.stopPropagation();
                                       handleOddsClick(match, 'home');
                                     }}
-                                    className="w-full font-semibold odds-button"
+                                    className="w-full font-semibold odds-button ml-[10px] mr-[10px]"
                                     data-testid={`odds-home-${match.id}`}
                                   >
                                     {match.odds.home.toFixed(2)}
@@ -270,7 +270,7 @@ export default function FootballMatches({
                                       e.stopPropagation();
                                       handleOddsClick(match, 'draw');
                                     }}
-                                    className="w-full font-semibold odds-button"
+                                    className="w-full font-semibold odds-button ml-[10px] mr-[10px]"
                                     data-testid={`odds-draw-${match.id}`}
                                   >
                                     {match.odds.draw.toFixed(2)}
@@ -283,7 +283,7 @@ export default function FootballMatches({
                                       e.stopPropagation();
                                       handleOddsClick(match, 'away');
                                     }}
-                                    className="w-full font-semibold odds-button"
+                                    className="w-full font-semibold odds-button ml-[10px] mr-[10px]"
                                     data-testid={`odds-away-${match.id}`}
                                   >
                                     {match.odds.away.toFixed(2)}
