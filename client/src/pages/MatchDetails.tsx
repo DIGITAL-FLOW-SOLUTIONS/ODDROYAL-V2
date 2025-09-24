@@ -13,7 +13,6 @@ import {
   MapPin,
   Star,
 } from "lucide-react";
-import footballFieldBg from "@assets/matchbg2_1757865631820.webp";
 
 interface MatchDetailsProps {
   onAddToBetSlip?: (selection: any) => void;
@@ -350,8 +349,7 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     <div className="min-h-screen bg-background">
       {/* Match Header with Football Field Background */}
       <div
-        className="relative text-white overflow-hidden bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${footballFieldBg})` }}
+        className="relative text-white overflow-hidden bg-gradient-to-br from-green-600 to-green-800"
       >
         {/* Football field pattern overlay */}
         <div className="absolute inset-0 opacity-20">
