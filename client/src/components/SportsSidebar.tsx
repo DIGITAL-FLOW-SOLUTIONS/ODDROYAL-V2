@@ -51,7 +51,7 @@ export default function SportsSidebar() {
       <SidebarContent className="bg-surface-1 gap-2 p-2">
         {/* Main Navigation */}
         <SidebarGroup className="bg-surface-2 rounded-md p-3">
-          <SidebarGroupLabel className="font-display text-sm font-bold mb-2">
+          <SidebarGroupLabel className="font-display text-xl font-bold mb-2">
             <Link href="/" data-testid="link-logo-sidebar" className="hover-elevate">
               <span className="text-primary">ODD</span><span className="text-destructive">ROYAL</span>
             </Link>
