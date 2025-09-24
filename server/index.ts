@@ -5,6 +5,7 @@ import { settlementWorker } from "./settlement-worker";
 // import { exposureEngine } from "./exposure-engine";
 // import { liveMatchSimulator } from "./live-match-simulator";
 import { storage } from "./storage";
+import { initializeDatabaseSchema, createDemoData } from "./init-database";
 // import { AdminSeeder } from "./admin-seeder";
 
 // Demo mode disabled for production security
@@ -70,9 +71,13 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
   
-  // Initialize admin accounts (before server starts)
-  console.log("🔐 Initializing admin accounts...");
-  // const adminSeedResult = await AdminSeeder.seedDefaultAdmin();
+  // Initialize database schema and accounts (before server starts)
+  console.log("🔐 Initializing database schema...");
+  await initializeDatabaseSchema();
+  
+  console.log("👤 Creating demo data...");
+  await createDemoData();
+  console.log("✅ Database initialization complete");
   // if (adminSeedResult.success) {
   //   console.log("✅ Admin initialization successful");
   // } else {
