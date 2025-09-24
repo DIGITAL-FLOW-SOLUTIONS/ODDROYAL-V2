@@ -48,8 +48,43 @@ function Login() {
     }
   };
 
+  const validatePassword = (password: string): string[] => {
+    const errors: string[] = [];
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    
+    if (password.length < 8) errors.push("Must be at least 8 characters");
+    if (!/[a-z]/.test(password)) errors.push("Must contain lowercase letter");
+    if (!/[A-Z]/.test(password)) errors.push("Must contain uppercase letter");
+    if (!/\d/.test(password)) errors.push("Must contain number");
+    if (!/[@$!%*?&]/.test(password)) errors.push("Must contain special character (@$!%*?&)");
+    if (!passwordRegex.test(password)) errors.push("Password contains invalid characters");
+    
+    return errors;
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Client-side validation
+    const passwordErrors = validatePassword(registerData.password);
+    if (passwordErrors.length > 0) {
+      toast({
+        title: "Password Requirements",
+        description: passwordErrors.join(", "),
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (registerData.password !== registerData.confirmPassword) {
+      toast({
+        title: "Password Mismatch",
+        description: "Passwords do not match",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
       await register(registerData.username, registerData.email, registerData.password, registerData.confirmPassword);
       setLocation('/');
@@ -150,11 +185,14 @@ function Login() {
                     type="password"
                     value={registerData.password}
                     onChange={(e) => setRegisterData(prev => ({ ...prev, password: e.target.value }))}
-                    placeholder="Create a password"
+                    placeholder="Create a strong password"
                     required
-                    minLength={6}
+                    minLength={8}
                     data-testid="input-register-password"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Password must be at least 8 characters with uppercase, lowercase, number, and special character
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -166,7 +204,7 @@ function Login() {
                     onChange={(e) => setRegisterData(prev => ({ ...prev, confirmPassword: e.target.value }))}
                     placeholder="Confirm your password"
                     required
-                    minLength={6}
+                    minLength={8}
                     data-testid="input-register-confirm"
                   />
                 </div>
@@ -189,25 +227,6 @@ function Login() {
         <p>By creating an account, you agree to our Terms of Service and Privacy Policy.</p>
       </div>
 
-      {/* Demo Account Information - Only in demo mode */}
-      {import.meta.env.VITE_DEMO_MODE === 'true' && (
-        <Card className="mt-4 border-primary/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-center text-primary">Demo Account</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-center text-sm text-muted-foreground space-y-1">
-              <p className="font-medium">Test the platform with our demo account:</p>
-              <div className="bg-accent/30 rounded-md p-3 mt-2">
-                <p><span className="font-medium">Username:</span> demo</p>
-                <p><span className="font-medium">Password:</span> demo123</p>
-                <p><span className="font-medium">Starting Balance:</span> £500</p>
-              </div>
-              <p className="text-xs mt-2">Use these credentials to explore all betting features</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

@@ -7,11 +7,8 @@ import { liveMatchSimulator } from "./live-match-simulator";
 import { storage } from "./storage";
 import { AdminSeeder } from "./admin-seeder";
 
-// Enable demo mode for development (this is not a secret, just a feature flag)
-if (process.env.NODE_ENV === 'development') {
-  process.env.DEMO_MODE = 'true';
-  process.env.VITE_DEMO_MODE = 'true';
-}
+// Demo mode disabled for production security
+// Demo mode can be manually enabled by setting DEMO_MODE=true in environment variables if needed for development
 
 const app = express();
 app.use(express.json());
