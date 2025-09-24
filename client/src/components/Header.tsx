@@ -115,7 +115,7 @@ export default function Header() {
               <Button
                 variant="ghost"
                 size="sm"
-                data-testid="button-user-menu"
+                data-testid="button-account-menu"
                 className="flex items-center gap-2 hover-elevate"
               >
                 <User className="h-4 w-4" />
@@ -127,31 +127,31 @@ export default function Header() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem asChild>
-                <Link href="/profile" className="flex items-center gap-2">
+                <Link href="/profile" className="flex items-center gap-2" data-testid="link-my-profile">
                   <Settings className="h-4 w-4" />
                   My Profile
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/bets" className="flex items-center gap-2">
+                <Link href="/bets" className="flex items-center gap-2" data-testid="link-my-bets">
                   <History className="h-4 w-4" />
                   My Bets
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/results" className="flex items-center gap-2">
+                <Link href="/results" className="flex items-center gap-2" data-testid="link-my-results">
                   <BarChart className="h-4 w-4" />
                   My Results
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/wallet" className="flex items-center gap-2">
+                <Link href="/wallet" className="flex items-center gap-2" data-testid="link-my-wallet">
                   <Wallet className="h-4 w-4" />
                   My Wallet
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="flex items-center gap-2 text-destructive">
+              <DropdownMenuItem onClick={logout} className="flex items-center gap-2 text-destructive" data-testid="button-logout">
                 <LogOut className="h-4 w-4" />
                 Logout
               </DropdownMenuItem>
