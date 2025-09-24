@@ -316,7 +316,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                         handleLiveOddsClick(match.id, "1x2", "home", match.odds["1x2"].home, match.homeTeam, match.awayTeam);
                                       }}
                                       data-testid={`button-odds-home-${match.id}`}
-                                      className="font-semibold odds-button"
+                                      className="font-semibold odds-button text-center justify-center"
                                     >
                                       {match.odds["1x2"].home.toFixed(2)}
                                     </Button>
@@ -326,7 +326,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                         handleLiveOddsClick(match.id, "1x2", "draw", match.odds["1x2"].draw, match.homeTeam, match.awayTeam);
                                       }}
                                       data-testid={`button-odds-draw-${match.id}`}
-                                      className="font-semibold odds-button"
+                                      className="font-semibold odds-button text-center justify-center"
                                     >
                                       {match.odds["1x2"].draw.toFixed(2)}
                                     </Button>
@@ -336,7 +336,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                         handleLiveOddsClick(match.id, "1x2", "away", match.odds["1x2"].away, match.homeTeam, match.awayTeam);
                                       }}
                                       data-testid={`button-odds-away-${match.id}`}
-                                      className="font-semibold odds-button"
+                                      className="font-semibold odds-button text-center justify-center"
                                     >
                                       {match.odds["1x2"].away.toFixed(2)}
                                     </Button>
