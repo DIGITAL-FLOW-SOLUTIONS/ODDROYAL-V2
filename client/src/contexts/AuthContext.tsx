@@ -83,10 +83,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const loginMutation = useMutation({
     mutationFn: async ({ username, password }: { username: string; password: string }) => {
       const response = await apiRequest('POST', '/api/auth/login', { username, password });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Login failed');
-      }
       return await response.json();
     },
     onSuccess: (response) => {
@@ -116,10 +112,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw new Error('Passwords do not match');
       }
       const response = await apiRequest('POST', '/api/auth/register', { username, email, password, confirmPassword });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Registration failed');
-      }
       return await response.json();
     },
     onSuccess: (response) => {
