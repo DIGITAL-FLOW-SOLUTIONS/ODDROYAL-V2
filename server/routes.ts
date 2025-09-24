@@ -99,9 +99,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { message: "Passwords don't match", path: ["confirmPassword"] }
       ).parse(req.body);
       
-      // Check if username already exists in profiles
+      // Check if username already exists in users
       const { data: existingProfile } = await supabaseAdmin
-        .from('profiles')
+        .from('users')
         .select('username')
         .eq('username', validatedData.username)
         .single();
@@ -137,13 +137,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create user profile
       const { error: profileError } = await supabaseAdmin
-        .from('profiles')
+        .from('users')
         .insert({
           id: authData.user.id,
           username: validatedData.username,
+          email: validatedData.email,
           first_name: validatedData.firstName || null,
           last_name: validatedData.lastName || null,
-          balance_cents: 0,
+          balance: 0,
           is_active: true
         });
         
