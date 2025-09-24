@@ -430,7 +430,7 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
             <div className="flex items-center gap-2">
               <Star className="w-4 h-4 text-purple-400" />
               <span className="text-sm font-medium">
-                Football. England. SuperligaBBrøndby IF18:00Sun, Sep 28OOdense BK04days:00hours:51minutes:59seconds
+                {match.league}
               </span>
               <Star className="w-4 h-4 text-yellow-400" />
             </div>
