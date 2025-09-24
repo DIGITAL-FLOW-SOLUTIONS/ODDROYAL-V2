@@ -232,16 +232,14 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                       <Gamepad2 className="h-5 w-5 text-white" />
                       <span className="font-semibold text-white">{group.leagueName}</span>
                     </div>
-                    <div className="flex items-center">
-                      {/* Spacer to align with team column */}
-                      <div className="flex-1"></div> {/* Space for teams column */}
+                    <div className="flex items-center gap-2">
                       {/* Odds Headers - aligned with columns below */}
-                      <div className="grid grid-cols-3 gap-2 text-sm font-medium text-white/90 min-w-[144px]">
+                      <div className="grid grid-cols-3 gap-2 text-sm font-medium text-white/90 w-48">
                         <span className="text-center">1</span>
                         <span className="text-center">X</span>
                         <span className="text-center">2</span>
                       </div>
-                      <div className="w-8"></div> {/* Space for star icon */}
+                      <div className="w-6"></div> {/* Space for star icon */}
                       {isExpanded ? (
                         <ChevronUp className="h-4 w-4 text-white" />
                       ) : (
@@ -295,47 +293,45 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                                 </div>
                                 
                                 {/* Odds Buttons */}
-                                <div className="flex items-center ml-4">
-                                  <div className="grid grid-cols-3 gap-2 min-w-[144px]">
+                                <div className="flex items-center gap-2 ml-4">
+                                  <div className="grid grid-cols-3 gap-2 w-48">
                                     <Button
-                                      size="sm"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleLiveOddsClick(match.id, "1x2", "home", match.odds["1x2"].home, match.homeTeam, match.awayTeam);
                                       }}
                                       data-testid={`button-odds-home-${match.id}`}
-                                      className="text-xs font-semibold min-w-[44px] h-8 odds-button"
+                                      className="font-semibold odds-button"
                                     >
                                       {match.odds["1x2"].home.toFixed(2)}
                                     </Button>
                                     <Button
-                                      size="sm"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleLiveOddsClick(match.id, "1x2", "draw", match.odds["1x2"].draw, match.homeTeam, match.awayTeam);
                                       }}
                                       data-testid={`button-odds-draw-${match.id}`}
-                                      className="text-xs font-semibold min-w-[44px] h-8 odds-button"
+                                      className="font-semibold odds-button"
                                     >
                                       {match.odds["1x2"].draw.toFixed(2)}
                                     </Button>
                                     <Button
-                                      size="sm"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         handleLiveOddsClick(match.id, "1x2", "away", match.odds["1x2"].away, match.homeTeam, match.awayTeam);
                                       }}
                                       data-testid={`button-odds-away-${match.id}`}
-                                      className="text-xs font-semibold min-w-[44px] h-8 odds-button"
+                                      className="font-semibold odds-button"
                                     >
                                       {match.odds["1x2"].away.toFixed(2)}
                                     </Button>
                                   </div>
+                                  <div className="w-6"></div> {/* Space for star icon */}
                                   {/* Star icon */}
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-6 w-6 hover:text-yellow-500 ml-2"
+                                    className="h-6 w-6 hover:text-yellow-500"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       // Add to favorites functionality
