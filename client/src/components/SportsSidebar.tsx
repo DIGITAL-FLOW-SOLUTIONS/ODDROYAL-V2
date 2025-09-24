@@ -132,7 +132,7 @@ export default function SportsSidebar() {
                               </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
-                          <SidebarMenuSubItem>
+                          <SidebarMenuSubItem className="mt-2">
                             <SidebarMenuSubButton
                               asChild
                               isActive={location === "/live"}
