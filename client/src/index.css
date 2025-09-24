@@ -167,7 +167,7 @@
   /* Surface Hierarchy - Green Theme Background Layers (Dark Mode) */
   --surface-0: 240 10% 3.9%;   /* Base background (same as --background) */
   --surface-1: 240 8% 6%;      /* Shell/sidebars */
-  --surface-2: 150 35% 25%;    /* Large panels/containers - Middle green (#2F5F3C) */
+  --surface-2: 240 8% 8%;      /* Large panels/containers - Darker for dark mode */
   --surface-3: 150 35% 28%;    /* Sport group blocks - Elevated green (#356B43) */
   --surface-4: 150 40% 18%;    /* League blocks - Darker green (#24492D) */
   --surface-5: 150 30% 35%;    /* Match rows/odds grids - Lighter green (#497D56) */

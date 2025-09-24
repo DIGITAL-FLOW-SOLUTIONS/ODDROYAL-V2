@@ -225,7 +225,7 @@ export default function BetSlip({
   };
 
   return (
-    <Card className="w-full bg-sidebar" data-testid="card-bet-slip">
+    <Card className="w-full bg-surface-2" data-testid="card-bet-slip">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-display">Bet Slip</CardTitle>
