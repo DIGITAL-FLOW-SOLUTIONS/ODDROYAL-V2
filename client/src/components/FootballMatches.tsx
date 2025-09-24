@@ -124,7 +124,6 @@ export default function FootballMatches({
         <Trophy className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-display font-bold">Football</h2>
       </div>
-
       <div className="space-y-2">
         {leagues.map((league, leagueIndex) => (
           <motion.div
@@ -251,7 +250,7 @@ export default function FootballMatches({
                             {/* Odds columns - Only show if odds are available */}
                             {match.odds ? (
                               <>
-                                <div className="col-span-1 flex items-center justify-center">
+                                <div className="col-span-1 flex items-center justify-center pl-[10px] pr-[10px]">
                                   <Button
                                     onClick={(e) => {
                                       e.stopPropagation();
