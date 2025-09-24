@@ -24,7 +24,7 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({
   children,
-  defaultTheme = "dark",
+  defaultTheme = "light",
   storageKey = "oddroyal-theme",
   ...props
 }: ThemeProviderProps) {
