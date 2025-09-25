@@ -3,6 +3,7 @@ import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import AdminAuthGuard from "./AdminAuthGuard";
 import AdminLayout from "./AdminLayout";
 import AdminLogin from "./AdminLogin";
+import AdminRegister from "./AdminRegister";
 import AdminDashboard from "./AdminDashboard";
 import AdminUserManagement from "./AdminUserManagement";
 import AdminMatchesMarkets from "./AdminMatchesMarkets";
@@ -23,6 +24,11 @@ function AdminRouter() {
       <Route path="/prime-admin/login" component={AdminLogin} />
       
       {/* Protected Admin Routes */}
+      <Route path="/prime-admin/register">
+        <AdminAuthGuard>
+          <AdminRegister />
+        </AdminAuthGuard>
+      </Route>
       <Route path="/prime-admin">
         <AdminAuthGuard>
           <AdminLayout>

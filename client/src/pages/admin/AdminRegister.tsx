@@ -27,7 +27,7 @@ function AdminRegister() {
   // Redirect if not authenticated (only authenticated superadmins can register new admins)
   useEffect(() => {
     if (!isAuthenticated) {
-      setLocation('/admin/login');
+      setLocation('/prime-admin/login');
     }
   }, [isAuthenticated, setLocation]);
 
