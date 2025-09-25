@@ -150,11 +150,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
       if (profileError) {
         console.error('Profile creation error:', profileError);
+        
+        // If it's a schema cache issue, provide helpful instructions
+        if (profileError.code === 'PGRST205') {
+          console.error('❌ PGRST205 Error: Schema cache needs refresh.');
+          console.error('Please run this SQL in your Supabase dashboard:');
+          console.error("SELECT pg_notify('pgrst', 'reload schema');");
+        }
+        
         // Clean up auth user if profile creation fails
         await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
         return res.status(500).json({ 
           success: false, 
-          error: "Failed to create user profile" 
+          error: "Database schema cache needs refresh. Please contact support." 
         });
       }
       
