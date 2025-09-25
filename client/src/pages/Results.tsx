@@ -58,7 +58,7 @@ function Results() {
 
   // Fetch bet settlements data  
   const { data: settlementsResponse, isLoading: settlementsLoading, error: settlementsError, refetch: refetchSettlements } = useQuery<{ success: boolean; data: BetWithSelections[] }>({
-    queryKey: ['/api/settlements', statusFilter],
+    queryKey: [`/api/settlements?status=${statusFilter}`],
     enabled: activeTab === 'settlements' && !!localStorage.getItem('authToken')
   });
 

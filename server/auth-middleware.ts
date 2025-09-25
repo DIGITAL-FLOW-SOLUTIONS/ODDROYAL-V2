@@ -55,7 +55,7 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
     // First try JWKS verification
     try {
       const { payload } = await jwtVerify(token, JWKS, {
-        issuer: process.env.SUPABASE_URL,
+        issuer: `${process.env.SUPABASE_URL}/auth/v1`,
         audience: 'authenticated',
       });
       userPayload = payload;
@@ -122,7 +122,7 @@ export async function authenticateAdmin(req: Request, res: Response, next: NextF
     // First try JWKS verification
     try {
       const { payload } = await jwtVerify(token, JWKS, {
-        issuer: process.env.SUPABASE_URL,
+        issuer: `${process.env.SUPABASE_URL}/auth/v1`,
         audience: 'authenticated',
       });
       userPayload = payload;
