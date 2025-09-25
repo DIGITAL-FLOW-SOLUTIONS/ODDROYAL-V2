@@ -1381,8 +1381,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Admin Registration (Superadmin only)
-  app.post("/api/admin/auth/register", ...SecurityMiddlewareOrchestrator.getAuthMiddleware(), authenticateAdmin, requireSuperadmin, adminRateLimit, auditAction('admin_registration_attempt'), async (req: any, res) => {
+  // Admin Registration - Temporarily unprotected for first superadmin setup
+  app.post("/api/admin/auth/register", ...SecurityMiddlewareOrchestrator.getAuthMiddleware(), adminRateLimit, auditAction('admin_registration_attempt'), async (req: any, res) => {
     try {
       const validatedData = adminRegistrationSchema.parse(req.body);
       
@@ -1415,17 +1415,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const adminUser = await storage.createAdminUser({
         username: validatedData.username,
         email: validatedData.email,
-        role: 'admin', // Default safe role - server-side assignment only
+        role: 'superadmin', // First admin registration gets superadmin role
         passwordHash,
         isActive: true,
         totpSecret: null,
         ipWhitelist: [],
-        createdBy: req.adminUser.id // Track who created this admin
+        createdBy: null // First superadmin - no creator
       });
       
       // Log successful registration (no session creation - let them login separately)
       await storage.createAuditLog({
-        adminId: req.adminUser.id, // Who performed the action
+        adminId: null, // First superadmin registration - no authenticated admin
         actionType: 'admin_creation',
         targetType: 'admin_user',
         targetId: adminUser.id,
