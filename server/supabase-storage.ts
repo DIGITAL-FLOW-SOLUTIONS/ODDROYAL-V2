@@ -492,15 +492,121 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getAdminUserByUsername(username: string): Promise<AdminUser | undefined> {
-    throw new Error("getAdminUserByUsername not implemented yet");
+    try {
+      const { data, error } = await this.client
+        .from('admin_users')
+        .select('*')
+        .eq('username', username)
+        .single();
+
+      if (error || !data) {
+        return undefined;
+      }
+
+      return {
+        id: data.id,
+        username: data.username,
+        email: data.email,
+        role: data.role,
+        totpSecret: data.totp_secret,
+        isActive: data.is_active,
+        lastLogin: data.last_login,
+        loginAttempts: data.login_attempts,
+        lockedUntil: data.locked_until,
+        ipWhitelist: data.ip_whitelist,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        createdBy: data.created_by,
+        passwordHash: data.password_hash // Include password hash for authentication
+      } as AdminUser & { passwordHash?: string };
+    } catch (error) {
+      console.error('Error fetching admin user by username:', error);
+      return undefined;
+    }
+  }
+
+  // Alias for rate limiting middleware compatibility
+  async getAdminByUsername(username: string): Promise<AdminUser | undefined> {
+    return this.getAdminUserByUsername(username);
   }
 
   async getAdminUserByEmail(email: string): Promise<AdminUser | undefined> {
-    throw new Error("getAdminUserByEmail not implemented yet");
+    try {
+      const { data, error } = await this.client
+        .from('admin_users')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (error || !data) {
+        return undefined;
+      }
+
+      return {
+        id: data.id,
+        username: data.username,
+        email: data.email,
+        role: data.role,
+        totpSecret: data.totp_secret,
+        isActive: data.is_active,
+        lastLogin: data.last_login,
+        loginAttempts: data.login_attempts,
+        lockedUntil: data.locked_until,
+        ipWhitelist: data.ip_whitelist,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        createdBy: data.created_by,
+        passwordHash: data.password_hash
+      } as AdminUser & { passwordHash?: string };
+    } catch (error) {
+      console.error('Error fetching admin user by email:', error);
+      return undefined;
+    }
   }
 
-  async createAdminUser(admin: InsertAdminUser): Promise<AdminUser> {
-    throw new Error("createAdminUser not implemented yet");
+  async createAdminUser(admin: InsertAdminUser & { passwordHash?: string }): Promise<AdminUser> {
+    try {
+      const { data, error } = await this.client
+        .from('admin_users')
+        .insert({
+          username: admin.username,
+          email: admin.email,
+          role: admin.role,
+          password_hash: admin.passwordHash,
+          totp_secret: admin.totpSecret,
+          is_active: admin.isActive ?? true,
+          ip_whitelist: admin.ipWhitelist,
+          created_by: admin.createdBy,
+          login_attempts: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to create admin user: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        username: data.username,
+        email: data.email,
+        role: data.role,
+        totpSecret: data.totp_secret,
+        isActive: data.is_active,
+        lastLogin: data.last_login,
+        loginAttempts: data.login_attempts,
+        lockedUntil: data.locked_until,
+        ipWhitelist: data.ip_whitelist,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        createdBy: data.created_by
+      };
+    } catch (error) {
+      console.error('Error creating admin user:', error);
+      throw error;
+    }
   }
 
   async updateAdminUser(adminId: string, updates: Partial<InsertAdminUser>): Promise<AdminUser | undefined> {
@@ -532,7 +638,49 @@ export class SupabaseStorage implements IStorage {
   }
 
   async createAuditLog(auditLog: InsertAuditLog): Promise<AuditLog> {
-    throw new Error("createAuditLog not implemented yet");
+    try {
+      const { data, error } = await this.client
+        .from('audit_logs')
+        .insert({
+          admin_id: auditLog.adminId,
+          action_type: auditLog.actionType,
+          target_type: auditLog.targetType,
+          target_id: auditLog.targetId,
+          data_before: auditLog.dataBefore,
+          data_after: auditLog.dataAfter,
+          ip_address: auditLog.ipAddress,
+          user_agent: auditLog.userAgent,
+          note: auditLog.note,
+          success: auditLog.success ?? true,
+          error_message: auditLog.errorMessage,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to create audit log: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        adminId: data.admin_id,
+        actionType: data.action_type,
+        targetType: data.target_type,
+        targetId: data.target_id,
+        dataBefore: data.data_before,
+        dataAfter: data.data_after,
+        ipAddress: data.ip_address,
+        userAgent: data.user_agent,
+        note: data.note,
+        success: data.success,
+        errorMessage: data.error_message,
+        createdAt: data.created_at
+      };
+    } catch (error) {
+      console.error('Error creating audit log:', error);
+      throw error;
+    }
   }
 
   async getAuditLogs(limit?: number, offset?: number): Promise<AuditLog[]> {
@@ -552,7 +700,35 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getAdminsByRole(role: string): Promise<AdminUser[]> {
-    throw new Error("getAdminsByRole not implemented yet");
+    try {
+      const { data, error } = await this.client
+        .from('admin_users')
+        .select('*')
+        .eq('role', role);
+
+      if (error) {
+        throw new Error(`Failed to get admins by role: ${error.message}`);
+      }
+
+      return (data || []).map(admin => ({
+        id: admin.id,
+        username: admin.username,
+        email: admin.email,
+        role: admin.role,
+        totpSecret: admin.totp_secret,
+        isActive: admin.is_active,
+        lastLogin: admin.last_login,
+        loginAttempts: admin.login_attempts,
+        lockedUntil: admin.locked_until,
+        ipWhitelist: admin.ip_whitelist,
+        createdAt: admin.created_at,
+        updatedAt: admin.updated_at,
+        createdBy: admin.created_by
+      }));
+    } catch (error) {
+      console.error('Error fetching admins by role:', error);
+      throw error;
+    }
   }
 
   async updateAdminRole(adminId: string, newRole: string, updatedBy: string): Promise<{ success: boolean; admin?: AdminUser; auditLog?: AuditLog; error?: string; }> {

@@ -6237,6 +6237,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize WebSocket server for real-time updates
   initializeWebSocket(httpServer);
   
+  // ===================== ONE-TIME SUPERADMIN SETUP ENDPOINT =====================
+  
+  // Create superadmin user (one-time setup)
+  app.post("/api/setup/create-superadmin", 
+    AdminRateLimitManager.criticalLimiter, // Rate limit for security
+    async (req, res) => {
+      try {
+        // CRITICAL: Require setup key from environment (no fallback)
+        const expectedSetupKey = process.env.SETUP_KEY;
+        if (!expectedSetupKey) {
+          console.error('SECURITY: SETUP_KEY environment variable not set');
+          return res.status(500).json({
+            success: false,
+            error: "Server configuration error"
+          });
+        }
+
+        // Validate request with proper zod schema
+        const setupSchema = z.object({
+          setupKey: z.string().min(16, "Setup key must be at least 16 characters"),
+          username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+          email: z.string().email("Invalid email format"),
+          password: z.string()
+            .min(12, "Password must be at least 12 characters")
+            .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+            .regex(/[a-z]/, "Password must contain at least one lowercase letter") 
+            .regex(/[0-9]/, "Password must contain at least one number")
+            .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character")
+        });
+
+        let validatedData;
+        try {
+          validatedData = setupSchema.parse(req.body);
+        } catch (validationError) {
+          return res.status(400).json({
+            success: false,
+            error: "Validation failed",
+            details: validationError instanceof z.ZodError ? validationError.errors : "Invalid input"
+          });
+        }
+
+        const { setupKey, username, email, password } = validatedData;
+        
+        if (setupKey !== expectedSetupKey) {
+          console.warn(`SECURITY: Invalid setup key attempt from ${req.ip}`);
+          return res.status(403).json({
+            success: false,
+            error: "Invalid setup key"
+          });
+        }
+
+        // CRITICAL: Check if superadmin exists - FAIL CLOSED if we can't verify
+        let existingSuperadmins;
+        try {
+          existingSuperadmins = await storage.getAdminsByRole("superadmin");
+        } catch (error) {
+          console.error('SECURITY: Cannot verify existing superadmins - blocking creation:', error);
+          return res.status(500).json({
+            success: false,
+            error: "Cannot verify system state - setup blocked for security"
+          });
+        }
+
+        if (existingSuperadmins && existingSuperadmins.length > 0) {
+          console.warn(`SECURITY: Attempt to create duplicate superadmin from ${req.ip}`);
+          return res.status(400).json({
+            success: false,
+            error: "Superadmin already exists. This endpoint can only be used once."
+          });
+        }
+
+        // Check if username/email already exists
+        try {
+          const existingByUsername = await storage.getAdminUserByUsername(username);
+          if (existingByUsername) {
+            return res.status(400).json({
+              success: false,
+              error: "Username already exists"
+            });
+          }
+
+          const existingByEmail = await storage.getAdminUserByEmail(email);
+          if (existingByEmail) {
+            return res.status(400).json({
+              success: false,
+              error: "Email already exists"
+            });
+          }
+        } catch (error) {
+          console.error('Cannot verify username/email uniqueness - blocking creation:', error);
+          return res.status(500).json({
+            success: false,
+            error: "Cannot verify system state - setup blocked for security"
+          });
+        }
+
+        // Hash password with Argon2
+        const passwordHash = await argon2.hash(password, {
+          type: argon2.argon2id,
+          memoryCost: 2 ** 16, // 64 MB
+          timeCost: 3,
+          parallelism: 1,
+        });
+
+        // Generate TOTP secret for 2FA
+        const totpSecret = speakeasy.generateSecret({
+          name: `OddRoyal Admin (${username})`,
+          issuer: 'OddRoyal',
+          length: 32
+        });
+
+        // Create admin user
+        const adminUser = await storage.createAdminUser({
+          username,
+          email,
+          role: 'superadmin',
+          passwordHash,
+          totpSecret: totpSecret.base32!,
+          isActive: true
+        });
+
+        // Generate QR code for 2FA setup
+        const totpQrCode = await qrcode.toString(totpSecret.otpauth_url!, { type: 'terminal' });
+
+        // Create audit log
+        try {
+          await storage.createAuditLog({
+            adminId: adminUser.id,
+            actionType: 'create_superadmin',
+            targetType: 'admin_user',
+            targetId: adminUser.id,
+            dataAfter: {
+              username: adminUser.username,
+              email: adminUser.email,
+              role: adminUser.role,
+              createdBy: 'setup_endpoint'
+            },
+            note: 'Superadmin created via setup endpoint',
+            ipAddress: req.ip || 'unknown',
+            userAgent: req.get('User-Agent') || 'unknown',
+            success: true
+          });
+        } catch (auditError) {
+          console.error('Failed to create audit log:', auditError);
+          // Don't fail the whole operation for audit log issues
+        }
+
+        console.log('🎉 Superadmin created successfully!');
+        console.log('👤 Username:', username);
+        console.log('📧 Email:', email);
+        console.log('🔐 2FA QR Code:');
+        console.log(totpQrCode);
+
+        res.json({
+          success: true,
+          message: 'Superadmin created successfully',
+          data: {
+            id: adminUser.id,
+            username: adminUser.username,
+            email: adminUser.email,
+            role: adminUser.role,
+            totpSetupUrl: totpSecret.otpauth_url,
+            manualEntryKey: totpSecret.base32,
+            qrCodeText: totpQrCode
+          }
+        });
+
+      } catch (error) {
+        console.error('Superadmin creation error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to create superadmin',
+          details: (error as Error).message
+        });
+      }
+    }
+  );
+  
   return httpServer;
 }
 
@@ -6410,181 +6588,3 @@ async function createDashboardAlert(notification: any) {
     throw error;
   }
 }
-
-// ===================== ONE-TIME SUPERADMIN SETUP ENDPOINT =====================
-
-// Create superadmin user (one-time setup)
-app.post("/api/setup/create-superadmin", 
-  AdminRateLimitManager.criticalLimiter, // Rate limit for security
-  async (req, res) => {
-    try {
-      // CRITICAL: Require setup key from environment (no fallback)
-      const expectedSetupKey = process.env.SETUP_KEY;
-      if (!expectedSetupKey) {
-        console.error('SECURITY: SETUP_KEY environment variable not set');
-        return res.status(500).json({
-          success: false,
-          error: "Server configuration error"
-        });
-      }
-
-      // Validate request with proper zod schema
-      const setupSchema = z.object({
-        setupKey: z.string().min(16, "Setup key must be at least 16 characters"),
-        username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
-        email: z.string().email("Invalid email format"),
-        password: z.string()
-          .min(12, "Password must be at least 12 characters")
-          .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-          .regex(/[a-z]/, "Password must contain at least one lowercase letter") 
-          .regex(/[0-9]/, "Password must contain at least one number")
-          .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character")
-      });
-
-      let validatedData;
-      try {
-        validatedData = setupSchema.parse(req.body);
-      } catch (validationError) {
-        return res.status(400).json({
-          success: false,
-          error: "Validation failed",
-          details: validationError instanceof z.ZodError ? validationError.errors : "Invalid input"
-        });
-      }
-
-      const { setupKey, username, email, password } = validatedData;
-      
-      if (setupKey !== expectedSetupKey) {
-        console.warn(`SECURITY: Invalid setup key attempt from ${req.ip}`);
-        return res.status(403).json({
-          success: false,
-          error: "Invalid setup key"
-        });
-      }
-
-      // CRITICAL: Check if superadmin exists - FAIL CLOSED if we can't verify
-      let existingSuperadmins;
-      try {
-        existingSuperadmins = await storage.getAdminsByRole("superadmin");
-      } catch (error) {
-        console.error('SECURITY: Cannot verify existing superadmins - blocking creation:', error);
-        return res.status(500).json({
-          success: false,
-          error: "Cannot verify system state - setup blocked for security"
-        });
-      }
-
-      if (existingSuperadmins && existingSuperadmins.length > 0) {
-        console.warn(`SECURITY: Attempt to create duplicate superadmin from ${req.ip}`);
-        return res.status(400).json({
-          success: false,
-          error: "Superadmin already exists. This endpoint can only be used once."
-        });
-      }
-
-      // Check if username/email already exists
-      try {
-        const existingByUsername = await storage.getAdminUserByUsername(username);
-        if (existingByUsername) {
-          return res.status(400).json({
-            success: false,
-            error: "Username already exists"
-          });
-        }
-
-        const existingByEmail = await storage.getAdminUserByEmail(email);
-        if (existingByEmail) {
-          return res.status(400).json({
-            success: false,
-            error: "Email already exists"
-          });
-        }
-      } catch (error) {
-        console.error('Cannot verify username/email uniqueness - blocking creation:', error);
-        return res.status(500).json({
-          success: false,
-          error: "Cannot verify system state - setup blocked for security"
-        });
-      }
-
-      // Hash password with Argon2 (same parameters as the admin creation script)
-      const passwordHash = await argon2.hash(password, {
-        type: argon2.argon2id,
-        memoryCost: 2 ** 16, // 64 MB
-        timeCost: 3,
-        parallelism: 1,
-      });
-
-      // Generate TOTP secret for 2FA
-      const totpSecret = speakeasy.generateSecret({
-        name: `OddRoyal Admin (${username})`,
-        issuer: 'OddRoyal',
-        length: 32
-      });
-
-      // Create admin user
-      const adminUser = await storage.createAdminUser({
-        username,
-        email,
-        role: 'superadmin',
-        passwordHash,
-        totpSecret: totpSecret.base32!,
-        isActive: true
-      });
-
-      // Generate QR code for 2FA setup
-      const totpQrCode = await qrcode.toString(totpSecret.otpauth_url!, { type: 'terminal' });
-
-      // Create audit log
-      try {
-        await storage.createAuditLog({
-          adminId: adminUser.id,
-          actionType: 'create_superadmin',
-          targetType: 'admin_user',
-          targetId: adminUser.id,
-          dataAfter: {
-            username: adminUser.username,
-            email: adminUser.email,
-            role: adminUser.role,
-            createdBy: 'setup_endpoint'
-          },
-          note: 'Superadmin created via setup endpoint',
-          ipAddress: req.ip || 'unknown',
-          userAgent: req.get('User-Agent') || 'unknown',
-          success: true
-        });
-      } catch (auditError) {
-        console.error('Failed to create audit log:', auditError);
-        // Don't fail the whole operation for audit log issues
-      }
-
-      console.log('🎉 Superadmin created successfully!');
-      console.log('👤 Username:', username);
-      console.log('📧 Email:', email);
-      console.log('🔐 2FA QR Code:');
-      console.log(totpQrCode);
-
-      res.json({
-        success: true,
-        message: 'Superadmin created successfully',
-        data: {
-          id: adminUser.id,
-          username: adminUser.username,
-          email: adminUser.email,
-          role: adminUser.role,
-          totpSetupUrl: totpSecret.otpauth_url,
-          manualEntryKey: totpSecret.base32,
-          qrCodeText: totpQrCode
-        }
-      });
-
-    } catch (error) {
-      console.error('Superadmin creation error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to create superadmin',
-        details: (error as Error).message
-      });
-    }
-  }
-);
