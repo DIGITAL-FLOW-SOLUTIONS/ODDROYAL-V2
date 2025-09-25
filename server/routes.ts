@@ -394,6 +394,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin Authentication Routes
+  
+  // Admin Login
+  app.post("/api/admin/login", ...SecurityMiddlewareOrchestrator.getAuthMiddleware(), async (req, res) => {
+    try {
+      const { username, password } = z.object({
+        username: z.string().min(1),
+        password: z.string().min(1)
+      }).parse(req.body);
+      
+      // Get admin user by username
+      const adminUser = await storage.getAdminUserByUsername(username);
+      if (!adminUser) {
+        return res.status(401).json({
+          success: false,
+          error: "Invalid credentials"
+        });
+      }
+      
+      // Check if admin is active
+      if (!adminUser.isActive) {
+        return res.status(403).json({
+          success: false,
+          error: "Admin account is inactive"
+        });
+      }
+      
+      // Check if admin is locked out
+      if (adminUser.lockedUntil && adminUser.lockedUntil > new Date()) {
+        return res.status(423).json({
+          success: false,
+          error: "Admin account is temporarily locked"
+        });
+      }
+      
+      // Verify password using Argon2
+      const isValidPassword = await argon2.verify(adminUser.passwordHash, password);
+      if (!isValidPassword) {
+        // Increment login attempts
+        const newAttempts = adminUser.loginAttempts + 1;
+        const lockoutTime = newAttempts >= 5 ? new Date(Date.now() + 30 * 60 * 1000) : undefined; // Lock for 30 minutes after 5 attempts
+        
+        await storage.updateAdminLoginAttempts(adminUser.id, newAttempts, lockoutTime);
+        
+        return res.status(401).json({
+          success: false,
+          error: lockoutTime ? "Too many failed attempts. Account locked for 30 minutes." : "Invalid credentials"
+        });
+      }
+      
+      // Reset login attempts on successful login
+      if (adminUser.loginAttempts > 0) {
+        await storage.updateAdminLoginAttempts(adminUser.id, 0);
+      }
+      
+      // Create admin session
+      const sessionToken = randomUUID();
+      const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000); // 12 hours
+      const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
+      const userAgent = req.get('User-Agent') || 'unknown';
+      
+      const session = await storage.createAdminSession(
+        adminUser.id,
+        sessionToken,
+        expiresAt,
+        false, // 2FA not verified yet
+        clientIp,
+        userAgent
+      );
+      
+      // Generate CSRF token
+      const csrfToken = await CSRFProtectionManager.generateCSRFToken(adminUser.id);
+      
+      res.json({
+        success: true,
+        data: {
+          sessionToken,
+          csrfToken,
+          admin: {
+            id: adminUser.id,
+            username: adminUser.username,
+            email: adminUser.email,
+            role: adminUser.role,
+            twoFactorEnabled: !!adminUser.totpSecret
+          },
+          expiresAt
+        }
+      });
+      
+    } catch (error) {
+      console.error('Admin login error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid request data"
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: "Login failed"
+      });
+    }
+  });
+  
+  // Admin Logout
+  app.post("/api/admin/logout", authenticateAdmin, async (req: any, res) => {
+    try {
+      const sessionToken = req.headers.authorization?.replace('Bearer ', '');
+      
+      if (sessionToken) {
+        await storage.deleteAdminSession(sessionToken);
+      }
+      
+      res.json({
+        success: true,
+        message: "Logged out successfully"
+      });
+      
+    } catch (error) {
+      console.error('Admin logout error:', error);
+      res.status(500).json({
+        success: false,
+        error: "Logout failed"
+      });
+    }
+  });
+  
+  // Get Current Admin (validate session)
+  app.get("/api/admin/me", authenticateAdmin, async (req: any, res) => {
+    try {
+      res.json({
+        success: true,
+        data: {
+          admin: req.adminUser,
+          session: req.sessionMetadata
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get current admin error:', error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get admin data"
+      });
+    }
+  });
+
   // Profile and Wallet Routes
   
   // Update Profile (username/email)
