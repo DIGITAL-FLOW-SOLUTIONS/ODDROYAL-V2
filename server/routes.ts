@@ -25,6 +25,7 @@ import {
   currencyUtils,
   loginAdminSchema,
   insertAdminUserSchema,
+  adminRegistrationSchema,
   User,
   AdminRoles,
   rolePermissions
@@ -1376,6 +1377,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: 'Login failed'
+      });
+    }
+  });
+  
+  // Admin Registration (Superadmin only)
+  app.post("/api/admin/auth/register", ...SecurityMiddlewareOrchestrator.getAuthMiddleware(), authenticateAdmin, requireSuperadmin, adminRateLimit, auditAction('admin_registration_attempt'), async (req: any, res) => {
+    try {
+      const validatedData = adminRegistrationSchema.parse(req.body);
+      
+      // Check if username or email already exists
+      const existingUser = await storage.getAdminUserByUsername(validatedData.username);
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          error: 'Username already exists'
+        });
+      }
+      
+      const existingEmail = await storage.getAdminUserByEmail?.(validatedData.email);
+      if (existingEmail) {
+        return res.status(409).json({
+          success: false,
+          error: 'Email already exists'
+        });
+      }
+      
+      // Hash password with Argon2
+      const passwordHash = await argon2.hash(validatedData.password, {
+        type: argon2.argon2id,
+        memoryCost: 2 ** 16, // 64 MB
+        timeCost: 3,
+        parallelism: 1,
+      });
+      
+      // Create admin user with default role
+      const adminUser = await storage.createAdminUser({
+        username: validatedData.username,
+        email: validatedData.email,
+        role: 'admin', // Default safe role - server-side assignment only
+        passwordHash,
+        isActive: true,
+        totpSecret: null,
+        ipWhitelist: [],
+        createdBy: req.adminUser.id // Track who created this admin
+      });
+      
+      // Log successful registration (no session creation - let them login separately)
+      await storage.createAuditLog({
+        adminId: req.adminUser.id, // Who performed the action
+        actionType: 'admin_creation',
+        targetType: 'admin_user',
+        targetId: adminUser.id,
+        dataBefore: null,
+        dataAfter: { username: adminUser.username, email: adminUser.email, role: adminUser.role },
+        note: `Admin user created: ${adminUser.username}`,
+        ipAddress: req.ip || null,
+        userAgent: req.get('User-Agent') || null,
+        success: true,
+        errorMessage: null
+      });
+      
+      // Return created admin user (without password)
+      const { passwordHash: _, ...adminWithoutPassword } = adminUser;
+      res.status(201).json({
+        success: true,
+        data: {
+          admin: adminWithoutPassword,
+          message: 'Admin user created successfully. They can now login with their credentials.'
+        }
+      });
+      
+    } catch (error) {
+      console.error('Admin registration error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid registration data',
+          details: error.errors
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: 'Registration failed'
       });
     }
   });
