@@ -82,21 +82,6 @@ spec:
             configMapKeyRef:
               name: oddroyal-config
               key: MAINTENANCE_MODE
-        - name: PGHOST
-          valueFrom:
-            configMapKeyRef:
-              name: oddroyal-config
-              key: PGHOST
-        - name: PGPORT
-          valueFrom:
-            configMapKeyRef:
-              name: oddroyal-config
-              key: PGPORT
-        - name: PGDATABASE
-          valueFrom:
-            configMapKeyRef:
-              name: oddroyal-config
-              key: PGDATABASE
         - name: REDIS_HOST
           valueFrom:
             configMapKeyRef:
@@ -109,21 +94,21 @@ spec:
               key: REDIS_PORT
         
         # Secrets
-        - name: DATABASE_URL
+        - name: SUPABASE_URL
           valueFrom:
             secretKeyRef:
               name: oddroyal-secrets
-              key: DATABASE_URL
-        - name: PGUSER
+              key: SUPABASE_URL
+        - name: SUPABASE_SERVICE_ROLE_KEY
           valueFrom:
             secretKeyRef:
               name: oddroyal-secrets
-              key: POSTGRES_USER
-        - name: PGPASSWORD
+              key: SUPABASE_SERVICE_ROLE_KEY
+        - name: SUPABASE_ANON_KEY
           valueFrom:
             secretKeyRef:
               name: oddroyal-secrets
-              key: POSTGRES_PASSWORD
+              key: SUPABASE_ANON_KEY
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
