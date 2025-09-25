@@ -99,14 +99,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { message: "Passwords don't match", path: ["confirmPassword"] }
       ).parse(req.body);
       
-      // Check if username already exists in profiles
-      const { data: existingProfile } = await supabaseAdmin
-        .from('profiles')
+      // Check if username already exists in users table
+      const { data: existingUser } = await supabaseAdmin
+        .from('users')
         .select('username')
         .eq('username', validatedData.username)
         .single();
         
-      if (existingProfile) {
+      if (existingUser) {
         return res.status(400).json({ 
           success: false, 
           error: "Username already exists" 
@@ -135,27 +135,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Create user profile
+      // Create user profile in users table (matching user's actual schema)
       const { error: profileError } = await supabaseAdmin
-        .from('profiles')
+        .from('users')
         .insert({
           id: authData.user.id,
           username: validatedData.username,
           email: validatedData.email,
           first_name: validatedData.firstName || null,
           last_name: validatedData.lastName || null,
-          balance_cents: 0,
+          balance: 0, // User's schema has 'balance' not 'balance_cents'
           is_active: true
         });
         
       if (profileError) {
         console.error('Profile creation error:', profileError);
         
-        // If it's a schema cache issue, provide helpful instructions
+        // Log more details for debugging
         if (profileError.code === 'PGRST205') {
-          console.error('❌ PGRST205 Error: Schema cache needs refresh.');
-          console.error('Please run this SQL in your Supabase dashboard:');
-          console.error("SELECT pg_notify('pgrst', 'reload schema');");
+          console.error('❌ PGRST205 Error: Table not found.');
+          console.error('Table name issue resolved - now using users table');
         }
         
         // Clean up auth user if profile creation fails
@@ -236,7 +235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!username.includes('@')) {
         // Username provided, need to find email
         const { data: profile } = await supabaseAdmin
-          .from('profiles')
+          .from('users')
           .select('id')
           .eq('username', username)
           .single();
@@ -274,7 +273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get user profile
       const { data: profile, error: profileError } = await supabaseAdmin
-        .from('profiles')
+        .from('users')
         .select('*')
         .eq('id', authData.user.id)
         .single();
@@ -303,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             username: profile.username,
             firstName: profile.first_name,
             lastName: profile.last_name,
-            balance: currencyUtils.centsToPounds(profile.balance_cents).toString()
+            balance: (profile.balance / 100).toFixed(2) // Convert cents to pounds
           },
           sessionToken: authData.session?.access_token || '',
           refreshToken: authData.session?.refresh_token || ''
@@ -355,7 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get user profile from database
       const { data: profile, error } = await supabaseAdmin
-        .from('profiles')
+        .from('users')
         .select('*')
         .eq('id', userId)
         .single();
@@ -382,7 +381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           username: profile.username,
           firstName: profile.first_name,
           lastName: profile.last_name,
-          balance: currencyUtils.centsToPounds(profile.balance_cents).toString()
+          balance: (profile.balance / 100).toFixed(2) // Convert cents to pounds
         }
       });
       
@@ -408,7 +407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if username already exists for other users
       if (username) {
         const { data: existingProfile } = await supabaseAdmin
-          .from('profiles')
+          .from('users')
           .select('id')
           .eq('username', username)
           .neq('id', req.user.id)
@@ -440,7 +439,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update profile in database
       if (username) {
         const { error: profileError } = await supabaseAdmin
-          .from('profiles')
+          .from('users')
           .update({ username })
           .eq('id', req.user.id);
           
@@ -782,7 +781,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get user profile from Supabase to check account status and balance
       const { data: profile, error: profileError } = await supabaseAdmin
-        .from('profiles')
+        .from('users')
         .select('*')
         .eq('id', req.user.id)
         .single();
@@ -804,7 +803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if user has sufficient balance
       const stakeCents = validatedData.totalStake;
-      if (profile.balance_cents < stakeCents) {
+      if (profile.balance < stakeCents) {
         return res.status(400).json({ 
           success: false, 
           error: "Insufficient funds" 

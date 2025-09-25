@@ -12,14 +12,14 @@ import { Tables } from "./types/database";
 
 // Convert snake_case database rows to camelCase domain types
 
-export function toUser(row: Tables<'profiles'>): User {
+export function toUser(row: Tables<'users'>): User {
   return {
     id: row.id,
     email: row.email,
     username: row.username,
     firstName: row.first_name,
     lastName: row.last_name,
-    balance: row.balance_cents,
+    balance: row.balance,
     isActive: row.is_active,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -30,14 +30,14 @@ export function toBet(row: Tables<'bets'>): Bet {
   return {
     id: row.id,
     userId: row.user_id,
-    type: row.bet_type,
-    totalStake: row.total_stake_cents,
-    potentialWinnings: row.potential_winnings_cents,
+    type: row.type,
+    totalStake: row.total_stake,
+    potentialWinnings: row.potential_winnings,
     totalOdds: "1.00",
     status: row.status as "pending" | "won" | "lost" | "cashout" | "cancelled",
     placedAt: row.placed_at,
     settledAt: row.settled_at,
-    actualWinnings: row.actual_winnings_cents,
+    actualWinnings: row.actual_winnings,
   };
 }
 
@@ -49,8 +49,8 @@ export function toBetSelection(row: Tables<'bet_selections'>): BetSelection {
     homeTeam: row.home_team,
     awayTeam: row.away_team,
     league: row.league,
-    marketId: row.fixture_id, // Use fixture_id as placeholder
-    outcomeId: row.id, // Use id as placeholder
+    marketId: row.market_id,
+    outcomeId: row.outcome_id,
     market: row.market,
     selection: row.selection,
     odds: row.odds,
@@ -64,10 +64,10 @@ export function toTransaction(row: Tables<'transactions'>): Transaction {
     id: row.id,
     userId: row.user_id,
     type: row.type as "deposit" | "withdrawal" | "bet_stake" | "bet_winnings" | "bonus",
-    amount: row.amount_cents,
-    balanceBefore: 0, // TODO: Add this field to database if needed
-    balanceAfter: row.balance_after_cents,
-    reference: row.reference_id,
+    amount: row.amount,
+    balanceBefore: row.balance_before,
+    balanceAfter: row.balance_after,
+    reference: row.reference,
     description: row.description,
     status: "completed", // TODO: Add this field to database if needed
     createdAt: row.created_at,
@@ -78,9 +78,9 @@ export function toUserFavorite(row: Tables<'user_favorites'>): UserFavorite {
   return {
     id: row.id,
     userId: row.user_id,
-    type: row.entity_type as "league" | "team" | "fixture",
+    type: row.type as "league" | "team" | "fixture",
     entityId: row.entity_id,
-    entityName: row.entity_id, // Use entity_id as placeholder
+    entityName: row.entity_name,
     createdAt: row.created_at,
   };
 }

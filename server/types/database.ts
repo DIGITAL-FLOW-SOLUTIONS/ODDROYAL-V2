@@ -1,56 +1,38 @@
-// Supabase Database Types for Betting Application
+// Supabase Database Types for Betting Application - Matching User's Actual Schema
 export interface Database {
   public: {
     Tables: {
-      profiles: {
+      users: {
         Row: {
           id: string;
-          email: string;
           username: string;
+          email: string;
           first_name: string | null;
           last_name: string | null;
-          phone_number: string | null;
-          date_of_birth: string | null;
-          balance_cents: number;
-          currency: string;
-          is_verified: boolean;
+          balance: number; // INTEGER - Balance in cents
           is_active: boolean;
-          preferred_odds_format: string;
-          marketing_consent: boolean;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
-          email: string;
           username: string;
+          email: string;
           first_name?: string | null;
           last_name?: string | null;
-          phone_number?: string | null;
-          date_of_birth?: string | null;
-          balance_cents?: number;
-          currency?: string;
-          is_verified?: boolean;
+          balance?: number;
           is_active?: boolean;
-          preferred_odds_format?: string;
-          marketing_consent?: boolean;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
-          email?: string;
           username?: string;
+          email?: string;
           first_name?: string | null;
           last_name?: string | null;
-          phone_number?: string | null;
-          date_of_birth?: string | null;
-          balance_cents?: number;
-          currency?: string;
-          is_verified?: boolean;
+          balance?: number;
           is_active?: boolean;
-          preferred_odds_format?: string;
-          marketing_consent?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -59,39 +41,42 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          bet_type: string;
-          total_stake_cents: number;
-          potential_winnings_cents: number;
-          actual_winnings_cents: number | null;
-          status: string;
+          type: 'single' | 'express' | 'system'; // bet_type enum
+          total_stake: number; // INTEGER - Stake in cents
+          potential_winnings: number; // INTEGER - Winnings in cents
+          total_odds: string; // VARCHAR(20)
+          status: 'pending' | 'won' | 'lost' | 'cashout' | 'cancelled'; // bet_status enum
           placed_at: string;
           settled_at: string | null;
+          actual_winnings: number; // INTEGER - Actual winnings in cents
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          bet_type: string;
-          total_stake_cents: number;
-          potential_winnings_cents: number;
-          actual_winnings_cents?: number | null;
-          status?: string;
+          type: 'single' | 'express' | 'system';
+          total_stake: number;
+          potential_winnings: number;
+          total_odds: string;
+          status?: 'pending' | 'won' | 'lost' | 'cashout' | 'cancelled';
           placed_at?: string;
           settled_at?: string | null;
+          actual_winnings?: number;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          bet_type?: string;
-          total_stake_cents?: number;
-          potential_winnings_cents?: number;
-          actual_winnings_cents?: number | null;
-          status?: string;
+          type?: 'single' | 'express' | 'system';
+          total_stake?: number;
+          potential_winnings?: number;
+          total_odds?: string;
+          status?: 'pending' | 'won' | 'lost' | 'cashout' | 'cancelled';
           placed_at?: string;
           settled_at?: string | null;
+          actual_winnings?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -104,10 +89,12 @@ export interface Database {
           home_team: string;
           away_team: string;
           league: string;
+          market_id: string;
+          outcome_id: string;
           market: string;
           selection: string;
-          odds: string;
-          status: string;
+          odds: string; // VARCHAR(20)
+          status: 'pending' | 'won' | 'lost' | 'void'; // bet_selection_status enum
           result: string | null;
           created_at: string;
           updated_at: string;
@@ -119,10 +106,12 @@ export interface Database {
           home_team: string;
           away_team: string;
           league: string;
+          market_id: string;
+          outcome_id: string;
           market: string;
           selection: string;
           odds: string;
-          status?: string;
+          status?: 'pending' | 'won' | 'lost' | 'void';
           result?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -134,10 +123,12 @@ export interface Database {
           home_team?: string;
           away_team?: string;
           league?: string;
+          market_id?: string;
+          outcome_id?: string;
           market?: string;
           selection?: string;
           odds?: string;
-          status?: string;
+          status?: 'pending' | 'won' | 'lost' | 'void';
           result?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -147,34 +138,37 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          type: string;
-          amount_cents: number;
-          description: string;
-          reference_type: string | null;
-          reference_id: string | null;
-          balance_after_cents: number;
+          type: 'deposit' | 'withdrawal' | 'bet_stake' | 'bet_winnings' | 'bonus'; // transaction_type enum
+          amount: number; // INTEGER - Amount in cents (can be negative)
+          balance_before: number; // INTEGER
+          balance_after: number; // INTEGER
+          reference: string | null; // VARCHAR(255)
+          description: string | null; // TEXT
+          status: 'pending' | 'completed' | 'failed'; // transaction_status enum
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          type: string;
-          amount_cents: number;
-          description: string;
-          reference_type?: string | null;
-          reference_id?: string | null;
-          balance_after_cents: number;
+          type: 'deposit' | 'withdrawal' | 'bet_stake' | 'bet_winnings' | 'bonus';
+          amount: number;
+          balance_before: number;
+          balance_after: number;
+          reference?: string | null;
+          description?: string | null;
+          status?: 'pending' | 'completed' | 'failed';
           created_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          type?: string;
-          amount_cents?: number;
-          description?: string;
-          reference_type?: string | null;
-          reference_id?: string | null;
-          balance_after_cents?: number;
+          type?: 'deposit' | 'withdrawal' | 'bet_stake' | 'bet_winnings' | 'bonus';
+          amount?: number;
+          balance_before?: number;
+          balance_after?: number;
+          reference?: string | null;
+          description?: string | null;
+          status?: 'pending' | 'completed' | 'failed';
           created_at?: string;
         };
       };
@@ -182,22 +176,25 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          entity_type: string;
-          entity_id: string;
+          type: 'team' | 'league' | 'fixture'; // favorite_type enum
+          entity_id: string; // VARCHAR(255)
+          entity_name: string; // VARCHAR(255)
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          entity_type: string;
+          type: 'team' | 'league' | 'fixture';
           entity_id: string;
+          entity_name: string;
           created_at?: string;
         };
         Update: {
           id?: string;
           user_id?: string;
-          entity_type?: string;
+          type?: 'team' | 'league' | 'fixture';
           entity_id?: string;
+          entity_name?: string;
           created_at?: string;
         };
       };

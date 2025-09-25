@@ -117,7 +117,7 @@ export class SupabaseStorage implements IStorage {
     };
     
     if (actualWinningsCents !== undefined) {
-      updateData.actual_winnings_cents = actualWinningsCents;
+      updateData.actual_winnings = actualWinningsCents;
       updateData.settled_at = new Date().toISOString();
     }
 
@@ -140,9 +140,9 @@ export class SupabaseStorage implements IStorage {
     newBalanceCents: number,
   ): Promise<User | undefined> {
     const { data, error } = await this.client
-      .from('profiles')
+      .from('users')
       .update({ 
-        balance_cents: newBalanceCents,
+        balance: newBalanceCents,
         updated_at: new Date().toISOString()
       })
       .eq('id', userId)
@@ -162,11 +162,12 @@ export class SupabaseStorage implements IStorage {
     const insertData: TablesInsert<'transactions'> = {
       user_id: transaction.userId,
       type: transaction.type,
-      amount_cents: transaction.amountCents,
+      amount: transaction.amount,
+      balance_before: transaction.balanceBefore,
+      balance_after: transaction.balanceAfter,
+      reference: transaction.reference,
       description: transaction.description,
-      reference_type: transaction.referenceType,
-      reference_id: transaction.referenceId,
-      balance_after_cents: transaction.balanceAfterCents,
+      status: transaction.status || 'completed'
     };
 
     const { data, error } = await this.client
@@ -203,7 +204,7 @@ export class SupabaseStorage implements IStorage {
 
   async getUser(id: string): Promise<User | undefined> {
     const { data, error } = await this.client
-      .from('profiles')
+      .from('users')
       .select('*')
       .eq('id', id)
       .single();
@@ -218,7 +219,7 @@ export class SupabaseStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     const { data, error } = await this.client
-      .from('profiles')
+      .from('users')
       .select('*')
       .eq('username', username)
       .single();
@@ -233,7 +234,7 @@ export class SupabaseStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<User | undefined> {
     const { data, error } = await this.client
-      .from('profiles')
+      .from('users')
       .select('*')
       .eq('email', email)
       .single();
@@ -247,23 +248,17 @@ export class SupabaseStorage implements IStorage {
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const insertData: TablesInsert<'profiles'> = {
+    const insertData: TablesInsert<'users'> = {
       email: user.email,
       username: user.username,
       first_name: user.firstName,
       last_name: user.lastName,
-      phone_number: user.phoneNumber,
-      date_of_birth: user.dateOfBirth,
-      balance_cents: user.balanceCents || 0,
-      currency: user.currency || 'GBP',
-      is_verified: user.isVerified || false,
+      balance: user.balanceCents || 0,
       is_active: user.isActive !== false, // Default to true
-      preferred_odds_format: user.preferredOddsFormat || 'decimal',
-      marketing_consent: user.marketingConsent || false,
     };
 
     const { data, error } = await this.client
-      .from('profiles')
+      .from('users')
       .insert(insertData)
       .select()
       .single();
@@ -294,7 +289,7 @@ export class SupabaseStorage implements IStorage {
     if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
 
     const { data, error } = await this.client
-      .from('profiles')
+      .from('users')
       .update(updateData)
       .eq('id', userId)
       .select()
@@ -312,10 +307,10 @@ export class SupabaseStorage implements IStorage {
   async createBet(bet: InsertBet & { userId: string }): Promise<Bet> {
     const insertData: TablesInsert<'bets'> = {
       user_id: bet.userId,
-      bet_type: bet.betType,
-      total_stake_cents: bet.totalStakeCents,
-      potential_winnings_cents: bet.potentialWinningsCents,
-      actual_winnings_cents: bet.actualWinningsCents,
+      type: bet.betType,
+      total_stake: bet.totalStakeCents,
+      potential_winnings: bet.potentialWinningsCents,
+      actual_winnings: bet.actualWinningsCents,
       status: bet.status || 'pending',
       placed_at: bet.placedAt || new Date().toISOString(),
     };
@@ -340,6 +335,8 @@ export class SupabaseStorage implements IStorage {
       home_team: selection.homeTeam,
       away_team: selection.awayTeam,
       league: selection.league,
+      market_id: selection.marketId,
+      outcome_id: selection.outcomeId,
       market: selection.market,
       selection: selection.selection,
       odds: selection.odds,

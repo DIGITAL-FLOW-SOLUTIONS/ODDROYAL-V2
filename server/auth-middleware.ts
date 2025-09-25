@@ -34,9 +34,9 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
       audience: 'authenticated',
     });
 
-    // Check if user exists and is active in our profiles table
+    // Check if user exists and is active in our users table
     const { data: profile, error } = await supabaseAdmin
-      .from('profiles')
+      .from('users')
       .select('*')
       .eq('id', payload.sub)
       .single();
