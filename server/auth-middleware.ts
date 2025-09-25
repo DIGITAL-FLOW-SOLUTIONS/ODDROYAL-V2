@@ -17,7 +17,30 @@ declare global {
   }
 }
 
-const JWKS = createRemoteJWKSet(new URL(`${process.env.SUPABASE_URL}/rest/v1/jwks`));
+// Create JWKS with the correct Supabase endpoint
+const JWKS = createRemoteJWKSet(new URL(`${process.env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`));
+
+// Fallback function to verify JWT by calling Supabase auth directly
+async function verifyTokenWithSupabase(token: string) {
+  try {
+    const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': process.env.SUPABASE_ANON_KEY!,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Token verification failed');
+    }
+
+    const userData = await response.json();
+    return userData;
+  } catch (error) {
+    throw new Error('Token verification failed');
+  }
+}
 
 export async function authenticateUser(req: Request, res: Response, next: NextFunction) {
   try {
@@ -27,18 +50,41 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
     }
 
     const token = authHeader.substring(7);
+    let userPayload: any = null;
     
-    // Verify JWT token with Supabase
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer: process.env.SUPABASE_URL,
-      audience: 'authenticated',
-    });
+    // First try JWKS verification
+    try {
+      const { payload } = await jwtVerify(token, JWKS, {
+        issuer: process.env.SUPABASE_URL,
+        audience: 'authenticated',
+      });
+      userPayload = payload;
+    } catch (jwksError) {
+      console.log('JWKS verification failed, trying direct Supabase verification:', jwksError.message);
+      
+      // Fallback to direct Supabase verification
+      try {
+        const userData = await verifyTokenWithSupabase(token);
+        userPayload = {
+          sub: userData.id,
+          email: userData.email,
+          aud: userData.aud || 'authenticated'
+        };
+      } catch (fallbackError) {
+        console.error('Both JWKS and Supabase verification failed:', fallbackError);
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+    }
+
+    if (!userPayload || !userPayload.sub) {
+      return res.status(401).json({ error: 'Invalid token payload' });
+    }
 
     // Check if user exists and is active in our users table
     const { data: profile, error } = await supabaseAdmin
       .from('users')
       .select('*')
-      .eq('id', payload.sub)
+      .eq('id', userPayload.sub)
       .single();
 
     if (error || !profile) {
@@ -50,10 +96,10 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
     }
 
     req.user = {
-      id: payload.sub!,
-      email: payload.email as string,
-      aud: payload.aud as string,
-      exp: payload.exp!,
+      id: userPayload.sub,
+      email: userPayload.email as string,
+      aud: userPayload.aud as string,
+      exp: userPayload.exp || Math.floor(Date.now() / 1000) + 3600, // Default 1 hour if not present
     };
 
     next();
@@ -71,18 +117,41 @@ export async function authenticateAdmin(req: Request, res: Response, next: NextF
     }
 
     const token = authHeader.substring(7);
+    let userPayload: any = null;
     
-    // Verify JWT token with Supabase
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer: process.env.SUPABASE_URL,
-      audience: 'authenticated',
-    });
+    // First try JWKS verification
+    try {
+      const { payload } = await jwtVerify(token, JWKS, {
+        issuer: process.env.SUPABASE_URL,
+        audience: 'authenticated',
+      });
+      userPayload = payload;
+    } catch (jwksError) {
+      console.log('Admin JWKS verification failed, trying direct Supabase verification:', jwksError.message);
+      
+      // Fallback to direct Supabase verification
+      try {
+        const userData = await verifyTokenWithSupabase(token);
+        userPayload = {
+          sub: userData.id,
+          email: userData.email,
+          aud: userData.aud || 'authenticated'
+        };
+      } catch (fallbackError) {
+        console.error('Both JWKS and Supabase verification failed for admin:', fallbackError);
+        return res.status(401).json({ error: 'Invalid or expired token' });
+      }
+    }
+
+    if (!userPayload || !userPayload.sub) {
+      return res.status(401).json({ error: 'Invalid token payload' });
+    }
 
     // Check if user is an admin
     const { data: adminUser, error } = await supabaseAdmin
       .from('admin_users')
       .select('*')
-      .eq('id', payload.sub)
+      .eq('id', userPayload.sub)
       .single();
 
     if (error || !adminUser) {
@@ -94,11 +163,11 @@ export async function authenticateAdmin(req: Request, res: Response, next: NextF
     }
 
     req.user = {
-      id: payload.sub!,
-      email: payload.email as string,
+      id: userPayload.sub,
+      email: userPayload.email as string,
       role: adminUser.role,
-      aud: payload.aud as string,
-      exp: payload.exp!,
+      aud: userPayload.aud as string,
+      exp: userPayload.exp || Math.floor(Date.now() / 1000) + 3600, // Default 1 hour if not present
     };
 
     next();
