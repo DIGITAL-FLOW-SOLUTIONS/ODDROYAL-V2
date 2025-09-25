@@ -24,16 +24,16 @@ function AdminRegister() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
-  // Temporarily disabled authentication check for first superadmin registration
-  // useEffect(() => {
-  //   if (!isAuthenticated) {
-  //     setLocation('/prime-admin/login');
-  //   }
-  // }, [isAuthenticated, setLocation]);
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setLocation('/prime-admin/login');
+    }
+  }, [isAuthenticated, setLocation]);
 
-  // if (!isAuthenticated) {
-  //   return null;
-  // }
+  if (!isAuthenticated) {
+    return null;
+  }
 
   // Form setup with validation
   const form = useForm<AdminRegistration>({

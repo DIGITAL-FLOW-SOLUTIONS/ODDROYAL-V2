@@ -1381,8 +1381,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Admin Registration - Temporarily unprotected for first superadmin setup
-  app.post("/api/admin/auth/register", ...SecurityMiddlewareOrchestrator.getAuthMiddleware(), adminRateLimit, auditAction('admin_registration_attempt'), async (req: any, res) => {
+  // Admin Registration - Protected for superadmin only
+  app.post("/api/admin/auth/register", ...SecurityMiddlewareOrchestrator.getAuthMiddleware(), authenticateAdmin, requireSuperadmin(), adminRateLimit, auditAction('admin_registration_attempt'), async (req: any, res) => {
     try {
       const validatedData = adminRegistrationSchema.parse(req.body);
       
