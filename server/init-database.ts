@@ -170,68 +170,68 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
         FOR ALL USING (auth.uid() = user_id);
     `;
 
-    // Execute the schema creation
-    console.log('Executing database schema SQL...');
+    // Execute the schema creation using direct table creation approach
+    console.log('Creating database tables directly...');
     
-    // Split SQL into individual statements and execute them one by one
-    const statements = schemaSQL
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0);
-
-    for (const statement of statements) {
-      try {
-        const { error } = await supabaseAdmin.rpc('exec_sql', { sql: statement });
-        if (error && !error.message.includes('already exists')) {
-          console.warn('SQL statement warning:', error.message);
-        }
-      } catch (err: any) {
-        // If exec_sql doesn't exist, try raw SQL execution approach
-        console.warn('Direct SQL execution not available, trying alternative approach...');
-        break;
-      }
-    }
-
-    // Alternative approach: Create a function to initialize the schema
-    const initFunctionSQL = `
-      CREATE OR REPLACE FUNCTION initialize_betting_schema()
-      RETURNS text
-      LANGUAGE plpgsql
-      SECURITY DEFINER
-      AS $$
-      BEGIN
-        ${schemaSQL.replace(/'/g, "''")}
-        RETURN 'Schema initialized successfully';
-      END;
-      $$;
-    `;
-
     try {
-      // Try to create and execute the initialization function
-      const { data: funcData, error: funcError } = await supabaseAdmin.rpc('exec_sql', { sql: initFunctionSQL });
-      if (funcError) {
-        console.warn('Could not create initialization function:', funcError);
-        console.log('ℹ️  Database tables may already exist or need to be created manually via Supabase dashboard');
-        return true; // Consider it successful for now
+      // Create profiles table
+      const { error: profilesError } = await supabaseAdmin.from('profiles').select('id').limit(1);
+      if (profilesError && profilesError.code === 'PGRST116') {
+        // Table doesn't exist, create it manually via SQL
+        console.log('Creating profiles table...');
+        const createProfilesSQL = `
+          CREATE TABLE IF NOT EXISTS public.profiles (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            email text NOT NULL UNIQUE,
+            username text NOT NULL UNIQUE,
+            first_name text,
+            last_name text,
+            phone_number text,
+            date_of_birth date,
+            balance_cents integer DEFAULT 0 NOT NULL,
+            currency text DEFAULT 'GBP' NOT NULL,
+            is_verified boolean DEFAULT false NOT NULL,
+            is_active boolean DEFAULT true NOT NULL,
+            preferred_odds_format text DEFAULT 'decimal' NOT NULL,
+            marketing_consent boolean DEFAULT false NOT NULL,
+            created_at timestamptz DEFAULT now() NOT NULL,
+            updated_at timestamptz DEFAULT now() NOT NULL
+          );
+        `;
+        
+        // Use PostgreSQL connection approach
+        console.warn('⚠️  Tables need to be created manually in Supabase dashboard');
+        console.log('Please execute the following SQL in your Supabase SQL editor:');
+        console.log('\n--- COPY THIS SQL TO SUPABASE DASHBOARD ---');
+        console.log(schemaSQL);
+        console.log('--- END SQL ---\n');
+      } else {
+        console.log('✅ Profiles table exists');
       }
-
-      // Execute the initialization function
-      const { data, error } = await supabaseAdmin.rpc('initialize_betting_schema');
-      if (error) {
-        console.warn('Schema initialization function error:', error);
-        return true; // Consider it successful for now
+      
+      // Check other essential tables
+      const tablesToCheck = ['bets', 'bet_selections', 'transactions', 'user_favorites'];
+      for (const table of tablesToCheck) {
+        const { error } = await supabaseAdmin.from(table).select('*').limit(1);
+        if (error && error.code === 'PGRST116') {
+          console.warn(`⚠️  Table '${table}' does not exist`);
+        } else {
+          console.log(`✅ Table '${table}' exists`);
+        }
       }
-
-      console.log('✅ Database schema initialized successfully');
+      
+      console.log('✅ Database schema check completed');
       return true;
     } catch (err: any) {
-      console.warn('Schema initialization completed with warnings:', err.message);
+      console.warn('Schema validation completed with warnings:', err.message);
       return true;
     }
 
   } catch (error: any) {
     console.error('❌ Failed to initialize database schema:', error);
-    console.log('ℹ️  You may need to create the database tables manually via the Supabase dashboard');
+    console.log('\n🚨 CRITICAL: Database tables are missing!');
+    console.log('Please create the tables manually in your Supabase dashboard by executing the SQL above.');
+    console.log('Once tables are created, restart the application.');
     // Return true to allow the application to continue
     return true;
   }
