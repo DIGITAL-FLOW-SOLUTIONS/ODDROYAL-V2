@@ -614,11 +614,68 @@ export class SupabaseStorage implements IStorage {
   }
 
   async updateAdminLoginAttempts(adminId: string, attempts: number, lockedUntil?: Date): Promise<AdminUser | undefined> {
-    throw new Error("updateAdminLoginAttempts not implemented yet");
+    try {
+      const updateData: any = {
+        login_attempts: attempts,
+        updated_at: new Date().toISOString()
+      };
+
+      if (lockedUntil !== undefined) {
+        updateData.locked_until = lockedUntil?.toISOString() || null;
+      }
+
+      const { data, error } = await this.client
+        .from('admin_users')
+        .update(updateData)
+        .eq('id', adminId)
+        .select('*')
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to update admin login attempts: ${error.message}`);
+      }
+
+      return this.mapSupabaseAdminUser(data);
+    } catch (error) {
+      console.error('Error updating admin login attempts:', error);
+      throw error;
+    }
   }
 
   async createAdminSession(adminId: string, sessionToken: string, expiresAt: Date, ipAddress?: string, userAgent?: string): Promise<AdminSession> {
-    throw new Error("createAdminSession not implemented yet");
+    try {
+      const { data, error } = await this.client
+        .from('admin_sessions')
+        .insert({
+          admin_id: adminId,
+          session_token: sessionToken,
+          ip_address: ipAddress,
+          user_agent: userAgent,
+          two_factor_verified: false,
+          expires_at: expiresAt.toISOString(),
+          created_at: new Date().toISOString()
+        })
+        .select('*')
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to create admin session: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        adminId: data.admin_id,
+        sessionToken: data.session_token,
+        ipAddress: data.ip_address,
+        userAgent: data.user_agent,
+        twoFactorVerified: data.two_factor_verified,
+        expiresAt: data.expires_at,
+        createdAt: data.created_at
+      };
+    } catch (error) {
+      console.error('Error creating admin session:', error);
+      throw error;
+    }
   }
 
   async getAdminSession(sessionToken: string): Promise<AdminSession | undefined> {
@@ -626,7 +683,41 @@ export class SupabaseStorage implements IStorage {
   }
 
   async updateAdminSession(sessionId: string, updates: Partial<AdminSession>): Promise<AdminSession | undefined> {
-    throw new Error("updateAdminSession not implemented yet");
+    try {
+      const updateData: any = {};
+      
+      if (updates.twoFactorVerified !== undefined) {
+        updateData.two_factor_verified = updates.twoFactorVerified;
+      }
+      if (updates.expiresAt !== undefined) {
+        updateData.expires_at = updates.expiresAt;
+      }
+
+      const { data, error } = await this.client
+        .from('admin_sessions')
+        .update(updateData)
+        .eq('id', sessionId)
+        .select('*')
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to update admin session: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        adminId: data.admin_id,
+        sessionToken: data.session_token,
+        ipAddress: data.ip_address,
+        userAgent: data.user_agent,
+        twoFactorVerified: data.two_factor_verified,
+        expiresAt: data.expires_at,
+        createdAt: data.created_at
+      };
+    } catch (error) {
+      console.error('Error updating admin session:', error);
+      throw error;
+    }
   }
 
   async deleteAdminSession(sessionToken: string): Promise<boolean> {
