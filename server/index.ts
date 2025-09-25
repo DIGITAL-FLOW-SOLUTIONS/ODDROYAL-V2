@@ -5,7 +5,7 @@ import { settlementWorker } from "./settlement-worker";
 // import { exposureEngine } from "./exposure-engine";
 // import { liveMatchSimulator } from "./live-match-simulator";
 import { storage } from "./storage";
-import { initializeDatabaseSchema, createDemoData } from "./init-database";
+import { initializeDatabaseSchema, createDemoData, createSuperAdminUser } from "./init-database";
 // import { AdminSeeder } from "./admin-seeder";
 
 // Demo mode disabled for production security
@@ -77,6 +77,10 @@ app.use((req, res, next) => {
   
   console.log("👤 Creating demo data...");
   await createDemoData();
+  
+  console.log("🔑 Creating super admin user...");
+  await createSuperAdminUser();
+  
   console.log("✅ Database initialization complete");
   // if (adminSeedResult.success) {
   //   console.log("✅ Admin initialization successful");

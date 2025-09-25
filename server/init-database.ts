@@ -80,48 +80,59 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
         UNIQUE(user_id, entity_type, entity_id)
       );
 
+      -- Create admin role enum
+      DO $$
+      BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'admin_role') THEN
+              CREATE TYPE admin_role AS ENUM ('superadmin', 'admin', 'risk_manager', 'finance', 'compliance', 'support');
+          END IF;
+      END
+      $$;
+
       -- Create admin_users table
       CREATE TABLE IF NOT EXISTS public.admin_users (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        username text NOT NULL UNIQUE,
-        email text NOT NULL UNIQUE,
+        username varchar(50) NOT NULL UNIQUE,
+        email varchar(255) NOT NULL UNIQUE,
         password_hash text NOT NULL,
-        first_name text,
-        last_name text,
-        role text DEFAULT 'support' NOT NULL,
+        role admin_role NOT NULL,
+        totp_secret varchar(255),
         is_active boolean DEFAULT true NOT NULL,
-        last_login_at timestamptz,
-        failed_login_attempts integer DEFAULT 0 NOT NULL,
+        last_login timestamptz,
+        login_attempts integer DEFAULT 0 NOT NULL,
         locked_until timestamptz,
-        totp_secret text,
-        is_2fa_enabled boolean DEFAULT false NOT NULL,
+        ip_whitelist text[], -- Array of IP addresses
         created_at timestamptz DEFAULT now() NOT NULL,
-        updated_at timestamptz DEFAULT now() NOT NULL
+        updated_at timestamptz DEFAULT now() NOT NULL,
+        created_by uuid REFERENCES admin_users(id)
       );
 
       -- Create admin_sessions table
       CREATE TABLE IF NOT EXISTS public.admin_sessions (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         admin_id uuid NOT NULL REFERENCES public.admin_users(id) ON DELETE CASCADE,
-        session_token text NOT NULL UNIQUE,
-        expires_at timestamptz NOT NULL,
-        ip_address text,
+        session_token varchar(255) NOT NULL UNIQUE,
+        ip_address inet,
         user_agent text,
-        is_active boolean DEFAULT true NOT NULL,
-        created_at timestamptz DEFAULT now() NOT NULL,
-        last_activity_at timestamptz DEFAULT now() NOT NULL
+        two_factor_verified boolean DEFAULT false NOT NULL,
+        expires_at timestamptz NOT NULL,
+        created_at timestamptz DEFAULT now() NOT NULL
       );
 
       -- Create audit_logs table
       CREATE TABLE IF NOT EXISTS public.audit_logs (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         admin_id uuid NOT NULL REFERENCES public.admin_users(id) ON DELETE CASCADE,
-        action text NOT NULL,
-        resource_type text NOT NULL,
-        resource_id text,
-        details jsonb,
-        ip_address text,
+        action_type varchar(255) NOT NULL,
+        target_type varchar(255) NOT NULL,
+        target_id varchar(255),
+        data_before jsonb,
+        data_after jsonb,
+        ip_address inet,
         user_agent text,
+        note text,
+        success boolean DEFAULT true NOT NULL,
+        error_message text,
         created_at timestamptz DEFAULT now() NOT NULL
       );
 
@@ -276,5 +287,51 @@ export async function createDemoData(): Promise<void> {
 
   } catch (error: any) {
     console.warn('Demo data creation failed:', error.message);
+  }
+}
+
+export async function createSuperAdminUser(): Promise<void> {
+  try {
+    console.log('🔐 Creating super admin user...');
+    
+    // Check if super admin already exists
+    const { data: existingAdmin, error: checkError } = await supabaseAdmin
+      .from('admin_users')
+      .select('*')
+      .eq('username', 'superadmin')
+      .single();
+
+    if (existingAdmin) {
+      console.log('✅ Super admin user already exists');
+      return;
+    }
+
+    // Hash the password using Argon2
+    const argon2 = await import('argon2');
+    const hashedPassword = await argon2.hash('r1gw2yRb$2#xQ%7y');
+
+    // Create super admin user
+    const { data: admin, error: adminError } = await supabaseAdmin
+      .from('admin_users')
+      .insert({
+        username: 'superadmin',
+        email: 'digitalflwsolutions@gmail.com',
+        password_hash: hashedPassword,
+        role: 'superadmin',
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (adminError) {
+      console.warn('Could not create super admin user:', adminError.message);
+    } else {
+      console.log('✅ Super admin user created successfully');
+      console.log('   Username: superadmin');
+      console.log('   Email: digitalflwsolutions@gmail.com');
+    }
+
+  } catch (error: any) {
+    console.warn('Super admin creation failed:', error.message);
   }
 }
