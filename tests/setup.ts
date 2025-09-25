@@ -4,7 +4,7 @@ import { jest } from '@jest/globals';
 beforeEach(() => {
   // Reset all environment variables to test state
   process.env.NODE_ENV = 'test';
-  process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test_db';
+  // Note: Using Supabase for database, no separate DATABASE_URL needed for tests
   process.env.DEMO_MODE = 'true';
   
   // Reset console to avoid noise in tests

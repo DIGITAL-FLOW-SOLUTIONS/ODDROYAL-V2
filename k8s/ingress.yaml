@@ -168,15 +168,6 @@ spec:
       port: 3000
   
   egress:
-  # Allow access to PostgreSQL
-  - to:
-    - podSelector:
-        matchLabels:
-          app: postgres
-    ports:
-    - protocol: TCP
-      port: 5432
-  
   # Allow access to Redis
   - to:
     - podSelector:
