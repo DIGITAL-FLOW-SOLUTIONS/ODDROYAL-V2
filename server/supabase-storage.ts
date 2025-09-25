@@ -679,7 +679,47 @@ export class SupabaseStorage implements IStorage {
   }
 
   async getAdminSession(sessionToken: string): Promise<AdminSession | undefined> {
-    throw new Error("getAdminSession not implemented yet");
+    try {
+      const { data, error } = await this.client
+        .from('admin_sessions')
+        .select('*')
+        .eq('session_token', sessionToken)
+        .eq('is_active', true)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') return undefined; // Not found
+        throw new Error(`Failed to get admin session: ${error.message}`);
+      }
+
+      if (!data) return undefined;
+
+      // Check if session has expired
+      const now = new Date();
+      const expiresAt = new Date(data.expires_at);
+      if (expiresAt < now) {
+        // Session expired, deactivate it
+        await this.client
+          .from('admin_sessions')
+          .update({ is_active: false })
+          .eq('id', data.id);
+        return undefined;
+      }
+
+      return {
+        id: data.id,
+        adminId: data.admin_id,
+        sessionToken: data.session_token,
+        ipAddress: data.ip_address,
+        userAgent: data.user_agent,
+        twoFactorVerified: data.two_factor_verified,
+        expiresAt: data.expires_at,
+        createdAt: data.created_at
+      };
+    } catch (error) {
+      console.error('Error getting admin session:', error);
+      throw error;
+    }
   }
 
   async updateAdminSession(sessionId: string, updates: Partial<AdminSession>): Promise<AdminSession | undefined> {
