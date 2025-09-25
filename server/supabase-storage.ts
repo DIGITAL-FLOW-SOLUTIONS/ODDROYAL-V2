@@ -635,7 +635,7 @@ export class SupabaseStorage implements IStorage {
         throw new Error(`Failed to update admin login attempts: ${error.message}`);
       }
 
-      return this.mapSupabaseAdminUser(data);
+      return mappers.toAdminUser(data);
     } catch (error) {
       console.error('Error updating admin login attempts:', error);
       throw error;
