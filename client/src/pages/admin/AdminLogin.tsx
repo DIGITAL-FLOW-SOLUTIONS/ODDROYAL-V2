@@ -231,19 +231,6 @@ function AdminLogin() {
               </div>
             </div>
 
-            {/* Development Demo Account */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mt-4">
-                <div className="text-xs">
-                  <p className="font-medium text-blue-400 mb-2">Demo Admin Account</p>
-                  <div className="space-y-1 text-blue-300">
-                    <p><span className="font-medium">Username:</span> admin</p>
-                    <p><span className="font-medium">Password:</span> admin123</p>
-                    <p><span className="font-medium">Note:</span> 2FA may be required</p>
-                  </div>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
         
