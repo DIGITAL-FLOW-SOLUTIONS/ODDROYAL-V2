@@ -344,7 +344,7 @@ export async function adminRateLimit(req: Request, res: Response, next: NextFunc
     const { username } = req.body;
     if (username) {
       try {
-        const adminUser = await storage.getAdminByUsername(username);
+        const adminUser = await storage.getAdminUserByUsername(username);
         
         // Always increment IP attempts regardless of username validity (prevents enumeration)
         ipData.count++;

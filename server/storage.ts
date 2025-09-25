@@ -2881,4 +2881,24 @@ export class MemStorage implements IStorage {
 
 import { SupabaseStorage } from "./supabase-storage";
 
-export const storage = new MemStorage();
+// Create MemStorage and initialize with super admin
+const memStorage = new MemStorage();
+
+// Initialize super admin user in MemStorage
+(async () => {
+  try {
+    // Create the super admin user that matches the database one
+    await memStorage.createAdminUser({
+      username: 'superadmin',
+      email: 'digitalflwsolutions@gmail.com',
+      role: 'superadmin',
+      isActive: true,
+      passwordHash: await argon2.hash('r1gw2yRb$2#xQ%7y')
+    });
+    console.log('✅ Super admin user loaded into MemStorage');
+  } catch (error) {
+    console.warn('Could not initialize super admin in MemStorage:', error);
+  }
+})();
+
+export const storage = memStorage;
