@@ -684,7 +684,6 @@ export class SupabaseStorage implements IStorage {
         .from('admin_sessions')
         .select('*')
         .eq('session_token', sessionToken)
-        .eq('is_active', true)
         .single();
 
       if (error) {
@@ -698,10 +697,10 @@ export class SupabaseStorage implements IStorage {
       const now = new Date();
       const expiresAt = new Date(data.expires_at);
       if (expiresAt < now) {
-        // Session expired, deactivate it
+        // Session expired, delete it instead of deactivating
         await this.client
           .from('admin_sessions')
-          .update({ is_active: false })
+          .delete()
           .eq('id', data.id);
         return undefined;
       }
