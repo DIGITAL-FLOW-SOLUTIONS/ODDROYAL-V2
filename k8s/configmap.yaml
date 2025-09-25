@@ -15,11 +15,6 @@ data:
   DEMO_MODE: "false"
   MAINTENANCE_MODE: "false"
   
-  # Database configuration (non-sensitive)
-  PGHOST: "postgres-service"
-  PGPORT: "5432"
-  PGDATABASE: "oddroyal"
-  
   # Redis configuration (non-sensitive)  
   REDIS_HOST: "redis-service"
   REDIS_PORT: "6379"
