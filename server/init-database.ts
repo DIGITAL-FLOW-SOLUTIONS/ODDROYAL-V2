@@ -115,8 +115,10 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
         ip_address inet,
         user_agent text,
         two_factor_verified boolean DEFAULT false NOT NULL,
+        is_active boolean DEFAULT true NOT NULL,
         expires_at timestamptz NOT NULL,
-        created_at timestamptz DEFAULT now() NOT NULL
+        created_at timestamptz DEFAULT now() NOT NULL,
+        last_activity_at timestamptz DEFAULT now() NOT NULL
       );
 
       -- Create audit_logs table
