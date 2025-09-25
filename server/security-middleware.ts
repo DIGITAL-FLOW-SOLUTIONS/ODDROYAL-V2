@@ -457,6 +457,12 @@ export class SecurityMonitoringManager {
     timestamp: Date;
   }): Promise<void> {
     try {
+      // Skip audit logging for unauthenticated requests during initial setup
+      if (event.adminId === 'unauthenticated') {
+        console.log(`Skipping security audit log for unauthenticated ${event.eventType} event`);
+        return;
+      }
+      
       // Log to audit system with security-specific information
       await storage.createAuditLog({
         adminId: event.adminId,

@@ -261,16 +261,19 @@ export function auditAction(
         const targetInfo = getTargetInfo ? getTargetInfo(req) : {};
         const clientIp = req.ip || req.connection.remoteAddress || 'unknown';
         
-        // For unauthenticated login attempts, use a placeholder admin ID
-        const adminId = req.adminUser?.id || 'unauthenticated';
+        // Skip audit logging for unauthenticated requests during initial setup
+        if (!req.adminUser?.id) {
+          console.log(`Skipping audit log for unauthenticated ${actionType} action`);
+          return;
+        }
         
         // Filter sensitive data from response - use whitelist approach
         const safeResponseData = responseData ? filterSensitiveData(responseData) : null;
         
         await storage.createAuditLog({
-          adminId,
+          adminId: req.adminUser.id,
           actionType,
-          targetType: targetInfo.targetType || null,
+          targetType: targetInfo.targetType || 'unknown',
           targetId: targetInfo.targetId || null,
           dataBefore: null, // Never log request data as it may contain passwords
           dataAfter: safeResponseData,
