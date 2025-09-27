@@ -24,11 +24,9 @@ export default function Layout({ children }: LayoutProps) {
   
   // Refs for scroll coordination
   const mainContentRef = useRef<HTMLDivElement>(null);
-  const sidebarRef = useRef<HTMLDivElement>(null);
-  const betslipRef = useRef<HTMLDivElement>(null);
-  const layoutRootRef = useRef<HTMLDivElement>(null);
+  const layoutContainerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
-  const [scrollPhase, setScrollPhase] = useState<'inner' | 'page'>('inner');
+  const [isInnerScrollLocked, setIsInnerScrollLocked] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(80);
 
   // Load bet slip from localStorage on mount
@@ -127,135 +125,64 @@ export default function Layout({ children }: LayoutProps) {
     return () => window.removeEventListener('resize', updateHeaderHeight);
   }, []);
 
-  // Helper functions for scroll coordination
-  const isAtBottom = useCallback((element: HTMLElement) => {
-    if (!element) return false;
-    const { scrollTop, scrollHeight, clientHeight } = element;
-    return Math.abs(scrollHeight - clientHeight - scrollTop) < 1;
-  }, []);
-
-  const isAtTop = useCallback((element: HTMLElement) => {
-    if (!element) return false;
-    return element.scrollTop === 0;
-  }, []);
-
-  const consumeScroll = useCallback((element: HTMLElement, delta: number) => {
-    if (!element) return delta;
-    
-    const { scrollTop, scrollHeight, clientHeight } = element;
-    const maxScroll = scrollHeight - clientHeight;
-    const newScrollTop = Math.max(0, Math.min(maxScroll, scrollTop + delta));
-    const consumed = newScrollTop - scrollTop;
-    
-    element.scrollTop = newScrollTop;
-    return delta - consumed;
-  }, []);
-
-  // Central scroll router with capture-phase event handling
+  // Robust scroll coordination using wheel and touch events
   const handleWheelEvent = useCallback((e: WheelEvent) => {
+    const mainContent = mainContentRef.current;
+    if (!mainContent || isInnerScrollLocked) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = mainContent;
+    const isAtBottom = Math.abs(scrollHeight - clientHeight - scrollTop) < 1;
+    const isAtTop = scrollTop === 0;
+
+    // If scrolling down and at bottom, unlock page scroll
+    if (e.deltaY > 0 && isAtBottom) {
+      setIsInnerScrollLocked(true);
+      return;
+    }
+
+    // If scrolling up and at top, consume the scroll in main content
+    if (e.deltaY < 0 && isAtTop) {
+      return;
+    }
+
+    // Prevent page scroll while inner content is scrolling
+    e.preventDefault();
+    mainContent.scrollTop += e.deltaY;
+  }, [isInnerScrollLocked]);
+
+  // Handle page scroll to detect when to re-enable inner scroll
+  const handlePageScroll = useCallback(() => {
+    if (!isInnerScrollLocked) return;
+
     const mainContent = mainContentRef.current;
     if (!mainContent) return;
 
-    const delta = e.deltaY;
-    const mainAtBottom = isAtBottom(mainContent);
-    const mainAtTop = isAtTop(mainContent);
+    // Check if main content top is aligned with viewport
+    const rect = mainContent.getBoundingClientRect();
+    const isMainAtTop = rect.top >= headerHeight - 10; // 10px tolerance
 
-    if (scrollPhase === 'inner') {
-      // In inner phase: all scroll goes to middle content first
-      if (delta > 0) {
-        // Scrolling down
-        if (mainAtBottom) {
-          // Middle content at bottom, switch to page scroll
-          setScrollPhase('page');
-          return; // Allow default page scroll
-        } else {
-          // Route to middle content regardless of event target
-          e.preventDefault();
-          consumeScroll(mainContent, delta);
-        }
-      } else {
-        // Scrolling up
-        if (mainAtTop) {
-          // Let page scroll if it can
-          return;
-        } else {
-          // Route to middle content
-          e.preventDefault();
-          consumeScroll(mainContent, delta);
-        }
-      }
-    } else {
-      // In page phase: let page scroll, but monitor for switch back to inner
-      if (delta < 0) {
-        // Scrolling up - check if we should switch back to inner
-        const rect = mainContent.getBoundingClientRect();
-        const isMainNearTop = rect.top >= headerHeight - 10;
-        
-        if (isMainNearTop && window.pageYOffset <= 10) {
-          setScrollPhase('inner');
-          e.preventDefault();
-          consumeScroll(mainContent, delta);
-        }
-      }
+    if (isMainAtTop && window.pageYOffset <= 10) {
+      setIsInnerScrollLocked(false);
     }
-  }, [scrollPhase, headerHeight, isAtBottom, isAtTop, consumeScroll]);
+  }, [isInnerScrollLocked, headerHeight]);
 
-  // Touch event handling for mobile
-  const lastTouchY = useRef<number>(0);
-  
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-    lastTouchY.current = e.touches[0].clientY;
-  }, []);
-
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (!mainContentRef.current) return;
-    
-    const currentY = e.touches[0].clientY;
-    const deltaY = lastTouchY.current - currentY;
-    lastTouchY.current = currentY;
-    
-    // Create a synthetic wheel event to reuse the same logic
-    const syntheticEvent = new WheelEvent('wheel', {
-      deltaY,
-      cancelable: true,
-      bubbles: true
-    });
-    
-    handleWheelEvent(syntheticEvent);
-    
-    if (syntheticEvent.defaultPrevented) {
-      e.preventDefault();
-    }
-  }, [handleWheelEvent]);
-
-  // Set up event listeners with capture phase
+  // Set up event listeners
   useEffect(() => {
-    const layoutRoot = layoutRootRef.current;
+    const mainContent = mainContentRef.current;
     
-    if (layoutRoot) {
-      // Use capture phase to intercept all scroll events
-      layoutRoot.addEventListener('wheel', handleWheelEvent, { 
-        passive: false, 
-        capture: true 
-      });
-      layoutRoot.addEventListener('touchstart', handleTouchStart, { 
-        passive: true, 
-        capture: true 
-      });
-      layoutRoot.addEventListener('touchmove', handleTouchMove, { 
-        passive: false, 
-        capture: true 
-      });
+    if (mainContent) {
+      mainContent.addEventListener('wheel', handleWheelEvent, { passive: false });
     }
+    
+    window.addEventListener('scroll', handlePageScroll, { passive: true });
     
     return () => {
-      if (layoutRoot) {
-        layoutRoot.removeEventListener('wheel', handleWheelEvent);
-        layoutRoot.removeEventListener('touchstart', handleTouchStart);
-        layoutRoot.removeEventListener('touchmove', handleTouchMove);
+      if (mainContent) {
+        mainContent.removeEventListener('wheel', handleWheelEvent);
       }
+      window.removeEventListener('scroll', handlePageScroll);
     };
-  }, [handleWheelEvent, handleTouchStart, handleTouchMove]);
+  }, [handleWheelEvent, handlePageScroll]);
 
   const style = {
     "--sidebar-width": "18rem",
@@ -268,13 +195,13 @@ export default function Layout({ children }: LayoutProps) {
   });
 
   return (
-    <div ref={layoutRootRef} className="bg-background">
+    <div ref={layoutContainerRef} className="bg-background">
       <SidebarProvider style={style as React.CSSProperties}>
         {/* 3-column grid layout: sidebar | main-content | betslip */}
         <div className="sportsbook-layout">
           
           {/* Sidebar - spans full height */}
-          <div ref={sidebarRef} className="sportsbook-sidebar">
+          <div className="sportsbook-sidebar">
             <SportsSidebar />
           </div>
           
@@ -291,8 +218,8 @@ export default function Layout({ children }: LayoutProps) {
             transition={{ duration: 0.3 }}
             className="sportsbook-main scrollbar-hide"
             style={{
-              maxHeight: scrollPhase === 'inner' ? `calc(100vh - ${headerHeight}px)` : 'auto',
-              overflowY: scrollPhase === 'inner' ? 'auto' : 'visible',
+              maxHeight: !isInnerScrollLocked ? `calc(100vh - ${headerHeight}px)` : 'auto',
+              overflowY: !isInnerScrollLocked ? 'auto' : 'visible',
               overflowX: 'hidden'
             }}
           >
@@ -303,7 +230,6 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* Bet slip - right column only, desktop */}
           <motion.div 
-            ref={betslipRef}
             initial={{ x: 100, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.3, delay: 0.2 }}
