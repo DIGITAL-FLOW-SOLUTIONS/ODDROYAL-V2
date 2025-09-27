@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import SportsSidebar from "@/components/SportsSidebar";
@@ -21,6 +21,12 @@ export default function Layout({ children }: LayoutProps) {
   const [isBetSlipVisible, setIsBetSlipVisible] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Refs for scroll coordination
+  const mainContentRef = useRef<HTMLDivElement>(null);
+  const layoutContainerRef = useRef<HTMLDivElement>(null);
+  const [isMiddleContentScrollable, setIsMiddleContentScrollable] = useState(true);
+  const [isPageScrollLocked, setIsPageScrollLocked] = useState(true);
 
   // Load bet slip from localStorage on mount
   useEffect(() => {
@@ -104,6 +110,85 @@ export default function Layout({ children }: LayoutProps) {
     placeBetMutation.mutate(betData);
   };
 
+  // Scroll coordination logic
+  const handleScroll = useCallback((e: Event) => {
+    const mainContent = mainContentRef.current;
+    const layoutContainer = layoutContainerRef.current;
+    
+    if (!mainContent || !layoutContainer) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = mainContent;
+    const isAtTop = scrollTop === 0;
+    const isAtBottom = Math.abs(scrollHeight - clientHeight - scrollTop) < 1;
+
+    // If middle content is at bottom, allow page scroll
+    if (isAtBottom && isMiddleContentScrollable) {
+      setIsMiddleContentScrollable(false);
+      setIsPageScrollLocked(false);
+      // Transfer any remaining scroll momentum to page
+      if (e.target === mainContent) {
+        e.preventDefault();
+      }
+    }
+    
+    // If middle content is at top and page scroll is happening, lock page scroll
+    if (isAtTop && !isPageScrollLocked) {
+      const pageScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      if (pageScrollTop <= 0) {
+        setIsMiddleContentScrollable(true);
+        setIsPageScrollLocked(true);
+      }
+    }
+  }, [isMiddleContentScrollable, isPageScrollLocked]);
+
+  // Handle page scroll events
+  const handlePageScroll = useCallback(() => {
+    const pageScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const mainContent = mainContentRef.current;
+    
+    if (!mainContent) return;
+
+    // If scrolling back to top, re-enable middle content scroll
+    if (pageScrollTop <= 0 && !isMiddleContentScrollable) {
+      const { scrollTop } = mainContent;
+      if (scrollTop === 0) {
+        setIsMiddleContentScrollable(true);
+        setIsPageScrollLocked(true);
+      }
+    }
+  }, [isMiddleContentScrollable]);
+
+  // Set up scroll event listeners
+  useEffect(() => {
+    const mainContent = mainContentRef.current;
+    
+    if (mainContent) {
+      mainContent.addEventListener('scroll', handleScroll);
+    }
+    
+    window.addEventListener('scroll', handlePageScroll);
+    
+    return () => {
+      if (mainContent) {
+        mainContent.removeEventListener('scroll', handleScroll);
+      }
+      window.removeEventListener('scroll', handlePageScroll);
+    };
+  }, [handleScroll, handlePageScroll]);
+
+  // Lock/unlock page scroll based on state
+  useEffect(() => {
+    if (isPageScrollLocked) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, [isPageScrollLocked]);
+
   const style = {
     "--sidebar-width": "18rem",
     "--sidebar-width-icon": "4rem",
@@ -115,7 +200,7 @@ export default function Layout({ children }: LayoutProps) {
   });
 
   return (
-    <div className="bg-background">
+    <div ref={layoutContainerRef} className="bg-background">
       <SidebarProvider style={style as React.CSSProperties}>
         {/* 3-column grid layout: sidebar | main-content | betslip */}
         <div className="sportsbook-layout">
@@ -132,10 +217,16 @@ export default function Layout({ children }: LayoutProps) {
           
           {/* Main content - middle column only */}
           <motion.div 
+            ref={mainContentRef}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
             className="sportsbook-main scrollbar-hide"
+            style={{
+              maxHeight: isMiddleContentScrollable ? 'calc(100vh - 80px)' : 'auto',
+              overflowY: isMiddleContentScrollable ? 'auto' : 'visible',
+              overflowX: 'hidden'
+            }}
           >
             <div className="scrollbar-hide w-full">
               {childrenWithProps}
