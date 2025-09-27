@@ -359,14 +359,15 @@
     background: linear-gradient(135deg, #4FAF64, #E74C3C, #F1C40F);
   }
 
-  /* Sportsbook 3-column grid layout - excluding footer */
+  /* Sportsbook 3-column grid layout */
   .sportsbook-layout {
     display: grid;
     grid-template-columns: var(--sidebar-width) 1fr 20rem;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto 1fr auto;
     grid-template-areas:
       "sidebar header header"
-      "sidebar main betslip";
+      "sidebar main betslip"
+      "sidebar footer footer";
     transition: grid-template-columns 200ms ease-linear;
     min-height: 100vh;
   }
@@ -394,9 +395,8 @@
     grid-area: betslip;
   }
 
-  /* Footer will be positioned outside the grid system */
   .sportsbook-footer {
-    /* No grid-area assignment - footer flows below the grid */
+    grid-area: footer;
   }
 
   /* When sidebar is collapsed, completely collapse the sidebar column and expand content to left edge */
@@ -416,7 +416,8 @@
       grid-template-columns: var(--sidebar-width) 1fr;
       grid-template-areas:
         "sidebar header"
-        "sidebar main";
+        "sidebar main"
+        "sidebar footer";
     }
 
     /* When sidebar is collapsed on tablet view */
@@ -428,11 +429,12 @@
   @media (max-width: 768px) {
     .sportsbook-layout {
       grid-template-columns: 1fr;
-      grid-template-rows: auto auto 1fr;
+      grid-template-rows: auto auto 1fr auto;
       grid-template-areas:
         "sidebar"
         "header"
-        "main";
+        "main"
+        "footer";
     }
   }
 

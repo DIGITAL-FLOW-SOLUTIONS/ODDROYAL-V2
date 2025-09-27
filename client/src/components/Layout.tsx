@@ -255,11 +255,11 @@ export default function Layout({ children }: LayoutProps) {
               />
             </div>
           </motion.div>
-        </div>
-        
-        {/* Footer - positioned outside grid system, flows below all content */}
-        <div className="sportsbook-footer">
-          <Footer />
+          
+          {/* Footer - spans middle and right columns */}
+          <div className="sportsbook-footer">
+            <Footer />
+          </div>
         </div>
       </SidebarProvider>
 
