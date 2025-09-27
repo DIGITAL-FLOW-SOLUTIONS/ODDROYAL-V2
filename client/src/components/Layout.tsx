@@ -25,8 +25,9 @@ export default function Layout({ children }: LayoutProps) {
   // Refs for scroll coordination
   const mainContentRef = useRef<HTMLDivElement>(null);
   const layoutContainerRef = useRef<HTMLDivElement>(null);
-  const [isMiddleContentScrollable, setIsMiddleContentScrollable] = useState(true);
-  const [isPageScrollLocked, setIsPageScrollLocked] = useState(true);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [isInnerScrollLocked, setIsInnerScrollLocked] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(80);
 
   // Load bet slip from localStorage on mount
   useEffect(() => {
@@ -110,84 +111,78 @@ export default function Layout({ children }: LayoutProps) {
     placeBetMutation.mutate(betData);
   };
 
-  // Scroll coordination logic
-  const handleScroll = useCallback((e: Event) => {
-    const mainContent = mainContentRef.current;
-    const layoutContainer = layoutContainerRef.current;
+  // Measure header height dynamically
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      if (headerRef.current) {
+        setHeaderHeight(headerRef.current.offsetHeight);
+      }
+    };
     
-    if (!mainContent || !layoutContainer) return;
+    updateHeaderHeight();
+    window.addEventListener('resize', updateHeaderHeight);
+    
+    return () => window.removeEventListener('resize', updateHeaderHeight);
+  }, []);
+
+  // Robust scroll coordination using wheel and touch events
+  const handleWheelEvent = useCallback((e: WheelEvent) => {
+    const mainContent = mainContentRef.current;
+    if (!mainContent || isInnerScrollLocked) return;
 
     const { scrollTop, scrollHeight, clientHeight } = mainContent;
-    const isAtTop = scrollTop === 0;
     const isAtBottom = Math.abs(scrollHeight - clientHeight - scrollTop) < 1;
+    const isAtTop = scrollTop === 0;
 
-    // If middle content is at bottom, allow page scroll
-    if (isAtBottom && isMiddleContentScrollable) {
-      setIsMiddleContentScrollable(false);
-      setIsPageScrollLocked(false);
-      // Transfer any remaining scroll momentum to page
-      if (e.target === mainContent) {
-        e.preventDefault();
-      }
+    // If scrolling down and at bottom, unlock page scroll
+    if (e.deltaY > 0 && isAtBottom) {
+      setIsInnerScrollLocked(true);
+      return;
     }
-    
-    // If middle content is at top and page scroll is happening, lock page scroll
-    if (isAtTop && !isPageScrollLocked) {
-      const pageScrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      if (pageScrollTop <= 0) {
-        setIsMiddleContentScrollable(true);
-        setIsPageScrollLocked(true);
-      }
-    }
-  }, [isMiddleContentScrollable, isPageScrollLocked]);
 
-  // Handle page scroll events
+    // If scrolling up and at top, consume the scroll in main content
+    if (e.deltaY < 0 && isAtTop) {
+      return;
+    }
+
+    // Prevent page scroll while inner content is scrolling
+    e.preventDefault();
+    mainContent.scrollTop += e.deltaY;
+  }, [isInnerScrollLocked]);
+
+  // Handle page scroll to detect when to re-enable inner scroll
   const handlePageScroll = useCallback(() => {
-    const pageScrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    if (!isInnerScrollLocked) return;
+
     const mainContent = mainContentRef.current;
-    
     if (!mainContent) return;
 
-    // If scrolling back to top, re-enable middle content scroll
-    if (pageScrollTop <= 0 && !isMiddleContentScrollable) {
-      const { scrollTop } = mainContent;
-      if (scrollTop === 0) {
-        setIsMiddleContentScrollable(true);
-        setIsPageScrollLocked(true);
-      }
-    }
-  }, [isMiddleContentScrollable]);
+    // Check if main content top is aligned with viewport
+    const rect = mainContent.getBoundingClientRect();
+    const isMainAtTop = rect.top >= headerHeight - 10; // 10px tolerance
 
-  // Set up scroll event listeners
+    if (isMainAtTop && window.pageYOffset <= 10) {
+      setIsInnerScrollLocked(false);
+    }
+  }, [isInnerScrollLocked, headerHeight]);
+
+  // Set up event listeners
   useEffect(() => {
     const mainContent = mainContentRef.current;
     
     if (mainContent) {
-      mainContent.addEventListener('scroll', handleScroll);
+      mainContent.addEventListener('wheel', handleWheelEvent, { passive: false });
     }
     
-    window.addEventListener('scroll', handlePageScroll);
+    window.addEventListener('scroll', handlePageScroll, { passive: true });
     
     return () => {
       if (mainContent) {
-        mainContent.removeEventListener('scroll', handleScroll);
+        mainContent.removeEventListener('wheel', handleWheelEvent);
       }
       window.removeEventListener('scroll', handlePageScroll);
     };
-  }, [handleScroll, handlePageScroll]);
-
-  // Lock/unlock page scroll based on state
-  useEffect(() => {
-    if (isPageScrollLocked) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
-    
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, [isPageScrollLocked]);
+  }, [handleWheelEvent, handlePageScroll]);
 
   const style = {
     "--sidebar-width": "18rem",
@@ -211,7 +206,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
           
           {/* Header - spans middle and right columns */}
-          <div className="sportsbook-header">
+          <div ref={headerRef} className="sportsbook-header">
             <Header />
           </div>
           
@@ -223,8 +218,8 @@ export default function Layout({ children }: LayoutProps) {
             transition={{ duration: 0.3 }}
             className="sportsbook-main scrollbar-hide"
             style={{
-              maxHeight: isMiddleContentScrollable ? 'calc(100vh - 80px)' : 'auto',
-              overflowY: isMiddleContentScrollable ? 'auto' : 'visible',
+              maxHeight: !isInnerScrollLocked ? `calc(100vh - ${headerHeight}px)` : 'auto',
+              overflowY: !isInnerScrollLocked ? 'auto' : 'visible',
               overflowX: 'hidden'
             }}
           >
@@ -240,7 +235,7 @@ export default function Layout({ children }: LayoutProps) {
             transition={{ duration: 0.3, delay: 0.2 }}
             className="sportsbook-betslip hidden lg:block bg-background border-l border-border scrollbar-hide"
             style={{ 
-              maxHeight: 'calc(100vh - 80px)', 
+              maxHeight: `calc(100vh - ${headerHeight}px)`, 
               overflowY: 'auto',
               overflowX: 'hidden'
             }}
