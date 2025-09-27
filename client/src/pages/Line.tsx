@@ -18,10 +18,10 @@ export default function Line({ onAddToBetSlip }: LineProps) {
 
   // Fetch upcoming matches from SportMonks API
   const { data: upcomingMatchesData, isLoading: matchesLoading } = useQuery({
-    queryKey: ['/api/fixtures/upcoming'],
+    queryKey: ["/api/fixtures/upcoming"],
     queryFn: async () => {
-      const response = await fetch('/api/fixtures/upcoming?limit=50');
-      if (!response.ok) throw new Error('Failed to fetch upcoming matches');
+      const response = await fetch("/api/fixtures/upcoming?limit=50");
+      if (!response.ok) throw new Error("Failed to fetch upcoming matches");
       return response.json();
     },
     refetchInterval: 30000, // Refresh every 30 seconds
@@ -43,29 +43,31 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     kickoffTime: match.kickoffTime || match.kickoff,
     league: match.league,
     venue: match.venue,
-    odds: match.odds ? {
-      home: match.odds.home,
-      draw: match.odds.draw,
-      away: match.odds.away,
-    } : null,
-    additionalMarkets: match.additionalMarkets || 0
+    odds: match.odds
+      ? {
+          home: match.odds.home,
+          draw: match.odds.draw,
+          away: match.odds.away,
+        }
+      : null,
+    additionalMarkets: match.additionalMarkets || 0,
   }));
 
   // Group matches by league for Football section
   const footballLeagues = (() => {
     const leagueMap = new Map();
-    
+
     upcomingMatches.forEach((match: any) => {
       const leagueName = match.league || "Other";
       if (!leagueMap.has(leagueName)) {
         leagueMap.set(leagueName, {
-          id: leagueName.toLowerCase().replace(/\s+/g, '-'),
+          id: leagueName.toLowerCase().replace(/\s+/g, "-"),
           name: leagueName,
           logo: undefined, // Would be populated from API
           matches: [],
         });
       }
-      
+
       leagueMap.get(leagueName).matches.push({
         id: match.id,
         homeTeam: {
@@ -78,12 +80,14 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         },
         kickoffTime: match.kickoffTime || match.kickoff,
         venue: match.venue,
-        odds: match.odds ? {
-          home: match.odds.home,
-          draw: match.odds.draw,
-          away: match.odds.away,
-        } : null,
-        additionalMarkets: match.additionalMarkets || 0
+        odds: match.odds
+          ? {
+              home: match.odds.home,
+              draw: match.odds.draw,
+              away: match.odds.away,
+            }
+          : null,
+        additionalMarkets: match.additionalMarkets || 0,
       });
     });
 
@@ -91,7 +95,12 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   })();
 
   // Handle odds selection for bet slip
-  const handleOddsClick = (matchId: string, market: string, type: string, odds: number) => {
+  const handleOddsClick = (
+    matchId: string,
+    market: string,
+    type: string,
+    odds: number,
+  ) => {
     if (!onAddToBetSlip) return;
 
     const match = upcomingMatches.find((m: any) => m.id === matchId);
@@ -116,9 +125,9 @@ export default function Line({ onAddToBetSlip }: LineProps) {
       homeTeam: match.homeTeam?.name || match.homeTeam,
       awayTeam: match.awayTeam?.name || match.awayTeam,
       league: match.league || "Unknown",
-      isLive: false
+      isLive: false,
     };
-    
+
     onAddToBetSlip(selection);
     console.log("Added to bet slip:", selection);
   };
@@ -137,76 +146,78 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   };
 
   // Filter football leagues based on selected league
-  const filteredFootballLeagues = selectedLeague === "all" 
-    ? footballLeagues 
-    : footballLeagues.filter(league => 
-        league.id === selectedLeague || 
-        league.name.toLowerCase().includes(selectedLeague.toLowerCase())
-      );
+  const filteredFootballLeagues =
+    selectedLeague === "all"
+      ? footballLeagues
+      : footballLeagues.filter(
+          (league) =>
+            league.id === selectedLeague ||
+            league.name.toLowerCase().includes(selectedLeague.toLowerCase()),
+        );
 
   return (
-    <div className="w-full max-w-none overflow-hidden">
+    <div className="w-full max-w-none overflow-hidden h-full">
       <div className="p-4 space-y-8">
-      {/* Hero Banner - Top promotional slider */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
-        <HeroBanner />
-      </motion.div>
+        {/* Hero Banner - Top promotional slider */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <HeroBanner />
+        </motion.div>
 
-      {/* Popular Events - Horizontal carousel of featured matches */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.6 }}
-      >
-        <PopularEvents 
-          matches={popularMatches}
-          isLoading={matchesLoading}
-          onOddsClick={handleOddsClick}
-          onAddToFavorites={handleAddToFavorites}
-        />
-      </motion.div>
+        {/* Popular Events - Horizontal carousel of featured matches */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+        >
+          <PopularEvents
+            matches={popularMatches}
+            isLoading={matchesLoading}
+            onOddsClick={handleOddsClick}
+            onAddToFavorites={handleAddToFavorites}
+          />
+        </motion.div>
 
-      {/* Top Leagues - Horizontal slider with league selection */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4, duration: 0.6 }}
-      >
-        <TopLeagues 
-          selectedLeague={selectedLeague}
-          onLeagueSelect={handleLeagueSelect}
-        />
-      </motion.div>
+        {/* Top Leagues - Horizontal slider with league selection */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.6 }}
+        >
+          <TopLeagues
+            selectedLeague={selectedLeague}
+            onLeagueSelect={handleLeagueSelect}
+          />
+        </motion.div>
 
-      {/* Football Matches - Table format grouped by league */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6, duration: 0.6 }}
-      >
-        <FootballMatches 
-          leagues={filteredFootballLeagues}
-          isLoading={matchesLoading}
-          onOddsClick={handleOddsClick}
-          onAddToFavorites={handleAddToFavorites}
-        />
-      </motion.div>
+        {/* Football Matches - Table format grouped by league */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6, duration: 0.6 }}
+        >
+          <FootballMatches
+            leagues={filteredFootballLeagues}
+            isLoading={matchesLoading}
+            onOddsClick={handleOddsClick}
+            onAddToFavorites={handleAddToFavorites}
+          />
+        </motion.div>
 
-      {/* Other Sports - Expandable accordion sections */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.8, duration: 0.6 }}
-      >
-        <OtherSports 
-          onOddsClick={handleOddsClick}
-          onAddToFavorites={handleAddToFavorites}
-        />
-      </motion.div>
+        {/* Other Sports - Expandable accordion sections */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8, duration: 0.6 }}
+        >
+          <OtherSports
+            onOddsClick={handleOddsClick}
+            onAddToFavorites={handleAddToFavorites}
+          />
+        </motion.div>
       </div>
     </div>
   );
