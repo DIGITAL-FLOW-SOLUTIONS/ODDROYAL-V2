@@ -118,7 +118,7 @@ export default function Layout({ children }: LayoutProps) {
     <div className="bg-background">
       <SidebarProvider style={style as React.CSSProperties}>
         {/* 3-column grid layout: sidebar | main-content | betslip */}
-        <div className="sportsbook-layout min-h-screen">
+        <div className="sportsbook-layout">
           
           {/* Sidebar - spans full height */}
           <div className="sportsbook-sidebar">
@@ -135,12 +135,7 @@ export default function Layout({ children }: LayoutProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
-            className="sportsbook-main overflow-hidden scrollbar-hide"
-            style={{ 
-              maxHeight: 'calc(100vh - 80px)', 
-              overflowY: 'auto',
-              overflowX: 'hidden'
-            }}
+            className="sportsbook-main scrollbar-hide"
           >
             <div className="scrollbar-hide w-full">
               {childrenWithProps}
@@ -169,11 +164,11 @@ export default function Layout({ children }: LayoutProps) {
               />
             </div>
           </motion.div>
-          
-          {/* Footer - spans middle and right columns */}
-          <div className="sportsbook-footer">
-            <Footer />
-          </div>
+        </div>
+        
+        {/* Footer - positioned outside grid system, flows below all content */}
+        <div className="sportsbook-footer">
+          <Footer />
         </div>
       </SidebarProvider>
 
