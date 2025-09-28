@@ -6328,7 +6328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { phoneNumber, amount, currency, description } = validatedData;
 
       // Check for duplicate recent transactions (idempotency)
-      const recentTransactions = await storage.getTransactionsByUserId(req.user.id);
+      const recentTransactions = await storage.getUserTransactions(req.user.id);
       const recentDuplicate = recentTransactions.find(t => {
         const timeDiff = Date.now() - new Date(t.createdAt).getTime();
         return t.type === 'deposit' && 
@@ -6417,7 +6417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { checkoutRequestID } = req.params;
       
       // First check our database for the transaction
-      const transactions = await storage.getTransactionsByUserId(req.user.id);
+      const transactions = await storage.getUserTransactions(req.user.id);
       const transaction = transactions.find(t => {
         try {
           const metadata = JSON.parse(t.metadata || '{}');
@@ -6533,7 +6533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let userId = null;
 
       for (const user of allUsers) {
-        const userTransactions = await storage.getTransactionsByUserId(user.id);
+        const userTransactions = await storage.getUserTransactions(user.id);
         const foundTransaction = userTransactions.find(t => {
           try {
             const metadata = JSON.parse(t.metadata || '{}');
