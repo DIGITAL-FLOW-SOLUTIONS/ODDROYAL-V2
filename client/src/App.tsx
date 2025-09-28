@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import Layout from "@/components/Layout";
 import SimpleLayout from "@/components/SimpleLayout";
 import Homepage from "@/pages/Homepage";
@@ -24,6 +25,9 @@ import NotFound from "@/pages/not-found";
 import AdminApp from "@/pages/admin/AdminApp";
 
 function Router() {
+  // Enable automatic scroll to top on route changes
+  useScrollRestoration();
+  
   return (
     <Switch>
       {/* Admin Panel Routes - Must come first to match before general routes */}
