@@ -17,6 +17,7 @@ import Profile from "@/pages/Profile";
 import Wallet from "@/pages/Wallet";
 import BetHistory from "@/pages/BetHistory";
 import Analytics from "@/pages/Analytics";
+import ResponsibleGamblingSettings from "@/pages/ResponsibleGamblingSettings";
 import Results from "@/pages/Results";
 import Login from "@/pages/Login";
 import TermsAndConditions from "@/pages/TermsAndConditions";
@@ -48,6 +49,7 @@ function Router() {
       <Route path="/wallet" component={() => <Layout><Wallet /></Layout>} />
       <Route path="/bets" component={() => <Layout><BetHistory /></Layout>} />
       <Route path="/analytics" component={() => <Layout><Analytics /></Layout>} />
+      <Route path="/responsible-gambling" component={() => <Layout><ResponsibleGamblingSettings /></Layout>} />
       <Route path="/results" component={() => <Layout><Results /></Layout>} />
       <Route path="/login" component={() => <Layout><Login /></Layout>} />
       <Route path="/deposit" component={() => <SimpleLayout><Deposit /></SimpleLayout>} />

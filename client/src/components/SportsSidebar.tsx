@@ -297,6 +297,24 @@ export default function SportsSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </motion.div>
+              <motion.div
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.55 }}
+              >
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    data-testid="link-responsible-gambling"
+                    className={`${location === "/responsible-gambling" ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-3"} border-0 rounded-md`}
+                  >
+                    <Link href="/responsible-gambling">
+                      <Shield className="h-4 w-4" />
+                      <span>Responsible Gambling</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </motion.div>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

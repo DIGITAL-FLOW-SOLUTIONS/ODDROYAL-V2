@@ -6964,6 +6964,229 @@ async function sendWebhookNotification(notification: any) {
   }
 }
 
+  // ===================== USER RESPONSIBLE GAMBLING ENDPOINTS =====================
+
+  // GET /api/user/limits - Get current user's betting limits
+  app.get("/api/user/limits", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticate,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.id;
+        
+        // Get user limits
+        const limits = await storage.getUserLimits(userId);
+        
+        res.json({
+          success: true,
+          data: limits || {
+            // Return default limits if none set
+            dailyDepositLimitCents: 100000000, // £1,000,000
+            weeklyDepositLimitCents: 700000000, // £7,000,000  
+            monthlyDepositLimitCents: 3000000000, // £30,000,000
+            maxStakeCents: 10000000, // £100,000
+            dailyStakeLimitCents: 100000000, // £1,000,000
+            dailyLossLimitCents: 100000000, // £1,000,000
+            weeklyStakeLimitCents: 700000000, // £7,000,000
+            monthlyStakeLimitCents: 3000000000, // £30,000,000
+            isSelfExcluded: false,
+            selfExclusionUntil: null,
+            cooldownUntil: null
+          }
+        });
+      } catch (error) {
+        console.error('Get user limits error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve user limits'
+        });
+      }
+    }
+  );
+
+  // PUT /api/user/limits - Update user's betting limits (self-service)
+  app.put("/api/user/limits", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticate,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.id;
+        
+        const requestSchema = z.object({
+          dailyDepositLimitCents: z.number().int().min(0).max(100000000).optional(),
+          weeklyDepositLimitCents: z.number().int().min(0).max(700000000).optional(),
+          monthlyDepositLimitCents: z.number().int().min(0).max(3000000000).optional(),
+          maxStakeCents: z.number().int().min(100).max(10000000).optional(),
+          dailyStakeLimitCents: z.number().int().min(0).max(100000000).optional(),
+          dailyLossLimitCents: z.number().int().min(0).max(100000000).optional(),
+          weeklyStakeLimitCents: z.number().int().min(0).max(700000000).optional(),
+          monthlyStakeLimitCents: z.number().int().min(0).max(3000000000).optional(),
+        });
+
+        const validatedData = requestSchema.parse(req.body);
+        
+        // Get existing limits for comparison
+        const existingLimits = await storage.getUserLimits(userId);
+        
+        // Prepare limits data for update
+        const limitsData = {
+          ...validatedData,
+          reason: 'User self-service update',
+          userId
+        };
+
+        // Update limits in database
+        const updatedLimits = await storage.upsertUserLimits(userId, limitsData, null);
+
+        res.json({
+          success: true,
+          data: updatedLimits,
+          message: 'Betting limits updated successfully'
+        });
+      } catch (error) {
+        console.error('Update user limits error:', error);
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid limit values provided'
+          });
+        }
+        res.status(500).json({
+          success: false,
+          error: 'Failed to update user limits'
+        });
+      }
+    }
+  );
+
+  // POST /api/user/self-exclusion - Self-exclude user account
+  app.post("/api/user/self-exclusion", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticate,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.id;
+        
+        const requestSchema = z.object({
+          duration: z.enum(['24h', '7d', '30d', '90d', '180d', 'permanent']),
+          reason: z.string().min(1, 'Reason is required').max(500)
+        });
+
+        const { duration, reason } = requestSchema.parse(req.body);
+        
+        let exclusionUntil: string | null = null;
+        
+        if (duration !== 'permanent') {
+          const now = new Date();
+          switch (duration) {
+            case '24h':
+              exclusionUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+              break;
+            case '7d':
+              exclusionUntil = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+              break;
+            case '30d':
+              exclusionUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+              break;
+            case '90d':
+              exclusionUntil = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString();
+              break;
+            case '180d':
+              exclusionUntil = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000).toISOString();
+              break;
+          }
+        }
+
+        // Update user limits with self-exclusion
+        const limitsData = {
+          isSelfExcluded: true,
+          selfExclusionUntil: exclusionUntil,
+          reason: `Self-exclusion: ${reason}`,
+          userId
+        };
+
+        const updatedLimits = await storage.upsertUserLimits(userId, limitsData, null);
+
+        res.json({
+          success: true,
+          data: updatedLimits,
+          message: 'Self-exclusion activated successfully'
+        });
+      } catch (error) {
+        console.error('Self-exclusion error:', error);
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid self-exclusion request'
+          });
+        }
+        res.status(500).json({
+          success: false,
+          error: 'Failed to activate self-exclusion'
+        });
+      }
+    }
+  );
+
+  // DELETE /api/user/self-exclusion - Request removal of self-exclusion (for temporary exclusions only)
+  app.delete("/api/user/self-exclusion", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticate,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.id;
+        const userLimits = await storage.getUserLimits(userId);
+        
+        if (!userLimits || !userLimits.isSelfExcluded) {
+          return res.status(400).json({
+            success: false,
+            error: 'User is not currently self-excluded'
+          });
+        }
+
+        // Check if self-exclusion has expired
+        if (userLimits.selfExclusionUntil) {
+          const now = new Date();
+          const exclusionEnd = new Date(userLimits.selfExclusionUntil);
+          
+          if (now < exclusionEnd) {
+            return res.status(400).json({
+              success: false,
+              error: 'Self-exclusion period has not yet expired'
+            });
+          }
+        } else {
+          return res.status(400).json({
+            success: false,
+            error: 'Permanent self-exclusion cannot be removed via self-service'
+          });
+        }
+
+        // Remove self-exclusion
+        const limitsData = {
+          isSelfExcluded: false,
+          selfExclusionUntil: null,
+          reason: 'Self-exclusion period expired and removed by user',
+          userId
+        };
+
+        const updatedLimits = await storage.upsertUserLimits(userId, limitsData, null);
+
+        res.json({
+          success: true,
+          data: updatedLimits,
+          message: 'Self-exclusion removed successfully'
+        });
+      } catch (error) {
+        console.error('Remove self-exclusion error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to remove self-exclusion'
+        });
+      }
+    }
+  );
+
 // Dashboard alert creation function
 async function createDashboardAlert(notification: any) {
   try {
