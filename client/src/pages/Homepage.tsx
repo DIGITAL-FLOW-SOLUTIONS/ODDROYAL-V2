@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MatchCard from "@/components/MatchCard";
+import BannerSlider from "@/components/BannerSlider";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Trophy, 
@@ -80,30 +81,8 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
 
   return (
     <div className="flex-1 p-4 space-y-6">
-      {/* Hero Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-lg bg-gradient-to-r from-primary via-accent to-destructive p-8 text-white"
-      >
-        <div className="relative z-10">
-          <h1 className="text-4xl font-display font-bold mb-2">
-            Welcome to OddRoyal
-          </h1>
-          <p className="text-xl opacity-90 mb-4">
-            Premium Sports Betting with Competitive Odds
-          </p>
-          <div className="flex gap-4">
-            <Button size="lg" variant="outline" className="bg-white/10 border-white/20 hover:bg-white/20" data-testid="button-join-now">
-              Join Now
-            </Button>
-            <Button size="lg" variant="ghost" className="text-white hover:bg-white/10" data-testid="button-view-sports">
-              View Sports
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </motion.div>
+      {/* Banner Slider Section */}
+      <BannerSlider />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Featured Matches */}
