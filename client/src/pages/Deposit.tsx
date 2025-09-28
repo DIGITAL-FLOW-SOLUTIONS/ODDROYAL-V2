@@ -6,13 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  ArrowDownLeft, 
-  History,
-  CheckCircle,
-  Clock
-} from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ArrowDownLeft, History, CheckCircle, Clock } from "lucide-react";
 import { LazyImage } from "@/components/LazyImage";
 import kenyaPaymentMethodsImg from "@assets/Kenya Payment Methods_1759085831701.png";
 import mpesaImg from "@assets/M-PESA_1759085831733.webp";
@@ -36,79 +37,86 @@ interface Transaction {
 function Deposit() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [depositAmount, setDepositAmount] = useState('2000');
-  const [selectedCurrency, setSelectedCurrency] = useState('KES');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  const [depositAmount, setDepositAmount] = useState("2000");
+  const [selectedCurrency, setSelectedCurrency] = useState("KES");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
   const { user, isAuthenticated, isLoading } = useAuth();
-  
-  const { data: transactionsResponse } = useQuery<{ success: boolean; data: Transaction[] }>({
-    queryKey: ['/api/transactions'],
-    enabled: !!localStorage.getItem('authToken')
+
+  const { data: transactionsResponse } = useQuery<{
+    success: boolean;
+    data: Transaction[];
+  }>({
+    queryKey: ["/api/transactions"],
+    enabled: !!localStorage.getItem("authToken"),
   });
 
   const transactionsData = transactionsResponse?.data || [];
-  const depositHistory = transactionsData.filter(t => t.type === 'deposit').slice(0, 10);
+  const depositHistory = transactionsData
+    .filter((t) => t.type === "deposit")
+    .slice(0, 10);
 
   const depositMutation = useMutation({
     mutationFn: async (amount: number) => {
-      return apiRequest('POST', '/api/wallet/deposit', { 
+      return apiRequest("POST", "/api/wallet/deposit", {
         amount: amount.toString(),
         currency: selectedCurrency,
-        paymentMethod: selectedPaymentMethod 
+        paymentMethod: selectedPaymentMethod,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-      const amountInCents = currencyUtils.poundsToCents(parseFloat(depositAmount));
-      setDepositAmount('2000');
-      setSelectedPaymentMethod('');
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      const amountInCents = currencyUtils.poundsToCents(
+        parseFloat(depositAmount),
+      );
+      setDepositAmount("2000");
+      setSelectedPaymentMethod("");
       toast({
         title: "Deposit Successful",
-        description: `Successfully deposited ${selectedCurrency} ${depositAmount}`
+        description: `Successfully deposited ${selectedCurrency} ${depositAmount}`,
       });
     },
     onError: () => {
       toast({
         title: "Deposit Failed",
         description: "Failed to process deposit. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const paymentMethods = [
     {
-      id: 'kenya-payment',
-      name: 'Kenya Payment Methods',
+      id: "kenya-payment",
+      name: "Kenya Payment Methods",
       image: kenyaPaymentMethodsImg,
-      description: 'Local banking methods'
+      description: "Local banking methods",
     },
     {
-      id: 'mpesa',
-      name: 'M-PESA',
+      id: "mpesa",
+      name: "M-PESA",
       image: mpesaImg,
-      description: 'Mobile money transfer'
+      description: "Mobile money transfer",
     },
     {
-      id: 'airtel',
-      name: 'AIRTEL',
+      id: "airtel",
+      name: "AIRTEL",
       image: airtelImg,
-      description: 'Mobile money transfer'
+      description: "Mobile money transfer",
     },
     {
-      id: 'crypto',
-      name: 'Cryptocurrency',
+      id: "crypto",
+      name: "Cryptocurrency",
       image: cryptocurrencyImg,
-      description: 'Digital currency'
-    }
+      description: "Digital currency",
+    },
   ];
 
   const currencies = [
-    { code: 'KES', name: 'Kenyan Shilling' },
-    { code: 'TZS', name: 'Tanzanian Shilling' },
-    { code: 'UGX', name: 'Ugandan Shilling' },
-    { code: 'USD', name: 'US Dollar' }
+    { code: "KES", name: "Kenyan Shilling" },
+    { code: "TZS", name: "Tanzanian Shilling" },
+    { code: "UGX", name: "Ugandan Shilling" },
+    { code: "USD", name: "US Dollar" },
   ];
 
   const handleDeposit = () => {
@@ -116,7 +124,7 @@ function Deposit() {
       toast({
         title: "Payment Method Required",
         description: "Please select a payment method to continue.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -128,7 +136,7 @@ function Deposit() {
       toast({
         title: "Minimum Deposit",
         description: "Minimum deposit amount is 2000.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -147,7 +155,7 @@ function Deposit() {
     );
   }
 
-  if (!localStorage.getItem('authToken')) {
+  if (!localStorage.getItem("authToken")) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <motion.div
@@ -155,10 +163,10 @@ function Deposit() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center"
         >
-          <h2 className="text-2xl font-bold mb-4">Please log in to make a deposit</h2>
-          <Button onClick={() => setLocation('/login')}>
-            Go to Login
-          </Button>
+          <h2 className="text-2xl font-bold mb-4">
+            Please log in to make a deposit
+          </h2>
+          <Button onClick={() => setLocation("/login")}>Go to Login</Button>
         </motion.div>
       </div>
     );
@@ -174,7 +182,9 @@ function Deposit() {
           className="text-center space-y-2"
         >
           <h1 className="text-4xl font-bold">Deposit Funds</h1>
-          <p className="text-muted-foreground">Add money to your account securely</p>
+          <p className="text-muted-foreground">
+            Add money to your account securely
+          </p>
         </motion.div>
 
         {/* Deposit Form */}
@@ -208,8 +218,14 @@ function Deposit() {
                 </div>
                 <div className="w-32">
                   <Label htmlFor="currency">Currency</Label>
-                  <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
-                    <SelectTrigger className="h-12" data-testid="select-currency">
+                  <Select
+                    value={selectedCurrency}
+                    onValueChange={setSelectedCurrency}
+                  >
+                    <SelectTrigger
+                      className="h-12"
+                      data-testid="select-currency"
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -236,8 +252,8 @@ function Deposit() {
                       <Card
                         className={`cursor-pointer transition-all duration-200 ${
                           selectedPaymentMethod === method.id
-                            ? 'ring-2 ring-primary bg-primary/5'
-                            : 'hover-elevate'
+                            ? "ring-2 ring-primary bg-primary/5"
+                            : "hover-elevate"
                         }`}
                         onClick={() => setSelectedPaymentMethod(method.id)}
                         data-testid={`payment-method-${method.id}`}
@@ -257,8 +273,12 @@ function Deposit() {
                                   animate={{ opacity: 1 }}
                                   className="absolute inset-0 bg-black/40 flex flex-col justify-end p-4 text-white"
                                 >
-                                  <h3 className="font-semibold text-lg">{method.name}</h3>
-                                  <p className="text-sm opacity-90">{method.description}</p>
+                                  <h3 className="font-semibold text-lg">
+                                    {method.name}
+                                  </h3>
+                                  <p className="text-sm opacity-90">
+                                    {method.description}
+                                  </p>
                                 </motion.div>
                                 <motion.div
                                   initial={{ scale: 0 }}
@@ -278,10 +298,15 @@ function Deposit() {
               </div>
 
               {/* Deposit Button */}
-              <Button 
+              <Button
                 className="w-full h-12 text-lg"
                 onClick={handleDeposit}
-                disabled={!depositAmount || parseFloat(depositAmount) < 2000 || !selectedPaymentMethod || depositMutation.isPending}
+                disabled={
+                  !depositAmount ||
+                  parseFloat(depositAmount) < 2000 ||
+                  !selectedPaymentMethod ||
+                  depositMutation.isPending
+                }
                 data-testid="button-deposit"
               >
                 {depositMutation.isPending ? (
@@ -296,10 +321,6 @@ function Deposit() {
                   </>
                 )}
               </Button>
-
-              <p className="text-xs text-muted-foreground text-center">
-                * This is a demo platform. No real money will be processed.
-              </p>
             </CardContent>
           </Card>
         </motion.div>
@@ -319,7 +340,9 @@ function Deposit() {
             </CardHeader>
             <CardContent>
               {depositHistory.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No deposit history found</p>
+                <p className="text-muted-foreground text-center py-8">
+                  No deposit history found
+                </p>
               ) : (
                 <div className="space-y-3">
                   {depositHistory.map((transaction, index) => (
@@ -336,7 +359,9 @@ function Deposit() {
                           <ArrowDownLeft className="h-5 w-5" />
                         </div>
                         <div>
-                          <p className="font-medium">{transaction.description}</p>
+                          <p className="font-medium">
+                            {transaction.description}
+                          </p>
                           <p className="text-sm text-muted-foreground">
                             {new Date(transaction.createdAt).toLocaleString()}
                           </p>
@@ -344,10 +369,16 @@ function Deposit() {
                       </div>
                       <div className="text-right">
                         <p className="font-medium text-green-600">
-                          +{currencyUtils.formatCurrency(parseInt(transaction.amount))}
+                          +
+                          {currencyUtils.formatCurrency(
+                            parseInt(transaction.amount),
+                          )}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Balance: {currencyUtils.formatCurrency(parseInt(transaction.balanceAfter))}
+                          Balance:{" "}
+                          {currencyUtils.formatCurrency(
+                            parseInt(transaction.balanceAfter),
+                          )}
                         </p>
                       </div>
                     </motion.div>

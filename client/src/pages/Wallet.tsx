@@ -3,17 +3,17 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Wallet as WalletIcon, 
-  Plus, 
-  Minus, 
+import {
+  Wallet as WalletIcon,
+  Plus,
+  Minus,
   CreditCard,
   ArrowUpRight,
   ArrowDownLeft,
   History,
   TrendingUp,
   TrendingDown,
-  DollarSign
+  DollarSign,
 } from "lucide-react";
 import { currencyUtils } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,14 +31,16 @@ interface Transaction {
 function Wallet() {
   const [, setLocation] = useLocation();
   const { user, isAuthenticated, isLoading } = useAuth();
-  
-  const { data: transactionsResponse } = useQuery<{ success: boolean; data: Transaction[] }>({
-    queryKey: ['/api/transactions'],
-    enabled: !!localStorage.getItem('authToken')
+
+  const { data: transactionsResponse } = useQuery<{
+    success: boolean;
+    data: Transaction[];
+  }>({
+    queryKey: ["/api/transactions"],
+    enabled: !!localStorage.getItem("authToken"),
   });
 
   const transactionsData = transactionsResponse?.data || [];
-
 
   if (isLoading) {
     return (
@@ -52,13 +54,18 @@ function Wallet() {
     );
   }
 
-  if (!localStorage.getItem('authToken')) {
+  if (!localStorage.getItem("authToken")) {
     return (
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="p-6 text-center">
-            <h2 className="text-2xl font-bold mb-4">Please log in to access your wallet</h2>
-            <Button onClick={() => setLocation('/login')} data-testid="button-login">
+            <h2 className="text-2xl font-bold mb-4">
+              Please log in to access your wallet
+            </h2>
+            <Button
+              onClick={() => setLocation("/login")}
+              data-testid="button-login"
+            >
               Go to Login
             </Button>
           </CardContent>
@@ -79,14 +86,12 @@ function Wallet() {
     );
   }
 
-
-
   const recentTransactions = transactionsData.slice(0, 10);
   const totalDeposits = transactionsData
-    .filter(t => t.type === 'deposit')
+    .filter((t) => t.type === "deposit")
     .reduce((sum, t) => sum + parseInt(t.amount), 0); // amount is in cents
   const totalWithdrawals = transactionsData
-    .filter(t => t.type === 'withdrawal')
+    .filter((t) => t.type === "withdrawal")
     .reduce((sum, t) => sum + Math.abs(parseInt(t.amount)), 0); // amount is in cents
 
   return (
@@ -97,14 +102,23 @@ function Wallet() {
             <WalletIcon className="h-8 w-8 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-wallet-title">Wallet</h1>
+            <h1 className="text-3xl font-bold" data-testid="text-wallet-title">
+              Wallet
+            </h1>
             <p className="text-muted-foreground">Manage your account balance</p>
           </div>
         </div>
         <div className="text-right">
           <p className="text-sm text-muted-foreground">Current Balance</p>
-          <p className="text-3xl font-bold text-green-600" data-testid="text-wallet-balance">
-            {user ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(user.balance))) : ''}
+          <p
+            className="text-3xl font-bold text-green-600"
+            data-testid="text-wallet-balance"
+          >
+            {user
+              ? currencyUtils.formatCurrency(
+                  currencyUtils.poundsToCents(parseFloat(user.balance)),
+                )
+              : ""}
           </p>
         </div>
       </div>
@@ -113,23 +127,37 @@ function Wallet() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current Balance</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Current Balance
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-current-balance">
-              {user ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(user.balance))) : ''}
+            <div
+              className="text-2xl font-bold"
+              data-testid="text-current-balance"
+            >
+              {user
+                ? currencyUtils.formatCurrency(
+                    currencyUtils.poundsToCents(parseFloat(user.balance)),
+                  )
+                : ""}
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Deposits</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Deposits
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600" data-testid="text-total-deposits">
+            <div
+              className="text-2xl font-bold text-green-600"
+              data-testid="text-total-deposits"
+            >
               {currencyUtils.formatCurrency(totalDeposits)}
             </div>
           </CardContent>
@@ -137,11 +165,16 @@ function Wallet() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Withdrawals</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Withdrawals
+            </CardTitle>
             <TrendingDown className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600" data-testid="text-total-withdrawals">
+            <div
+              className="text-2xl font-bold text-red-600"
+              data-testid="text-total-withdrawals"
+            >
               {currencyUtils.formatCurrency(totalWithdrawals)}
             </div>
           </CardContent>
@@ -172,19 +205,17 @@ function Wallet() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-muted-foreground">
-                  Add money to your account quickly and securely using various payment methods.
+                  Add money to your account quickly and securely using various
+                  payment methods.
                 </p>
-                <Button 
+                <Button
                   className="w-full"
-                  onClick={() => setLocation('/deposit')}
+                  onClick={() => setLocation("/deposit")}
                   data-testid="button-go-to-deposit"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Go to Deposit Page
                 </Button>
-                <p className="text-xs text-muted-foreground">
-                  * This is a demo platform. No real money will be processed.
-                </p>
               </CardContent>
             </Card>
 
@@ -198,23 +229,26 @@ function Wallet() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-muted-foreground">
-                  Withdraw your winnings safely to your preferred payment method.
+                  Withdraw your winnings safely to your preferred payment
+                  method.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Available balance: {user ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(user.balance))) : ''}
+                  Available balance:{" "}
+                  {user
+                    ? currencyUtils.formatCurrency(
+                        currencyUtils.poundsToCents(parseFloat(user.balance)),
+                      )
+                    : ""}
                 </p>
-                <Button 
+                <Button
                   className="w-full"
                   variant="destructive"
-                  onClick={() => setLocation('/withdrawal')}
+                  onClick={() => setLocation("/withdrawal")}
                   data-testid="button-go-to-withdrawal"
                 >
                   <Minus className="h-4 w-4 mr-2" />
                   Go to Withdrawal Page
                 </Button>
-                <p className="text-xs text-muted-foreground">
-                  * This is a demo platform. No real money will be processed.
-                </p>
               </CardContent>
             </Card>
           </div>
@@ -227,49 +261,72 @@ function Wallet() {
             </CardHeader>
             <CardContent>
               {recentTransactions.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No transactions yet</p>
+                <p className="text-muted-foreground text-center py-8">
+                  No transactions yet
+                </p>
               ) : (
                 <div className="space-y-3">
                   {recentTransactions.map((transaction) => (
-                    <div 
-                      key={transaction.id} 
-                      className="flex justify-between items-center py-3 border-b last:border-b-0" 
+                    <div
+                      key={transaction.id}
+                      className="flex justify-between items-center py-3 border-b last:border-b-0"
                       data-testid={`transaction-${transaction.id}`}
                     >
                       <div className="flex items-center space-x-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          transaction.type === 'deposit' ? 'bg-green-100 text-green-600' : 
-                          transaction.type === 'withdrawal' ? 'bg-red-100 text-red-600' :
-                          'bg-blue-100 text-blue-600'
-                        }`}>
-                          {transaction.type === 'deposit' ? (
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            transaction.type === "deposit"
+                              ? "bg-green-100 text-green-600"
+                              : transaction.type === "withdrawal"
+                                ? "bg-red-100 text-red-600"
+                                : "bg-blue-100 text-blue-600"
+                          }`}
+                        >
+                          {transaction.type === "deposit" ? (
                             <ArrowDownLeft className="h-5 w-5" />
-                          ) : transaction.type === 'withdrawal' ? (
+                          ) : transaction.type === "withdrawal" ? (
                             <ArrowUpRight className="h-5 w-5" />
                           ) : (
                             <DollarSign className="h-5 w-5" />
                           )}
                         </div>
                         <div>
-                          <p className="font-medium">{transaction.description}</p>
+                          <p className="font-medium">
+                            {transaction.description}
+                          </p>
                           <p className="text-sm text-muted-foreground">
                             {new Date(transaction.createdAt).toLocaleString()}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className={`font-medium ${
-                          transaction.type === 'deposit' ? 'text-green-600' : 
-                          transaction.type === 'withdrawal' ? 'text-red-600' :
-                          transaction.amount.startsWith('-') ? 'text-red-600' : 'text-green-600'
-                        }`}>
-                          {transaction.type === 'deposit' ? '+' : 
-                           transaction.type === 'withdrawal' ? '-' :
-                           transaction.amount.startsWith('-') ? '' : '+'}
-                          {currencyUtils.formatCurrency(Math.abs(parseInt(transaction.amount)))}
+                        <p
+                          className={`font-medium ${
+                            transaction.type === "deposit"
+                              ? "text-green-600"
+                              : transaction.type === "withdrawal"
+                                ? "text-red-600"
+                                : transaction.amount.startsWith("-")
+                                  ? "text-red-600"
+                                  : "text-green-600"
+                          }`}
+                        >
+                          {transaction.type === "deposit"
+                            ? "+"
+                            : transaction.type === "withdrawal"
+                              ? "-"
+                              : transaction.amount.startsWith("-")
+                                ? ""
+                                : "+"}
+                          {currencyUtils.formatCurrency(
+                            Math.abs(parseInt(transaction.amount)),
+                          )}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Balance: {currencyUtils.formatCurrency(parseInt(transaction.balanceAfter))}
+                          Balance:{" "}
+                          {currencyUtils.formatCurrency(
+                            parseInt(transaction.balanceAfter),
+                          )}
                         </p>
                       </div>
                     </div>

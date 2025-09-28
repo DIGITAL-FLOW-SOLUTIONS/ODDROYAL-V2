@@ -6,15 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  ArrowUpRight, 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ArrowUpRight,
   History,
   Clock,
   CreditCard,
   Smartphone,
   DollarSign,
-  Wallet as WalletIcon
+  Wallet as WalletIcon,
 } from "lucide-react";
 import { currencyUtils } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -34,75 +40,81 @@ interface Transaction {
 function Withdrawal() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [selectedCurrency, setSelectedCurrency] = useState('KES');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
-  const [walletNumber, setWalletNumber] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [selectedCurrency, setSelectedCurrency] = useState("KES");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
+  const [walletNumber, setWalletNumber] = useState("");
   const { user, isAuthenticated, isLoading } = useAuth();
-  
-  const { data: transactionsResponse } = useQuery<{ success: boolean; data: Transaction[] }>({
-    queryKey: ['/api/transactions'],
-    enabled: !!localStorage.getItem('authToken')
+
+  const { data: transactionsResponse } = useQuery<{
+    success: boolean;
+    data: Transaction[];
+  }>({
+    queryKey: ["/api/transactions"],
+    enabled: !!localStorage.getItem("authToken"),
   });
 
   const transactionsData = transactionsResponse?.data || [];
-  const withdrawalHistory = transactionsData.filter(t => t.type === 'withdrawal').slice(0, 10);
+  const withdrawalHistory = transactionsData
+    .filter((t) => t.type === "withdrawal")
+    .slice(0, 10);
 
   const withdrawMutation = useMutation({
     mutationFn: async (amount: number) => {
-      return apiRequest('POST', '/api/wallet/withdraw', { 
+      return apiRequest("POST", "/api/wallet/withdraw", {
         amount: amount.toString(),
         currency: selectedCurrency,
         paymentMethod: selectedPaymentMethod,
-        walletNumber: walletNumber 
+        walletNumber: walletNumber,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-      setWithdrawAmount('');
-      setSelectedPaymentMethod('');
-      setWalletNumber('');
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      setWithdrawAmount("");
+      setSelectedPaymentMethod("");
+      setWalletNumber("");
       toast({
         title: "Withdrawal Successful",
-        description: `Successfully withdrew ${selectedCurrency} ${withdrawAmount}`
+        description: `Successfully withdrew ${selectedCurrency} ${withdrawAmount}`,
       });
     },
     onError: (error: any) => {
       toast({
         title: "Withdrawal Failed",
-        description: error?.message || "Failed to process withdrawal. Please try again.",
-        variant: "destructive"
+        description:
+          error?.message || "Failed to process withdrawal. Please try again.",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const paymentMethods = [
     {
-      value: 'visa-mastercard',
-      label: 'Visa/MasterCard',
+      value: "visa-mastercard",
+      label: "Visa/MasterCard",
       icon: CreditCard,
-      description: 'Credit/Debit Card'
+      description: "Credit/Debit Card",
     },
     {
-      value: 'mpesa',
-      label: 'M-PESA',
+      value: "mpesa",
+      label: "M-PESA",
       icon: Smartphone,
-      description: 'Mobile Money'
+      description: "Mobile Money",
     },
     {
-      value: 'bank-transfer',
-      label: 'Bank Transfer',
+      value: "bank-transfer",
+      label: "Bank Transfer",
       icon: DollarSign,
-      description: 'Direct Bank Transfer'
-    }
+      description: "Direct Bank Transfer",
+    },
   ];
 
   const currencies = [
-    { code: 'KES', name: 'Kenyan Shilling' },
-    { code: 'TZS', name: 'Tanzanian Shilling' },
-    { code: 'UGX', name: 'Ugandan Shilling' },
-    { code: 'USD', name: 'US Dollar' }
+    { code: "KES", name: "Kenyan Shilling" },
+    { code: "TZS", name: "Tanzanian Shilling" },
+    { code: "UGX", name: "Ugandan Shilling" },
+    { code: "USD", name: "US Dollar" },
   ];
 
   const handleWithdraw = () => {
@@ -110,7 +122,7 @@ function Withdrawal() {
       toast({
         title: "Payment Method Required",
         description: "Please select a payment method to continue.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
@@ -119,21 +131,21 @@ function Withdrawal() {
       toast({
         title: "Account Details Required",
         description: "Please enter your wallet/card number.",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     const amount = parseFloat(withdrawAmount);
-    const availableBalance = parseFloat(user?.balance || '0');
-    
+    const availableBalance = parseFloat(user?.balance || "0");
+
     if (amount > 0 && amount <= availableBalance) {
       withdrawMutation.mutate(amount);
     } else if (amount > availableBalance) {
       toast({
         title: "Insufficient Balance",
         description: "Withdrawal amount exceeds available balance.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -152,7 +164,7 @@ function Withdrawal() {
     );
   }
 
-  if (!localStorage.getItem('authToken')) {
+  if (!localStorage.getItem("authToken")) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <motion.div
@@ -160,10 +172,10 @@ function Withdrawal() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center"
         >
-          <h2 className="text-2xl font-bold mb-4">Please log in to make a withdrawal</h2>
-          <Button onClick={() => setLocation('/login')}>
-            Go to Login
-          </Button>
+          <h2 className="text-2xl font-bold mb-4">
+            Please log in to make a withdrawal
+          </h2>
+          <Button onClick={() => setLocation("/login")}>Go to Login</Button>
         </motion.div>
       </div>
     );
@@ -183,13 +195,23 @@ function Withdrawal() {
             <div>
               <span className="text-muted-foreground">Balance: </span>
               <span className="font-semibold">
-                {user ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(user.balance))) : '0.00'}
+                {user
+                  ? currencyUtils.formatCurrency(
+                      currencyUtils.poundsToCents(parseFloat(user.balance)),
+                    )
+                  : "0.00"}
               </span>
             </div>
             <div>
-              <span className="text-muted-foreground">Withdrawal balance: </span>
+              <span className="text-muted-foreground">
+                Withdrawal balance:{" "}
+              </span>
               <span className="font-semibold">
-                {user ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(user.balance))) : '0.00'}
+                {user
+                  ? currencyUtils.formatCurrency(
+                      currencyUtils.poundsToCents(parseFloat(user.balance)),
+                    )
+                  : "0.00"}
               </span>
             </div>
           </div>
@@ -211,7 +233,9 @@ function Withdrawal() {
             <CardContent className="space-y-6">
               {/* Amount Input */}
               <div>
-                <Label htmlFor="withdraw-amount">Enter the withdrawal amount</Label>
+                <Label htmlFor="withdraw-amount">
+                  Enter the withdrawal amount
+                </Label>
                 <Input
                   id="withdraw-amount"
                   type="number"
@@ -229,8 +253,14 @@ function Withdrawal() {
               <div className="flex gap-4">
                 <div className="flex-1">
                   <Label htmlFor="payment-method">Payment Method</Label>
-                  <Select value={selectedPaymentMethod} onValueChange={setSelectedPaymentMethod}>
-                    <SelectTrigger className="h-12" data-testid="select-payment-method">
+                  <Select
+                    value={selectedPaymentMethod}
+                    onValueChange={setSelectedPaymentMethod}
+                  >
+                    <SelectTrigger
+                      className="h-12"
+                      data-testid="select-payment-method"
+                    >
                       <SelectValue placeholder="Select payment method" />
                     </SelectTrigger>
                     <SelectContent>
@@ -247,8 +277,14 @@ function Withdrawal() {
                 </div>
                 <div className="w-32">
                   <Label htmlFor="currency">Currency</Label>
-                  <Select value={selectedCurrency} onValueChange={setSelectedCurrency}>
-                    <SelectTrigger className="h-12" data-testid="select-currency">
+                  <Select
+                    value={selectedCurrency}
+                    onValueChange={setSelectedCurrency}
+                  >
+                    <SelectTrigger
+                      className="h-12"
+                      data-testid="select-currency"
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -277,13 +313,14 @@ function Withdrawal() {
               </div>
 
               {/* Withdraw Button */}
-              <Button 
+              <Button
                 className="w-full h-12 text-lg bg-green-600 hover:bg-green-700"
                 onClick={handleWithdraw}
                 disabled={
-                  !withdrawAmount || 
-                  parseFloat(withdrawAmount) <= 0 || 
-                  parseFloat(withdrawAmount) > parseFloat(user?.balance || '0') ||
+                  !withdrawAmount ||
+                  parseFloat(withdrawAmount) <= 0 ||
+                  parseFloat(withdrawAmount) >
+                    parseFloat(user?.balance || "0") ||
                   !selectedPaymentMethod ||
                   !walletNumber.trim() ||
                   withdrawMutation.isPending
@@ -302,10 +339,6 @@ function Withdrawal() {
                   </>
                 )}
               </Button>
-
-              <p className="text-xs text-muted-foreground text-center">
-                * This is a demo platform. No real money will be processed.
-              </p>
             </CardContent>
           </Card>
         </motion.div>
@@ -325,7 +358,9 @@ function Withdrawal() {
             </CardHeader>
             <CardContent>
               {withdrawalHistory.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No withdrawal history found</p>
+                <p className="text-muted-foreground text-center py-8">
+                  No withdrawal history found
+                </p>
               ) : (
                 <div className="space-y-3">
                   {withdrawalHistory.map((transaction, index) => (
@@ -342,7 +377,9 @@ function Withdrawal() {
                           <ArrowUpRight className="h-5 w-5" />
                         </div>
                         <div>
-                          <p className="font-medium">{transaction.description}</p>
+                          <p className="font-medium">
+                            {transaction.description}
+                          </p>
                           <p className="text-sm text-muted-foreground">
                             {new Date(transaction.createdAt).toLocaleString()}
                           </p>
@@ -350,10 +387,16 @@ function Withdrawal() {
                       </div>
                       <div className="text-right">
                         <p className="font-medium text-red-600">
-                          -{currencyUtils.formatCurrency(Math.abs(parseInt(transaction.amount)))}
+                          -
+                          {currencyUtils.formatCurrency(
+                            Math.abs(parseInt(transaction.amount)),
+                          )}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Balance: {currencyUtils.formatCurrency(parseInt(transaction.balanceAfter))}
+                          Balance:{" "}
+                          {currencyUtils.formatCurrency(
+                            parseInt(transaction.balanceAfter),
+                          )}
                         </p>
                       </div>
                     </motion.div>
