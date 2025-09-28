@@ -40,9 +40,9 @@ function Router() {
       <Route path="/bets" component={() => <Layout><BetHistory /></Layout>} />
       <Route path="/results" component={() => <Layout><Results /></Layout>} />
       <Route path="/login" component={() => <Layout><Login /></Layout>} />
-      <Route path="/terms-and-conditions" component={() => <Layout><TermsAndConditions /></Layout>} />
-      <Route path="/privacy-policy" component={() => <Layout><PrivacyPolicy /></Layout>} />
-      <Route path="/responsible-gaming" component={() => <Layout><ResponsibleGaming /></Layout>} />
+      <Route path="/terms-and-conditions" component={TermsAndConditions} />
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/responsible-gaming" component={ResponsibleGaming} />
       
       {/* Catch all */}
       <Route>
