@@ -7,8 +7,8 @@ export default function TermsAndConditions() {
   const [, setLocation] = useLocation();
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-white">
+      <div className="w-full px-8 py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -25,14 +25,14 @@ export default function TermsAndConditions() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-3xl font-display font-bold">Terms & Conditions</h1>
-              <p className="text-muted-foreground">Last updated: December 2024</p>
+              <h1 className="text-3xl font-display font-bold text-gray-900">Terms & Conditions</h1>
+              <p className="text-gray-600">Last updated: December 2024</p>
             </div>
           </div>
 
-          <div className="prose prose-gray dark:prose-invert max-w-none">
+          <div className="prose prose-gray max-w-none text-gray-900">
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold">1. General Terms</h2>
+              <h2 className="text-xl font-semibold text-gray-900">1. General Terms</h2>
               <p>
                 By accessing or using the OddRoyal website and services, you agree to be bound by these Terms and Conditions. 
                 If you do not agree with any part of these terms, you must not use our services. These terms govern your use 
@@ -45,7 +45,7 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold">2. Account Registration and Requirements</h2>
+              <h2 className="text-xl font-semibold text-gray-900">2. Account Registration and Requirements</h2>
               <p>
                 To use OddRoyal services, you must create an account by providing accurate and complete information. 
                 You are responsible for maintaining the confidentiality of your account credentials and for all activities 
@@ -60,7 +60,7 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold">3. Deposits and Withdrawals</h2>
+              <h2 className="text-xl font-semibold text-gray-900">3. Deposits and Withdrawals</h2>
               <p>
                 All financial transactions must be conducted through approved payment methods. You may only use payment 
                 methods registered in your own name, and all funds must be from legitimate sources.
@@ -74,7 +74,7 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold">4. Betting Rules and Restrictions</h2>
+              <h2 className="text-xl font-semibold text-gray-900">4. Betting Rules and Restrictions</h2>
               <p>
                 All bets are subject to our betting rules and market-specific terms. We reserve the right to void bets 
                 that violate our terms or are placed in error.
@@ -88,7 +88,7 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold">5. Responsible Gaming</h2>
+              <h2 className="text-xl font-semibold text-gray-900">5. Responsible Gaming</h2>
               <p>
                 OddRoyal is committed to promoting responsible gaming practices. We provide tools and resources to help 
                 you maintain control over your betting activities.
@@ -102,7 +102,7 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold">6. Account Suspension and Termination</h2>
+              <h2 className="text-xl font-semibold text-gray-900">6. Account Suspension and Termination</h2>
               <p>
                 We reserve the right to suspend or terminate accounts that violate these terms or engage in prohibited activities.
               </p>
@@ -115,7 +115,7 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold">7. Limitation of Liability</h2>
+              <h2 className="text-xl font-semibold text-gray-900">7. Limitation of Liability</h2>
               <p>
                 OddRoyal's liability is limited to the extent permitted by law. We are not responsible for losses 
                 resulting from system failures, technical issues, or circumstances beyond our control.
@@ -123,7 +123,7 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold">8. Contact Information</h2>
+              <h2 className="text-xl font-semibold text-gray-900">8. Contact Information</h2>
               <p>
                 If you have questions about these Terms and Conditions, please contact our support team through 
                 the available channels on our website.
