@@ -56,7 +56,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="dark" storageKey="oddroyal-theme">
+      <ThemeProvider defaultTheme="light" storageKey="oddroyal-theme">
         <TooltipProvider>
           <AuthProvider>
             <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
