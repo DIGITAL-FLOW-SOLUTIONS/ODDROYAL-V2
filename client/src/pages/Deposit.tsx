@@ -242,30 +242,28 @@ function Deposit() {
                         onClick={() => setSelectedPaymentMethod(method.id)}
                         data-testid={`payment-method-${method.id}`}
                       >
-                        <CardContent className="p-4 text-center space-y-3">
-                          <div className="w-16 h-16 mx-auto flex items-center justify-center">
+                        <CardContent className="p-0 relative overflow-hidden">
+                          <div className="relative">
                             <LazyImage
                               src={method.image}
                               alt={method.name}
-                              width={64}
-                              height={64}
-                              className="rounded-lg object-contain"
+                              className="w-full h-32 object-cover"
                               placeholder="Loading..."
                             />
+                            <div className="absolute inset-0 bg-black/40 flex flex-col justify-end p-4 text-white">
+                              <h3 className="font-semibold text-lg">{method.name}</h3>
+                              <p className="text-sm opacity-90">{method.description}</p>
+                            </div>
+                            {selectedPaymentMethod === method.id && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="absolute top-2 right-2"
+                              >
+                                <CheckCircle className="h-6 w-6 text-primary bg-white rounded-full" />
+                              </motion.div>
+                            )}
                           </div>
-                          <div>
-                            <h3 className="font-semibold">{method.name}</h3>
-                            <p className="text-sm text-muted-foreground">{method.description}</p>
-                          </div>
-                          {selectedPaymentMethod === method.id && (
-                            <motion.div
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className="flex justify-center"
-                            >
-                              <CheckCircle className="h-5 w-5 text-primary" />
-                            </motion.div>
-                          )}
                         </CardContent>
                       </Card>
                     </motion.div>
