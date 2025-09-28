@@ -1,38 +1,21 @@
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import { useLocation } from "wouter";
 
 export default function TermsAndConditions() {
-  const [, setLocation] = useLocation();
-
   return (
-    <div className="min-h-screen bg-white">
-      <div className="w-full px-8 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-8"
-        >
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation("/")}
-              className="p-2"
-              data-testid="button-back-home"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-display font-bold text-gray-900">Terms & Conditions</h1>
-              <p className="text-gray-600">Last updated: December 2024</p>
-            </div>
-          </div>
+    <div className="w-full px-8 py-12">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-8 max-w-4xl mx-auto"
+      >
+        <div className="space-y-2">
+          <h1 className="text-3xl font-display font-bold text-foreground">Terms & Conditions</h1>
+          <p className="text-muted-foreground">Last updated: December 2024</p>
+        </div>
 
-          <div className="prose prose-gray max-w-none text-gray-900">
+        <div className="max-w-none text-foreground space-y-6">
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">1. General Terms</h2>
+              <h2 className="text-xl font-semibold text-foreground">1. General Terms</h2>
               <p>
                 By accessing or using the OddRoyal website and services, you agree to be bound by these Terms and Conditions 
                 ("Terms"). If you do not agree with any part of these terms, you must not use our services. These terms govern 
@@ -52,7 +35,7 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">2. Eligibility and Age Requirements</h2>
+              <h2 className="text-xl font-semibold text-foreground">2. Eligibility and Age Requirements</h2>
               <p>
                 To use OddRoyal services, you must meet strict eligibility requirements designed to protect minors and comply 
                 with international gambling regulations.
@@ -75,14 +58,14 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">3. Account Registration and Management</h2>
+              <h2 className="text-xl font-semibold text-foreground">3. Account Registration and Management</h2>
               <p>
                 To use OddRoyal services, you must create an account by providing accurate, complete, and current information. 
                 You are fully responsible for maintaining the confidentiality of your account credentials and for all activities 
                 that occur under your account.
               </p>
               
-              <h3 className="text-lg font-medium text-gray-900">Account Requirements</h3>
+              <h3 className="text-lg font-medium text-foreground">Account Requirements</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Each person may maintain only one account with OddRoyal</li>
                 <li>Duplicate accounts will be closed, and funds may be confiscated</li>
@@ -92,7 +75,7 @@ export default function TermsAndConditions() {
                 <li>Use of automated betting software or bots is forbidden</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Security Responsibilities</h3>
+              <h3 className="text-lg font-medium text-foreground">Security Responsibilities</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Create a strong, unique password for your account</li>
                 <li>Enable two-factor authentication when available</li>
@@ -102,7 +85,7 @@ export default function TermsAndConditions() {
                 <li>Use only secure networks when accessing your account</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Verification Process</h3>
+              <h3 className="text-lg font-medium text-foreground">Verification Process</h3>
               <p>
                 All accounts are subject to verification procedures to comply with anti-money laundering regulations 
                 and responsible gambling requirements. You may be required to provide:
@@ -117,14 +100,14 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">4. Deposits and Withdrawals</h2>
+              <h2 className="text-xl font-semibold text-foreground">4. Deposits and Withdrawals</h2>
               <p>
                 All financial transactions must be conducted through approved payment methods. You may only use payment 
                 methods registered in your own name, and all funds must be from legitimate sources. OddRoyal implements 
                 strict anti-money laundering controls and monitors all financial activity.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Deposit Policies</h3>
+              <h3 className="text-lg font-medium text-foreground">Deposit Policies</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Minimum deposit amounts apply as displayed on our platform</li>
                 <li>Maximum deposit limits are in place for responsible gambling</li>
@@ -135,7 +118,7 @@ export default function TermsAndConditions() {
                 <li>We reserve the right to refuse deposits from certain sources</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Withdrawal Policies</h3>
+              <h3 className="text-lg font-medium text-foreground">Withdrawal Policies</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Withdrawals must be made to the same payment method used for deposits</li>
                 <li>Minimum withdrawal amounts apply as specified on our platform</li>
@@ -146,7 +129,7 @@ export default function TermsAndConditions() {
                 <li>Suspicious activity may result in withdrawal delays or rejection</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Financial Restrictions</h3>
+              <h3 className="text-lg font-medium text-foreground">Financial Restrictions</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>All funds must be from legitimate sources</li>
                 <li>Third-party deposits and withdrawals are prohibited</li>
@@ -158,14 +141,14 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">5. Betting Rules and Market Regulations</h2>
+              <h2 className="text-xl font-semibold text-foreground">5. Betting Rules and Market Regulations</h2>
               <p>
                 All bets are subject to our comprehensive betting rules, market-specific terms, and official sporting 
                 regulations. We reserve the right to void bets that violate our terms, are placed in error, or result 
                 from technical malfunctions.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">General Betting Rules</h3>
+              <h3 className="text-lg font-medium text-foreground">General Betting Rules</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Bets cannot be changed or cancelled once confirmed and accepted</li>
                 <li>All bets are subject to maximum payout limits</li>
@@ -177,7 +160,7 @@ export default function TermsAndConditions() {
                 <li>Rule changes by sporting authorities may affect bet settlement</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Prohibited Betting Activities</h3>
+              <h3 className="text-lg font-medium text-foreground">Prohibited Betting Activities</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Betting on events where you have inside information</li>
                 <li>Coordinated betting or syndicate activities</li>
@@ -189,7 +172,7 @@ export default function TermsAndConditions() {
                 <li>Exploiting technical errors or obvious pricing mistakes</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Market Specific Rules</h3>
+              <h3 className="text-lg font-medium text-foreground">Market Specific Rules</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Live betting markets may be suspended without notice</li>
                 <li>Cash-out options are available at our discretion</li>
@@ -202,13 +185,13 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">6. Bonuses and Promotional Offers</h2>
+              <h2 className="text-xl font-semibold text-foreground">6. Bonuses and Promotional Offers</h2>
               <p>
                 OddRoyal offers various bonuses and promotional offers to enhance your betting experience. All bonuses 
                 are subject to specific terms and conditions that must be met before any bonus funds can be withdrawn.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Bonus Terms</h3>
+              <h3 className="text-lg font-medium text-foreground">Bonus Terms</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Bonuses are available to eligible customers only</li>
                 <li>Each customer can claim each promotional offer only once</li>
@@ -220,7 +203,7 @@ export default function TermsAndConditions() {
                 <li>Bonus abuse or irregular betting patterns may void promotions</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Promotional Restrictions</h3>
+              <h3 className="text-lg font-medium text-foreground">Promotional Restrictions</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Customers must opt-in to receive promotional offers</li>
                 <li>Multiple accounts cannot be used to claim additional bonuses</li>
@@ -232,14 +215,14 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">7. Intellectual Property and Website Usage</h2>
+              <h2 className="text-xl font-semibold text-foreground">7. Intellectual Property and Website Usage</h2>
               <p>
                 All content on the OddRoyal website, including text, graphics, logos, images, software, and data 
                 compilations, is the property of OddRoyal or its licensors and is protected by international copyright 
                 and trademark laws.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Permitted Use</h3>
+              <h3 className="text-lg font-medium text-foreground">Permitted Use</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Personal, non-commercial use of our website and services</li>
                 <li>Downloading content for personal reference (where applicable)</li>
@@ -247,7 +230,7 @@ export default function TermsAndConditions() {
                 <li>Using our website through standard web browsers</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Prohibited Activities</h3>
+              <h3 className="text-lg font-medium text-foreground">Prohibited Activities</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Reproducing, distributing, or publicly displaying our content</li>
                 <li>Using automated data extraction tools or scrapers</li>
@@ -261,14 +244,14 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">8. Responsible Gaming and Player Protection</h2>
+              <h2 className="text-xl font-semibold text-foreground">8. Responsible Gaming and Player Protection</h2>
               <p>
                 OddRoyal is committed to promoting responsible gaming practices and protecting vulnerable customers. 
                 We provide comprehensive tools and resources to help you maintain control over your betting activities 
                 and recognize potential gambling problems.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Self-Control Tools</h3>
+              <h3 className="text-lg font-medium text-foreground">Self-Control Tools</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Deposit limits (daily, weekly, monthly)</li>
                 <li>Loss limits with automatic enforcement</li>
@@ -280,7 +263,7 @@ export default function TermsAndConditions() {
                 <li>Account activity monitoring and alerts</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Support Resources</h3>
+              <h3 className="text-lg font-medium text-foreground">Support Resources</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>24/7 customer support for responsible gaming concerns</li>
                 <li>Links to professional gambling addiction services</li>
@@ -292,13 +275,13 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">9. Account Suspension and Termination</h2>
+              <h2 className="text-xl font-semibold text-foreground">9. Account Suspension and Termination</h2>
               <p>
                 We reserve the right to suspend, restrict, or terminate accounts that violate these terms, engage in 
                 prohibited activities, or pose risks to the integrity of our platform or other customers.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Grounds for Suspension</h3>
+              <h3 className="text-lg font-medium text-foreground">Grounds for Suspension</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Violation of any terms and conditions</li>
                 <li>Suspected fraudulent or criminal activity</li>
@@ -310,7 +293,7 @@ export default function TermsAndConditions() {
                 <li>Connection to match-fixing or corruption</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Termination Process</h3>
+              <h3 className="text-lg font-medium text-foreground">Termination Process</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Written notice will be provided where possible</li>
                 <li>Outstanding bets will be settled according to our rules</li>
@@ -320,7 +303,7 @@ export default function TermsAndConditions() {
                 <li>Legal action may be pursued for serious violations</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Customer-Initiated Closure</h3>
+              <h3 className="text-lg font-medium text-foreground">Customer-Initiated Closure</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>You may close your account at any time</li>
                 <li>Outstanding balances will be processed for withdrawal</li>
@@ -332,13 +315,13 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">10. Privacy and Data Protection</h2>
+              <h2 className="text-xl font-semibold text-foreground">10. Privacy and Data Protection</h2>
               <p>
                 OddRoyal is committed to protecting your personal information and privacy rights. We process your data 
                 in accordance with our Privacy Policy and applicable data protection regulations, including GDPR.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Data Processing</h3>
+              <h3 className="text-lg font-medium text-foreground">Data Processing</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>We collect only necessary information for service provision</li>
                 <li>Data is processed for legitimate business purposes only</li>
@@ -355,13 +338,13 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">11. Dispute Resolution and Complaints</h2>
+              <h2 className="text-xl font-semibold text-foreground">11. Dispute Resolution and Complaints</h2>
               <p>
                 OddRoyal is committed to resolving customer disputes fairly and efficiently. We have established 
                 comprehensive procedures to handle complaints and ensure customer satisfaction.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Internal Dispute Process</h3>
+              <h3 className="text-lg font-medium text-foreground">Internal Dispute Process</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Contact our customer support team as the first step</li>
                 <li>Provide detailed information about your complaint</li>
@@ -371,7 +354,7 @@ export default function TermsAndConditions() {
                 <li>Internal review process typically takes 5-10 business days</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">External Resolution</h3>
+              <h3 className="text-lg font-medium text-foreground">External Resolution</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Unresolved disputes may be referred to independent arbitration</li>
                 <li>Gibraltar regulatory authority provides dispute resolution services</li>
@@ -382,13 +365,13 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">12. Limitation of Liability and Disclaimers</h2>
+              <h2 className="text-xl font-semibold text-foreground">12. Limitation of Liability and Disclaimers</h2>
               <p>
                 OddRoyal's liability is limited to the extent permitted by law. We provide our services on an "as is" 
                 basis and cannot guarantee uninterrupted or error-free operation.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Service Disclaimers</h3>
+              <h3 className="text-lg font-medium text-foreground">Service Disclaimers</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>We do not guarantee continuous service availability</li>
                 <li>Technical issues may temporarily affect platform operation</li>
@@ -398,7 +381,7 @@ export default function TermsAndConditions() {
                 <li>Past performance does not indicate future results</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Liability Limitations</h3>
+              <h3 className="text-lg font-medium text-foreground">Liability Limitations</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Maximum liability is limited to your account balance</li>
                 <li>We are not liable for indirect or consequential losses</li>
@@ -410,13 +393,13 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">13. Legal Compliance and Regulatory Information</h2>
+              <h2 className="text-xl font-semibold text-foreground">13. Legal Compliance and Regulatory Information</h2>
               <p>
                 OddRoyal operates under strict regulatory oversight and complies with all applicable laws and regulations 
                 in the jurisdictions where we offer services.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Licensing and Regulation</h3>
+              <h3 className="text-lg font-medium text-foreground">Licensing and Regulation</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Licensed and regulated by appropriate gaming authorities</li>
                 <li>Subject to regular compliance audits and reviews</li>
@@ -426,7 +409,7 @@ export default function TermsAndConditions() {
                 <li>Complies with applicable data protection regulations</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Anti-Money Laundering</h3>
+              <h3 className="text-lg font-medium text-foreground">Anti-Money Laundering</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Comprehensive AML policies are in place</li>
                 <li>Customer due diligence procedures are mandatory</li>
@@ -436,7 +419,7 @@ export default function TermsAndConditions() {
                 <li>Regular staff training on AML requirements</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Jurisdictional Restrictions</h3>
+              <h3 className="text-lg font-medium text-foreground">Jurisdictional Restrictions</h3>
               <p>
                 Our services are not available to residents of certain jurisdictions due to local laws and regulations. 
                 It is your responsibility to ensure that your use of our services complies with local laws.
@@ -444,14 +427,14 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">14. Force Majeure and Technical Issues</h2>
+              <h2 className="text-xl font-semibold text-foreground">14. Force Majeure and Technical Issues</h2>
               <p>
                 OddRoyal shall not be liable for any failure or delay in performance due to circumstances beyond our 
                 reasonable control, including but not limited to acts of God, natural disasters, war, terrorism, 
                 government actions, or technical failures.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Force Majeure Events</h3>
+              <h3 className="text-lg font-medium text-foreground">Force Majeure Events</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Natural disasters and extreme weather events</li>
                 <li>War, terrorism, and civil unrest</li>
@@ -462,7 +445,7 @@ export default function TermsAndConditions() {
                 <li>Cyber attacks and security breaches</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Technical Issues</h3>
+              <h3 className="text-lg font-medium text-foreground">Technical Issues</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Server maintenance may temporarily affect service</li>
                 <li>Software updates may cause brief interruptions</li>
@@ -474,14 +457,14 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">15. Governing Law and Jurisdiction</h2>
+              <h2 className="text-xl font-semibold text-foreground">15. Governing Law and Jurisdiction</h2>
               <p>
                 These Terms and Conditions are governed by applicable law. Any disputes arising from or relating 
                 to these terms or your use of our services shall be subject to the jurisdiction of competent courts 
                 or alternative dispute resolution procedures as specified in our licensing jurisdiction.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Legal Framework</h3>
+              <h3 className="text-lg font-medium text-foreground">Legal Framework</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Applicable gambling legislation provides the regulatory framework</li>
                 <li>Consumer protection regulations apply as required</li>
@@ -493,13 +476,13 @@ export default function TermsAndConditions() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">16. Contact Information and Support</h2>
+              <h2 className="text-xl font-semibold text-foreground">16. Contact Information and Support</h2>
               <p>
                 If you have questions about these Terms and Conditions or need assistance with any aspect of our services, 
                 our customer support team is available to help you.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Customer Support</h3>
+              <h3 className="text-lg font-medium text-foreground">Customer Support</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>24/7 live chat support available on our website</li>
                 <li>Email support: support@oddroyal.com</li>
@@ -510,7 +493,7 @@ export default function TermsAndConditions() {
                 <li>Media inquiries: media@oddroyal.com</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Response Times</h3>
+              <h3 className="text-lg font-medium text-foreground">Response Times</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Live chat: Immediate during business hours</li>
                 <li>Email support: Within 24 hours</li>
@@ -526,8 +509,7 @@ export default function TermsAndConditions() {
               </p>
             </section>
           </div>
-        </motion.div>
-      </div>
+      </motion.div>
     </div>
   );
 }

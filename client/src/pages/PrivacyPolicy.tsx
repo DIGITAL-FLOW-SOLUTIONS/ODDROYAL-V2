@@ -1,38 +1,21 @@
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import { useLocation } from "wouter";
 
 export default function PrivacyPolicy() {
-  const [, setLocation] = useLocation();
-
   return (
-    <div className="min-h-screen bg-white">
-      <div className="w-full px-8 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-8"
-        >
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation("/")}
-              className="p-2"
-              data-testid="button-back-home"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-display font-bold text-gray-900">Privacy Policy</h1>
-              <p className="text-gray-600">Last updated: December 2024</p>
-            </div>
-          </div>
+    <div className="w-full px-8 py-12">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-8 max-w-4xl mx-auto"
+      >
+        <div className="space-y-2">
+          <h1 className="text-3xl font-display font-bold text-foreground">Privacy Policy</h1>
+          <p className="text-muted-foreground">Last updated: December 2024</p>
+        </div>
 
-          <div className="prose prose-gray max-w-none text-gray-900">
+        <div className="max-w-none text-foreground space-y-6">
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">1. Introduction and Data Controller Information</h2>
+              <h2 className="text-xl font-semibold text-foreground">1. Introduction and Data Controller Information</h2>
               <p>
                 OddRoyal ("we," "us," "our") is committed to protecting your privacy and personal information. This Privacy Policy 
                 explains how we collect, use, share, and protect your personal data when you use our sports betting platform, 
@@ -45,7 +28,7 @@ export default function PrivacyPolicy() {
                 data processing activities.
               </p>
               
-              <h3 className="text-lg font-medium text-gray-900">Key Principles</h3>
+              <h3 className="text-lg font-medium text-foreground">Key Principles</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>We process personal data lawfully, fairly, and transparently</li>
                 <li>Data is collected for specified, explicit, and legitimate purposes</li>
@@ -58,13 +41,13 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">2. Information We Collect</h2>
+              <h2 className="text-xl font-semibold text-foreground">2. Information We Collect</h2>
               <p>
                 We collect various types of personal information to provide our sports betting services effectively, 
                 ensure regulatory compliance, and maintain platform security. The information we collect includes:
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Personal Identification Information</h3>
+              <h3 className="text-lg font-medium text-foreground">Personal Identification Information</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Full legal name and any aliases</li>
                 <li>Date of birth and age verification</li>
@@ -76,7 +59,7 @@ export default function PrivacyPolicy() {
                 <li>Biometric data for enhanced verification (where legally permitted)</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Financial Information</h3>
+              <h3 className="text-lg font-medium text-foreground">Financial Information</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Payment method details (credit/debit cards, e-wallets, bank accounts)</li>
                 <li>Transaction history and betting records</li>
@@ -87,7 +70,7 @@ export default function PrivacyPolicy() {
                 <li>Banking relationships and references</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Technical and Usage Data</h3>
+              <h3 className="text-lg font-medium text-foreground">Technical and Usage Data</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>IP addresses and geolocation information</li>
                 <li>Device identifiers and characteristics</li>
@@ -100,7 +83,7 @@ export default function PrivacyPolicy() {
                 <li>Performance metrics and error reports</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Communication and Interaction Data</h3>
+              <h3 className="text-lg font-medium text-foreground">Communication and Interaction Data</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Customer service interactions and correspondence</li>
                 <li>Live chat conversations and support tickets</li>
@@ -111,7 +94,7 @@ export default function PrivacyPolicy() {
                 <li>Marketing preferences and opt-in/opt-out choices</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Behavioral and Analytical Data</h3>
+              <h3 className="text-lg font-medium text-foreground">Behavioral and Analytical Data</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Betting history and preferences</li>
                 <li>Risk assessment and profiling information</li>
@@ -123,12 +106,12 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">3. Legal Basis for Processing</h2>
+              <h2 className="text-xl font-semibold text-foreground">3. Legal Basis for Processing</h2>
               <p>
                 We process your personal information based on various legal grounds, depending on the purpose of processing:
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Contractual Necessity</h3>
+              <h3 className="text-lg font-medium text-foreground">Contractual Necessity</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Account registration and management</li>
                 <li>Processing bets and managing your account balance</li>
@@ -137,7 +120,7 @@ export default function PrivacyPolicy() {
                 <li>Delivering requested services and features</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Legal Obligations</h3>
+              <h3 className="text-lg font-medium text-foreground">Legal Obligations</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Age verification and identity confirmation</li>
                 <li>Anti-money laundering (AML) compliance</li>
@@ -147,7 +130,7 @@ export default function PrivacyPolicy() {
                 <li>Compliance with sanctions and restricted lists</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Legitimate Interests</h3>
+              <h3 className="text-lg font-medium text-foreground">Legitimate Interests</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Fraud prevention and platform security</li>
                 <li>Risk management and assessment</li>
@@ -157,7 +140,7 @@ export default function PrivacyPolicy() {
                 <li>Marketing to existing customers (where permitted)</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Consent</h3>
+              <h3 className="text-lg font-medium text-foreground">Consent</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Marketing communications to new prospects</li>
                 <li>Non-essential cookies and tracking</li>
@@ -168,13 +151,13 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">4. How We Use Your Information</h2>
+              <h2 className="text-xl font-semibold text-foreground">4. How We Use Your Information</h2>
               <p>
                 We use your personal information for legitimate business purposes related to providing our services, 
                 ensuring regulatory compliance, and maintaining a safe, secure platform.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Service Provision and Account Management</h3>
+              <h3 className="text-lg font-medium text-foreground">Service Provision and Account Management</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Processing account registration and ongoing management</li>
                 <li>Verifying your identity and eligibility to use our services</li>
@@ -185,7 +168,7 @@ export default function PrivacyPolicy() {
                 <li>Facilitating responsible gambling tools and limits</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Security and Compliance</h3>
+              <h3 className="text-lg font-medium text-foreground">Security and Compliance</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Preventing fraud, money laundering, and other criminal activities</li>
                 <li>Conducting risk assessments and ongoing monitoring</li>
@@ -196,7 +179,7 @@ export default function PrivacyPolicy() {
                 <li>Reporting to regulatory authorities as required</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Service Improvement and Analytics</h3>
+              <h3 className="text-lg font-medium text-foreground">Service Improvement and Analytics</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Analyzing usage patterns to improve our services</li>
                 <li>Conducting market research and customer surveys</li>
@@ -206,7 +189,7 @@ export default function PrivacyPolicy() {
                 <li>Testing new technologies and services</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Marketing and Communications</h3>
+              <h3 className="text-lg font-medium text-foreground">Marketing and Communications</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Sending promotional offers and bonuses (with consent)</li>
                 <li>Providing information about new products and services</li>
@@ -218,13 +201,13 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">5. Information Sharing and Disclosure</h2>
+              <h2 className="text-xl font-semibold text-foreground">5. Information Sharing and Disclosure</h2>
               <p>
                 We do not sell, rent, or lease your personal information to third parties for their marketing purposes. 
                 We may share your information only in specific circumstances and with appropriate safeguards in place.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Service Providers and Business Partners</h3>
+              <h3 className="text-lg font-medium text-foreground">Service Providers and Business Partners</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Payment processors and financial institutions</li>
                 <li>Identity verification and KYC service providers</li>
@@ -235,7 +218,7 @@ export default function PrivacyPolicy() {
                 <li>Professional advisors (lawyers, accountants, auditors)</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Regulatory and Legal Authorities</h3>
+              <h3 className="text-lg font-medium text-foreground">Regulatory and Legal Authorities</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Gaming regulators and licensing authorities</li>
                 <li>Financial intelligence units and AML authorities</li>
@@ -245,7 +228,7 @@ export default function PrivacyPolicy() {
                 <li>Ombudsman services and dispute resolution bodies</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Business Transactions</h3>
+              <h3 className="text-lg font-medium text-foreground">Business Transactions</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Potential buyers in case of business sale or merger</li>
                 <li>Investors and financial partners (with anonymized data)</li>
@@ -253,7 +236,7 @@ export default function PrivacyPolicy() {
                 <li>Audit firms for compliance and financial reviews</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Emergency Situations</h3>
+              <h3 className="text-lg font-medium text-foreground">Emergency Situations</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>To protect the safety and security of individuals</li>
                 <li>To prevent harm or illegal activities</li>
@@ -263,14 +246,14 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">6. Data Security and Protection</h2>
+              <h2 className="text-xl font-semibold text-foreground">6. Data Security and Protection</h2>
               <p>
                 We implement comprehensive security measures to protect your personal information from unauthorized access, 
                 disclosure, alteration, or destruction. Our security program includes technical, administrative, and 
                 physical safeguards.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Technical Security Measures</h3>
+              <h3 className="text-lg font-medium text-foreground">Technical Security Measures</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>256-bit SSL/TLS encryption for all data transmission</li>
                 <li>Advanced encryption standards (AES) for data at rest</li>
@@ -282,7 +265,7 @@ export default function PrivacyPolicy() {
                 <li>Network segmentation and firewall protection</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Administrative Security Controls</h3>
+              <h3 className="text-lg font-medium text-foreground">Administrative Security Controls</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Comprehensive employee background checks</li>
                 <li>Regular security awareness training for all staff</li>
@@ -293,7 +276,7 @@ export default function PrivacyPolicy() {
                 <li>Third-party security assessments and due diligence</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Physical Security Measures</h3>
+              <h3 className="text-lg font-medium text-foreground">Physical Security Measures</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Secure data centers with 24/7 monitoring</li>
                 <li>Biometric access controls and security cameras</li>
@@ -302,7 +285,7 @@ export default function PrivacyPolicy() {
                 <li>Restricted access to server rooms and equipment</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Ongoing Security Monitoring</h3>
+              <h3 className="text-lg font-medium text-foreground">Ongoing Security Monitoring</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>24/7 security operations center (SOC) monitoring</li>
                 <li>Real-time threat detection and response</li>
@@ -313,15 +296,15 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">7. Cookies and Tracking Technologies</h2>
+              <h2 className="text-xl font-semibold text-foreground">7. Cookies and Tracking Technologies</h2>
               <p>
                 We use cookies and similar tracking technologies to enhance your experience on our platform, improve our services, 
                 and provide personalized content. This section explains what cookies we use and how you can control them.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Types of Cookies We Use</h3>
+              <h3 className="text-lg font-medium text-foreground">Types of Cookies We Use</h3>
               
-              <h4 className="text-base font-medium text-gray-800">Essential Cookies</h4>
+              <h4 className="text-base font-medium text-foreground">Essential Cookies</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Authentication and session management cookies</li>
                 <li>Security and fraud prevention cookies</li>
@@ -330,7 +313,7 @@ export default function PrivacyPolicy() {
                 <li>Language and regional preference cookies</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Performance and Analytics Cookies</h4>
+              <h4 className="text-base font-medium text-foreground">Performance and Analytics Cookies</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Website usage analytics and statistics</li>
                 <li>Error tracking and performance monitoring</li>
@@ -339,7 +322,7 @@ export default function PrivacyPolicy() {
                 <li>Conversion tracking and attribution</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Functional Cookies</h4>
+              <h4 className="text-base font-medium text-foreground">Functional Cookies</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>User preferences and settings storage</li>
                 <li>Personalization and customization features</li>
@@ -348,7 +331,7 @@ export default function PrivacyPolicy() {
                 <li>Accessibility and display preferences</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Marketing and Advertising Cookies</h4>
+              <h4 className="text-base font-medium text-foreground">Marketing and Advertising Cookies</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Personalized advertising and content delivery</li>
                 <li>Cross-device tracking and attribution</li>
@@ -357,7 +340,7 @@ export default function PrivacyPolicy() {
                 <li>Retargeting and remarketing campaigns</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Cookie Management and Controls</h3>
+              <h3 className="text-lg font-medium text-foreground">Cookie Management and Controls</h3>
               <p>
                 You can control cookie settings through your browser preferences or our cookie consent management tool. 
                 Please note that disabling certain cookies may affect platform functionality and your user experience.
@@ -372,15 +355,15 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">8. Your Rights and Choices</h2>
+              <h2 className="text-xl font-semibold text-foreground">8. Your Rights and Choices</h2>
               <p>
                 You have important rights regarding your personal information under applicable data protection laws. 
                 We are committed to helping you exercise these rights and providing you with control over your personal data.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Data Subject Rights</h3>
+              <h3 className="text-lg font-medium text-foreground">Data Subject Rights</h3>
               
-              <h4 className="text-base font-medium text-gray-800">Right of Access</h4>
+              <h4 className="text-base font-medium text-foreground">Right of Access</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Request a copy of the personal information we hold about you</li>
                 <li>Obtain information about how we process your data</li>
@@ -388,7 +371,7 @@ export default function PrivacyPolicy() {
                 <li>Access your data processing history and purposes</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Right to Rectification</h4>
+              <h4 className="text-base font-medium text-foreground">Right to Rectification</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Request correction of inaccurate or incomplete information</li>
                 <li>Update your personal details and contact information</li>
@@ -396,7 +379,7 @@ export default function PrivacyPolicy() {
                 <li>Verify and confirm data accuracy</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Right to Erasure ("Right to be Forgotten")</h4>
+              <h4 className="text-base font-medium text-foreground">Right to Erasure ("Right to be Forgotten")</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Request deletion of your personal information in certain circumstances</li>
                 <li>Withdraw consent for processing where applicable</li>
@@ -404,7 +387,7 @@ export default function PrivacyPolicy() {
                 <li>Request removal from marketing databases</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Right to Data Portability</h4>
+              <h4 className="text-base font-medium text-foreground">Right to Data Portability</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Request transfer of your data in a structured, machine-readable format</li>
                 <li>Move your data to another service provider</li>
@@ -412,7 +395,7 @@ export default function PrivacyPolicy() {
                 <li>Direct transfer to third parties where technically feasible</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Right to Restrict Processing</h4>
+              <h4 className="text-base font-medium text-foreground">Right to Restrict Processing</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Limit how we process your data while disputes are resolved</li>
                 <li>Restrict processing during accuracy verification</li>
@@ -420,7 +403,7 @@ export default function PrivacyPolicy() {
                 <li>Maintain data for legal claims while restricting other uses</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Right to Object</h4>
+              <h4 className="text-base font-medium text-foreground">Right to Object</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Object to processing based on legitimate interests</li>
                 <li>Opt out of direct marketing communications</li>
@@ -428,7 +411,7 @@ export default function PrivacyPolicy() {
                 <li>Challenge the legal basis for processing</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">How to Exercise Your Rights</h3>
+              <h3 className="text-lg font-medium text-foreground">How to Exercise Your Rights</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Contact our data protection team via email or support portal</li>
                 <li>Use our online privacy rights request form</li>
@@ -440,15 +423,15 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">9. Data Retention and Deletion</h2>
+              <h2 className="text-xl font-semibold text-foreground">9. Data Retention and Deletion</h2>
               <p>
                 We retain your personal information only for as long as necessary to fulfill the purposes for which it was 
                 collected, comply with legal obligations, and protect our legitimate business interests.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Retention Periods by Data Type</h3>
+              <h3 className="text-lg font-medium text-foreground">Retention Periods by Data Type</h3>
               
-              <h4 className="text-base font-medium text-gray-800">Account and Profile Information</h4>
+              <h4 className="text-base font-medium text-foreground">Account and Profile Information</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Retained for the duration of your account relationship</li>
                 <li>Kept for 7 years after account closure for regulatory compliance</li>
@@ -456,7 +439,7 @@ export default function PrivacyPolicy() {
                 <li>Contact information updated or deleted upon request</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Financial and Transaction Data</h4>
+              <h4 className="text-base font-medium text-foreground">Financial and Transaction Data</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Transaction records retained for 7 years for tax and audit purposes</li>
                 <li>Payment method information deleted after account closure</li>
@@ -464,7 +447,7 @@ export default function PrivacyPolicy() {
                 <li>Suspicious activity reports retained indefinitely for law enforcement</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Communication and Support Data</h4>
+              <h4 className="text-base font-medium text-foreground">Communication and Support Data</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Customer service interactions retained for 3 years</li>
                 <li>Marketing communications deleted upon opt-out</li>
@@ -472,7 +455,7 @@ export default function PrivacyPolicy() {
                 <li>Call recordings deleted after 12 months unless required for investigations</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Technical and Usage Data</h4>
+              <h4 className="text-base font-medium text-foreground">Technical and Usage Data</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Log files and analytics data retained for 2 years</li>
                 <li>Security monitoring data retained for 1 year</li>
@@ -480,7 +463,7 @@ export default function PrivacyPolicy() {
                 <li>Persistent cookies expire according to their specified lifetime</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Automated Deletion Processes</h3>
+              <h3 className="text-lg font-medium text-foreground">Automated Deletion Processes</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Regular automated purging of expired data</li>
                 <li>Systematic review of retention periods and policies</li>
@@ -490,13 +473,13 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">10. International Data Transfers</h2>
+              <h2 className="text-xl font-semibold text-foreground">10. International Data Transfers</h2>
               <p>
                 Your personal information may be transferred to and processed in countries other than your country of residence. 
                 We ensure appropriate safeguards are in place for all international transfers to protect your privacy rights.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Transfer Mechanisms and Safeguards</h3>
+              <h3 className="text-lg font-medium text-foreground">Transfer Mechanisms and Safeguards</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>European Commission adequacy decisions for transfers to approved countries</li>
                 <li>Standard Contractual Clauses (SCCs) for transfers to third countries</li>
@@ -506,7 +489,7 @@ export default function PrivacyPolicy() {
                 <li>Derogations for contract performance and legal claims</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Countries and Regions</h3>
+              <h3 className="text-lg font-medium text-foreground">Countries and Regions</h3>
               <p>
                 We may transfer your data to service providers and partners located in various countries, including:
               </p>
@@ -518,7 +501,7 @@ export default function PrivacyPolicy() {
                 <li>Cloud service providers with global infrastructure</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Transfer Impact Assessments</h3>
+              <h3 className="text-lg font-medium text-foreground">Transfer Impact Assessments</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Regular assessment of transfer risks and local laws</li>
                 <li>Monitoring of political and legal developments</li>
@@ -528,15 +511,15 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">11. Automated Decision-Making and Profiling</h2>
+              <h2 className="text-xl font-semibold text-foreground">11. Automated Decision-Making and Profiling</h2>
               <p>
                 We use automated systems and algorithms to make certain decisions about your account and services. 
                 This section explains how automated decision-making works and your rights in relation to these processes.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Types of Automated Processing</h3>
+              <h3 className="text-lg font-medium text-foreground">Types of Automated Processing</h3>
               
-              <h4 className="text-base font-medium text-gray-800">Risk Assessment and Fraud Prevention</h4>
+              <h4 className="text-base font-medium text-foreground">Risk Assessment and Fraud Prevention</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Automated screening against sanctions and PEP lists</li>
                 <li>Real-time fraud detection during transactions</li>
@@ -545,7 +528,7 @@ export default function PrivacyPolicy() {
                 <li>Transaction monitoring for suspicious activity</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Responsible Gambling Protection</h4>
+              <h4 className="text-base font-medium text-foreground">Responsible Gambling Protection</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Automated detection of problem gambling indicators</li>
                 <li>Algorithmic intervention triggers and alerts</li>
@@ -553,7 +536,7 @@ export default function PrivacyPolicy() {
                 <li>Behavioral profiling for player protection</li>
               </ul>
 
-              <h4 className="text-base font-medium text-gray-800">Personalization and Marketing</h4>
+              <h4 className="text-base font-medium text-foreground">Personalization and Marketing</h4>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Personalized content and offer recommendations</li>
                 <li>Customer segmentation and targeting</li>
@@ -561,7 +544,7 @@ export default function PrivacyPolicy() {
                 <li>Product recommendation algorithms</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Your Rights Regarding Automated Decisions</h3>
+              <h3 className="text-lg font-medium text-foreground">Your Rights Regarding Automated Decisions</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Right to human review of automated decisions</li>
                 <li>Right to contest automated decision outcomes</li>
@@ -572,13 +555,13 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">12. Children's Privacy Protection</h2>
+              <h2 className="text-xl font-semibold text-foreground">12. Children's Privacy Protection</h2>
               <p>
                 Our services are strictly for users aged 18 and over (or the legal gambling age in their jurisdiction). 
                 We do not knowingly collect personal information from minors and have measures in place to prevent underage use.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Age Verification Measures</h3>
+              <h3 className="text-lg font-medium text-foreground">Age Verification Measures</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Mandatory age verification during account registration</li>
                 <li>Document verification and cross-referencing</li>
@@ -587,7 +570,7 @@ export default function PrivacyPolicy() {
                 <li>Regular audits of age verification processes</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Protection Measures</h3>
+              <h3 className="text-lg font-medium text-foreground">Protection Measures</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Immediate account closure upon discovery of underage use</li>
                 <li>Refund of deposits for underage accounts</li>
@@ -598,13 +581,13 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">13. Privacy Policy Updates and Changes</h2>
+              <h2 className="text-xl font-semibold text-foreground">13. Privacy Policy Updates and Changes</h2>
               <p>
                 We may update this Privacy Policy periodically to reflect changes in our practices, technology, legal requirements, 
                 or business operations. We will notify you of significant changes through appropriate channels.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Types of Changes</h3>
+              <h3 className="text-lg font-medium text-foreground">Types of Changes</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Updates to data processing purposes or legal bases</li>
                 <li>Changes to data sharing practices or recipients</li>
@@ -614,7 +597,7 @@ export default function PrivacyPolicy() {
                 <li>New features or services that affect data processing</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Notification Methods</h3>
+              <h3 className="text-lg font-medium text-foreground">Notification Methods</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Email notifications to registered users</li>
                 <li>Prominent notices on our website and mobile apps</li>
@@ -623,7 +606,7 @@ export default function PrivacyPolicy() {
                 <li>Social media announcements for major changes</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Your Options</h3>
+              <h3 className="text-lg font-medium text-foreground">Your Options</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Review changes and decide whether to continue using our services</li>
                 <li>Contact us with questions or concerns about changes</li>
@@ -633,13 +616,13 @@ export default function PrivacyPolicy() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">14. Contact Information and Data Protection Officer</h2>
+              <h2 className="text-xl font-semibold text-foreground">14. Contact Information and Data Protection Officer</h2>
               <p>
                 If you have questions about this Privacy Policy, how we handle your personal information, or wish to exercise 
                 your data protection rights, please contact us using the information below.
               </p>
 
-              <h3 className="text-lg font-medium text-gray-900">Data Protection Contacts</h3>
+              <h3 className="text-lg font-medium text-foreground">Data Protection Contacts</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Data Protection Officer: privacy@oddroyal.com</li>
                 <li>Privacy Rights Requests: rights@oddroyal.com</li>
@@ -648,7 +631,7 @@ export default function PrivacyPolicy() {
                 <li>Cookie and Tracking Questions: cookies@oddroyal.com</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Response Times and Procedures</h3>
+              <h3 className="text-lg font-medium text-foreground">Response Times and Procedures</h3>
               <ul className="list-disc pl-6 space-y-2">
                 <li>Privacy rights requests: Responded to within 30 days</li>
                 <li>General privacy inquiries: Responded to within 5 business days</li>
@@ -657,7 +640,7 @@ export default function PrivacyPolicy() {
                 <li>Complex requests: May require additional 60 days with notification</li>
               </ul>
 
-              <h3 className="text-lg font-medium text-gray-900">Supervisory Authority Rights</h3>
+              <h3 className="text-lg font-medium text-foreground">Supervisory Authority Rights</h3>
               <p>
                 You have the right to lodge a complaint with your local data protection supervisory authority if you believe 
                 we have not handled your personal information in accordance with applicable law.
@@ -676,8 +659,7 @@ export default function PrivacyPolicy() {
               </p>
             </section>
           </div>
-        </motion.div>
-      </div>
+      </motion.div>
     </div>
   );
 }

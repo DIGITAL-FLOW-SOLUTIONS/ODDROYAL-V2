@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Layout from "@/components/Layout";
+import SimpleLayout from "@/components/SimpleLayout";
 import Homepage from "@/pages/Homepage";
 import Line from "@/pages/Line";
 import Live from "@/pages/Live";
@@ -40,9 +41,9 @@ function Router() {
       <Route path="/bets" component={() => <Layout><BetHistory /></Layout>} />
       <Route path="/results" component={() => <Layout><Results /></Layout>} />
       <Route path="/login" component={() => <Layout><Login /></Layout>} />
-      <Route path="/terms-and-conditions" component={() => <Layout><TermsAndConditions /></Layout>} />
-      <Route path="/privacy-policy" component={() => <Layout><PrivacyPolicy /></Layout>} />
-      <Route path="/responsible-gaming" component={() => <Layout><ResponsibleGaming /></Layout>} />
+      <Route path="/terms-and-conditions" component={() => <SimpleLayout><TermsAndConditions /></SimpleLayout>} />
+      <Route path="/privacy-policy" component={() => <SimpleLayout><PrivacyPolicy /></SimpleLayout>} />
+      <Route path="/responsible-gaming" component={() => <SimpleLayout><ResponsibleGaming /></SimpleLayout>} />
       
       {/* Catch all */}
       <Route>
