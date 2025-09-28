@@ -28,20 +28,26 @@ export default function Footer() {
           {/* Legal */}
           <div className="space-y-4">
             <h4 className="font-semibold text-sm">Legal</h4>
-            <div className="space-y-2">
-              <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal" data-testid="link-terms">
-                <FileText className="h-3 w-3 mr-2" />
-                Terms & Conditions
-              </Button>
-              <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal" data-testid="link-privacy">
-                <Shield className="h-3 w-3 mr-2" />
-                Privacy Policy
-              </Button>
-              <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal" data-testid="link-responsible">
-                <Globe className="h-3 w-3 mr-2" />
-                Responsible Gaming
-              </Button>
-            </div>
+            <ul className="space-y-2">
+              <li>
+                <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal w-full" data-testid="link-terms">
+                  <FileText className="h-3 w-3 mr-2" />
+                  Terms & Conditions
+                </Button>
+              </li>
+              <li>
+                <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal w-full" data-testid="link-privacy">
+                  <Shield className="h-3 w-3 mr-2" />
+                  Privacy Policy
+                </Button>
+              </li>
+              <li>
+                <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal w-full" data-testid="link-responsible">
+                  <Globe className="h-3 w-3 mr-2" />
+                  Responsible Gaming
+                </Button>
+              </li>
+            </ul>
           </div>
 
           {/* Download Apps */}
