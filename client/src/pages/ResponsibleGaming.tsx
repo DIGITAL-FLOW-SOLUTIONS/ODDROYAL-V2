@@ -317,7 +317,7 @@ export default function ResponsibleGaming() {
                 <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
                   <h4 className="font-semibold text-lg mb-2 text-foreground">GamCare</h4>
                   <p className="text-sm text-gray-600 mb-3">Free confidential support, advice and treatment</p>
-                  <ul className="space-y-1 text-sm">
+                  <ul className="space-y-1 text-sm text-gray-900">
                     <li><strong>Website:</strong> www.gamcare.org.uk</li>
                     <li><strong>Helpline:</strong> 0808 8020 133 (24/7)</li>
                     <li><strong>Live Chat:</strong> Available on website</li>
@@ -328,7 +328,7 @@ export default function ResponsibleGaming() {
                 <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
                   <h4 className="font-semibold text-lg mb-2 text-foreground">Gamblers Anonymous</h4>
                   <p className="text-sm text-gray-600 mb-3">Fellowship of men and women sharing experiences</p>
-                  <ul className="space-y-1 text-sm">
+                  <ul className="space-y-1 text-sm text-gray-900">
                     <li><strong>Website:</strong> www.gamblersanonymous.org.uk</li>
                     <li><strong>Helpline:</strong> 020 7384 3040</li>
                     <li><strong>Meetings:</strong> In-person and online</li>
@@ -339,7 +339,7 @@ export default function ResponsibleGaming() {
                 <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
                   <h4 className="font-semibold text-lg mb-2 text-foreground">BeGambleAware</h4>
                   <p className="text-sm text-gray-600 mb-3">Independent charity promoting safer gambling</p>
-                  <ul className="space-y-1 text-sm">
+                  <ul className="space-y-1 text-sm text-gray-900">
                     <li><strong>Website:</strong> www.begambleaware.org</li>
                     <li><strong>Helpline:</strong> 0808 8020 133</li>
                     <li><strong>Text:</strong> 81066</li>
@@ -350,7 +350,7 @@ export default function ResponsibleGaming() {
                 <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
                   <h4 className="font-semibold text-lg mb-2 text-foreground">GamStop</h4>
                   <p className="text-sm text-gray-600 mb-3">Free self-exclusion service for UK gambling</p>
-                  <ul className="space-y-1 text-sm">
+                  <ul className="space-y-1 text-sm text-gray-900">
                     <li><strong>Website:</strong> www.gamstop.co.uk</li>
                     <li><strong>Coverage:</strong> All UKGC licensed operators</li>
                     <li><strong>Periods:</strong> 6 months, 1 year, 5 years</li>
@@ -361,7 +361,7 @@ export default function ResponsibleGaming() {
                 <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
                   <h4 className="font-semibold text-lg mb-2 text-foreground">SMART Recovery</h4>
                   <p className="text-sm text-gray-600 mb-3">Self-management and recovery training</p>
-                  <ul className="space-y-1 text-sm">
+                  <ul className="space-y-1 text-sm text-gray-900">
                     <li><strong>Website:</strong> www.smartrecovery.org.uk</li>
                     <li><strong>Approach:</strong> 4-Point Program</li>
                     <li><strong>Tools:</strong> CBT-based recovery tools</li>
@@ -372,7 +372,7 @@ export default function ResponsibleGaming() {
                 <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
                   <h4 className="font-semibold text-lg mb-2 text-foreground">Samaritans</h4>
                   <p className="text-sm text-gray-600 mb-3">Emotional support for anyone in distress</p>
-                  <ul className="space-y-1 text-sm">
+                  <ul className="space-y-1 text-sm text-gray-900">
                     <li><strong>Website:</strong> www.samaritans.org</li>
                     <li><strong>Helpline:</strong> 116 123 (24/7, free)</li>
                     <li><strong>Email:</strong> jo@samaritans.org</li>
