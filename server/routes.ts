@@ -942,16 +942,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Validate user account status
-      if (!profile.is_active) {
-        return res.status(403).json({ 
-          success: false, 
-          error: "Account is not active" 
-        });
-      }
+      // User activation requirement removed - all registered users can place bets immediately
 
       // Check if user has sufficient balance
-      const stakeCents = validatedData.totalStake;
+      const stakeCents = validatedData.totalStakeCents;
       if (profile.balance < stakeCents) {
         return res.status(400).json({ 
           success: false, 
@@ -963,8 +957,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // TODO: Implement Supabase-based atomic bet placement
       const result = await storage.placeBetAtomic({
         userId: req.user.id,
-        betType: validatedData.type,
-        totalStakeCents: validatedData.totalStake, // Already converted to cents by schema
+        betType: validatedData.betType,
+        totalStakeCents: validatedData.totalStakeCents, // Already converted to cents by schema
         selections: validatedData.selections
       });
       

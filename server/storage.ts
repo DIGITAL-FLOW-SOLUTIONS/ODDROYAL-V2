@@ -1079,8 +1079,8 @@ export class MemStorage implements IStorage {
     try {
       // Get user and validate balance
       const user = this.users.get(params.userId);
-      if (!user || !user.isActive) {
-        return { success: false, error: "User not found or inactive" };
+      if (!user) {
+        return { success: false, error: "User not found" };
       }
 
       if (user.balance < params.totalStakeCents) {
