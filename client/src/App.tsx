@@ -22,6 +22,7 @@ import TermsAndConditions from "@/pages/TermsAndConditions";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import ResponsibleGaming from "@/pages/ResponsibleGaming";
 import Deposit from "@/pages/Deposit";
+import MpesaDeposit from "@/pages/MpesaDeposit";
 import Withdrawal from "@/pages/Withdrawal";
 import NotFound from "@/pages/not-found";
 import AdminApp from "@/pages/admin/AdminApp";
@@ -48,6 +49,7 @@ function Router() {
       <Route path="/results" component={() => <Layout><Results /></Layout>} />
       <Route path="/login" component={() => <Layout><Login /></Layout>} />
       <Route path="/deposit" component={() => <SimpleLayout><Deposit /></SimpleLayout>} />
+      <Route path="/mpesa-deposit" component={() => <SimpleLayout><MpesaDeposit /></SimpleLayout>} />
       <Route path="/withdrawal" component={() => <SimpleLayout><Withdrawal /></SimpleLayout>} />
       <Route path="/terms-and-conditions" component={() => <SimpleLayout><TermsAndConditions /></SimpleLayout>} />
       <Route path="/privacy-policy" component={() => <SimpleLayout><PrivacyPolicy /></SimpleLayout>} />

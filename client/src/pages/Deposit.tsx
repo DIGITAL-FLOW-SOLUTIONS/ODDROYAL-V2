@@ -130,15 +130,27 @@ function Deposit() {
     }
 
     const amount = parseFloat(depositAmount);
-    if (amount >= 2000) {
-      depositMutation.mutate(amount);
-    } else {
+    if (amount < 2000) {
       toast({
         title: "Minimum Deposit",
         description: "Minimum deposit amount is 2000.",
         variant: "destructive",
       });
+      return;
     }
+
+    // Handle M-PESA payment method differently
+    if (selectedPaymentMethod === 'mpesa') {
+      // Store deposit details for M-PESA page
+      localStorage.setItem('mpesa_amount', depositAmount);
+      localStorage.setItem('mpesa_currency', selectedCurrency);
+      // Redirect to M-PESA deposit page
+      setLocation(`/mpesa-deposit?amount=${depositAmount}&currency=${selectedCurrency}`);
+      return;
+    }
+
+    // Handle other payment methods with existing logic
+    depositMutation.mutate(amount);
   };
 
   if (isLoading) {
