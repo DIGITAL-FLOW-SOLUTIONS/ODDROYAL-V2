@@ -6580,8 +6580,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         console.log(`Transaction ${transaction.id} already processed with status: ${transaction.status}`);
       }
-
-      console.log(`Transaction ${transaction.id} updated to status: ${status}`);
       
       // Respond to M-PESA
       res.json({

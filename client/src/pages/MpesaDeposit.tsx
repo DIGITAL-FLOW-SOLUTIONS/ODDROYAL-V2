@@ -77,6 +77,9 @@ function MpesaDeposit() {
     onSuccess: (response: any) => {
       if (response.success) {
         setTransactionId(response.data.CheckoutRequestID);
+        // Invalidate queries to refresh balance after successful payment
+        queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
         setPaymentStatus('pending');
         // Start polling for payment status
         pollPaymentStatus(response.data.CheckoutRequestID);
