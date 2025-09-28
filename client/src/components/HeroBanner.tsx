@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Play } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import lineBanner1 from "@assets/line-banner-1_1759032754700.jpg";
+import lineBanner2 from "@assets/line-banner-2_1759032754701.jpg";
+import lineBanner3 from "@assets/line-banner-3_1759032754702.png";
 
 interface BannerSlide {
   id: string;
-  title: string;
-  subtitle: string;
-  ctaText: string;
+  image: string;
+  alt: string;
   ctaAction: () => void;
-  backgroundImage?: string;
-  backgroundColor: string;
 }
 
 interface HeroBannerProps {
@@ -21,28 +21,22 @@ interface HeroBannerProps {
 
 const defaultSlides: BannerSlide[] = [
   {
-    id: "accumulator",
-    title: "ACCUMULATOR BETS",
-    subtitle: "MULTIPLY THE WIN",
-    ctaText: "PLAY",
-    ctaAction: () => console.log("Play clicked"),
-    backgroundColor: "bg-gradient-to-r from-primary via-accent to-destructive",
+    id: "accumulator-bets",
+    image: lineBanner1,
+    alt: "OddRoyal Accumulator Bets - Multiply Your Win",
+    ctaAction: () => console.log("Accumulator bets clicked"),
   },
   {
-    id: "live-betting", 
-    title: "LIVE BETTING",
-    subtitle: "BET IN REAL TIME",
-    ctaText: "JOIN NOW",
-    ctaAction: () => console.log("Join clicked"),
-    backgroundColor: "bg-gradient-to-r from-destructive via-primary to-accent",
+    id: "welcome-bonus", 
+    image: lineBanner2,
+    alt: "OddRoyal 100% Bonus on First Deposit",
+    ctaAction: () => console.log("Welcome bonus clicked"),
   },
   {
-    id: "welcome-bonus",
-    title: "WELCOME BONUS",
-    subtitle: "UP TO $500 FREE",
-    ctaText: "CLAIM NOW",
-    ctaAction: () => console.log("Claim clicked"),
-    backgroundColor: "bg-gradient-to-r from-accent via-destructive to-primary",
+    id: "bet-anywhere",
+    image: lineBanner3,
+    alt: "OddRoyal - Bet Anytime, Anywhere",
+    ctaAction: () => console.log("Bet anywhere clicked"),
   },
 ];
 
@@ -53,6 +47,7 @@ export default function HeroBanner({
 }: HeroBannerProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [isLoaded, setIsLoaded] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!autoSlide || isPaused) return;
@@ -76,9 +71,13 @@ export default function HeroBanner({
     setCurrentSlide(index);
   };
 
+  const handleImageLoad = (slideId: string) => {
+    setIsLoaded(prev => ({ ...prev, [slideId]: true }));
+  };
+
   return (
     <div 
-      className="relative h-64 md:h-80 lg:h-96 rounded-lg overflow-hidden"
+      className="relative h-[200px] sm:h-[250px] md:h-[300px] lg:h-[350px] xl:h-[400px] rounded-none md:rounded-lg overflow-hidden"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       data-testid="hero-banner"
@@ -90,50 +89,28 @@ export default function HeroBanner({
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -300 }}
           transition={{ duration: 0.5, ease: "easeInOut" }}
-          className={`absolute inset-0 ${slides[currentSlide].backgroundColor} flex items-center justify-center text-white`}
+          className="relative w-full h-full cursor-pointer"
+          onClick={slides[currentSlide].ctaAction}
         >
-          {/* Background overlay for better text readability */}
-          <div className="absolute inset-0 bg-black/20" />
+          <motion.img
+            src={slides[currentSlide].image}
+            alt={slides[currentSlide].alt}
+            className="w-full h-full object-cover"
+            style={{
+              filter: isLoaded[slides[currentSlide].id] ? 'none' : 'blur(5px)',
+              transition: 'filter 0.3s ease-in-out'
+            }}
+            loading="lazy"
+            onLoad={() => handleImageLoad(slides[currentSlide].id)}
+            data-testid={`slide-image-${slides[currentSlide].id}`}
+          />
           
-          {/* Content */}
-          <div className="relative z-10 text-center px-8">
-            <motion.h1
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.6 }}
-              className="text-3xl md:text-4xl lg:text-5xl font-display font-bold mb-2"
-              data-testid={`slide-title-${slides[currentSlide].id}`}
-            >
-              {slides[currentSlide].title}
-            </motion.h1>
-            
-            <motion.p
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.6 }}
-              className="text-lg md:text-xl lg:text-2xl opacity-90 mb-6"
-              data-testid={`slide-subtitle-${slides[currentSlide].id}`}
-            >
-              {slides[currentSlide].subtitle}
-            </motion.p>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6, duration: 0.6 }}
-            >
-              <Button
-                size="lg"
-                variant="outline"
-                className="bg-white/10 border-white/30 hover:bg-white/20 text-white font-bold px-8 py-3"
-                onClick={slides[currentSlide].ctaAction}
-                data-testid={`slide-cta-${slides[currentSlide].id}`}
-              >
-                <Play className="mr-2 h-5 w-5" />
-                {slides[currentSlide].ctaText}
-              </Button>
-            </motion.div>
-          </div>
+          {/* Loading indicator */}
+          {!isLoaded[slides[currentSlide].id] && (
+            <div className="absolute inset-0 flex items-center justify-center bg-card">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
         </motion.div>
       </AnimatePresence>
 
@@ -141,36 +118,51 @@ export default function HeroBanner({
       <Button
         variant="ghost"
         size="icon"
-        className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white border-none z-20"
+        className="absolute left-2 sm:left-4 top-1/2 transform -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white border-none z-20 h-8 w-8 sm:h-10 sm:w-10"
         onClick={prevSlide}
         data-testid="button-prev-slide"
       >
-        <ChevronLeft className="h-5 w-5" />
+        <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
       </Button>
 
       <Button
         variant="ghost"
         size="icon"
-        className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white border-none z-20"
+        className="absolute right-2 sm:right-4 top-1/2 transform -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white border-none z-20 h-8 w-8 sm:h-10 sm:w-10"
         onClick={nextSlide}
         data-testid="button-next-slide"
       >
-        <ChevronRight className="h-5 w-5" />
+        <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
       </Button>
 
       {/* Slide indicators */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
+      <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 flex gap-1 sm:gap-2 z-20">
         {slides.map((_, index) => (
           <button
             key={index}
-            className={`w-3 h-3 rounded-full transition-all duration-300 ${
+            className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-300 ${
               currentSlide === index 
-                ? "bg-white scale-110" 
+                ? "bg-white scale-110 shadow-lg" 
                 : "bg-white/50 hover:bg-white/75"
             }`}
             onClick={() => goToSlide(index)}
             data-testid={`slide-indicator-${index}`}
           />
+        ))}
+      </div>
+      
+      {/* Preload next images for better performance */}
+      <div className="hidden">
+        {slides.map((slide, index) => (
+          index !== currentSlide && (
+            <img
+              key={slide.id}
+              src={slide.image}
+              alt=""
+              loading="lazy"
+              onLoad={() => handleImageLoad(slide.id)}
+            />
+          )
         ))}
       </div>
     </div>
