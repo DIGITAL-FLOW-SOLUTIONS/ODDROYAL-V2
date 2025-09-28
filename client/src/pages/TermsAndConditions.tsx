@@ -520,14 +520,6 @@ export default function TermsAndConditions() {
                 <li>Account verification: Within 72 hours</li>
               </ul>
 
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-8">
-                <p className="text-sm text-yellow-800 font-medium mb-2">⚠️ Important Notice</p>
-                <p className="text-sm text-yellow-700">
-                  This is demonstration content for development purposes only. These terms and conditions are 
-                  not legally binding and should not be used for actual commercial operations without proper 
-                  legal review and regulatory approval.
-                </p>
-              </div>
               <p className="text-sm text-gray-600 mt-6">
                 Last updated: December 2024. These Terms and Conditions may be updated periodically. 
                 Continued use of our services constitutes acceptance of any changes.
