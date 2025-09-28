@@ -250,18 +250,24 @@ function Deposit() {
                               className="w-full h-32 object-cover"
                               placeholder="Loading..."
                             />
-                            <div className="absolute inset-0 bg-black/40 flex flex-col justify-end p-4 text-white">
-                              <h3 className="font-semibold text-lg">{method.name}</h3>
-                              <p className="text-sm opacity-90">{method.description}</p>
-                            </div>
                             {selectedPaymentMethod === method.id && (
-                              <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                className="absolute top-2 right-2"
-                              >
-                                <CheckCircle className="h-6 w-6 text-primary bg-white rounded-full" />
-                              </motion.div>
+                              <>
+                                <motion.div
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  className="absolute inset-0 bg-black/40 flex flex-col justify-end p-4 text-white"
+                                >
+                                  <h3 className="font-semibold text-lg">{method.name}</h3>
+                                  <p className="text-sm opacity-90">{method.description}</p>
+                                </motion.div>
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  className="absolute top-2 right-2"
+                                >
+                                  <CheckCircle className="h-6 w-6 text-primary bg-white rounded-full" />
+                                </motion.div>
+                              </>
                             )}
                           </div>
                         </CardContent>
