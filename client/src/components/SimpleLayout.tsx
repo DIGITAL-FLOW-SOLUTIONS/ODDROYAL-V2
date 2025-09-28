@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import Header from "@/components/Header";
+import SimpleHeader from "@/components/SimpleHeader";
 import Footer from "@/components/Footer";
 
 interface SimpleLayoutProps {
@@ -11,7 +11,7 @@ export default function SimpleLayout({ children }: SimpleLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
-      <Header />
+      <SimpleHeader />
       
       {/* Main content */}
       <motion.main 
