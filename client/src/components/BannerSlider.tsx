@@ -91,7 +91,7 @@ export default function BannerSlider() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-lg h-[400px] bg-card"
+      className="relative overflow-hidden rounded-none md:rounded-lg h-[250px] sm:h-[300px] md:h-[350px] lg:h-[400px] bg-card"
       data-testid="banner-slider"
     >
       <AnimatePresence mode="wait">
@@ -130,13 +130,13 @@ export default function BannerSlider() {
           {/* Content overlay */}
           <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
           
-          <div className="absolute inset-0 flex items-center justify-start p-8">
-            <div className="text-white max-w-2xl">
+          <div className="absolute inset-0 flex items-center justify-start p-4 sm:p-6 md:p-8">
+            <div className="text-white max-w-lg md:max-w-2xl">
               <motion.h2
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="text-4xl font-display font-bold mb-4"
+                className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-display font-bold mb-2 sm:mb-3 md:mb-4"
                 data-testid={`banner-title-${banners[currentSlide].id}`}
               >
                 {banners[currentSlide].title}
@@ -146,7 +146,7 @@ export default function BannerSlider() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="text-xl opacity-90 mb-6"
+                className="text-sm sm:text-base md:text-lg lg:text-xl opacity-90 mb-4 sm:mb-5 md:mb-6"
                 data-testid={`banner-subtitle-${banners[currentSlide].id}`}
               >
                 {banners[currentSlide].subtitle}
@@ -158,10 +158,10 @@ export default function BannerSlider() {
                 transition={{ delay: 0.4 }}
               >
                 <Button
-                  size="lg"
+                  size="default"
                   variant="default"
                   onClick={banners[currentSlide].ctaAction}
-                  className="bg-primary hover:bg-primary/90 text-white font-semibold px-8"
+                  className="bg-primary hover:bg-primary/90 text-white font-semibold px-4 sm:px-6 md:px-8 text-sm sm:text-base"
                   data-testid={`banner-cta-${banners[currentSlide].id}`}
                 >
                   {banners[currentSlide].cta}
@@ -177,29 +177,29 @@ export default function BannerSlider() {
         variant="ghost"
         size="icon"
         onClick={prevSlide}
-        className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white border-0"
+        className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white border-0 h-8 w-8 sm:h-10 sm:w-10"
         data-testid="button-banner-prev"
       >
-        <ChevronLeft className="h-6 w-6" />
+        <ChevronLeft className="h-4 w-4 sm:h-6 sm:w-6" />
       </Button>
 
       <Button
         variant="ghost"
         size="icon"
         onClick={nextSlide}
-        className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white border-0"
+        className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white border-0 h-8 w-8 sm:h-10 sm:w-10"
         data-testid="button-banner-next"
       >
-        <ChevronRight className="h-6 w-6" />
+        <ChevronRight className="h-4 w-4 sm:h-6 sm:w-6" />
       </Button>
 
       {/* Pagination dots */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+      <div className="absolute bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 flex gap-1 sm:gap-2">
         {banners.map((_, index) => (
           <button
             key={index}
             onClick={() => handleSlideChange(index)}
-            className={`w-3 h-3 rounded-full transition-all duration-300 ${
+            className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-all duration-300 ${
               index === currentSlide 
                 ? 'bg-white shadow-lg scale-110' 
                 : 'bg-white/50 hover:bg-white/70'

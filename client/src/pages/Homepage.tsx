@@ -80,11 +80,12 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
   ];
 
   return (
-    <div className="flex-1 p-4 space-y-6">
+    <div className="flex-1">
       {/* Banner Slider Section */}
       <BannerSlider />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="p-4 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Featured Matches */}
         <div className="lg:col-span-2 space-y-4">
           <motion.div
@@ -276,6 +277,7 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
               </CardContent>
             </Card>
           </motion.div>
+        </div>
         </div>
       </div>
     </div>
