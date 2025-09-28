@@ -5,9 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Calculator, DollarSign, Trash2, AlertTriangle } from "lucide-react";
+import { X, Calculator, DollarSign, Trash2, AlertTriangle, Info, Check } from "lucide-react";
 import { BetSelection } from "@shared/types";
-import { betPlacementSchema } from "@shared/schema";
+import { betPlacementSchema, BETTING_LIMITS, stakeValidation, currencyUtils } from "@shared/schema";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,6 +29,9 @@ export default function BetSlip({
   const [stakes, setStakes] = useState<{ [key: string]: number }>({});
   const [expressStake, setExpressStake] = useState<number>(0);
   const [systemStake, setSystemStake] = useState<number>(0);
+  const [stakeErrors, setStakeErrors] = useState<{ [key: string]: string }>({});
+  const [expressStakeError, setExpressStakeError] = useState<string>("");
+  const [systemStakeError, setSystemStakeError] = useState<string>("");
   const { toast } = useToast();
 
   // Calculate potential returns
@@ -79,7 +82,48 @@ export default function BetSlip({
 
   const updateStake = (selectionId: string, value: string) => {
     const numValue = parseFloat(value) || 0;
+    const stakeCents = Math.round(numValue * 100);
+    
+    // Validate stake in real-time
+    let error = "";
+    if (value && numValue > 0) {
+      if (!stakeValidation.isValidSingleStake(stakeCents)) {
+        error = stakeValidation.formatStakeError(stakeCents, true);
+      }
+    }
+    
     setStakes((prev) => ({ ...prev, [selectionId]: numValue }));
+    setStakeErrors((prev) => ({ ...prev, [selectionId]: error }));
+  };
+  
+  const updateExpressStake = (value: string) => {
+    const numValue = parseFloat(value) || 0;
+    const stakeCents = Math.round(numValue * 100);
+    
+    let error = "";
+    if (value && numValue > 0) {
+      if (!stakeValidation.isValidStake(stakeCents)) {
+        error = stakeValidation.formatStakeError(stakeCents, false);
+      }
+    }
+    
+    setExpressStake(numValue);
+    setExpressStakeError(error);
+  };
+  
+  const updateSystemStake = (value: string) => {
+    const numValue = parseFloat(value) || 0;
+    const stakeCents = Math.round(numValue * 100);
+    
+    let error = "";
+    if (value && numValue > 0) {
+      if (!stakeValidation.isValidStake(stakeCents)) {
+        error = stakeValidation.formatStakeError(stakeCents, false);
+      }
+    }
+    
+    setSystemStake(numValue);
+    setSystemStakeError(error);
   };
 
   const validateBetData = (betData: any) => {
@@ -104,14 +148,25 @@ export default function BetSlip({
     try {
       switch (type) {
         case "single":
-          // Validate that we have at least one selection with stake
+          // Check for stake validation errors
+          const hasStakeErrors = Object.values(stakeErrors).some(error => error !== "");
+          if (hasStakeErrors) {
+            toast({
+              title: "Invalid Stakes",
+              description: "Please fix the stake errors before placing bets.",
+              variant: "destructive",
+            });
+            return;
+          }
+          
+          // Validate that we have at least one selection with valid stake
           const validSingleBets = selections.filter(
-            (sel) => stakes[sel.id] && stakes[sel.id] > 0,
+            (sel) => stakes[sel.id] && stakes[sel.id] > 0 && !stakeErrors[sel.id],
           );
           if (validSingleBets.length === 0) {
             toast({
-              title: "No Stakes Set",
-              description: "Please set stakes for at least one selection.",
+              title: "No Valid Stakes Set",
+              description: "Please set valid stakes for at least one selection.",
               variant: "destructive",
             });
             return;
@@ -146,6 +201,15 @@ export default function BetSlip({
           break;
 
         case "express":
+          if (expressStakeError) {
+            toast({
+              title: "Invalid Express Stake",
+              description: expressStakeError,
+              variant: "destructive",
+            });
+            return;
+          }
+          
           if (expressStake === 0) {
             toast({
               title: "No Stake Set",
@@ -155,10 +219,10 @@ export default function BetSlip({
             return;
           }
 
-          if (selections.length < 2) {
+          if (selections.length < BETTING_LIMITS.MIN_EXPRESS_SELECTIONS) {
             toast({
               title: "Insufficient Selections",
-              description: "Express bets require at least 2 selections.",
+              description: `Express bets require at least ${BETTING_LIMITS.MIN_EXPRESS_SELECTIONS} selections.`,
               variant: "destructive",
             });
             return;
@@ -185,6 +249,15 @@ export default function BetSlip({
           break;
 
         case "system":
+          if (systemStakeError) {
+            toast({
+              title: "Invalid System Stake",
+              description: systemStakeError,
+              variant: "destructive",
+            });
+            return;
+          }
+          
           if (systemStake === 0) {
             toast({
               title: "No Stake Set",
@@ -194,10 +267,10 @@ export default function BetSlip({
             return;
           }
 
-          if (selections.length < 3) {
+          if (selections.length < BETTING_LIMITS.MIN_SYSTEM_SELECTIONS) {
             toast({
               title: "Insufficient Selections",
-              description: "System bets require at least 3 selections.",
+              description: `System bets require at least ${BETTING_LIMITS.MIN_SYSTEM_SELECTIONS} selections.`,
               variant: "destructive",
             });
             return;
@@ -319,16 +392,33 @@ export default function BetSlip({
                     </div>
 
                     <div className="space-y-2">
-                      <Input
-                        type="number"
-                        placeholder="Stake"
-                        value={stakes[selection.id] || ""}
-                        onChange={(e) =>
-                          updateStake(selection.id, e.target.value)
-                        }
-                        data-testid={`input-stake-${selection.id}`}
-                        className="h-8"
-                      />
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          placeholder="Stake"
+                          step="0.01"
+                          min={currencyUtils.centsToPounds(BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS)}
+                          max={currencyUtils.centsToPounds(BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS)}
+                          value={stakes[selection.id] || ""}
+                          onChange={(e) =>
+                            updateStake(selection.id, e.target.value)
+                          }
+                          data-testid={`input-stake-${selection.id}`}
+                          className={`h-8 ${stakeErrors[selection.id] ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : stakes[selection.id] && stakes[selection.id] > 0 ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : ''}`}
+                        />
+                        {stakeErrors[selection.id] && (
+                          <div className="absolute top-full left-0 z-10 mt-1 text-xs text-red-600 bg-white dark:bg-gray-800 border border-red-200 rounded px-2 py-1 shadow-lg">
+                            {stakeErrors[selection.id]}
+                          </div>
+                        )}
+                        {stakes[selection.id] && stakes[selection.id] > 0 && !stakeErrors[selection.id] && (
+                          <Check className="absolute right-1 top-1/2 transform -translate-y-1/2 h-3 w-3 text-green-500" />
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Info className="h-3 w-3" />
+                        Min: {currencyUtils.formatCurrency(BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS)} | Max: {currencyUtils.formatCurrency(BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS)}
+                      </div>
                       {stakes[selection.id] > 0 && (
                         <div className="text-xs space-y-1">
                           <div className="flex justify-between">
@@ -337,20 +427,13 @@ export default function BetSlip({
                               className="font-medium text-chart-4"
                               data-testid={`text-return-${selection.id}`}
                             >
-                              $
-                              {(stakes[selection.id] * selection.odds).toFixed(
-                                2,
-                              )}
+                              {currencyUtils.formatCurrency(Math.round(stakes[selection.id] * selection.odds * 100))}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span>Profit:</span>
                             <span className="font-medium text-chart-4">
-                              $
-                              {(
-                                stakes[selection.id] * selection.odds -
-                                stakes[selection.id]
-                              ).toFixed(2)}
+                              {currencyUtils.formatCurrency(Math.round((stakes[selection.id] * selection.odds - stakes[selection.id]) * 100))}
                             </span>
                           </div>
                         </div>
@@ -409,16 +492,31 @@ export default function BetSlip({
                     </span>
                   </div>
 
-                  <Input
-                    type="number"
-                    placeholder="Express stake"
-                    value={expressStake || ""}
-                    onChange={(e) =>
-                      setExpressStake(parseFloat(e.target.value) || 0)
-                    }
-                    data-testid="input-express-stake"
-                    className="h-8"
-                  />
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      placeholder="Express stake"
+                      step="0.01"
+                      min={currencyUtils.centsToPounds(BETTING_LIMITS.MIN_STAKE_CENTS)}
+                      max={currencyUtils.centsToPounds(BETTING_LIMITS.MAX_STAKE_CENTS)}
+                      value={expressStake || ""}
+                      onChange={(e) => updateExpressStake(e.target.value)}
+                      data-testid="input-express-stake"
+                      className={`h-8 ${expressStakeError ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : expressStake > 0 ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : ''}`}
+                    />
+                    {expressStakeError && (
+                      <div className="absolute top-full left-0 z-10 mt-1 text-xs text-red-600 bg-white dark:bg-gray-800 border border-red-200 rounded px-2 py-1 shadow-lg">
+                        {expressStakeError}
+                      </div>
+                    )}
+                    {expressStake > 0 && !expressStakeError && (
+                      <Check className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                    <Info className="h-3 w-3" />
+                    Min: {currencyUtils.formatCurrency(BETTING_LIMITS.MIN_STAKE_CENTS)} | Max: {currencyUtils.formatCurrency(BETTING_LIMITS.MAX_STAKE_CENTS)}
+                  </div>
 
                   {expressStake > 0 && (
                     <div className="space-y-1 text-xs">
@@ -428,13 +526,13 @@ export default function BetSlip({
                           className="font-medium text-chart-4"
                           data-testid="text-express-return"
                         >
-                          ${calculateExpressReturn().potentialReturn.toFixed(2)}
+                          {currencyUtils.formatCurrency(Math.round(calculateExpressReturn().potentialReturn * 100))}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Profit:</span>
                         <span className="font-medium text-chart-4">
-                          ${calculateExpressReturn().profit.toFixed(2)}
+                          {currencyUtils.formatCurrency(Math.round(calculateExpressReturn().profit * 100))}
                         </span>
                       </div>
                     </div>
@@ -493,16 +591,31 @@ export default function BetSlip({
                         </span>
                       </div>
 
-                      <Input
-                        type="number"
-                        placeholder="System stake"
-                        value={systemStake || ""}
-                        onChange={(e) =>
-                          setSystemStake(parseFloat(e.target.value) || 0)
-                        }
-                        data-testid="input-system-stake"
-                        className="h-8"
-                      />
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          placeholder="System stake"
+                          step="0.01"
+                          min={currencyUtils.centsToPounds(BETTING_LIMITS.MIN_STAKE_CENTS)}
+                          max={currencyUtils.centsToPounds(BETTING_LIMITS.MAX_STAKE_CENTS)}
+                          value={systemStake || ""}
+                          onChange={(e) => updateSystemStake(e.target.value)}
+                          data-testid="input-system-stake"
+                          className={`h-8 ${systemStakeError ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : systemStake > 0 ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : ''}`}
+                        />
+                        {systemStakeError && (
+                          <div className="absolute top-full left-0 z-10 mt-1 text-xs text-red-600 bg-white dark:bg-gray-800 border border-red-200 rounded px-2 py-1 shadow-lg">
+                            {systemStakeError}
+                          </div>
+                        )}
+                        {systemStake > 0 && !systemStakeError && (
+                          <Check className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                        <Info className="h-3 w-3" />
+                        Min: {currencyUtils.formatCurrency(BETTING_LIMITS.MIN_STAKE_CENTS)} | Max: {currencyUtils.formatCurrency(BETTING_LIMITS.MAX_STAKE_CENTS)}
+                      </div>
 
                       {systemStake > 0 && (
                         <div className="space-y-1 text-xs">
@@ -512,16 +625,13 @@ export default function BetSlip({
                               className="font-medium text-chart-4"
                               data-testid="text-system-return"
                             >
-                              $
-                              {calculateSystemReturn().potentialReturn.toFixed(
-                                2,
-                              )}
+                              {currencyUtils.formatCurrency(Math.round(calculateSystemReturn().potentialReturn * 100))}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span>Profit:</span>
                             <span className="font-medium text-chart-4">
-                              ${calculateSystemReturn().profit.toFixed(2)}
+                              {currencyUtils.formatCurrency(Math.round(calculateSystemReturn().profit * 100))}
                             </span>
                           </div>
                         </div>

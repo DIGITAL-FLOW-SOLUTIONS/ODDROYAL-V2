@@ -375,9 +375,24 @@ export function hasPermission(role: AdminRole, permission: string): boolean {
 
 // ===================== BET PLACEMENT SCHEMA =====================
 
+// Betting limits constants
+export const BETTING_LIMITS = {
+  MIN_STAKE_CENTS: 10, // £0.10
+  MAX_STAKE_CENTS: 10000000, // £100,000
+  MIN_SINGLE_STAKE_CENTS: 10, // £0.10
+  MAX_SINGLE_STAKE_CENTS: 1000000, // £10,000 per single bet
+  MIN_EXPRESS_SELECTIONS: 2,
+  MIN_SYSTEM_SELECTIONS: 3,
+  MAX_SELECTIONS: 20,
+  MIN_ODDS: 1.01,
+  MAX_ODDS: 1000
+} as const;
+
 export const betPlacementSchema = z.object({
   betType: z.enum(["single", "express", "system"]),
-  totalStakeCents: z.number().int().positive().max(10000000), // Max £100,000
+  totalStakeCents: z.number().int()
+    .min(BETTING_LIMITS.MIN_STAKE_CENTS, "Minimum stake is £0.10")
+    .max(BETTING_LIMITS.MAX_STAKE_CENTS, "Maximum stake is £100,000"),
   selections: z.array(z.object({
     fixtureId: z.string(),
     homeTeam: z.string(),
@@ -385,10 +400,13 @@ export const betPlacementSchema = z.object({
     league: z.string(),
     market: z.string(),
     selection: z.string(),
-    odds: z.string().refine((val) => parseFloat(val) >= 1.01 && parseFloat(val) <= 1000, {
-      message: "Odds must be between 1.01 and 1000"
+    odds: z.string().refine((val) => {
+      const oddsValue = parseFloat(val);
+      return oddsValue >= BETTING_LIMITS.MIN_ODDS && oddsValue <= BETTING_LIMITS.MAX_ODDS;
+    }, {
+      message: `Odds must be between ${BETTING_LIMITS.MIN_ODDS} and ${BETTING_LIMITS.MAX_ODDS}`
     }),
-  })).min(1).max(20), // Max 20 selections per bet
+  })).min(1, "At least 1 selection required").max(BETTING_LIMITS.MAX_SELECTIONS, `Maximum ${BETTING_LIMITS.MAX_SELECTIONS} selections allowed`),
 });
 
 // ===================== ADMIN LOGIN SCHEMA =====================
@@ -400,6 +418,29 @@ export const loginAdminSchema = z.object({
 });
 
 // ===================== CURRENCY UTILITIES =====================
+
+// Helper functions for stake validation
+export const stakeValidation = {
+  isValidStake: (stakeCents: number): boolean => {
+    return stakeCents >= BETTING_LIMITS.MIN_STAKE_CENTS && stakeCents <= BETTING_LIMITS.MAX_STAKE_CENTS;
+  },
+  isValidSingleStake: (stakeCents: number): boolean => {
+    return stakeCents >= BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS && stakeCents <= BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS;
+  },
+  formatStakeError: (stakeCents: number, isSingle: boolean = false): string => {
+    const limits = isSingle ? 
+      { min: BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS, max: BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS } :
+      { min: BETTING_LIMITS.MIN_STAKE_CENTS, max: BETTING_LIMITS.MAX_STAKE_CENTS };
+    
+    if (stakeCents < limits.min) {
+      return `Minimum stake is ${currencyUtils.formatCurrency(limits.min)}`;
+    }
+    if (stakeCents > limits.max) {
+      return `Maximum stake is ${currencyUtils.formatCurrency(limits.max)}`;
+    }
+    return "Invalid stake amount";
+  }
+};
 
 export const currencyUtils = {
   centsToPounds: (cents: number): string => {
