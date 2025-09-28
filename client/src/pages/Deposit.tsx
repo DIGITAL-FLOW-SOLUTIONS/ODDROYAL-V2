@@ -9,14 +9,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ArrowDownLeft, 
-  CreditCard,
-  Smartphone,
-  DollarSign,
-  Bitcoin,
   History,
   CheckCircle,
   Clock
 } from "lucide-react";
+import { LazyImage } from "@/components/LazyImage";
+import kenyaPaymentMethodsImg from "@assets/Kenya Payment Methods_1759085831701.png";
+import mpesaImg from "@assets/M-PESA_1759085831733.webp";
+import airtelImg from "@assets/AIRTEL_1759085831735.webp";
+import cryptocurrencyImg from "@assets/Cryptocurrency_1759085831737.png";
 import { currencyUtils } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -80,29 +81,25 @@ function Deposit() {
     {
       id: 'kenya-payment',
       name: 'Kenya Payment Methods',
-      icon: CreditCard,
-      color: 'bg-green-500',
+      image: kenyaPaymentMethodsImg,
       description: 'Local banking methods'
     },
     {
       id: 'mpesa',
       name: 'M-PESA',
-      icon: Smartphone,
-      color: 'bg-green-600',
+      image: mpesaImg,
       description: 'Mobile money transfer'
     },
     {
-      id: 'kes-bank',
-      name: 'KES Banking',
-      icon: DollarSign,
-      color: 'bg-blue-500',
-      description: 'Direct bank transfer'
+      id: 'airtel',
+      name: 'AIRTEL',
+      image: airtelImg,
+      description: 'Mobile money transfer'
     },
     {
       id: 'crypto',
       name: 'Cryptocurrency',
-      icon: Bitcoin,
-      color: 'bg-orange-500',
+      image: cryptocurrencyImg,
       description: 'Digital currency'
     }
   ];
@@ -246,8 +243,15 @@ function Deposit() {
                         data-testid={`payment-method-${method.id}`}
                       >
                         <CardContent className="p-4 text-center space-y-3">
-                          <div className={`w-12 h-12 rounded-full ${method.color} mx-auto flex items-center justify-center`}>
-                            <method.icon className="h-6 w-6 text-white" />
+                          <div className="w-16 h-16 mx-auto flex items-center justify-center">
+                            <LazyImage
+                              src={method.image}
+                              alt={method.name}
+                              width={64}
+                              height={64}
+                              className="rounded-lg object-contain"
+                              placeholder="Loading..."
+                            />
                           </div>
                           <div>
                             <h3 className="font-semibold">{method.name}</h3>
