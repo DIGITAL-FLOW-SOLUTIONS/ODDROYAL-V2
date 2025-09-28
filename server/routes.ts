@@ -146,7 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: validatedData.email,
           first_name: validatedData.firstName || null,
           last_name: validatedData.lastName || null,
-          balance: 0, // User's schema has 'balance' not 'balance_cents'
+          balance: 1000000, // Starting balance: $10,000 in cents for testing and betting
           is_active: true
         });
         
@@ -1035,6 +1035,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         error: "Failed to get bets" 
+      });
+    }
+  });
+  
+  // Test route to add balance for testing betting functionality
+  app.post("/api/wallet/test-balance", authenticateUser, async (req: any, res) => {
+    try {
+      const testAmount = 1000000; // $10,000 in cents for testing
+      
+      // Update user balance in Supabase
+      const { error } = await supabaseAdmin
+        .from('users')
+        .update({ balance: testAmount })
+        .eq('id', req.user.id);
+        
+      if (error) {
+        return res.status(500).json({ 
+          success: false, 
+          error: "Failed to update balance" 
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        data: { 
+          message: "Test balance added successfully",
+          newBalance: currencyUtils.formatCurrency(testAmount)
+        } 
+      });
+      
+    } catch (error) {
+      console.error('Test balance error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to add test balance" 
       });
     }
   });
