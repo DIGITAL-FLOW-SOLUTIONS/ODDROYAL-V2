@@ -16,6 +16,9 @@ import Wallet from "@/pages/Wallet";
 import BetHistory from "@/pages/BetHistory";
 import Results from "@/pages/Results";
 import Login from "@/pages/Login";
+import TermsAndConditions from "@/pages/TermsAndConditions";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import ResponsibleGaming from "@/pages/ResponsibleGaming";
 import NotFound from "@/pages/not-found";
 import AdminApp from "@/pages/admin/AdminApp";
 
@@ -37,6 +40,9 @@ function Router() {
       <Route path="/bets" component={() => <Layout><BetHistory /></Layout>} />
       <Route path="/results" component={() => <Layout><Results /></Layout>} />
       <Route path="/login" component={() => <Layout><Login /></Layout>} />
+      <Route path="/terms-and-conditions" component={() => <Layout><TermsAndConditions /></Layout>} />
+      <Route path="/privacy-policy" component={() => <Layout><PrivacyPolicy /></Layout>} />
+      <Route path="/responsible-gaming" component={() => <Layout><ResponsibleGaming /></Layout>} />
       
       {/* Catch all */}
       <Route>

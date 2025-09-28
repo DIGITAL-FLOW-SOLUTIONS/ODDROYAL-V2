@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Shield, FileText, Globe } from "lucide-react";
+import { Link } from "wouter";
 import googlePlayImage from "@assets/GooglePlay_1759034359431.png";
 import appStoreImage from "@assets/Appstore-badge_1759034359434.png";
 
@@ -30,22 +31,28 @@ export default function Footer() {
             <h4 className="font-semibold text-sm">Legal</h4>
             <ul className="space-y-2">
               <li>
-                <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal w-full" data-testid="link-terms">
-                  <FileText className="h-3 w-3 mr-2" />
-                  Terms & Conditions
-                </Button>
+                <Link href="/terms-and-conditions">
+                  <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal w-full" data-testid="link-terms">
+                    <FileText className="h-3 w-3 mr-2" />
+                    Terms & Conditions
+                  </Button>
+                </Link>
               </li>
               <li>
-                <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal w-full" data-testid="link-privacy">
-                  <Shield className="h-3 w-3 mr-2" />
-                  Privacy Policy
-                </Button>
+                <Link href="/privacy-policy">
+                  <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal w-full" data-testid="link-privacy">
+                    <Shield className="h-3 w-3 mr-2" />
+                    Privacy Policy
+                  </Button>
+                </Link>
               </li>
               <li>
-                <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal w-full" data-testid="link-responsible">
-                  <Globe className="h-3 w-3 mr-2" />
-                  Responsible Gaming
-                </Button>
+                <Link href="/responsible-gaming">
+                  <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal w-full" data-testid="link-responsible">
+                    <Globe className="h-3 w-3 mr-2" />
+                    Responsible Gaming
+                  </Button>
+                </Link>
               </li>
             </ul>
           </div>
