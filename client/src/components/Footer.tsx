@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Shield, HelpCircle, FileText, Phone, Mail, Globe } from "lucide-react";
+import { Shield, FileText, Globe } from "lucide-react";
+import googlePlayImage from "@assets/GooglePlay_1759034359431.png";
+import appStoreImage from "@assets/Appstore-badge_1759034359434.png";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -8,7 +10,7 @@ export default function Footer() {
   return (
     <footer className="bg-sidebar border-t border-sidebar-border mt-auto w-full">
       <div className="max-w-none px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 px-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-4">
           {/* Brand */}
           <div className="space-y-4">
             <div className="font-display text-xl font-bold text-primary">
@@ -20,44 +22,6 @@ export default function Footer() {
             <div className="flex items-center gap-2">
               <Shield className="h-4 w-4 text-chart-4" />
               <span className="text-xs text-muted-foreground">Licensed & Regulated</span>
-            </div>
-          </div>
-
-          {/* Quick Links */}
-          <div className="space-y-4">
-            <h4 className="font-semibold text-sm">Quick Links</h4>
-            <div className="space-y-2">
-              <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal" data-testid="link-sports-footer">
-                Sports Betting
-              </Button>
-              <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal" data-testid="link-live-footer">
-                Live Betting
-              </Button>
-              <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal" data-testid="link-promotions-footer">
-                Promotions
-              </Button>
-              <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal" data-testid="link-results-footer">
-                Results
-              </Button>
-            </div>
-          </div>
-
-          {/* Support */}
-          <div className="space-y-4">
-            <h4 className="font-semibold text-sm">Support</h4>
-            <div className="space-y-2">
-              <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal" data-testid="link-help">
-                <HelpCircle className="h-3 w-3 mr-2" />
-                Help Center
-              </Button>
-              <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal" data-testid="link-contact">
-                <Phone className="h-3 w-3 mr-2" />
-                Contact Us
-              </Button>
-              <Button variant="ghost" size="sm" className="justify-start p-0 h-auto font-normal" data-testid="link-live-chat">
-                <Mail className="h-3 w-3 mr-2" />
-                Live Chat
-              </Button>
             </div>
           </div>
 
@@ -77,6 +41,41 @@ export default function Footer() {
                 <Globe className="h-3 w-3 mr-2" />
                 Responsible Gaming
               </Button>
+            </div>
+          </div>
+
+          {/* Download Apps */}
+          <div className="space-y-4">
+            <h4 className="font-semibold text-sm">Download Our App</h4>
+            <div className="space-y-3">
+              <a 
+                href="https://play.google.com/store" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block hover-elevate transition-transform"
+                data-testid="link-google-play"
+              >
+                <img 
+                  src={googlePlayImage} 
+                  alt="Get it on Google Play" 
+                  className="h-10 w-auto"
+                  loading="lazy"
+                />
+              </a>
+              <a 
+                href="https://apps.apple.com/app" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="block hover-elevate transition-transform"
+                data-testid="link-app-store"
+              >
+                <img 
+                  src={appStoreImage} 
+                  alt="Download on the App Store" 
+                  className="h-10 w-auto"
+                  loading="lazy"
+                />
+              </a>
             </div>
           </div>
         </div>
