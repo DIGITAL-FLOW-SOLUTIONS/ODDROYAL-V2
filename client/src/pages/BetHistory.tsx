@@ -428,12 +428,12 @@ function BetHistory() {
                     </div>
                     <div className="text-right">
                       <p className="font-medium">
-                        Stake: {currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(bet.totalStake)))}
+                        Stake: {currencyUtils.formatCurrency(bet.totalStake)}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {bet.status === 'won' && bet.actualWinnings ? 
-                          `Won: ${currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(bet.actualWinnings)))}` :
-                          `Potential: ${currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(bet.potentialWinnings)))}`
+                          `Won: ${currencyUtils.formatCurrency(bet.actualWinnings)}` :
+                          `Potential: ${currencyUtils.formatCurrency(bet.potentialWinnings)}`
                         }
                       </p>
                     </div>

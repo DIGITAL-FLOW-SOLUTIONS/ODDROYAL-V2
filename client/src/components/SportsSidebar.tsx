@@ -31,7 +31,8 @@ import {
   PlayCircle,
   Crown,
   Shield,
-  Flag
+  Flag,
+  BarChart3
 } from "lucide-react";
 
 export default function SportsSidebar() {
@@ -265,10 +266,34 @@ export default function SportsSidebar() {
                 transition={{ delay: 0.45 }}
               >
                 <SidebarMenuItem>
-                  <SidebarMenuButton data-testid="link-my-bets" className="bg-surface-3 border-0 rounded-md">
-                    <PlayCircle className="h-4 w-4" />
-                    <span>My Bets</span>
-                    <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">3</Badge>
+                  <SidebarMenuButton
+                    asChild
+                    data-testid="link-my-bets"
+                    className={`${location === "/bets" ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-3"} border-0 rounded-md`}
+                  >
+                    <Link href="/bets">
+                      <PlayCircle className="h-4 w-4" />
+                      <span>My Bets</span>
+                      <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">3</Badge>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </motion.div>
+              <motion.div
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+              >
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    data-testid="link-analytics"
+                    className={`${location === "/analytics" ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-3"} border-0 rounded-md`}
+                  >
+                    <Link href="/analytics">
+                      <BarChart3 className="h-4 w-4" />
+                      <span>Analytics</span>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </motion.div>
