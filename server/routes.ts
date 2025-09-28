@@ -59,6 +59,7 @@ import argon2 from "argon2";
 import speakeasy from "speakeasy";
 import qrcode from "qrcode";
 import { z } from "zod";
+import { mpesaService } from "./mpesa";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check
@@ -6300,6 +6301,301 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+
+  // ===================== M-PESA PAYMENT ROUTES =====================
+  
+  // Initiate M-PESA STK Push payment
+  app.post("/api/mpesa/stk-push", authenticateUser, async (req: any, res) => {
+    try {
+      // Validate request body with Zod schema
+      const stkPushSchema = z.object({
+        phoneNumber: z.string().transform((phone) => {
+          // Normalize phone number format
+          let cleaned = phone.replace(/\D/g, '');
+          if (cleaned.startsWith('0')) {
+            cleaned = '254' + cleaned.substring(1);
+          } else if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
+            cleaned = '254' + cleaned;
+          }
+          return cleaned;
+        }).refine((phone) => /^254[17]\d{8}$/.test(phone), "Invalid Kenyan mobile number"),
+        amount: z.number().min(2000, "Minimum amount is KES 2000"),
+        currency: z.literal("KES", { errorMap: () => ({ message: "Only KES currency is supported" }) }),
+        description: z.string().optional()
+      });
+
+      const validatedData = stkPushSchema.parse(req.body);
+      const { phoneNumber, amount, currency, description } = validatedData;
+
+      // Check for duplicate recent transactions (idempotency)
+      const recentTransactions = await storage.getTransactionsByUserId(req.user.id);
+      const recentDuplicate = recentTransactions.find(t => {
+        const timeDiff = Date.now() - new Date(t.createdAt).getTime();
+        return t.type === 'deposit' && 
+               t.amount === amount.toString() && 
+               t.status === 'pending' &&
+               timeDiff < 60000; // 1 minute
+      });
+
+      if (recentDuplicate) {
+        try {
+          const metadata = JSON.parse(recentDuplicate.metadata || '{}');
+          return res.json({
+            success: true,
+            data: {
+              CheckoutRequestID: metadata.checkoutRequestID,
+              CustomerMessage: "Previous transaction still processing",
+              transactionId: recentDuplicate.id
+            }
+          });
+        } catch (e) {
+          // Continue with new transaction if metadata parsing fails
+        }
+      }
+
+      // Create callback URL for this deployment (respect proxy headers)
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+      const host = req.headers['x-forwarded-host'] || req.get('host');
+      const callbackUrl = process.env.MPESA_CALLBACK_BASE_URL || `${protocol}://${host}/api/mpesa/callback`;
+      
+      // Generate unique account reference for tracking
+      const accountReference = `DEP-${req.user.id.substring(0, 8)}-${Date.now()}`;
+      
+      const stkPushResult = await mpesaService.stkPush({
+        phoneNumber,
+        amount,
+        accountReference,
+        transactionDesc: description || `Deposit to ${req.user.username}`,
+        callbackUrl
+      });
+
+      // Store transaction record for tracking
+      const transactionId = randomUUID();
+      await storage.createTransaction({
+        id: transactionId,
+        userId: req.user.id,
+        type: 'deposit',
+        amount: amount.toString(),
+        status: 'pending',
+        description: `M-PESA deposit - ${description || 'Account deposit'}`,
+        metadata: JSON.stringify({
+          checkoutRequestID: stkPushResult.CheckoutRequestID,
+          merchantRequestID: stkPushResult.MerchantRequestID,
+          phoneNumber,
+          accountReference,
+          currency
+        })
+      });
+
+      res.json({
+        success: true,
+        data: {
+          CheckoutRequestID: stkPushResult.CheckoutRequestID,
+          CustomerMessage: stkPushResult.CustomerMessage,
+          transactionId
+        }
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors
+        });
+      }
+      console.error('STK Push error:', error.message);
+      res.status(500).json({
+        success: false,
+        error: error.message || "Failed to initiate payment"
+      });
+    }
+  });
+
+  // Check M-PESA payment status
+  app.get("/api/mpesa/payment-status/:checkoutRequestID", authenticateUser, async (req: any, res) => {
+    try {
+      const { checkoutRequestID } = req.params;
+      
+      // First check our database for the transaction
+      const transactions = await storage.getTransactionsByUserId(req.user.id);
+      const transaction = transactions.find(t => {
+        try {
+          const metadata = JSON.parse(t.metadata || '{}');
+          return metadata.checkoutRequestID === checkoutRequestID;
+        } catch {
+          return false;
+        }
+      });
+
+      if (!transaction) {
+        return res.status(404).json({
+          success: false,
+          error: "Transaction not found"
+        });
+      }
+
+      // If already completed or failed, return cached status
+      if (transaction.status === 'completed' || transaction.status === 'failed') {
+        return res.json({
+          success: true,
+          data: {
+            status: transaction.status,
+            message: transaction.status === 'completed' ? 'Payment completed successfully' : 'Payment failed',
+            transactionId: transaction.id
+          }
+        });
+      }
+
+      // Query M-PESA for current status
+      try {
+        const statusResult = await mpesaService.querySTKPushStatus(checkoutRequestID);
+        
+        let status = 'pending';
+        let message = 'Payment is being processed';
+
+        if (statusResult.ResultCode === '0') {
+          status = 'completed';
+          message = 'Payment completed successfully';
+        } else if (statusResult.ResultCode && statusResult.ResultCode !== '1037') {
+          // 1037 is "Transaction in progress", anything else is an error
+          status = 'failed';
+          message = statusResult.ResultDesc || 'Payment failed';
+        }
+
+        // Update transaction status if changed (idempotent update)
+        if (status !== 'pending' && transaction.status === 'pending') {
+          await storage.updateTransaction(transaction.id, {
+            status,
+            metadata: JSON.stringify({
+              ...JSON.parse(transaction.metadata || '{}'),
+              mpesaResult: statusResult,
+              statusUpdatedAt: new Date().toISOString()
+            })
+          });
+
+          // If completed, update user balance (idempotent)
+          if (status === 'completed') {
+            const amount = parseInt(transaction.amount);
+            await storage.updateUserBalance(req.user.id, amount);
+            console.log(`User ${req.user.id} balance updated by ${amount} for transaction ${transaction.id}`);
+          }
+        }
+
+        res.json({
+          success: true,
+          data: {
+            status,
+            message,
+            transactionId: transaction.id
+          }
+        });
+      } catch (queryError: any) {
+        console.error('M-PESA status query error:', queryError);
+        // Return pending status if query fails
+        res.json({
+          success: true,
+          data: {
+            status: 'pending',
+            message: 'Payment is being processed',
+            transactionId: transaction.id
+          }
+        });
+      }
+    } catch (error: any) {
+      console.error('Payment status check error:', error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check payment status"
+      });
+    }
+  });
+
+  // M-PESA callback endpoint
+  app.post("/api/mpesa/callback", async (req, res) => {
+    try {
+      console.log('M-PESA Callback received:', {
+        CheckoutRequestID: req.body.Body?.stkCallback?.CheckoutRequestID,
+        ResultCode: req.body.Body?.stkCallback?.ResultCode,
+        timestamp: new Date().toISOString()
+      });
+      
+      const callbackResult = mpesaService.processCallback(req.body);
+      const checkoutRequestID = req.body.Body?.stkCallback?.CheckoutRequestID;
+      
+      if (!checkoutRequestID) {
+        console.error('No CheckoutRequestID in callback');
+        return res.status(400).json({ ResultCode: 1, ResultDesc: "Invalid callback data" });
+      }
+
+      // Find the transaction in our database
+      const allUsers = await storage.getAllUsers();
+      let transaction = null;
+      let userId = null;
+
+      for (const user of allUsers) {
+        const userTransactions = await storage.getTransactionsByUserId(user.id);
+        const foundTransaction = userTransactions.find(t => {
+          try {
+            const metadata = JSON.parse(t.metadata || '{}');
+            return metadata.checkoutRequestID === checkoutRequestID;
+          } catch {
+            return false;
+          }
+        });
+        
+        if (foundTransaction) {
+          transaction = foundTransaction;
+          userId = user.id;
+          break;
+        }
+      }
+
+      if (!transaction || !userId) {
+        console.error('Transaction not found for CheckoutRequestID:', checkoutRequestID);
+        return res.json({ ResultCode: 0, ResultDesc: "Transaction not found" });
+      }
+
+      // Update transaction based on callback result (idempotent)
+      if (transaction.status === 'pending') {
+        const status = callbackResult.resultCode === 0 ? 'completed' : 'failed';
+        const updatedMetadata = {
+          ...JSON.parse(transaction.metadata || '{}'),
+          callbackResult,
+          completedAt: new Date().toISOString()
+        };
+
+        await storage.updateTransaction(transaction.id, {
+          status,
+          metadata: JSON.stringify(updatedMetadata)
+        });
+
+        // If payment was successful, update user balance (idempotent)
+        if (status === 'completed') {
+          const amount = parseInt(transaction.amount);
+          await storage.updateUserBalance(userId, amount);
+          console.log(`User ${userId} balance updated by ${amount} for transaction ${transaction.id}`);
+        }
+
+        console.log(`Transaction ${transaction.id} updated to status: ${status}`);
+      } else {
+        console.log(`Transaction ${transaction.id} already processed with status: ${transaction.status}`);
+      }
+
+      console.log(`Transaction ${transaction.id} updated to status: ${status}`);
+      
+      // Respond to M-PESA
+      res.json({
+        ResultCode: 0,
+        ResultDesc: "Callback processed successfully"
+      });
+    } catch (error: any) {
+      console.error('M-PESA callback processing error:', error);
+      res.status(500).json({
+        ResultCode: 1,
+        ResultDesc: "Internal server error"
+      });
+    }
+  });
 
   const httpServer = createServer(app);
   
