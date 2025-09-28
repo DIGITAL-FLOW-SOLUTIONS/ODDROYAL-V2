@@ -120,8 +120,8 @@ export default function BetSlip({
           // For single bets, place each selection with a stake as a separate bet
           for (const sel of validSingleBets) {
             const betData = {
-              type: "single" as const,
-              totalStake: stakes[sel.id].toFixed(2),
+              betType: "single" as const,
+              totalStakeCents: Math.round(stakes[sel.id] * 100),
               selections: [
                 {
                   fixtureId: sel.fixtureId || sel.matchId,
@@ -165,8 +165,8 @@ export default function BetSlip({
           }
 
           const expressBetData = {
-            type: "express" as const,
-            totalStake: expressStake.toFixed(2),
+            betType: "express" as const,
+            totalStakeCents: Math.round(expressStake * 100),
             selections: selections.map((sel) => ({
               fixtureId: sel.fixtureId || sel.matchId,
               homeTeam: sel.homeTeam,
@@ -204,8 +204,8 @@ export default function BetSlip({
           }
 
           const systemBetData = {
-            type: "system" as const,
-            totalStake: systemStake.toFixed(2),
+            betType: "system" as const,
+            totalStakeCents: Math.round(systemStake * 100),
             selections: selections.map((sel) => ({
               fixtureId: sel.fixtureId || sel.matchId,
               homeTeam: sel.homeTeam,
