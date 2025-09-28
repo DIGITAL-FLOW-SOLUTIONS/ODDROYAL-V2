@@ -127,48 +127,6 @@ export default function BannerSlider() {
             </div>
           )}
 
-          {/* Content overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
-          
-          <div className="absolute inset-0 flex items-center justify-start p-4 sm:p-6 md:p-8">
-            <div className="text-white max-w-lg md:max-w-2xl">
-              <motion.h2
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-display font-bold mb-2 sm:mb-3 md:mb-4"
-                data-testid={`banner-title-${banners[currentSlide].id}`}
-              >
-                {banners[currentSlide].title}
-              </motion.h2>
-              
-              <motion.p
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="text-sm sm:text-base md:text-lg lg:text-xl opacity-90 mb-4 sm:mb-5 md:mb-6"
-                data-testid={`banner-subtitle-${banners[currentSlide].id}`}
-              >
-                {banners[currentSlide].subtitle}
-              </motion.p>
-              
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-              >
-                <Button
-                  size="default"
-                  variant="default"
-                  onClick={banners[currentSlide].ctaAction}
-                  className="bg-primary hover:bg-primary/90 text-white font-semibold px-4 sm:px-6 md:px-8 text-sm sm:text-base"
-                  data-testid={`banner-cta-${banners[currentSlide].id}`}
-                >
-                  {banners[currentSlide].cta}
-                </Button>
-              </motion.div>
-            </div>
-          </div>
         </motion.div>
       </AnimatePresence>
 
