@@ -1,10 +1,7 @@
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Wallet as WalletIcon, 
@@ -19,9 +16,6 @@ import {
   DollarSign
 } from "lucide-react";
 import { currencyUtils } from "@shared/schema";
-import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface Transaction {
@@ -36,9 +30,6 @@ interface Transaction {
 
 function Wallet() {
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
-  const [depositAmount, setDepositAmount] = useState('');
-  const [withdrawAmount, setWithdrawAmount] = useState('');
   const { user, isAuthenticated, isLoading } = useAuth();
   
   const { data: transactionsResponse } = useQuery<{ success: boolean; data: Transaction[] }>({
@@ -48,51 +39,6 @@ function Wallet() {
 
   const transactionsData = transactionsResponse?.data || [];
 
-  const depositMutation = useMutation({
-    mutationFn: async (amount: number) => {
-      return apiRequest('POST', '/api/wallet/deposit', { amount: amount.toString() });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-      const amountInCents = currencyUtils.poundsToCents(parseFloat(depositAmount));
-      setDepositAmount('');
-      toast({
-        title: "Deposit Successful",
-        description: `Successfully deposited ${currencyUtils.formatCurrency(amountInCents)}`
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Deposit Failed",
-        description: "Failed to process deposit. Please try again.",
-        variant: "destructive"
-      });
-    }
-  });
-
-  const withdrawMutation = useMutation({
-    mutationFn: async (amount: number) => {
-      return apiRequest('POST', '/api/wallet/withdraw', { amount: amount.toString() });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
-      const amountInCents = currencyUtils.poundsToCents(parseFloat(withdrawAmount));
-      setWithdrawAmount('');
-      toast({
-        title: "Withdrawal Successful",
-        description: `Successfully withdrew ${currencyUtils.formatCurrency(amountInCents)}`
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Withdrawal Failed",
-        description: error?.message || "Failed to process withdrawal. Please try again.",
-        variant: "destructive"
-      });
-    }
-  });
 
   if (isLoading) {
     return (
@@ -134,19 +80,6 @@ function Wallet() {
   }
 
 
-  const handleDeposit = () => {
-    const amount = parseFloat(depositAmount);
-    if (amount > 0) {
-      depositMutation.mutate(amount);
-    }
-  };
-
-  const handleWithdraw = () => {
-    const amount = parseFloat(withdrawAmount);
-    if (amount > 0) {
-      withdrawMutation.mutate(amount);
-    }
-  };
 
   const recentTransactions = transactionsData.slice(0, 10);
   const totalDeposits = transactionsData
@@ -230,7 +163,7 @@ function Wallet() {
         <TabsContent value="actions" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Deposit Card */}
-            <Card>
+            <Card className="hover-elevate transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <ArrowDownLeft className="h-5 w-5 text-green-600" />
@@ -238,60 +171,16 @@ function Wallet() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">Amount</label>
-                  <Input
-                    type="number"
-                    placeholder="Enter amount to deposit"
-                    value={depositAmount}
-                    onChange={(e) => setDepositAmount(e.target.value)}
-                    min="1"
-                    step="0.01"
-                    data-testid="input-deposit-amount"
-                  />
-                </div>
-                <div className="flex space-x-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => setDepositAmount('10')}
-                    data-testid="button-deposit-10"
-                  >
-                    £10
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => setDepositAmount('25')}
-                    data-testid="button-deposit-25"
-                  >
-                    £25
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => setDepositAmount('50')}
-                    data-testid="button-deposit-50"
-                  >
-                    £50
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => setDepositAmount('100')}
-                    data-testid="button-deposit-100"
-                  >
-                    £100
-                  </Button>
-                </div>
+                <p className="text-muted-foreground">
+                  Add money to your account quickly and securely using various payment methods.
+                </p>
                 <Button 
                   className="w-full"
-                  onClick={handleDeposit}
-                  disabled={!depositAmount || parseFloat(depositAmount) <= 0 || depositMutation.isPending}
-                  data-testid="button-deposit"
+                  onClick={() => setLocation('/deposit')}
+                  data-testid="button-go-to-deposit"
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  {depositMutation.isPending ? "Processing..." : "Deposit Funds"}
+                  Go to Deposit Page
                 </Button>
                 <p className="text-xs text-muted-foreground">
                   * This is a demo platform. No real money will be processed.
@@ -300,7 +189,7 @@ function Wallet() {
             </Card>
 
             {/* Withdraw Card */}
-            <Card>
+            <Card className="hover-elevate transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <ArrowUpRight className="h-5 w-5 text-red-600" />
@@ -308,36 +197,20 @@ function Wallet() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">Amount</label>
-                  <Input
-                    type="number"
-                    placeholder="Enter amount to withdraw"
-                    value={withdrawAmount}
-                    onChange={(e) => setWithdrawAmount(e.target.value)}
-                    min="1"
-                    max={user ? user.balance : "0"}
-                    step="0.01"
-                    data-testid="input-withdraw-amount"
-                  />
-                </div>
+                <p className="text-muted-foreground">
+                  Withdraw your winnings safely to your preferred payment method.
+                </p>
                 <p className="text-sm text-muted-foreground">
                   Available balance: {user ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(user.balance))) : ''}
                 </p>
                 <Button 
                   className="w-full"
                   variant="destructive"
-                  onClick={handleWithdraw}
-                  disabled={
-                    !withdrawAmount || 
-                    parseFloat(withdrawAmount) <= 0 || 
-                    parseFloat(withdrawAmount) > parseFloat(user?.balance || '0') ||
-                    withdrawMutation.isPending
-                  }
-                  data-testid="button-withdraw"
+                  onClick={() => setLocation('/withdrawal')}
+                  data-testid="button-go-to-withdrawal"
                 >
                   <Minus className="h-4 w-4 mr-2" />
-                  {withdrawMutation.isPending ? "Processing..." : "Withdraw Funds"}
+                  Go to Withdrawal Page
                 </Button>
                 <p className="text-xs text-muted-foreground">
                   * This is a demo platform. No real money will be processed.
