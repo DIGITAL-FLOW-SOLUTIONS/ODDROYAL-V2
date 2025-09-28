@@ -93,6 +93,7 @@ export interface IStorage {
   createTransaction(
     transaction: InsertTransaction & { userId: string },
   ): Promise<Transaction>;
+  updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction | undefined>;
   getUserTransactions(userId: string, limit?: number): Promise<Transaction[]>;
 
   // Session operations
@@ -979,11 +980,27 @@ export class MemStorage implements IStorage {
       ...transaction,
       reference: transaction.reference || null,
       description: transaction.description || null,
-      status: "completed",
+      status: transaction.status || "completed",
       createdAt: new Date(),
     };
     this.transactions.set(id, newTransaction);
     return newTransaction;
+  }
+
+  async updateTransaction(
+    id: string,
+    updates: Partial<Transaction>,
+  ): Promise<Transaction | undefined> {
+    const transaction = this.transactions.get(id);
+    if (!transaction) return undefined;
+    
+    const updatedTransaction = {
+      ...transaction,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.transactions.set(id, updatedTransaction);
+    return updatedTransaction;
   }
 
   async getUserTransactions(

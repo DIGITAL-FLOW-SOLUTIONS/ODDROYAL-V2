@@ -6476,8 +6476,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // If completed, update user balance (idempotent)
           if (status === 'completed') {
             const amount = parseInt(transaction.amount);
-            await storage.updateUserBalance(req.user.id, amount);
-            console.log(`User ${req.user.id} balance updated by ${amount} for transaction ${transaction.id}`);
+            const currentUser = await storage.getUser(req.user.id);
+            if (currentUser) {
+              const newBalance = currentUser.balance + amount;
+              await storage.updateUserBalance(req.user.id, newBalance);
+              console.log(`User ${req.user.id} balance updated by ${amount} cents (new balance: ${newBalance}) for transaction ${transaction.id}`);
+            }
           }
         }
 
