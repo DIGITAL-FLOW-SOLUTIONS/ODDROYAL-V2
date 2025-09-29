@@ -857,18 +857,53 @@ export class MemStorage implements IStorage {
 
   // Bet operations
   async createBet(bet: InsertBet & { userId: string }): Promise<Bet> {
-    const id = randomUUID();
-    const now = new Date();
-    const newBet: Bet = {
-      id,
-      ...bet,
-      status: "pending",
-      placedAt: now,
-      settledAt: null,
-      actualWinnings: 0, // Start with 0 cents
-    };
-    this.bets.set(id, newBet);
-    return newBet;
+    try {
+      const id = randomUUID();
+      const now = new Date();
+      
+      const { data, error } = await supabaseAdmin
+        .from('bets')
+        .insert({
+          id,
+          user_id: bet.userId,
+          type: bet.type,
+          total_stake: bet.totalStake,
+          potential_winnings: bet.potentialWinnings,
+          total_odds: bet.totalOdds,
+          status: "pending",
+          placed_at: now.toISOString(),
+          settled_at: null,
+          actual_winnings: 0
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating bet:', error);
+        throw error;
+      }
+
+      // Convert database format to application format
+      const newBet: Bet = {
+        id: data.id,
+        userId: data.user_id,
+        type: data.type,
+        totalStake: data.total_stake,
+        potentialWinnings: data.potential_winnings,
+        totalOdds: data.total_odds,
+        status: data.status,
+        placedAt: new Date(data.placed_at),
+        settledAt: data.settled_at ? new Date(data.settled_at) : null,
+        actualWinnings: data.actual_winnings
+      };
+
+      // Also store in memory for backwards compatibility (can be removed later)
+      this.bets.set(id, newBet);
+      return newBet;
+    } catch (error) {
+      console.error('Error in createBet:', error);
+      throw error;
+    }
   }
 
   async getBet(id: string): Promise<Bet | undefined> {
@@ -930,15 +965,58 @@ export class MemStorage implements IStorage {
   async createBetSelection(
     selection: InsertBetSelection,
   ): Promise<BetSelection> {
-    const id = randomUUID();
-    const newSelection: BetSelection = {
-      id,
-      ...selection,
-      status: "pending",
-      result: null,
-    };
-    this.betSelections.set(id, newSelection);
-    return newSelection;
+    try {
+      const id = randomUUID();
+      
+      const { data, error } = await supabaseAdmin
+        .from('bet_selections')
+        .insert({
+          id,
+          bet_id: selection.betId,
+          fixture_id: selection.fixtureId,
+          home_team: selection.homeTeam,
+          away_team: selection.awayTeam,
+          league: selection.league,
+          market_id: selection.marketId,
+          outcome_id: selection.outcomeId,
+          market: selection.market,
+          selection: selection.selection,
+          odds: selection.odds,
+          status: "pending",
+          result: null
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating bet selection:', error);
+        throw error;
+      }
+
+      // Convert database format to application format
+      const newSelection: BetSelection = {
+        id: data.id,
+        betId: data.bet_id,
+        fixtureId: data.fixture_id,
+        homeTeam: data.home_team,
+        awayTeam: data.away_team,
+        league: data.league,
+        marketId: data.market_id,
+        outcomeId: data.outcome_id,
+        market: data.market,
+        selection: data.selection,
+        odds: data.odds,
+        status: data.status,
+        result: data.result
+      };
+
+      // Also store in memory for backwards compatibility (can be removed later)
+      this.betSelections.set(id, newSelection);
+      return newSelection;
+    } catch (error) {
+      console.error('Error in createBetSelection:', error);
+      throw error;
+    }
   }
 
   async getBetSelections(betId: string): Promise<BetSelection[]> {
