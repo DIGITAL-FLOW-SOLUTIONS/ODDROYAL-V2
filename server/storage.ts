@@ -20,6 +20,7 @@ import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import argon2 from "argon2";
 import speakeasy from "speakeasy";
+import { supabaseAdmin } from "./supabase";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -875,10 +876,36 @@ export class MemStorage implements IStorage {
   }
 
   async getUserBets(userId: string, limit: number = 50): Promise<Bet[]> {
-    return Array.from(this.bets.values())
-      .filter((bet) => bet.userId === userId)
-      .sort((a, b) => b.placedAt.getTime() - a.placedAt.getTime())
-      .slice(0, limit);
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('bets')
+        .select('*')
+        .eq('user_id', userId)
+        .order('placed_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('Error fetching user bets:', error);
+        throw error;
+      }
+
+      // Convert database format to application format
+      return data.map(bet => ({
+        id: bet.id,
+        userId: bet.user_id,
+        type: bet.type,
+        totalStake: bet.total_stake,
+        potentialWinnings: bet.potential_winnings,
+        totalOdds: bet.total_odds,
+        status: bet.status,
+        placedAt: new Date(bet.placed_at),
+        settledAt: bet.settled_at ? new Date(bet.settled_at) : null,
+        actualWinnings: bet.actual_winnings
+      }));
+    } catch (error) {
+      console.error('Error in getUserBets:', error);
+      return [];
+    }
   }
 
   async updateBetStatus(
@@ -915,9 +942,38 @@ export class MemStorage implements IStorage {
   }
 
   async getBetSelections(betId: string): Promise<BetSelection[]> {
-    return Array.from(this.betSelections.values()).filter(
-      (selection) => selection.betId === betId,
-    );
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('bet_selections')
+        .select('*')
+        .eq('bet_id', betId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching bet selections:', error);
+        throw error;
+      }
+
+      // Convert database format to application format
+      return data.map(selection => ({
+        id: selection.id,
+        betId: selection.bet_id,
+        fixtureId: selection.fixture_id,
+        homeTeam: selection.home_team,
+        awayTeam: selection.away_team,
+        league: selection.league,
+        marketId: selection.market_id,
+        outcomeId: selection.outcome_id,
+        market: selection.market,
+        selection: selection.selection,
+        odds: selection.odds,
+        status: selection.status,
+        result: selection.result
+      }));
+    } catch (error) {
+      console.error('Error in getBetSelections:', error);
+      return [];
+    }
   }
 
   async updateSelectionStatus(
