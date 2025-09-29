@@ -21,9 +21,9 @@ import { useAuth } from "@/contexts/AuthContext";
 interface Transaction {
   id: string;
   type: string;
-  amount: string;
-  balanceBefore: string;
-  balanceAfter: string;
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
   description: string;
   createdAt: string;
 }
@@ -89,10 +89,10 @@ function Wallet() {
   const recentTransactions = transactionsData.slice(0, 10);
   const totalDeposits = transactionsData
     .filter((t) => t.type === "deposit")
-    .reduce((sum, t) => sum + parseInt(t.amount), 0); // amount is in cents
+    .reduce((sum, t) => sum + t.amount, 0); // amount is in cents
   const totalWithdrawals = transactionsData
     .filter((t) => t.type === "withdrawal")
-    .reduce((sum, t) => sum + Math.abs(parseInt(t.amount)), 0); // amount is in cents
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0); // amount is in cents
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -306,7 +306,7 @@ function Wallet() {
                               ? "text-green-600"
                               : transaction.type === "withdrawal"
                                 ? "text-red-600"
-                                : transaction.amount.startsWith("-")
+                                : transaction.amount < 0
                                   ? "text-red-600"
                                   : "text-green-600"
                           }`}
@@ -315,17 +315,17 @@ function Wallet() {
                             ? "+"
                             : transaction.type === "withdrawal"
                               ? "-"
-                              : transaction.amount.startsWith("-")
+                              : transaction.amount < 0
                                 ? ""
                                 : "+"}
                           {currencyUtils.formatCurrency(
-                            Math.abs(parseInt(transaction.amount)),
+                            Math.abs(transaction.amount),
                           )}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           Balance:{" "}
                           {currencyUtils.formatCurrency(
-                            parseInt(transaction.balanceAfter),
+                            transaction.balanceAfter,
                           )}
                         </p>
                       </div>
