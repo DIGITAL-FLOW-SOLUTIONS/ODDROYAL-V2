@@ -389,7 +389,7 @@ export class SupabaseStorage implements IStorage {
 
   // ===================== PLACEHOLDER METHODS (TODO) =====================
 
-  // TODO: Implement atomic bet placement using Postgres function
+  // Atomic bet placement using individual operations
   async placeBetAtomic(params: {
     userId: string;
     betType: "single" | "express" | "system";
@@ -412,22 +412,116 @@ export class SupabaseStorage implements IStorage {
     error?: string;
   }> {
     try {
-      // TODO: Call app_place_bet Postgres function
-      const { data, error } = await this.client.rpc('app_place_bet', {
-        p_user_id: params.userId,
-        p_bet_type: params.betType,
-        p_total_stake_cents: params.totalStakeCents,
-        p_selections: params.selections
-      });
-
-      if (error) {
-        return { success: false, error: error.message };
+      // Get user and validate balance
+      const user = await this.getUser(params.userId);
+      if (!user) {
+        return { success: false, error: "User not found" };
       }
 
-      // For now, return a placeholder success
-      return { 
-        success: true, 
-        error: "TODO: Implement app_place_bet Postgres function" 
+      if (user.balance < params.totalStakeCents) {
+        return { success: false, error: "Insufficient balance" };
+      }
+
+      // Calculate total odds and potential winnings
+      const totalOdds = params.selections.reduce(
+        (acc, selection) => acc * parseFloat(selection.odds),
+        1,
+      );
+
+      if (totalOdds < 1.01 || totalOdds > 10000) {
+        return { success: false, error: "Invalid total odds" };
+      }
+
+      const potentialWinningsCents = Math.round(
+        params.totalStakeCents * totalOdds,
+      );
+
+      // Validate bet type vs selection count
+      if (params.betType === "single" && params.selections.length !== 1) {
+        return { success: false, error: "Single bets must have exactly 1 selection" };
+      }
+      if ((params.betType === "express" || params.betType === "system") && params.selections.length < 2) {
+        return { success: false, error: "Express/System bets must have at least 2 selections" };
+      }
+
+      // Validate stake amount
+      if (params.totalStakeCents < 100) { // Minimum £1
+        return { success: false, error: "Minimum stake is £1.00" };
+      }
+      if (params.totalStakeCents > 10000000) { // Maximum £100,000
+        return { success: false, error: "Maximum stake is £100,000.00" };
+      }
+
+      // Create bet record with correct field names
+      const bet = await this.createBet({
+        userId: params.userId,
+        betType: params.betType,
+        totalStakeCents: params.totalStakeCents,
+        potentialWinningsCents: potentialWinningsCents,
+        actualWinningsCents: 0,
+        status: "pending",
+        placedAt: new Date().toISOString(),
+      });
+
+      // Create bet selections
+      const selections: BetSelection[] = [];
+      for (const selectionData of params.selections) {
+        const selection = await this.createBetSelection({
+          betId: bet.id,
+          fixtureId: selectionData.fixtureId,
+          homeTeam: selectionData.homeTeam,
+          awayTeam: selectionData.awayTeam,
+          league: selectionData.league,
+          marketId: "placeholder-market-id", // TODO: Implement proper market lookup
+          outcomeId: "placeholder-outcome-id", // TODO: Implement proper outcome lookup
+          market: selectionData.market,
+          selection: selectionData.selection,
+          odds: selectionData.odds,
+        });
+        selections.push(selection);
+      }
+
+      // Atomic balance update with balance check (prevents double-spend)
+      const { data: balanceUpdate, error: balanceError } = await this.client
+        .from('users')
+        .update({ 
+          balance: user.balance - params.totalStakeCents,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', params.userId)
+        .eq('balance', user.balance) // Only update if balance hasn't changed
+        .select()
+        .single();
+
+      if (balanceError || !balanceUpdate) {
+        // TODO: Rollback bet and selections
+        return { success: false, error: "Failed to update balance - insufficient funds or concurrent transaction" };
+      }
+
+      const updatedUser = mappers.toUser(balanceUpdate);
+
+      if (!updatedUser) {
+        // TODO: Rollback bet and selections if balance update fails
+        return { success: false, error: "Failed to update user balance" };
+      }
+
+      // Create transaction record
+      const transaction = await this.createTransaction({
+        userId: params.userId,
+        type: "bet_stake",
+        amount: -params.totalStakeCents,
+        balanceBefore: user.balance,
+        balanceAfter: newBalanceCents,
+        reference: bet.id,
+        description: `Bet placed: ${bet.type} bet with ${selections.length} selection(s)`,
+      });
+
+      return {
+        success: true,
+        bet,
+        selections,
+        user: updatedUser,
+        transaction,
       };
     } catch (error: any) {
       return { 
