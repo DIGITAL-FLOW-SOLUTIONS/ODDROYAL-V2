@@ -78,7 +78,22 @@ export default function Layout({ children }: LayoutProps) {
       // BetSlip already validates and formats the data correctly
       // Just pass it through to the backend
       const response = await apiRequest('POST', '/api/bets', betData);
-      return await response.json();
+      
+      // Check for authentication error (401)
+      if (response.status === 401) {
+        // Redirect to login page for guest users
+        window.location.href = '/login';
+        throw new Error('Please log in to place bets');
+      }
+      
+      const result = await response.json();
+      
+      // Handle other error responses
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP ${response.status}: Failed to place bet`);
+      }
+      
+      return result;
     },
     onSuccess: (result) => {
       if (result.success) {
@@ -98,9 +113,27 @@ export default function Layout({ children }: LayoutProps) {
     },
     onError: (error: any) => {
       console.error('Error placing bet:', error);
+      
+      // Show appropriate error message based on error type
+      let title = "Failed to Place Bet";
+      let description = "Please check your selections and try again.";
+      
+      if (error.message?.includes('log in')) {
+        title = "Login Required";
+        description = "You need to log in to place bets. Redirecting to login page...";
+      } else if (error.message?.includes('Insufficient funds')) {
+        title = "Insufficient Balance";
+        description = "You don't have enough funds to place this bet. Please deposit more funds.";
+      } else if (error.message?.includes('User profile not found')) {
+        title = "Account Error";
+        description = "There was an issue with your account. Please try logging out and back in.";
+      } else if (error.message) {
+        description = error.message;
+      }
+      
       toast({
-        title: "Failed to Place Bet",
-        description: error.message || "Please check your balance and try again.",
+        title,
+        description,
         variant: "destructive"
       });
     }
