@@ -383,7 +383,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           username: profile.username,
           firstName: profile.first_name,
           lastName: profile.last_name,
-          balance: (profile.balance / 100).toFixed(2) // Convert cents to pounds
+          balance: (profile.balance / 100).toFixed(2), // Convert cents to KES
+          isActive: profile.is_active,
+          createdAt: profile.created_at,
+          updatedAt: profile.updated_at
         }
       });
       
