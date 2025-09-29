@@ -1244,17 +1244,21 @@ export class MemStorage implements IStorage {
         totalOdds: totalOdds.toFixed(4),
       });
 
-      // Create bet selections with placeholder market/outcome IDs
+      // Create bet selections with proper market/outcome IDs
       const selections: BetSelection[] = [];
       for (const selectionData of params.selections) {
+        // Generate proper IDs based on fixture and market data
+        const marketId = `${selectionData.fixtureId}-${selectionData.market}`;
+        const outcomeId = `${selectionData.fixtureId}-${selectionData.market}-${selectionData.selection}`;
+        
         const selection = await this.createBetSelection({
           betId: bet.id,
           fixtureId: selectionData.fixtureId,
           homeTeam: selectionData.homeTeam,
           awayTeam: selectionData.awayTeam,
           league: selectionData.league,
-          marketId: "placeholder-market-id", // TODO: Implement proper market lookup
-          outcomeId: "placeholder-outcome-id", // TODO: Implement proper outcome lookup
+          marketId: marketId,
+          outcomeId: outcomeId,
           market: selectionData.market,
           selection: selectionData.selection,
           odds: selectionData.odds,
