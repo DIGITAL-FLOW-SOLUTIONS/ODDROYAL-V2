@@ -11,6 +11,8 @@ import { BetSelection } from "@shared/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,6 +23,8 @@ export default function Layout({ children }: LayoutProps) {
   const [isBetSlipVisible, setIsBetSlipVisible] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isAuthenticated, logout } = useAuth();
+  const [, setLocation] = useLocation();
   
   // Refs for scroll coordination
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -75,25 +79,36 @@ export default function Layout({ children }: LayoutProps) {
   // Place bet mutation with proper error handling and loading states
   const placeBetMutation = useMutation({
     mutationFn: async (betData: any) => {
-      // BetSlip already validates and formats the data correctly
-      // Just pass it through to the backend
-      const response = await apiRequest('POST', '/api/bets', betData);
-      
-      // Check for authentication error (401)
-      if (response.status === 401) {
-        // Redirect to login page for guest users
-        window.location.href = '/login';
+      // Check authentication before making the request
+      if (!isAuthenticated) {
+        setLocation('/login');
         throw new Error('Please log in to place bets');
       }
       
-      const result = await response.json();
-      
-      // Handle other error responses
-      if (!response.ok) {
-        throw new Error(result.error || `HTTP ${response.status}: Failed to place bet`);
+      try {
+        // BetSlip already validates and formats the data correctly
+        // Just pass it through to the backend
+        const response = await apiRequest('POST', '/api/bets', betData);
+        const result = await response.json();
+        return result;
+      } catch (error: any) {
+        // Handle authentication errors with comprehensive checking
+        const errorMessage = error.message?.toLowerCase() || '';
+        const isAuthError = errorMessage.includes('401') || 
+                           errorMessage.includes('unauthorized') || 
+                           errorMessage.includes('authorization') ||
+                           errorMessage.includes('invalid or expired token') ||
+                           errorMessage.includes('missing or invalid authorization header');
+        
+        if (isAuthError) {
+          // Clear auth state and redirect to login
+          logout();
+          setLocation('/login');
+          throw new Error('Please log in to place bets');
+        }
+        // Re-throw other errors to be handled by onError
+        throw error;
       }
-      
-      return result;
     },
     onSuccess: (result) => {
       if (result.success) {
@@ -115,7 +130,7 @@ export default function Layout({ children }: LayoutProps) {
       console.error('Error placing bet:', error);
       
       // Show appropriate error message based on error type
-      let title = "Failed to Place Bet";
+      let title = "Bet Placement Failed";
       let description = "Please check your selections and try again.";
       
       if (error.message?.includes('log in')) {

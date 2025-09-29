@@ -10,6 +10,8 @@ import { BetSelection } from "@shared/types";
 import { betPlacementSchema, BETTING_LIMITS, stakeValidation, currencyUtils } from "@shared/schema";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
 
 interface BetSlipProps {
   selections: BetSelection[];
@@ -33,6 +35,8 @@ export default function BetSlip({
   const [expressStakeError, setExpressStakeError] = useState<string>("");
   const [systemStakeError, setSystemStakeError] = useState<string>("");
   const { toast } = useToast();
+  const { isAuthenticated, logout } = useAuth();
+  const [, setLocation] = useLocation();
 
   // Calculate potential returns
   const calculateSingleReturns = () => {
@@ -145,6 +149,22 @@ export default function BetSlip({
   };
 
   const handlePlaceBet = async (type: "single" | "express" | "system") => {
+    // Check if user is authenticated before allowing bet placement
+    if (!isAuthenticated) {
+      toast({
+        title: "Login Required",
+        description: "You must be logged in to place bets. Redirecting to login page...",
+        variant: "destructive"
+      });
+      
+      // Clear any stale auth state and redirect to login page after a brief delay
+      setTimeout(() => {
+        logout();
+        setLocation('/login');
+      }, 1500);
+      return;
+    }
+    
     try {
       switch (type) {
         case "single":
