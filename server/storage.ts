@@ -2903,10 +2903,13 @@ export class MemStorage implements IStorage {
 
 import { SupabaseStorage } from "./supabase-storage";
 
-// Create MemStorage and initialize with super admin
+// Create SupabaseStorage for persistent data storage
+const supabaseStorage = new SupabaseStorage();
+
+// Create MemStorage as fallback (but prefer Supabase for production)
 const memStorage = new MemStorage();
 
-// Initialize super admin user in MemStorage
+// Initialize super admin user in MemStorage (for fallback scenarios)
 (async () => {
   try {
     // Create the super admin user that matches the database one
@@ -2923,4 +2926,4 @@ const memStorage = new MemStorage();
   }
 })();
 
-export const storage = memStorage;
+export const storage = supabaseStorage;

@@ -106,9 +106,9 @@ export default function Layout({ children }: LayoutProps) {
     }
   });
 
-  const handlePlaceBet = (betData: any) => {
+  const handlePlaceBet = async (betData: any) => {
     console.log("Placing bet:", betData);
-    placeBetMutation.mutate(betData);
+    return await placeBetMutation.mutateAsync(betData);
   };
 
   // Measure header height dynamically

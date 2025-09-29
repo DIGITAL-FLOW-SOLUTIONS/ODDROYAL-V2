@@ -192,7 +192,9 @@ export default function BetSlip({
 
             // Validate before sending
             const validatedBetData = validateBetData(betData);
-            onPlaceBet(validatedBetData);
+            
+            // Wait for each bet to complete before placing the next one
+            await onPlaceBet(validatedBetData);
             console.log("Placed single bet:", validatedBetData);
 
             // Small delay to avoid overwhelming the server
@@ -404,7 +406,7 @@ export default function BetSlip({
                             updateStake(selection.id, e.target.value)
                           }
                           data-testid={`input-stake-${selection.id}`}
-                          className={`h-8 ${stakeErrors[selection.id] ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : stakes[selection.id] && stakes[selection.id] > 0 ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : ''}`}
+                          className={`h-8 ${stakeErrors[selection.id] ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : stakes[selection.id] && stakes[selection.id] > 0 ? 'border-green-500' : ''}`}
                         />
                         {stakeErrors[selection.id] && (
                           <div className="absolute top-full left-0 z-10 mt-1 text-xs text-red-600 bg-white dark:bg-gray-800 border border-red-200 rounded px-2 py-1 shadow-lg">
@@ -502,7 +504,7 @@ export default function BetSlip({
                       value={expressStake || ""}
                       onChange={(e) => updateExpressStake(e.target.value)}
                       data-testid="input-express-stake"
-                      className={`h-8 ${expressStakeError ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : expressStake > 0 ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : ''}`}
+                      className={`h-8 ${expressStakeError ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : expressStake > 0 ? 'border-green-500' : ''}`}
                     />
                     {expressStakeError && (
                       <div className="absolute top-full left-0 z-10 mt-1 text-xs text-red-600 bg-white dark:bg-gray-800 border border-red-200 rounded px-2 py-1 shadow-lg">
@@ -601,7 +603,7 @@ export default function BetSlip({
                           value={systemStake || ""}
                           onChange={(e) => updateSystemStake(e.target.value)}
                           data-testid="input-system-stake"
-                          className={`h-8 ${systemStakeError ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : systemStake > 0 ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : ''}`}
+                          className={`h-8 ${systemStakeError ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : systemStake > 0 ? 'border-green-500' : ''}`}
                         />
                         {systemStakeError && (
                           <div className="absolute top-full left-0 z-10 mt-1 text-xs text-red-600 bg-white dark:bg-gray-800 border border-red-200 rounded px-2 py-1 shadow-lg">
