@@ -17,8 +17,8 @@ export function toUser(row: Tables<'users'>): User {
     id: row.id,
     email: row.email,
     username: row.username,
-    firstName: row.first_name,
-    lastName: row.last_name,
+    firstName: row.first_name || '',
+    lastName: row.last_name || '',
     balance: row.balance,
     isActive: row.is_active,
     createdAt: row.created_at,
@@ -69,7 +69,7 @@ export function toTransaction(row: Tables<'transactions'>): Transaction {
     balanceAfter: row.balance_after,
     reference: row.reference,
     description: row.description,
-    status: "completed", // TODO: Add this field to database if needed
+    status: row.status as "pending" | "completed" | "failed",
     createdAt: row.created_at,
   };
 }
@@ -91,15 +91,15 @@ export function toAdminUser(row: Tables<'admin_users'>): AdminUser {
     username: row.username,
     email: row.email,
     passwordHash: row.password_hash,
-    firstName: row.first_name,
-    lastName: row.last_name,
+    firstName: '', // Not in new schema
+    lastName: '', // Not in new schema
     role: row.role,
     isActive: row.is_active,
-    lastLoginAt: row.last_login_at,
-    failedLoginAttempts: row.failed_login_attempts,
+    lastLoginAt: row.last_login, // Correct field name
+    failedLoginAttempts: row.login_attempts, // Correct field name
     lockedUntil: row.locked_until,
     totpSecret: row.totp_secret,
-    is2faEnabled: row.is_2fa_enabled,
+    is2faEnabled: false, // Not in new schema, default to false
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -113,9 +113,9 @@ export function toAdminSession(row: Tables<'admin_sessions'>): AdminSession {
     expiresAt: row.expires_at,
     ipAddress: row.ip_address,
     userAgent: row.user_agent,
-    isActive: row.is_active,
+    isActive: true, // Not in new schema, default to true
     createdAt: row.created_at,
-    lastActivityAt: row.last_activity_at,
+    lastActivityAt: row.created_at, // Use created_at as fallback since last_activity_at doesn't exist
   };
 }
 

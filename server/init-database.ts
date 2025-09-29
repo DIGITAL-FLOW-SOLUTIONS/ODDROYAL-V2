@@ -4,139 +4,190 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
   try {
     console.log('🏗️  Initializing database schema...');
 
-    // Create the database schema using raw SQL
+    // Create the database schema using raw SQL based on the user's uploaded schema
     const schemaSQL = `
-      -- Create users table (matches runtime expectations)
-      CREATE TABLE IF NOT EXISTS public.users (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        email text NOT NULL UNIQUE,
-        username text NOT NULL UNIQUE,
-        first_name text,
-        last_name text,
-        phone_number text,
-        date_of_birth date,
-        balance integer DEFAULT 0 NOT NULL,
-        currency text DEFAULT 'KES' NOT NULL,
-        is_verified boolean DEFAULT false NOT NULL,
-        is_active boolean DEFAULT true NOT NULL,
-        preferred_odds_format text DEFAULT 'decimal' NOT NULL,
-        marketing_consent boolean DEFAULT false NOT NULL,
-        created_at timestamptz DEFAULT now() NOT NULL,
-        updated_at timestamptz DEFAULT now() NOT NULL
-      );
+      -- Create extensions
+      CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+      CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
-      -- Create bets table
-      CREATE TABLE IF NOT EXISTS public.bets (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-        type text NOT NULL,
-        total_stake integer NOT NULL,
-        potential_winnings integer NOT NULL,
-        total_odds varchar(20) NOT NULL,
-        actual_winnings integer,
-        status text DEFAULT 'pending' NOT NULL,
-        placed_at timestamptz DEFAULT now() NOT NULL,
-        settled_at timestamptz,
-        created_at timestamptz DEFAULT now() NOT NULL,
-        updated_at timestamptz DEFAULT now() NOT NULL
-      );
+      -- Set timezone
+      SET timezone TO 'UTC';
 
-      -- Create bet_selections table
-      CREATE TABLE IF NOT EXISTS public.bet_selections (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        bet_id uuid NOT NULL REFERENCES public.bets(id) ON DELETE CASCADE,
-        fixture_id text NOT NULL,
-        home_team text NOT NULL,
-        away_team text NOT NULL,
-        league text NOT NULL,
-        market text NOT NULL,
-        selection text NOT NULL,
-        odds text NOT NULL,
-        status text DEFAULT 'pending' NOT NULL,
-        result text,
-        created_at timestamptz DEFAULT now() NOT NULL,
-        updated_at timestamptz DEFAULT now() NOT NULL
-      );
-
-      -- Create transactions table
-      CREATE TABLE IF NOT EXISTS public.transactions (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-        type text NOT NULL,
-        amount_cents integer NOT NULL,
-        description text NOT NULL,
-        reference_type text,
-        reference_id text,
-        balance_after_cents integer NOT NULL,
-        created_at timestamptz DEFAULT now() NOT NULL
-      );
-
-      -- Create user_favorites table
-      CREATE TABLE IF NOT EXISTS public.user_favorites (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-        entity_type text NOT NULL,
-        entity_id text NOT NULL,
-        created_at timestamptz DEFAULT now() NOT NULL,
-        UNIQUE(user_id, entity_type, entity_id)
-      );
-
-      -- Create admin role enum
+      -- Create enum types
       DO $$
       BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'bet_type') THEN
+              CREATE TYPE bet_type AS ENUM ('single', 'express', 'system');
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'bet_status') THEN
+              CREATE TYPE bet_status AS ENUM ('pending', 'won', 'lost', 'cashout', 'cancelled');
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'bet_selection_status') THEN
+              CREATE TYPE bet_selection_status AS ENUM ('pending', 'won', 'lost', 'void');
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'favorite_type') THEN
+              CREATE TYPE favorite_type AS ENUM ('team', 'league', 'fixture');
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'transaction_type') THEN
+              CREATE TYPE transaction_type AS ENUM ('deposit', 'withdrawal', 'bet_stake', 'bet_winnings', 'bonus');
+          END IF;
+          IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'transaction_status') THEN
+              CREATE TYPE transaction_status AS ENUM ('pending', 'completed', 'failed');
+          END IF;
           IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'admin_role') THEN
               CREATE TYPE admin_role AS ENUM ('superadmin', 'admin', 'risk_manager', 'finance', 'compliance', 'support');
           END IF;
       END
       $$;
 
-      -- Create admin_users table
+      -- Users table
+      CREATE TABLE IF NOT EXISTS public.users (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          username VARCHAR(50) UNIQUE NOT NULL,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          first_name VARCHAR(100),
+          last_name VARCHAR(100),
+          balance INTEGER NOT NULL DEFAULT 0, -- Balance in cents
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      -- Bets table
+      CREATE TABLE IF NOT EXISTS public.bets (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+          type bet_type NOT NULL,
+          total_stake INTEGER NOT NULL CHECK (total_stake > 0), -- Stake in cents
+          potential_winnings INTEGER NOT NULL CHECK (potential_winnings > 0), -- Winnings in cents
+          total_odds VARCHAR(20) NOT NULL, -- Store as string for precision
+          status bet_status NOT NULL DEFAULT 'pending',
+          placed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          settled_at TIMESTAMPTZ,
+          actual_winnings INTEGER NOT NULL DEFAULT 0, -- Actual winnings in cents
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      -- Bet selections table
+      CREATE TABLE IF NOT EXISTS public.bet_selections (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          bet_id UUID NOT NULL REFERENCES public.bets(id) ON DELETE CASCADE,
+          fixture_id VARCHAR(255) NOT NULL,
+          home_team VARCHAR(255) NOT NULL,
+          away_team VARCHAR(255) NOT NULL,
+          league VARCHAR(255) NOT NULL,
+          market_id VARCHAR(255) NOT NULL,
+          outcome_id VARCHAR(255) NOT NULL,
+          market VARCHAR(255) NOT NULL,
+          selection VARCHAR(255) NOT NULL,
+          odds VARCHAR(20) NOT NULL, -- Store as string for precision
+          status bet_selection_status NOT NULL DEFAULT 'pending',
+          result TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      -- Transactions table
+      CREATE TABLE IF NOT EXISTS public.transactions (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+          type transaction_type NOT NULL,
+          amount INTEGER NOT NULL, -- Amount in cents (can be negative)
+          balance_before INTEGER NOT NULL,
+          balance_after INTEGER NOT NULL,
+          reference VARCHAR(255),
+          description TEXT,
+          status transaction_status NOT NULL DEFAULT 'completed',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      -- User favorites table
+      CREATE TABLE IF NOT EXISTS public.user_favorites (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+          type favorite_type NOT NULL,
+          entity_id VARCHAR(255) NOT NULL,
+          entity_name VARCHAR(255) NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE(user_id, type, entity_id)
+      );
+
+      -- Admin users table
       CREATE TABLE IF NOT EXISTS public.admin_users (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        username varchar(50) NOT NULL UNIQUE,
-        email varchar(255) NOT NULL UNIQUE,
-        password_hash text NOT NULL,
-        role admin_role NOT NULL,
-        totp_secret varchar(255),
-        is_active boolean DEFAULT true NOT NULL,
-        last_login timestamptz,
-        login_attempts integer DEFAULT 0 NOT NULL,
-        locked_until timestamptz,
-        ip_whitelist text[], -- Array of IP addresses
-        created_at timestamptz DEFAULT now() NOT NULL,
-        updated_at timestamptz DEFAULT now() NOT NULL,
-        created_by uuid REFERENCES admin_users(id)
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          username VARCHAR(50) UNIQUE NOT NULL,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          role admin_role NOT NULL,
+          totp_secret VARCHAR(255),
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          last_login TIMESTAMPTZ,
+          login_attempts INTEGER NOT NULL DEFAULT 0,
+          locked_until TIMESTAMPTZ,
+          ip_whitelist TEXT[], -- Array of IP addresses
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          created_by UUID REFERENCES public.admin_users(id)
       );
 
-      -- Create admin_sessions table
+      -- User sessions table
+      CREATE TABLE IF NOT EXISTS public.user_sessions (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+          session_token VARCHAR(255) UNIQUE NOT NULL,
+          ip_address INET,
+          user_agent TEXT,
+          expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      -- User limits table  
+      CREATE TABLE IF NOT EXISTS public.user_limits (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          user_id UUID UNIQUE NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+          max_stake_cents INTEGER NOT NULL DEFAULT 10000000, -- £100,000
+          daily_stake_limit_cents INTEGER NOT NULL DEFAULT 100000000, -- £1,000,000
+          daily_deposit_limit_cents INTEGER NOT NULL DEFAULT 100000000, -- £1,000,000
+          daily_loss_limit_cents INTEGER NOT NULL DEFAULT 100000000, -- £1,000,000
+          weekly_stake_limit_cents INTEGER NOT NULL DEFAULT 700000000, -- £7,000,000
+          monthly_stake_limit_cents INTEGER NOT NULL DEFAULT 3000000000, -- £30,000,000
+          is_self_excluded BOOLEAN NOT NULL DEFAULT false,
+          self_exclusion_until TIMESTAMPTZ,
+          cooldown_until TIMESTAMPTZ,
+          set_by_admin_id UUID REFERENCES public.admin_users(id),
+          reason TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      -- Admin sessions table
       CREATE TABLE IF NOT EXISTS public.admin_sessions (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        admin_id uuid NOT NULL REFERENCES public.admin_users(id) ON DELETE CASCADE,
-        session_token varchar(255) NOT NULL UNIQUE,
-        ip_address inet,
-        user_agent text,
-        two_factor_verified boolean DEFAULT false NOT NULL,
-        is_active boolean DEFAULT true NOT NULL,
-        expires_at timestamptz NOT NULL,
-        created_at timestamptz DEFAULT now() NOT NULL,
-        last_activity_at timestamptz DEFAULT now() NOT NULL
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          admin_id UUID NOT NULL REFERENCES public.admin_users(id) ON DELETE CASCADE,
+          session_token VARCHAR(255) UNIQUE NOT NULL,
+          ip_address INET,
+          user_agent TEXT,
+          two_factor_verified BOOLEAN NOT NULL DEFAULT false,
+          expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
-      -- Create audit_logs table
+      -- Audit logs table
       CREATE TABLE IF NOT EXISTS public.audit_logs (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        admin_id uuid NOT NULL REFERENCES public.admin_users(id) ON DELETE CASCADE,
-        action_type varchar(255) NOT NULL,
-        target_type varchar(255) NOT NULL,
-        target_id varchar(255),
-        data_before jsonb,
-        data_after jsonb,
-        ip_address inet,
-        user_agent text,
-        note text,
-        success boolean DEFAULT true NOT NULL,
-        error_message text,
-        created_at timestamptz DEFAULT now() NOT NULL
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          admin_id UUID NOT NULL REFERENCES public.admin_users(id) ON DELETE CASCADE,
+          action_type VARCHAR(255) NOT NULL,
+          target_type VARCHAR(255) NOT NULL,
+          target_id VARCHAR(255),
+          data_before JSONB,
+          data_after JSONB,
+          ip_address INET,
+          user_agent TEXT,
+          note TEXT,
+          success BOOLEAN NOT NULL DEFAULT true,
+          error_message TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
       -- Create indexes for better performance
