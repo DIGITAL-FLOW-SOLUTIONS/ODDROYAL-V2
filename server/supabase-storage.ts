@@ -307,11 +307,11 @@ export class SupabaseStorage implements IStorage {
   async createBet(bet: InsertBet & { userId: string }): Promise<Bet> {
     const insertData: TablesInsert<'bets'> = {
       user_id: bet.userId,
-      type: bet.betType,
-      total_stake: bet.totalStakeCents,
-      potential_winnings: bet.potentialWinningsCents,
+      type: bet.type,
+      total_stake: bet.totalStake,
+      potential_winnings: bet.potentialWinnings,
       total_odds: bet.totalOdds,
-      actual_winnings: bet.actualWinningsCents,
+      actual_winnings: bet.actualWinnings,
       status: bet.status || 'pending',
       placed_at: bet.placedAt || new Date().toISOString(),
     };
