@@ -33,7 +33,7 @@ export function toBet(row: Tables<'bets'>): Bet {
     type: row.type,
     totalStake: row.total_stake,
     potentialWinnings: row.potential_winnings,
-    totalOdds: "1.00",
+    totalOdds: row.total_odds,
     status: row.status as "pending" | "won" | "lost" | "cashout" | "cancelled",
     placedAt: row.placed_at,
     settledAt: row.settled_at,
