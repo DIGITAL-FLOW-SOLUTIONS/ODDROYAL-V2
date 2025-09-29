@@ -393,6 +393,12 @@ export const betPlacementSchema = z.object({
   totalStakeCents: z.number().int()
     .min(BETTING_LIMITS.MIN_STAKE_CENTS, "Minimum stake is KES 0.10")
     .max(BETTING_LIMITS.MAX_STAKE_CENTS, "Maximum stake is KES 100,000"),
+  totalOdds: z.string().refine((val) => {
+    const oddsValue = parseFloat(val);
+    return oddsValue >= BETTING_LIMITS.MIN_ODDS && oddsValue <= BETTING_LIMITS.MAX_ODDS;
+  }, {
+    message: `Total odds must be between ${BETTING_LIMITS.MIN_ODDS} and ${BETTING_LIMITS.MAX_ODDS}`
+  }),
   selections: z.array(z.object({
     fixtureId: z.string(),
     homeTeam: z.string(),

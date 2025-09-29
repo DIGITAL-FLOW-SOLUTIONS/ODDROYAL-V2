@@ -51,8 +51,27 @@ export default function BetSlip({
     });
   };
 
+  // Calculate total odds for different bet types
+  const calculateTotalOdds = (betType: "single" | "express" | "system") => {
+    switch (betType) {
+      case "single":
+        // For singles, total odds is just the individual selection odds
+        return selections.length > 0 ? selections[0].odds : 1;
+      case "express":
+        // For express, multiply all odds together
+        return selections.reduce((acc, sel) => acc * sel.odds, 1);
+      case "system":
+        // For system, calculate average of all selection odds
+        return selections.length > 0 
+          ? selections.reduce((acc, sel) => acc + sel.odds, 0) / selections.length 
+          : 1;
+      default:
+        return 1;
+    }
+  };
+
   const calculateExpressReturn = () => {
-    const totalOdds = selections.reduce((acc, sel) => acc * sel.odds, 1);
+    const totalOdds = calculateTotalOdds("express");
     const potentialReturn = expressStake * totalOdds;
     return {
       totalOdds,
@@ -194,9 +213,11 @@ export default function BetSlip({
 
           // For single bets, place each selection with a stake as a separate bet
           for (const sel of validSingleBets) {
+            const singleTotalOdds = sel.odds;
             const betData = {
               betType: "single" as const,
               totalStakeCents: Math.round(stakes[sel.id] * 100),
+              totalOdds: singleTotalOdds.toFixed(4),
               selections: [
                 {
                   fixtureId: sel.fixtureId || sel.matchId,
@@ -250,9 +271,11 @@ export default function BetSlip({
             return;
           }
 
+          const expressTotalOdds = calculateTotalOdds("express");
           const expressBetData = {
             betType: "express" as const,
             totalStakeCents: Math.round(expressStake * 100),
+            totalOdds: expressTotalOdds.toFixed(4),
             selections: selections.map((sel) => ({
               fixtureId: sel.fixtureId || sel.matchId,
               homeTeam: sel.homeTeam,
@@ -298,9 +321,11 @@ export default function BetSlip({
             return;
           }
 
+          const systemTotalOdds = calculateTotalOdds("system");
           const systemBetData = {
             betType: "system" as const,
             totalStakeCents: Math.round(systemStake * 100),
+            totalOdds: systemTotalOdds.toFixed(4),
             selections: selections.map((sel) => ({
               fixtureId: sel.fixtureId || sel.matchId,
               homeTeam: sel.homeTeam,
@@ -361,18 +386,37 @@ export default function BetSlip({
             </p>
           </div>
         ) : (
-          <Tabs defaultValue="ordinary" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="ordinary" data-testid="tab-ordinary">
-                Ordinary
-              </TabsTrigger>
-              <TabsTrigger value="express" data-testid="tab-express">
-                Express
-              </TabsTrigger>
-              <TabsTrigger value="system" data-testid="tab-system">
-                System
-              </TabsTrigger>
-            </TabsList>
+          <div className="space-y-4">
+            {/* Total Odds Display Section */}
+            <div className="bg-card border border-chart-4/20 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calculator className="h-4 w-4 text-chart-4" />
+                  <span className="text-sm font-medium">Total Odds</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-chart-4" data-testid="text-total-odds-express">
+                    {calculateTotalOdds("express").toFixed(4)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {selections.length} selection{selections.length !== 1 ? 's' : ''}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Tabs defaultValue="ordinary" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="ordinary" data-testid="tab-ordinary">
+                  Ordinary
+                </TabsTrigger>
+                <TabsTrigger value="express" data-testid="tab-express">
+                  Express
+                </TabsTrigger>
+                <TabsTrigger value="system" data-testid="tab-system">
+                  System
+                </TabsTrigger>
+              </TabsList>
 
             {/* Single Bets */}
             <TabsContent value="ordinary" className="space-y-3">
@@ -676,6 +720,7 @@ export default function BetSlip({
               </Button>
             </TabsContent>
           </Tabs>
+          </div>
         )}
       </CardContent>
     </Card>
