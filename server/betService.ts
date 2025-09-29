@@ -183,7 +183,7 @@ export class BetService {
         throw betsError;
       }
 
-      // Get selections for each bet
+      // Get selections for each bet and format data properly
       const betsWithSelections = [];
       for (const bet of bets) {
         const { data: selections, error: selectionsError } = await supabaseAdmin
@@ -197,10 +197,36 @@ export class BetService {
           continue;
         }
 
-        betsWithSelections.push({
-          ...bet,
-          selections: selections || []
-        });
+        // Transform database format to frontend expected format
+        const formattedBet = {
+          id: bet.id,
+          userId: bet.user_id,
+          type: bet.type,
+          totalStake: bet.total_stake, // Keep as cents for frontend to format
+          potentialWinnings: bet.potential_winnings, // Keep as cents for frontend to format
+          totalOdds: bet.total_odds,
+          status: bet.status,
+          placedAt: bet.placed_at, // ISO string format
+          settledAt: bet.settled_at,
+          actualWinnings: bet.actual_winnings, // Keep as cents for frontend to format
+          selections: (selections || []).map(selection => ({
+            id: selection.id,
+            betId: selection.bet_id,
+            fixtureId: selection.fixture_id,
+            homeTeam: selection.home_team,
+            awayTeam: selection.away_team,
+            league: selection.league,
+            marketId: selection.market_id,
+            outcomeId: selection.outcome_id,
+            market: selection.market,
+            selection: selection.selection,
+            odds: selection.odds,
+            status: selection.status,
+            result: selection.result
+          }))
+        };
+
+        betsWithSelections.push(formattedBet);
       }
 
       return { success: true, data: betsWithSelections };
