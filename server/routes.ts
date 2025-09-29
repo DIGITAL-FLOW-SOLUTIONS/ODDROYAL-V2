@@ -956,6 +956,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // TEMP FIX: Ensure user exists in memory storage before placing bet
+      // (This is needed because authentication uses Supabase but betting uses in-memory storage)
+      let memoryUser = await storage.getUser(req.user.id);
+      if (!memoryUser) {
+        // Create user in memory storage based on Supabase profile
+        const newUser = await storage.createUser({
+          username: profile.username,
+          email: profile.email, 
+          firstName: profile.first_name || '',
+          lastName: profile.last_name || '',
+          balanceCents: profile.balance || 0,
+          isActive: profile.is_active
+        });
+        // Manually override the generated ID with the Supabase ID
+        (storage as any).users.delete(newUser.id);
+        (storage as any).users.set(req.user.id, { ...newUser, id: req.user.id });
+        memoryUser = { ...newUser, id: req.user.id };
+      } else {
+        // Update balance in memory storage to match Supabase
+        await storage.updateUserBalance(req.user.id, profile.balance || 0);
+      }
+
       // For now, use the storage.placeBetAtomic (this needs to be updated to use Supabase)
       // TODO: Implement Supabase-based atomic bet placement
       const result = await storage.placeBetAtomic({
