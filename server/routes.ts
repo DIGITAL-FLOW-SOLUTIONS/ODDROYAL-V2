@@ -994,6 +994,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // IMPORTANT: Update Supabase balance to match memory storage
+      // (Since UI displays balance from Supabase, we need to sync it)
+      if (result.user) {
+        const { error: balanceUpdateError } = await supabaseAdmin
+          .from('users')
+          .update({ balance: result.user.balance })
+          .eq('id', req.user.id);
+          
+        if (balanceUpdateError) {
+          console.error('Failed to update Supabase balance:', balanceUpdateError);
+        }
+      }
+      
       // Return formatted response with currency conversion
       res.json({ 
         success: true, 
