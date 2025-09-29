@@ -923,67 +923,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
 
-  // Betting Routes (Protected)
+  // Betting Routes (Protected) - New Clean Implementation
   
-  // Place a bet with atomic transaction integrity
+  // Place a bet - Fresh implementation using new BetService
   app.post("/api/bets", authenticateUser, async (req: any, res) => {
     try {
-      // Validate request data using shared schema with comprehensive business rules
+      // Validate request data using shared schema
       const validatedData = betPlacementSchema.parse(req.body);
       
-      // Get user profile from Supabase to check account status and balance
-      const { data: profile, error: profileError } = await supabaseAdmin
-        .from('users')
-        .select('*')
-        .eq('id', req.user.id)
-        .single();
-        
-      if (profileError || !profile) {
-        return res.status(404).json({ 
-          success: false, 
-          error: "User profile not found" 
-        });
-      }
+      // Import bet service
+      const { betService } = await import("./betService.js");
       
-      // User activation requirement removed - all registered users can place bets immediately
-
-      // Check if user has sufficient balance
-      const stakeCents = validatedData.totalStakeCents;
-      if (profile.balance < stakeCents) {
-        return res.status(400).json({ 
-          success: false, 
-          error: "Insufficient funds" 
-        });
-      }
-
-      // TEMP FIX: Ensure user exists in memory storage before placing bet
-      // (This is needed because authentication uses Supabase but betting uses in-memory storage)
-      let memoryUser = await storage.getUser(req.user.id);
-      if (!memoryUser) {
-        // Create user in memory storage based on Supabase profile
-        const newUser = await storage.createUser({
-          username: profile.username,
-          email: profile.email, 
-          firstName: profile.first_name || '',
-          lastName: profile.last_name || '',
-          balanceCents: profile.balance || 0,
-          isActive: profile.is_active
-        });
-        // Manually override the generated ID with the Supabase ID
-        (storage as any).users.delete(newUser.id);
-        (storage as any).users.set(req.user.id, { ...newUser, id: req.user.id });
-        memoryUser = { ...newUser, id: req.user.id };
-      } else {
-        // Update balance in memory storage to match Supabase
-        await storage.updateUserBalance(req.user.id, profile.balance || 0);
-      }
-
-      // For now, use the storage.placeBetAtomic (this needs to be updated to use Supabase)
-      // TODO: Implement Supabase-based atomic bet placement
-      const result = await storage.placeBetAtomic({
-        userId: req.user.id,
+      // Place the bet using the new service
+      const result = await betService.placeBet(req.user.id, {
         betType: validatedData.betType,
-        totalStakeCents: validatedData.totalStakeCents, // Already converted to cents by schema
+        totalStakeCents: validatedData.totalStakeCents,
         selections: validatedData.selections
       });
       
@@ -994,40 +948,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // IMPORTANT: Update Supabase balance to match memory storage
-      // (Since UI displays balance from Supabase, we need to sync it)
-      if (result.user) {
-        const { error: balanceUpdateError } = await supabaseAdmin
-          .from('users')
-          .update({ balance: result.user.balance })
-          .eq('id', req.user.id);
-          
-        if (balanceUpdateError) {
-          console.error('Failed to update Supabase balance:', balanceUpdateError);
-        }
-      }
-      
-      // Return formatted response with currency conversion
+      // Return success response with formatted currency
       res.json({ 
         success: true, 
         data: { 
           bet: {
-            ...result.bet!,
-            totalStake: currencyUtils.formatCurrency(result.bet!.totalStake),
-            potentialWinnings: currencyUtils.formatCurrency(result.bet!.potentialWinnings),
-            actualWinnings: result.bet!.actualWinnings ? currencyUtils.formatCurrency(result.bet!.actualWinnings) : null
+            ...result.bet,
+            total_stake: currencyUtils.formatCurrency(result.bet.total_stake),
+            potential_winnings: currencyUtils.formatCurrency(result.bet.potential_winnings)
           },
           selections: result.selections,
-          user: {
-            ...result.user!,
-            balance: currencyUtils.formatCurrency(result.user!.balance)
-          },
-          transaction: {
-            ...result.transaction!,
-            amount: currencyUtils.formatCurrency(Math.abs(result.transaction!.amount)),
-            balanceBefore: currencyUtils.formatCurrency(result.transaction!.balanceBefore),
-            balanceAfter: currencyUtils.formatCurrency(result.transaction!.balanceAfter)
-          }
+          newBalance: currencyUtils.formatCurrency(result.newBalance),
+          transaction: result.transaction
         } 
       });
       
@@ -1050,22 +982,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get user's bets
+  // Get user's bet history
   app.get("/api/bets", authenticateUser, async (req: any, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
-      const bets = await storage.getUserBets(req.user.id, limit);
       
-      // Get selections for each bet
-      const betsWithSelections = [];
-      for (const bet of bets) {
-        const selections = await storage.getBetSelections(bet.id);
-        betsWithSelections.push({ ...bet, selections });
+      // Import bet service
+      const { betService } = await import("./betService.js");
+      
+      // Get user bets
+      const result = await betService.getUserBets(req.user.id, limit);
+      
+      if (!result.success) {
+        return res.status(500).json({ 
+          success: false, 
+          error: result.error 
+        });
       }
       
       res.json({ 
         success: true, 
-        data: betsWithSelections 
+        data: result.data 
       });
       
     } catch (error) {
