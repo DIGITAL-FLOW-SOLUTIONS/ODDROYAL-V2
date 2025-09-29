@@ -6,8 +6,8 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
 
     // Create the database schema using raw SQL
     const schemaSQL = `
-      -- Create profiles table
-      CREATE TABLE IF NOT EXISTS public.profiles (
+      -- Create users table (matches runtime expectations)
+      CREATE TABLE IF NOT EXISTS public.users (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         email text NOT NULL UNIQUE,
         username text NOT NULL UNIQUE,
@@ -15,7 +15,7 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
         last_name text,
         phone_number text,
         date_of_birth date,
-        balance_cents integer DEFAULT 0 NOT NULL,
+        balance integer DEFAULT 0 NOT NULL,
         currency text DEFAULT 'KES' NOT NULL,
         is_verified boolean DEFAULT false NOT NULL,
         is_active boolean DEFAULT true NOT NULL,
@@ -28,7 +28,7 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
       -- Create bets table
       CREATE TABLE IF NOT EXISTS public.bets (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+        user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
         bet_type text NOT NULL,
         total_stake_cents integer NOT NULL,
         potential_winnings_cents integer NOT NULL,
@@ -60,7 +60,7 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
       -- Create transactions table
       CREATE TABLE IF NOT EXISTS public.transactions (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+        user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
         type text NOT NULL,
         amount_cents integer NOT NULL,
         description text NOT NULL,
@@ -73,7 +73,7 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
       -- Create user_favorites table
       CREATE TABLE IF NOT EXISTS public.user_favorites (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+        user_id uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
         entity_type text NOT NULL,
         entity_id text NOT NULL,
         created_at timestamptz DEFAULT now() NOT NULL,
@@ -152,16 +152,16 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
       CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON public.audit_logs(created_at);
 
       -- Enable Row Level Security
-      ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
       ALTER TABLE public.bets ENABLE ROW LEVEL SECURITY;
       ALTER TABLE public.bet_selections ENABLE ROW LEVEL SECURITY;
       ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
       ALTER TABLE public.user_favorites ENABLE ROW LEVEL SECURITY;
       
-      -- Create RLS policies for profiles
-      CREATE POLICY IF NOT EXISTS "Users can view own profile" ON public.profiles
+      -- Create RLS policies for users
+      CREATE POLICY IF NOT EXISTS "Users can view own profile" ON public.users
         FOR SELECT USING (auth.uid() = id);
-      CREATE POLICY IF NOT EXISTS "Users can update own profile" ON public.profiles
+      CREATE POLICY IF NOT EXISTS "Users can update own profile" ON public.users
         FOR UPDATE USING (auth.uid() = id);
       
       -- Create RLS policies for bets
@@ -187,30 +187,11 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
     console.log('Creating database tables directly...');
     
     try {
-      // Create profiles table
-      const { error: profilesError } = await supabaseAdmin.from('profiles').select('id').limit(1);
-      if (profilesError && profilesError.code === 'PGRST116') {
+      // Check users table
+      const { error: usersError } = await supabaseAdmin.from('users').select('id').limit(1);
+      if (usersError && usersError.code === 'PGRST116') {
         // Table doesn't exist, create it manually via SQL
-        console.log('Creating profiles table...');
-        const createProfilesSQL = `
-          CREATE TABLE IF NOT EXISTS public.profiles (
-            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            email text NOT NULL UNIQUE,
-            username text NOT NULL UNIQUE,
-            first_name text,
-            last_name text,
-            phone_number text,
-            date_of_birth date,
-            balance_cents integer DEFAULT 0 NOT NULL,
-            currency text DEFAULT 'KES' NOT NULL,
-            is_verified boolean DEFAULT false NOT NULL,
-            is_active boolean DEFAULT true NOT NULL,
-            preferred_odds_format text DEFAULT 'decimal' NOT NULL,
-            marketing_consent boolean DEFAULT false NOT NULL,
-            created_at timestamptz DEFAULT now() NOT NULL,
-            updated_at timestamptz DEFAULT now() NOT NULL
-          );
-        `;
+        console.log('Creating users table...');
         
         // Use PostgreSQL connection approach
         console.warn('⚠️  Tables need to be created manually in Supabase dashboard');
@@ -219,7 +200,7 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
         console.log(schemaSQL);
         console.log('--- END SQL ---\n');
       } else {
-        console.log('✅ Profiles table exists');
+        console.log('✅ Users table exists');
       }
       
       // Check other essential tables
@@ -256,7 +237,7 @@ export async function createDemoData(): Promise<void> {
     
     // Check if demo profile already exists
     const { data: existingProfile, error: checkError } = await supabaseAdmin
-      .from('profiles')
+      .from('users')
       .select('*')
       .eq('username', 'demo')
       .single();
@@ -268,13 +249,13 @@ export async function createDemoData(): Promise<void> {
 
     // Create demo user profile
     const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
+      .from('users')
       .insert({
         email: 'demo@example.com',
         username: 'demo',
         first_name: 'Demo',
         last_name: 'User',
-        balance_cents: 100000, // £1000
+        balance: 100000, // $1000 in cents
         is_verified: true,
         is_active: true,
       })

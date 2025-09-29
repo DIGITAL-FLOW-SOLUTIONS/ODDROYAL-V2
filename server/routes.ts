@@ -933,7 +933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get user profile from Supabase to check account status and balance
       const { data: profile, error: profileError } = await supabaseAdmin
-        .from('profiles')
+        .from('users')
         .select('*')
         .eq('id', req.user.id)
         .single();
@@ -949,7 +949,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if user has sufficient balance
       const stakeCents = validatedData.totalStakeCents;
-      if (profile.balance_cents < stakeCents) {
+      if (profile.balance < stakeCents) {
         return res.status(400).json({ 
           success: false, 
           error: "Insufficient funds" 
@@ -966,7 +966,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: profile.email, 
           firstName: profile.first_name || '',
           lastName: profile.last_name || '',
-          balanceCents: profile.balance_cents || 0,
+          balanceCents: profile.balance || 0,
           isActive: profile.is_active
         });
         // Manually override the generated ID with the Supabase ID
@@ -975,7 +975,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         memoryUser = { ...newUser, id: req.user.id };
       } else {
         // Update balance in memory storage to match Supabase
-        await storage.updateUserBalance(req.user.id, profile.balance_cents || 0);
+        await storage.updateUserBalance(req.user.id, profile.balance || 0);
       }
 
       // For now, use the storage.placeBetAtomic (this needs to be updated to use Supabase)
@@ -998,8 +998,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // (Since UI displays balance from Supabase, we need to sync it)
       if (result.user) {
         const { error: balanceUpdateError } = await supabaseAdmin
-          .from('profiles')
-          .update({ balance_cents: result.user.balance })
+          .from('users')
+          .update({ balance: result.user.balance })
           .eq('id', req.user.id);
           
         if (balanceUpdateError) {
