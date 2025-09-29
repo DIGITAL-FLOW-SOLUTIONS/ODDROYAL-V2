@@ -310,6 +310,7 @@ export class SupabaseStorage implements IStorage {
       type: bet.betType,
       total_stake: bet.totalStakeCents,
       potential_winnings: bet.potentialWinningsCents,
+      total_odds: bet.totalOdds,
       actual_winnings: bet.actualWinningsCents,
       status: bet.status || 'pending',
       placed_at: bet.placedAt || new Date().toISOString(),
