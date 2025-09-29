@@ -240,7 +240,7 @@ export default function AdminRiskExposure() {
   };
 
   const formatCurrency = (cents: number) => {
-    return `£${(cents / 100).toLocaleString()}`;
+    return `KES ${(cents / 100).toLocaleString()}`;
   };
 
   const formatDateTime = (dateTimeString: string) => {
@@ -957,7 +957,7 @@ export default function AdminRiskExposure() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="new-limit">New Limit (£)</Label>
+              <Label htmlFor="new-limit">New Limit (KES)</Label>
               <Input
                 id="new-limit"
                 type="number"

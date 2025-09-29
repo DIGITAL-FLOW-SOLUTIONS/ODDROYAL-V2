@@ -642,7 +642,7 @@ export default function AdminBetManagement() {
                 </div>
 
                 <div>
-                  <Label htmlFor="min-stake">Min Stake (£)</Label>
+                  <Label htmlFor="min-stake">Min Stake (KES)</Label>
                   <Input
                     id="min-stake"
                     type="number"
@@ -655,7 +655,7 @@ export default function AdminBetManagement() {
                 </div>
 
                 <div>
-                  <Label htmlFor="max-stake">Max Stake (£)</Label>
+                  <Label htmlFor="max-stake">Max Stake (KES)</Label>
                   <Input
                     id="max-stake"
                     type="number"
@@ -790,7 +790,7 @@ export default function AdminBetManagement() {
                         <div className="flex items-center gap-1">
                           <DollarSign className="w-4 h-4 text-muted-foreground" />
                           <span className="font-mono" data-testid={`text-stake-${bet.id}`}>
-                            £{currencyUtils.centsToPounds(bet.totalStakeCents)}
+                            {currencyUtils.formatCurrency(bet.totalStakeCents)}
                           </span>
                         </div>
                       </TableCell>
@@ -798,7 +798,7 @@ export default function AdminBetManagement() {
                         <div className="flex items-center gap-1">
                           <Target className="w-4 h-4 text-muted-foreground" />
                           <span className="font-mono text-green-600" data-testid={`text-potential-win-${bet.id}`}>
-                            £{currencyUtils.centsToPounds(bet.potentialWinCents)}
+                            {currencyUtils.formatCurrency(bet.potentialWinCents)}
                           </span>
                         </div>
                       </TableCell>
@@ -929,11 +929,11 @@ export default function AdminBetManagement() {
                   </div>
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Stake</p>
-                    <p className="font-mono text-lg">£{currencyUtils.centsToPounds(selectedBet.totalStakeCents)}</p>
+                    <p className="font-mono text-lg">{currencyUtils.formatCurrency(selectedBet.totalStakeCents)}</p>
                   </div>
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Potential Winnings</p>
-                    <p className="font-mono text-lg text-green-600">£{currencyUtils.centsToPounds(selectedBet.potentialWinCents)}</p>
+                    <p className="font-mono text-lg text-green-600">{currencyUtils.formatCurrency(selectedBet.potentialWinCents)}</p>
                   </div>
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Status</p>
@@ -1053,7 +1053,7 @@ export default function AdminBetManagement() {
             </div>
             {forceSettleData.outcome === 'win' && (
               <div>
-                <Label htmlFor="payout">Payout Amount (£)</Label>
+                <Label htmlFor="payout">Payout Amount (KES)</Label>
                 <Input
                   id="payout"
                   type="number"

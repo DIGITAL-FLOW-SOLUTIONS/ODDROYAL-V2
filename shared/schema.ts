@@ -255,12 +255,12 @@ export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export const userLimitsSchema = z.object({
   id: z.string(),
   userId: z.string(),
-  maxStakeCents: z.number().int().default(10000000), // £100,000
-  dailyStakeLimitCents: z.number().int().default(100000000), // £1,000,000
-  dailyDepositLimitCents: z.number().int().default(100000000), // £1,000,000
-  dailyLossLimitCents: z.number().int().default(100000000), // £1,000,000
-  weeklyStakeLimitCents: z.number().int().default(700000000), // £7,000,000
-  monthlyStakeLimitCents: z.number().int().default(3000000000), // £30,000,000
+  maxStakeCents: z.number().int().default(10000000), // KES 100,000
+  dailyStakeLimitCents: z.number().int().default(100000000), // KES 1,000,000
+  dailyDepositLimitCents: z.number().int().default(100000000), // KES 1,000,000
+  dailyLossLimitCents: z.number().int().default(100000000), // KES 1,000,000
+  weeklyStakeLimitCents: z.number().int().default(700000000), // KES 7,000,000
+  monthlyStakeLimitCents: z.number().int().default(3000000000), // KES 30,000,000
   isSelfExcluded: z.boolean().default(false),
   selfExclusionUntil: z.string().nullable().optional(),
   cooldownUntil: z.string().nullable().optional(),
@@ -377,10 +377,10 @@ export function hasPermission(role: AdminRole, permission: string): boolean {
 
 // Betting limits constants
 export const BETTING_LIMITS = {
-  MIN_STAKE_CENTS: 10, // £0.10
-  MAX_STAKE_CENTS: 10000000, // £100,000
-  MIN_SINGLE_STAKE_CENTS: 10, // £0.10
-  MAX_SINGLE_STAKE_CENTS: 1000000, // £10,000 per single bet
+  MIN_STAKE_CENTS: 10, // KES 0.10
+  MAX_STAKE_CENTS: 10000000, // KES 100,000
+  MIN_SINGLE_STAKE_CENTS: 10, // KES 0.10
+  MAX_SINGLE_STAKE_CENTS: 1000000, // KES 10,000 per single bet
   MIN_EXPRESS_SELECTIONS: 2,
   MIN_SYSTEM_SELECTIONS: 3,
   MAX_SELECTIONS: 20,
@@ -391,8 +391,8 @@ export const BETTING_LIMITS = {
 export const betPlacementSchema = z.object({
   betType: z.enum(["single", "express", "system"]),
   totalStakeCents: z.number().int()
-    .min(BETTING_LIMITS.MIN_STAKE_CENTS, "Minimum stake is £0.10")
-    .max(BETTING_LIMITS.MAX_STAKE_CENTS, "Maximum stake is £100,000"),
+    .min(BETTING_LIMITS.MIN_STAKE_CENTS, "Minimum stake is KES 0.10")
+    .max(BETTING_LIMITS.MAX_STAKE_CENTS, "Maximum stake is KES 100,000"),
   selections: z.array(z.object({
     fixtureId: z.string(),
     homeTeam: z.string(),
@@ -443,25 +443,34 @@ export const stakeValidation = {
 };
 
 export const currencyUtils = {
+  centsToKES: (cents: number): string => {
+    return (cents / 100).toFixed(2);
+  },
+  
+  KESsToCents: (kes: number): number => {
+    return Math.round(kes * 100);
+  },
+  
+  formatCurrency: (cents: number): string => {
+    return `KES ${(cents / 100).toFixed(2)}`;
+  },
+  
+  formatCurrencyShort: (cents: number): string => {
+    const kes = cents / 100;
+    if (kes >= 1000000) {
+      return `KES ${(kes / 1000000).toFixed(1)}M`;
+    } else if (kes >= 1000) {
+      return `KES ${(kes / 1000).toFixed(1)}K`;
+    }
+    return `KES ${kes.toFixed(2)}`;
+  },
+  
+  // Backward compatibility aliases
   centsToPounds: (cents: number): string => {
     return (cents / 100).toFixed(2);
   },
   
   poundsToCents: (pounds: number): number => {
     return Math.round(pounds * 100);
-  },
-  
-  formatCurrency: (cents: number): string => {
-    return `£${(cents / 100).toFixed(2)}`;
-  },
-  
-  formatCurrencyShort: (cents: number): string => {
-    const pounds = cents / 100;
-    if (pounds >= 1000000) {
-      return `£${(pounds / 1000000).toFixed(1)}M`;
-    } else if (pounds >= 1000) {
-      return `£${(pounds / 1000).toFixed(1)}K`;
-    }
-    return `£${pounds.toFixed(2)}`;
   }
 };
