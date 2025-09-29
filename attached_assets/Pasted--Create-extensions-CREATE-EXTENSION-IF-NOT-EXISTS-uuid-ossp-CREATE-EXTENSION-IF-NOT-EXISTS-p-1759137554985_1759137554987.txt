@@ -1,0 +1,222 @@
+-- Create extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+-- Set timezone
+SET timezone TO 'UTC';
+
+-- Create enum types
+CREATE TYPE bet_type AS ENUM ('single', 'express', 'system');
+CREATE TYPE bet_status AS ENUM ('pending', 'won', 'lost', 'cashout', 'cancelled');
+CREATE TYPE bet_selection_status AS ENUM ('pending', 'won', 'lost', 'void');
+CREATE TYPE favorite_type AS ENUM ('team', 'league', 'fixture');
+CREATE TYPE transaction_type AS ENUM ('deposit', 'withdrawal', 'bet_stake', 'bet_winnings', 'bonus');
+CREATE TYPE transaction_status AS ENUM ('pending', 'completed', 'failed');
+CREATE TYPE admin_role AS ENUM ('superadmin', 'admin', 'risk_manager', 'finance', 'compliance', 'support');
+
+-- Users table (no dependencies)
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    balance INTEGER NOT NULL DEFAULT 0, -- Balance in cents
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Admin users table (self-referencing, but optional)
+CREATE TABLE admin_users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    role admin_role NOT NULL,
+    totp_secret VARCHAR(255),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    last_login TIMESTAMPTZ,
+    login_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TIMESTAMPTZ,
+    ip_whitelist TEXT[], -- Array of IP addresses
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES admin_users(id)
+);
+
+-- User sessions table
+CREATE TABLE user_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_token VARCHAR(255) UNIQUE NOT NULL,
+    ip_address INET,
+    user_agent TEXT,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- User limits table  
+CREATE TABLE user_limits (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    max_stake_cents INTEGER NOT NULL DEFAULT 10000000, -- £100,000
+    daily_stake_limit_cents INTEGER NOT NULL DEFAULT 100000000, -- £1,000,000
+    daily_deposit_limit_cents INTEGER NOT NULL DEFAULT 100000000, -- £1,000,000
+    daily_loss_limit_cents INTEGER NOT NULL DEFAULT 100000000, -- £1,000,000
+    weekly_stake_limit_cents INTEGER NOT NULL DEFAULT 700000000, -- £7,000,000
+    monthly_stake_limit_cents INTEGER NOT NULL DEFAULT 3000000000, -- £30,000,000
+    is_self_excluded BOOLEAN NOT NULL DEFAULT false,
+    self_exclusion_until TIMESTAMPTZ,
+    cooldown_until TIMESTAMPTZ,
+    set_by_admin_id UUID REFERENCES admin_users(id),
+    reason TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- User favorites table
+CREATE TABLE user_favorites (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type favorite_type NOT NULL,
+    entity_id VARCHAR(255) NOT NULL,
+    entity_name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, type, entity_id)
+);
+
+-- Bets table
+CREATE TABLE bets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type bet_type NOT NULL,
+    total_stake INTEGER NOT NULL CHECK (total_stake > 0), -- Stake in cents
+    potential_winnings INTEGER NOT NULL CHECK (potential_winnings > 0), -- Winnings in cents
+    total_odds VARCHAR(20) NOT NULL, -- Store as string for precision
+    status bet_status NOT NULL DEFAULT 'pending',
+    placed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    settled_at TIMESTAMPTZ,
+    actual_winnings INTEGER NOT NULL DEFAULT 0, -- Actual winnings in cents
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Bet selections table
+CREATE TABLE bet_selections (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    bet_id UUID NOT NULL REFERENCES bets(id) ON DELETE CASCADE,
+    fixture_id VARCHAR(255) NOT NULL,
+    home_team VARCHAR(255) NOT NULL,
+    away_team VARCHAR(255) NOT NULL,
+    league VARCHAR(255) NOT NULL,
+    market_id VARCHAR(255) NOT NULL,
+    outcome_id VARCHAR(255) NOT NULL,
+    market VARCHAR(255) NOT NULL,
+    selection VARCHAR(255) NOT NULL,
+    odds VARCHAR(20) NOT NULL, -- Store as string for precision
+    status bet_selection_status NOT NULL DEFAULT 'pending',
+    result TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Transactions table
+CREATE TABLE transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type transaction_type NOT NULL,
+    amount INTEGER NOT NULL, -- Amount in cents (can be negative)
+    balance_before INTEGER NOT NULL,
+    balance_after INTEGER NOT NULL,
+    reference VARCHAR(255),
+    description TEXT,
+    status transaction_status NOT NULL DEFAULT 'completed',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Admin sessions table
+CREATE TABLE admin_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    admin_id UUID NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+    session_token VARCHAR(255) UNIQUE NOT NULL,
+    ip_address INET,
+    user_agent TEXT,
+    two_factor_verified BOOLEAN NOT NULL DEFAULT false,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Audit logs table
+CREATE TABLE audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    admin_id UUID NOT NULL REFERENCES admin_users(id) ON DELETE CASCADE,
+    action_type VARCHAR(255) NOT NULL,
+    target_type VARCHAR(255) NOT NULL,
+    target_id VARCHAR(255),
+    data_before JSONB,
+    data_after JSONB,
+    ip_address INET,
+    user_agent TEXT,
+    note TEXT,
+    success BOOLEAN NOT NULL DEFAULT true,
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create indexes for better performance
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_created_at ON users(created_at);
+
+CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX idx_user_sessions_session_token ON user_sessions(session_token);
+CREATE INDEX idx_user_sessions_expires_at ON user_sessions(expires_at);
+
+CREATE INDEX idx_bets_user_id ON bets(user_id);
+CREATE INDEX idx_bets_status ON bets(status);
+CREATE INDEX idx_bets_placed_at ON bets(placed_at);
+
+CREATE INDEX idx_bet_selections_bet_id ON bet_selections(bet_id);
+CREATE INDEX idx_bet_selections_fixture_id ON bet_selections(fixture_id);
+
+CREATE INDEX idx_transactions_user_id ON transactions(user_id);
+CREATE INDEX idx_transactions_type ON transactions(type);
+CREATE INDEX idx_transactions_created_at ON transactions(created_at);
+
+CREATE INDEX idx_user_favorites_user_id ON user_favorites(user_id);
+CREATE INDEX idx_user_favorites_type ON user_favorites(type);
+
+CREATE INDEX idx_admin_users_username ON admin_users(username);
+CREATE INDEX idx_admin_users_email ON admin_users(email);
+
+CREATE INDEX idx_admin_sessions_admin_id ON admin_sessions(admin_id);
+CREATE INDEX idx_admin_sessions_session_token ON admin_sessions(session_token);
+
+CREATE INDEX idx_audit_logs_admin_id ON audit_logs(admin_id);
+CREATE INDEX idx_audit_logs_action_type ON audit_logs(action_type);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+
+-- Create triggers for updating timestamps
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Apply update triggers to tables with updated_at columns
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_user_limits_updated_at BEFORE UPDATE ON user_limits
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_bets_updated_at BEFORE UPDATE ON bets
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_bet_selections_updated_at BEFORE UPDATE ON bet_selections
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_admin_users_updated_at BEFORE UPDATE ON admin_users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
