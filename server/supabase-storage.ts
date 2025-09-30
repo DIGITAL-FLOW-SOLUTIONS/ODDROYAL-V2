@@ -583,7 +583,37 @@ export class SupabaseStorage implements IStorage {
 
   // Admin operations stubs
   async getAdminUser(id: string): Promise<AdminUser | undefined> {
-    throw new Error("getAdminUser not implemented yet");
+    try {
+      const { data, error } = await this.client
+        .from('admin_users')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error || !data) {
+        return undefined;
+      }
+
+      return {
+        id: data.id,
+        username: data.username,
+        email: data.email,
+        passwordHash: data.password_hash,
+        role: data.role,
+        totpSecret: data.totp_secret,
+        isActive: data.is_active,
+        lastLogin: data.last_login,
+        loginAttempts: data.login_attempts,
+        lockedUntil: data.locked_until,
+        ipWhitelist: data.ip_whitelist,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        createdBy: data.created_by
+      };
+    } catch (error) {
+      console.error('Error fetching admin user by id:', error);
+      return undefined;
+    }
   }
 
   async getAdminUserByUsername(username: string): Promise<AdminUser | undefined> {
@@ -705,7 +735,60 @@ export class SupabaseStorage implements IStorage {
   }
 
   async updateAdminUser(adminId: string, updates: Partial<InsertAdminUser>): Promise<AdminUser | undefined> {
-    throw new Error("updateAdminUser not implemented yet");
+    try {
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (updates.username) updateData.username = updates.username;
+      if (updates.email) updateData.email = updates.email;
+      if (updates.passwordHash) updateData.password_hash = updates.passwordHash;
+      if (updates.role) updateData.role = updates.role;
+      if (updates.totpSecret !== undefined) updateData.totp_secret = updates.totpSecret;
+      if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
+      if (updates.ipWhitelist) updateData.ip_whitelist = updates.ipWhitelist;
+      if (updates.createdBy !== undefined) updateData.created_by = updates.createdBy;
+      
+      if ('lastLogin' in updates) {
+        updateData.last_login = updates.lastLogin || null;
+      }
+
+      const { data, error } = await this.client
+        .from('admin_users')
+        .update(updateData)
+        .eq('id', adminId)
+        .select('*')
+        .single();
+
+      if (error) {
+        console.error('Error updating admin user:', error);
+        return undefined;
+      }
+
+      if (!data) {
+        return undefined;
+      }
+
+      return {
+        id: data.id,
+        username: data.username,
+        email: data.email,
+        passwordHash: data.password_hash,
+        role: data.role,
+        totpSecret: data.totp_secret,
+        isActive: data.is_active,
+        lastLogin: data.last_login,
+        loginAttempts: data.login_attempts,
+        lockedUntil: data.locked_until,
+        ipWhitelist: data.ip_whitelist,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        createdBy: data.created_by
+      };
+    } catch (error) {
+      console.error('Error updating admin user:', error);
+      return undefined;
+    }
   }
 
   async updateAdminLoginAttempts(adminId: string, attempts: number, lockedUntil?: Date): Promise<AdminUser | undefined> {
@@ -855,7 +938,22 @@ export class SupabaseStorage implements IStorage {
   }
 
   async deleteAdminSession(sessionToken: string): Promise<boolean> {
-    throw new Error("deleteAdminSession not implemented yet");
+    try {
+      const { error } = await this.client
+        .from('admin_sessions')
+        .delete()
+        .eq('session_token', sessionToken);
+
+      if (error) {
+        console.error('Error deleting admin session:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting admin session:', error);
+      return false;
+    }
   }
 
   async deleteAllAdminSessions(adminId: string): Promise<boolean> {
