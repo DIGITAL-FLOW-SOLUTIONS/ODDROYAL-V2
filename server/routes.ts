@@ -62,11 +62,8 @@ import { z } from "zod";
 import { mpesaService } from "./mpesa";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Health check
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "OK", timestamp: new Date().toISOString() });
-  });
-
+  // Note: Primary health check is registered early in index.ts for immediate availability
+  
   // SportMonks API health check
   app.get("/api/integrations/sportmonks/health", async (req, res) => {
     try {

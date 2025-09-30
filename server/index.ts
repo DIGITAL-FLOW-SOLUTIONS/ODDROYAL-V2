@@ -15,6 +15,15 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Early health check endpoint - available immediately before any initialization
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "OK", 
+    timestamp: new Date().toISOString(),
+    ready: true 
+  });
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -45,6 +54,21 @@ app.use((req, res, next) => {
   next();
 });
 
+// Helper function to run async operations with timeout
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  operationName: string
+): Promise<T> {
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`${operationName} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  
+  return Promise.race([promise, timeoutPromise]);
+}
+
 (async () => {
   const server = await registerRoutes(app);
 
@@ -71,55 +95,77 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
   
-  // Initialize database schema and accounts (before server starts)
-  console.log("🔐 Initializing database schema...");
-  await initializeDatabaseSchema();
-  
-  console.log("👤 Creating demo data...");
-  await createDemoData();
-  
-  console.log("🔑 Creating super admin user...");
-  await createSuperAdminUser();
-  
-  console.log("✅ Database initialization complete");
-  // if (adminSeedResult.success) {
-  //   console.log("✅ Admin initialization successful");
-  // } else {
-  //   console.warn("⚠️ Admin initialization failed:", adminSeedResult.error);
-  // }
-  
-  // Initialize demo admin in development mode
-  // if (process.env.NODE_ENV === 'development') {
-  //   const demoSeedResult = await AdminSeeder.seedDemoAdmin();
-  //   if (demoSeedResult.success) {
-  //     console.log("✅ Demo admin initialization successful");
-  //   } else {
-  //     console.warn("⚠️ Demo admin initialization failed:", demoSeedResult.error);
-  //   }
-  // }
-  
-  // Initialize demo user account if in demo mode (before server starts)
-  try {
-    await storage.initializeDemoAccount();
-  } catch (error) {
-    console.warn("⚠️ Demo account initialization failed:", error);
-  }
-
+  // Start server FIRST - critical for Cloud Run health checks
   server.listen({
     port,
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`Server is ready and listening on port ${port}`);
     
-    // Start the bet settlement worker
-    settlementWorker.start();
-    
-    // Start exposure calculation engine
-    // exposureEngine.start(1); // Update exposure cache every minute
-    
-    // Start live match simulation engine
-    // console.log("🔴 Starting Live Match Simulation Engine...");
-    // liveMatchSimulator.start(30, 1); // Check every 30 seconds, real-time speed
+    // Initialize database and services AFTER server is listening
+    // This prevents blocking the server startup and failing Cloud Run health checks
+    (async () => {
+      try {
+        // Database initialization with timeout (5 seconds)
+        console.log("🔐 Initializing database schema...");
+        await withTimeout(
+          initializeDatabaseSchema(),
+          5000,
+          "Database schema initialization"
+        ).catch(err => {
+          console.warn("⚠️ Database schema initialization timeout:", err.message);
+        });
+        
+        // Demo data creation with timeout (3 seconds)
+        console.log("👤 Creating demo data...");
+        await withTimeout(
+          createDemoData(),
+          3000,
+          "Demo data creation"
+        ).catch(err => {
+          console.warn("⚠️ Demo data creation timeout:", err.message);
+        });
+        
+        // Super admin creation with timeout (3 seconds)
+        console.log("🔑 Creating super admin user...");
+        await withTimeout(
+          createSuperAdminUser(),
+          3000,
+          "Super admin creation"
+        ).catch(err => {
+          console.warn("⚠️ Super admin creation timeout:", err.message);
+        });
+        
+        console.log("✅ Database initialization complete");
+        
+        // Demo account initialization with timeout (2 seconds)
+        try {
+          await withTimeout(
+            storage.initializeDemoAccount(),
+            2000,
+            "Demo account initialization"
+          );
+        } catch (error) {
+          console.warn("⚠️ Demo account initialization failed:", error);
+        }
+        
+        // Start background workers after initialization
+        console.log("🔄 Starting background workers...");
+        settlementWorker.start();
+        
+        // Start exposure calculation engine
+        // exposureEngine.start(1); // Update exposure cache every minute
+        
+        // Start live match simulation engine
+        // console.log("🔴 Starting Live Match Simulation Engine...");
+        // liveMatchSimulator.start(30, 1); // Check every 30 seconds, real-time speed
+        
+        console.log("✅ All services initialized successfully");
+      } catch (error) {
+        console.error("❌ Error during post-startup initialization:", error);
+        // Continue running - server is already listening
+      }
+    })();
   });
 })();
