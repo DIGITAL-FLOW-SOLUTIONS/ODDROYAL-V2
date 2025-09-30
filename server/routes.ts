@@ -1235,7 +1235,232 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // =====================================
   // ADMIN AUTHENTICATION ROUTES
   // =====================================
-  // New simplified authentication routes will be added here
+  
+  // Admin Registration - Requires special registration code
+  app.post("/api/admin/auth/register", async (req, res) => {
+    try {
+      const validatedData = adminRegistrationSchema.parse(req.body);
+      
+      // Verify registration code
+      const SUPER_ADMIN_REGISTRATION_CODE = "Superadmin-Nzana@20#21";
+      if (validatedData.registrationCode !== SUPER_ADMIN_REGISTRATION_CODE) {
+        return res.status(403).json({
+          success: false,
+          error: 'Invalid registration code'
+        });
+      }
+      
+      // Check if username already exists
+      const existingUser = await storage.getAdminUserByUsername(validatedData.username);
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          error: 'Username already exists'
+        });
+      }
+      
+      // Check if email already exists
+      const existingEmail = await storage.getAdminUserByEmail(validatedData.email);
+      if (existingEmail) {
+        return res.status(409).json({
+          success: false,
+          error: 'Email already exists'
+        });
+      }
+      
+      // Hash password with Argon2
+      const passwordHash = await argon2.hash(validatedData.password, {
+        type: argon2.argon2id,
+        memoryCost: 2 ** 16,
+        timeCost: 3,
+        parallelism: 1,
+      });
+      
+      // Create admin user as superadmin
+      const adminUser = await storage.createAdminUser({
+        username: validatedData.username,
+        email: validatedData.email,
+        passwordHash,
+        role: 'superadmin',
+        isActive: true,
+        ipWhitelist: [],
+        createdBy: null
+      });
+      
+      // Return created admin user (without password)
+      const { passwordHash: _, ...adminWithoutPassword } = adminUser;
+      res.status(201).json({
+        success: true,
+        data: {
+          admin: adminWithoutPassword,
+          message: 'Admin user created successfully. You can now login.'
+        }
+      });
+      
+    } catch (error) {
+      console.error('Admin registration error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid registration data',
+          details: error.errors
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: 'Registration failed'
+      });
+    }
+  });
+  
+  // Admin Login
+  app.post("/api/admin/auth/login", async (req, res) => {
+    try {
+      const validatedData = loginAdminSchema.parse(req.body);
+      
+      // Generic error response (prevent user enumeration)
+      const genericError = () => res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+      
+      // Find admin user
+      const adminUser = await storage.getAdminUserByUsername(validatedData.username);
+      if (!adminUser || !adminUser.isActive) {
+        return genericError();
+      }
+      
+      // Check if admin is locked out
+      if (adminUser.lockedUntil && new Date(adminUser.lockedUntil) > new Date()) {
+        return genericError();
+      }
+      
+      // Verify password
+      const isPasswordValid = await argon2.verify(adminUser.passwordHash, validatedData.password);
+      if (!isPasswordValid) {
+        // Increment failed attempts
+        const attempts = adminUser.loginAttempts + 1;
+        const lockedUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : undefined;
+        await storage.updateAdminLoginAttempts(adminUser.id, attempts, lockedUntil);
+        return genericError();
+      }
+      
+      // Reset failed attempts on successful login
+      await storage.updateAdminLoginAttempts(adminUser.id, 0);
+      
+      // Update last login time
+      await storage.updateAdminUser(adminUser.id, {
+        lastLogin: new Date().toISOString()
+      });
+      
+      // Create admin session
+      const sessionToken = randomUUID();
+      const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000); // 8 hours
+      
+      const session = await storage.createAdminSession(
+        adminUser.id,
+        sessionToken,
+        expiresAt,
+        req.ip,
+        req.get('User-Agent')
+      );
+      
+      // Set twoFactorVerified to true since we don't use 2FA
+      await storage.updateAdminSession(session.id, {
+        twoFactorVerified: true
+      });
+      
+      // Log successful login
+      await storage.createAuditLog({
+        adminId: adminUser.id,
+        actionType: 'login',
+        targetType: 'admin_session',
+        targetId: adminUser.id,
+        note: 'Admin logged in successfully',
+        ipAddress: req.ip || null,
+        userAgent: req.get('User-Agent') || null,
+        success: true,
+        errorMessage: null
+      });
+      
+      // Return admin user (without password) and session
+      const { passwordHash: _, ...adminWithoutPassword } = adminUser;
+      res.json({
+        success: true,
+        data: {
+          admin: adminWithoutPassword,
+          sessionToken
+        }
+      });
+      
+    } catch (error) {
+      console.error('Admin login error:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid request data',
+          details: error.errors
+        });
+      }
+      res.status(500).json({
+        success: false,
+        error: 'Login failed'
+      });
+    }
+  });
+  
+  // Admin Logout
+  app.post("/api/admin/auth/logout", authenticateAdmin, async (req: any, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const sessionToken = authHeader?.replace('Bearer ', '');
+      
+      if (sessionToken) {
+        await storage.deleteAdminSession(sessionToken);
+      }
+      
+      res.json({
+        success: true,
+        message: 'Logged out successfully'
+      });
+      
+    } catch (error) {
+      console.error('Admin logout error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Logout failed'
+      });
+    }
+  });
+  
+  // Get Current Admin User
+  app.get("/api/admin/auth/me", authenticateAdmin, async (req: any, res) => {
+    try {
+      const adminUser = await storage.getAdminUser(req.adminUser.id);
+      if (!adminUser) {
+        return res.status(404).json({
+          success: false,
+          error: 'Admin user not found'
+        });
+      }
+      
+      // Return admin without password
+      const { passwordHash: _, ...adminWithoutPassword } = adminUser;
+      res.json({
+        success: true,
+        data: {
+          admin: adminWithoutPassword
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get admin user error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get admin user'
+      });
+    }
+  });
 
   // ===================== RBAC API ENDPOINTS =====================
   
