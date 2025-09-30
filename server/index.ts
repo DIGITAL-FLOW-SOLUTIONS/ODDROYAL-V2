@@ -89,7 +89,11 @@ async function withTimeout<T>(
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+    // Log the error but don't throw - throwing after responding crashes the process
+    log(`Error: ${err.message || err}`);
+    if (err.stack) {
+      log(err.stack);
+    }
   });
 
   // importantly only setup vite in development and after
@@ -118,22 +122,31 @@ async function withTimeout<T>(
     // Initialize database and services AFTER server is listening
     // This prevents blocking the server startup and failing Cloud Run health checks
     (async () => {
+      // Track essential initialization steps - server is only ready if all essentials succeed
+      let dbSchemaReady = false;
+      let workersReady = false;
+      
       try {
-        // Database initialization with timeout (5 seconds)
+        // Database initialization with timeout (5 seconds) - ESSENTIAL
         console.log("🔐 Initializing database schema...");
-        await withTimeout(
-          initializeDatabaseSchema(),
-          5000,
-          "Database schema initialization"
-        ).catch(err => {
-          console.warn("⚠️ Database schema initialization timeout:", err.message);
-        });
+        try {
+          await withTimeout(
+            initializeDatabaseSchema(),
+            5000,
+            "Database schema initialization"
+          );
+          dbSchemaReady = true;
+          console.log("✅ Database schema ready");
+        } catch (err: any) {
+          console.error("❌ Database schema initialization failed:", err.message);
+          throw new Error("Essential: Database schema initialization failed");
+        }
         
-        // Only create demo data in development/demo mode
+        // Only create demo data in development/demo mode - NOT ESSENTIAL
         const isDemoMode = process.env.DEMO_MODE === 'true' || process.env.NODE_ENV === 'development';
         
         if (isDemoMode) {
-          // Demo data creation with timeout (3 seconds)
+          // Demo data creation with timeout (3 seconds) - NOT ESSENTIAL
           console.log("👤 Creating demo data...");
           await withTimeout(
             createDemoData(),
@@ -143,7 +156,7 @@ async function withTimeout<T>(
             console.warn("⚠️ Demo data creation timeout:", err.message);
           });
           
-          // Demo account initialization with timeout (2 seconds)
+          // Demo account initialization with timeout (2 seconds) - NOT ESSENTIAL
           try {
             await withTimeout(
               storage.initializeDemoAccount(),
@@ -157,7 +170,7 @@ async function withTimeout<T>(
           console.log("ℹ️ Demo mode disabled - skipping demo data creation");
         }
         
-        // Super admin creation (only if credentials are provided via env vars)
+        // Super admin creation (only if credentials are provided via env vars) - NOT ESSENTIAL
         // In production, use proper secrets management
         if (process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD) {
           console.log("🔑 Creating admin user from environment...");
@@ -184,9 +197,16 @@ async function withTimeout<T>(
         
         console.log("✅ Database initialization complete");
         
-        // Start background workers after initialization
+        // Start background workers after initialization - ESSENTIAL
         console.log("🔄 Starting background workers...");
-        settlementWorker.start();
+        try {
+          settlementWorker.start();
+          workersReady = true;
+          console.log("✅ Background workers started");
+        } catch (err) {
+          console.error("❌ Failed to start background workers:", err);
+          throw new Error("Essential: Background workers failed to start");
+        }
         
         // Start exposure calculation engine
         // exposureEngine.start(1); // Update exposure cache every minute
@@ -195,14 +215,18 @@ async function withTimeout<T>(
         // console.log("🔴 Starting Live Match Simulation Engine...");
         // liveMatchSimulator.start(30, 1); // Check every 30 seconds, real-time speed
         
-        // Mark server as ready for readiness probe
-        isReady = true;
-        console.log("✅ All services initialized successfully - server is ready");
+        // Mark server as ready ONLY if all essential operations succeeded
+        if (dbSchemaReady && workersReady) {
+          isReady = true;
+          console.log("✅ All essential services initialized - server is READY");
+        } else {
+          console.error("❌ Essential services incomplete - server NOT ready");
+        }
       } catch (error) {
-        console.error("❌ Error during post-startup initialization:", error);
+        console.error("❌ Critical initialization error:", error);
         // Keep isReady = false on initialization failure
         // Cloud Run will not route traffic until initialization succeeds or instance is replaced
-        console.error("❌ Server NOT ready due to initialization errors - health check will return 503");
+        console.error("❌ Server NOT ready - readiness probe will return 503");
       }
     })();
   });
