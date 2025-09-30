@@ -15,13 +15,30 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Early health check endpoint - available immediately before any initialization
+// Track initialization state for readiness probe
+let isReady = false;
+
+// Liveness probe - always returns OK if server is running
 app.get("/api/health", (req, res) => {
   res.json({ 
     status: "OK", 
-    timestamp: new Date().toISOString(),
-    ready: true 
+    timestamp: new Date().toISOString()
   });
+});
+
+// Readiness probe - returns OK only after initialization is complete
+app.get("/api/ready", (req, res) => {
+  if (isReady) {
+    res.json({ 
+      status: "ready", 
+      timestamp: new Date().toISOString() 
+    });
+  } else {
+    res.status(503).json({ 
+      status: "initializing", 
+      timestamp: new Date().toISOString() 
+    });
+  }
 });
 
 app.use((req, res, next) => {
@@ -55,18 +72,26 @@ app.use((req, res, next) => {
 });
 
 // Helper function to run async operations with timeout
+// Properly clears timeout to avoid unhandled promise rejections
 async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
   operationName: string
 ): Promise<T> {
-  const timeoutPromise = new Promise<T>((_, reject) => {
-    setTimeout(() => {
+  let timeoutHandle: NodeJS.Timeout | undefined;
+  
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(() => {
       reject(new Error(`${operationName} timed out after ${timeoutMs}ms`));
     }, timeoutMs);
   });
   
-  return Promise.race([promise, timeoutPromise]);
+  return Promise.race([
+    promise.finally(() => {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+    }),
+    timeoutPromise
+  ]);
 }
 
 (async () => {
@@ -117,38 +142,60 @@ async function withTimeout<T>(
           console.warn("⚠️ Database schema initialization timeout:", err.message);
         });
         
-        // Demo data creation with timeout (3 seconds)
-        console.log("👤 Creating demo data...");
-        await withTimeout(
-          createDemoData(),
-          3000,
-          "Demo data creation"
-        ).catch(err => {
-          console.warn("⚠️ Demo data creation timeout:", err.message);
-        });
+        // Only create demo data in development/demo mode
+        const isDemoMode = process.env.DEMO_MODE === 'true' || process.env.NODE_ENV === 'development';
         
-        // Super admin creation with timeout (3 seconds)
-        console.log("🔑 Creating super admin user...");
-        await withTimeout(
-          createSuperAdminUser(),
-          3000,
-          "Super admin creation"
-        ).catch(err => {
-          console.warn("⚠️ Super admin creation timeout:", err.message);
-        });
+        if (isDemoMode) {
+          // Demo data creation with timeout (3 seconds)
+          console.log("👤 Creating demo data...");
+          await withTimeout(
+            createDemoData(),
+            3000,
+            "Demo data creation"
+          ).catch(err => {
+            console.warn("⚠️ Demo data creation timeout:", err.message);
+          });
+          
+          // Demo account initialization with timeout (2 seconds)
+          try {
+            await withTimeout(
+              storage.initializeDemoAccount(),
+              2000,
+              "Demo account initialization"
+            );
+          } catch (error) {
+            console.warn("⚠️ Demo account initialization failed:", error);
+          }
+        } else {
+          console.log("ℹ️ Demo mode disabled - skipping demo data creation");
+        }
+        
+        // Super admin creation (only if credentials are provided via env vars)
+        // In production, use proper secrets management
+        if (process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD) {
+          console.log("🔑 Creating admin user from environment...");
+          await withTimeout(
+            createSuperAdminUser(),
+            3000,
+            "Admin user creation"
+          ).catch(err => {
+            console.warn("⚠️ Admin user creation timeout:", err.message);
+          });
+        } else if (isDemoMode) {
+          // In demo/dev mode, create default admin
+          console.log("🔑 Creating default super admin user (demo mode)...");
+          await withTimeout(
+            createSuperAdminUser(),
+            3000,
+            "Super admin creation"
+          ).catch(err => {
+            console.warn("⚠️ Super admin creation timeout:", err.message);
+          });
+        } else {
+          console.log("ℹ️ No admin credentials provided - skipping admin creation");
+        }
         
         console.log("✅ Database initialization complete");
-        
-        // Demo account initialization with timeout (2 seconds)
-        try {
-          await withTimeout(
-            storage.initializeDemoAccount(),
-            2000,
-            "Demo account initialization"
-          );
-        } catch (error) {
-          console.warn("⚠️ Demo account initialization failed:", error);
-        }
         
         // Start background workers after initialization
         console.log("🔄 Starting background workers...");
@@ -161,10 +208,14 @@ async function withTimeout<T>(
         // console.log("🔴 Starting Live Match Simulation Engine...");
         // liveMatchSimulator.start(30, 1); // Check every 30 seconds, real-time speed
         
-        console.log("✅ All services initialized successfully");
+        // Mark server as ready for readiness probe
+        isReady = true;
+        console.log("✅ All services initialized successfully - server is ready");
       } catch (error) {
         console.error("❌ Error during post-startup initialization:", error);
-        // Continue running - server is already listening
+        // Mark as ready even if initialization fails - server can still serve requests
+        isReady = true;
+        console.warn("⚠️ Server marked as ready despite initialization errors");
       }
     })();
   });
