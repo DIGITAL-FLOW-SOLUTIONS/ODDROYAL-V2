@@ -160,6 +160,7 @@ export const adminUserSchema = z.object({
   id: z.string(),
   username: z.string(),
   email: z.string().email(),
+  passwordHash: z.string(),
   role: z.enum(["superadmin", "admin", "risk_manager", "finance", "compliance", "support"]),
   totpSecret: z.string().nullable().optional(),
   isActive: z.boolean().default(true),
@@ -175,6 +176,7 @@ export const adminUserSchema = z.object({
 export const insertAdminUserSchema = z.object({
   username: z.string().min(3).max(50),
   email: z.string().email(),
+  passwordHash: z.string(),
   role: z.enum(["superadmin", "admin", "risk_manager", "finance", "compliance", "support"]),
   totpSecret: z.string().optional(),
   isActive: z.boolean().default(true),
@@ -182,8 +184,15 @@ export const insertAdminUserSchema = z.object({
   createdBy: z.string().optional(),
 });
 
-// Admin registration schema with password validation
+// Admin login schema
+export const loginAdminSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+// Admin registration schema with password validation and registration code
 export const adminRegistrationSchema = z.object({
+  registrationCode: z.string().min(1, "Registration code is required"),
   username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
   email: z.string().email("Please enter a valid email address"),
   password: z.string()
@@ -199,6 +208,7 @@ export const adminRegistrationSchema = z.object({
 export type AdminUser = z.infer<typeof adminUserSchema>;
 export type InsertAdminUser = z.infer<typeof insertAdminUserSchema>;
 export type AdminRegistration = z.infer<typeof adminRegistrationSchema>;
+export type LoginAdmin = z.infer<typeof loginAdminSchema>;
 
 // ===================== ADMIN SESSION TYPES =====================
 
@@ -413,14 +423,6 @@ export const betPlacementSchema = z.object({
       message: `Odds must be between ${BETTING_LIMITS.MIN_ODDS} and ${BETTING_LIMITS.MAX_ODDS}`
     }),
   })).min(1, "At least 1 selection required").max(BETTING_LIMITS.MAX_SELECTIONS, `Maximum ${BETTING_LIMITS.MAX_SELECTIONS} selections allowed`),
-});
-
-// ===================== ADMIN LOGIN SCHEMA =====================
-
-export const loginAdminSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
-  totpCode: z.string().optional(),
 });
 
 // ===================== CURRENCY UTILITIES =====================
