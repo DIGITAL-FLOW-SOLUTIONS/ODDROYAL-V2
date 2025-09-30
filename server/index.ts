@@ -44,26 +44,13 @@ app.get("/api/ready", (req, res) => {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
+      // Log only request method, path, status, and duration
+      // Do NOT log response bodies to prevent leaking sensitive data (credentials, tokens, PII)
+      const logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       log(logLine);
     }
   });
@@ -213,9 +200,9 @@ async function withTimeout<T>(
         console.log("✅ All services initialized successfully - server is ready");
       } catch (error) {
         console.error("❌ Error during post-startup initialization:", error);
-        // Mark as ready even if initialization fails - server can still serve requests
-        isReady = true;
-        console.warn("⚠️ Server marked as ready despite initialization errors");
+        // Keep isReady = false on initialization failure
+        // Cloud Run will not route traffic until initialization succeeds or instance is replaced
+        console.error("❌ Server NOT ready due to initialization errors - health check will return 503");
       }
     })();
   });
