@@ -971,19 +971,11 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const now = new Date();
 
-    // Hash password with Argon2
-    const passwordHash = await argon2.hash(insertAdmin.password || "", {
-      type: argon2.argon2id,
-      memoryCost: 2 ** 16,
-      timeCost: 3,
-      parallelism: 1,
-    });
-
     const admin: AdminUser = {
       id,
       username: insertAdmin.username,
       email: insertAdmin.email,
-      passwordHash,
+      passwordHash: insertAdmin.passwordHash,
       role: insertAdmin.role || "support",
       totpSecret: insertAdmin.totpSecret || null,
       isActive: true,
@@ -991,9 +983,9 @@ export class MemStorage implements IStorage {
       loginAttempts: 0,
       lockedUntil: null,
       ipWhitelist: (insertAdmin.ipWhitelist as string[]) || null,
-      createdAt: now,
-      updatedAt: now,
-      createdBy: null,
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      createdBy: insertAdmin.createdBy || null,
     };
 
     this.adminUsers.set(id, admin);
@@ -1010,9 +1002,9 @@ export class MemStorage implements IStorage {
     const updatedAdmin: AdminUser = {
       ...admin,
       ...updates,
-      id: admin.id, // Ensure ID cannot be changed
-      createdAt: admin.createdAt, // Ensure creation date cannot be changed
-      updatedAt: new Date(),
+      id: admin.id,
+      createdAt: admin.createdAt,
+      updatedAt: new Date().toISOString(),
       ipWhitelist: (updates.ipWhitelist as string[]) || admin.ipWhitelist,
     };
 
@@ -1031,8 +1023,8 @@ export class MemStorage implements IStorage {
     const updatedAdmin = {
       ...admin,
       loginAttempts: attempts,
-      lockedUntil: lockedUntil || null,
-      updatedAt: new Date(),
+      lockedUntil: lockedUntil ? lockedUntil.toISOString() : null,
+      updatedAt: new Date().toISOString(),
     };
 
     this.adminUsers.set(adminId, updatedAdmin);
