@@ -116,17 +116,17 @@ const MetricCard = ({
 
   return (
     <Card className="hover-elevate">
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+      <CardContent className="p-3 md:p-6">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">{title}</p>
             <p 
-              className="text-3xl font-bold" 
+              className="text-xl md:text-3xl font-bold truncate" 
               data-testid={testId}
             >
               {typeof value === 'number' ? value.toLocaleString() : value}
             </p>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <p className="text-xs text-muted-foreground">{subtitle}</p>
               {trend && (
                 <div className={`flex items-center gap-1 ${getTrendColor()}`}>
@@ -138,8 +138,8 @@ const MetricCard = ({
               )}
             </div>
           </div>
-          <div className={`w-12 h-12 ${colorClasses[color].bg} rounded-lg flex items-center justify-center`}>
-            <Icon className={`w-6 h-6 ${colorClasses[color].text}`} />
+          <div className={`w-10 h-10 md:w-12 md:h-12 flex-shrink-0 ${colorClasses[color].bg} rounded-lg flex items-center justify-center`}>
+            <Icon className={`w-5 h-5 md:w-6 md:h-6 ${colorClasses[color].text}`} />
           </div>
         </div>
       </CardContent>
@@ -212,11 +212,11 @@ const ChartCard = ({
   if (isLoading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">{title}</CardTitle>
+        <CardHeader className="p-3 md:p-6">
+          <CardTitle className="text-base md:text-lg">{title}</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="h-48 bg-muted animate-pulse rounded" />
+        <CardContent className="p-3 md:p-6 pt-0">
+          <div className="h-40 md:h-48 bg-muted animate-pulse rounded" />
         </CardContent>
       </Card>
     );
@@ -225,14 +225,14 @@ const ChartCard = ({
   if (!data || data.length === 0) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">{title}</CardTitle>
+        <CardHeader className="p-3 md:p-6">
+          <CardTitle className="text-base md:text-lg">{title}</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="h-48 flex items-center justify-center text-muted-foreground">
+        <CardContent className="p-3 md:p-6 pt-0">
+          <div className="h-40 md:h-48 flex items-center justify-center text-muted-foreground">
             <div className="text-center">
-              <BarChart3 className="w-12 h-12 mx-auto mb-2" />
-              <p className="text-sm">No data available</p>
+              <BarChart3 className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-2" />
+              <p className="text-xs md:text-sm">No data available</p>
             </div>
           </div>
         </CardContent>
@@ -242,10 +242,10 @@ const ChartCard = ({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">{title}</CardTitle>
+      <CardHeader className="p-3 md:p-6">
+        <CardTitle className="text-base md:text-lg">{title}</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-3 md:p-6 pt-0">
         <ResponsiveContainer width="100%" height={200}>
           {renderChart()}
         </ResponsiveContainer>
@@ -266,27 +266,27 @@ const ActivityFeed = ({ activities }: { activities: ActivityLogEntry[] }) => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Activity className="w-5 h-5" />
+      <CardHeader className="p-3 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <Activity className="w-4 h-4 md:w-5 md:h-5" />
           Recent Activity
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="p-3 md:p-6 pt-0">
+        <div className="space-y-3 md:space-y-4">
           {activities.length > 0 ? (
             activities.map((activity) => (
               <motion.div 
                 key={activity.id} 
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors"
+                className="flex items-start gap-2 md:gap-3 p-2 md:p-3 rounded-lg hover:bg-accent/50 transition-colors"
                 data-testid={`activity-${activity.type}`}
               >
                 {getSeverityIcon(activity.severity || 'info')}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{activity.title}</p>
-                  <p className="text-xs text-muted-foreground">{activity.description}</p>
+                  <p className="text-xs md:text-sm font-medium truncate">{activity.title}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2">{activity.description}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {new Date(activity.timestamp).toLocaleString()}
                   </p>
@@ -294,9 +294,9 @@ const ActivityFeed = ({ activities }: { activities: ActivityLogEntry[] }) => {
               </motion.div>
             ))
           ) : (
-            <div className="text-center py-6">
-              <Clock className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No recent activity</p>
+            <div className="text-center py-4 md:py-6">
+              <Clock className="w-6 h-6 md:w-8 md:h-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-xs md:text-sm text-muted-foreground">No recent activity</p>
             </div>
           )}
         </div>
@@ -320,22 +320,22 @@ const QuickActions = ({ actions }: { actions: QuickActionItem[] }) => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Quick Actions</CardTitle>
+      <CardHeader className="p-3 md:p-6">
+        <CardTitle className="text-base md:text-lg">Quick Actions</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <CardContent className="p-3 md:p-6 pt-0">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
           {actions.map((action) => (
             <Button
               key={action.id}
               variant="outline"
-              className="h-auto flex-col gap-2 p-4 hover-elevate"
+              className="h-auto flex-col gap-1 md:gap-2 p-3 md:p-4 hover-elevate"
               onClick={() => handleAction(action)}
               disabled={!action.enabled}
               data-testid={`quick-action-${action.id}`}
             >
               <div className="text-center">
-                <div className="text-sm font-medium">{action.title}</div>
+                <div className="text-xs md:text-sm font-medium">{action.title}</div>
                 {action.count !== undefined && (
                   <Badge variant="secondary" className="mt-1">
                     {action.count}
@@ -362,30 +362,30 @@ const SystemAlerts = ({ alerts }: { alerts: SystemAlert[] }) => {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <AlertTriangle className="w-5 h-5" />
+      <CardHeader className="p-3 md:p-6">
+        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+          <AlertTriangle className="w-4 h-4 md:w-5 md:h-5" />
           System Alerts
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
+      <CardContent className="p-3 md:p-6 pt-0">
+        <div className="space-y-2 md:space-y-3">
           {alerts.length > 0 ? (
             alerts.map((alert) => (
               <div 
                 key={alert.id} 
-                className="p-3 border rounded-lg"
+                className="p-2 md:p-3 border rounded-lg"
                 data-testid={`alert-${alert.type}`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{alert.title}</p>
-                      <Badge variant={getSeverityColor(alert.severity)}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-xs md:text-sm font-medium truncate">{alert.title}</p>
+                      <Badge variant={getSeverityColor(alert.severity)} className="text-xs">
                         {alert.severity}
                       </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{alert.message}</p>
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{alert.message}</p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {new Date(alert.timestamp).toLocaleString()}
                     </p>
@@ -394,6 +394,7 @@ const SystemAlerts = ({ alerts }: { alerts: SystemAlert[] }) => {
                     <Button 
                       size="sm" 
                       variant="outline"
+                      className="flex-shrink-0"
                       data-testid={`button-resolve-alert-${alert.id}`}
                     >
                       Resolve
@@ -403,9 +404,9 @@ const SystemAlerts = ({ alerts }: { alerts: SystemAlert[] }) => {
               </div>
             ))
           ) : (
-            <div className="text-center py-6">
-              <ShieldCheck className="w-8 h-8 text-green-500 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">All systems operational</p>
+            <div className="text-center py-4 md:py-6">
+              <ShieldCheck className="w-6 h-6 md:w-8 md:h-8 text-green-500 mx-auto mb-2" />
+              <p className="text-xs md:text-sm text-muted-foreground">All systems operational</p>
             </div>
           )}
         </div>
@@ -566,31 +567,31 @@ function AdminDashboard() {
       >
         {/* Header Skeleton */}
         <motion.div variants={itemVariants}>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <div className="h-8 bg-muted rounded w-64 mb-2 animate-pulse"></div>
-              <div className="h-4 bg-muted rounded w-96 animate-pulse"></div>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="h-6 md:h-8 bg-muted rounded w-40 md:w-64 mb-2 animate-pulse"></div>
+              <div className="h-3 md:h-4 bg-muted rounded w-full max-w-xs md:max-w-md animate-pulse"></div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="h-6 bg-muted rounded w-24 animate-pulse"></div>
-              <div className="h-6 bg-muted rounded w-16 animate-pulse"></div>
-              <div className="h-8 bg-muted rounded w-20 animate-pulse"></div>
+            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+              <div className="h-6 bg-muted rounded w-20 md:w-24 animate-pulse"></div>
+              <div className="h-6 bg-muted rounded w-14 md:w-16 animate-pulse"></div>
+              <div className="h-8 bg-muted rounded w-16 md:w-20 animate-pulse"></div>
             </div>
           </div>
         </motion.div>
 
         {/* Metrics Grid Skeleton */}
-        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           {[...Array(8)].map((_, i) => (
             <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
+              <CardContent className="p-3 md:p-6">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex-1">
-                    <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
-                    <div className="h-8 bg-muted rounded w-full mb-2"></div>
+                    <div className="h-3 md:h-4 bg-muted rounded w-1/2 mb-2"></div>
+                    <div className="h-6 md:h-8 bg-muted rounded w-full mb-2"></div>
                     <div className="h-3 bg-muted rounded w-3/4"></div>
                   </div>
-                  <div className="w-12 h-12 bg-muted rounded-lg"></div>
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-muted rounded-lg flex-shrink-0"></div>
                 </div>
               </CardContent>
             </Card>
@@ -598,33 +599,33 @@ function AdminDashboard() {
         </motion.div>
 
         {/* Charts Skeleton */}
-        <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-6">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="animate-pulse">
-              <CardHeader>
-                <div className="h-6 bg-muted rounded w-48"></div>
+              <CardHeader className="p-3 md:p-6">
+                <div className="h-5 md:h-6 bg-muted rounded w-32 md:w-48"></div>
               </CardHeader>
-              <CardContent>
-                <div className="h-48 bg-muted rounded"></div>
+              <CardContent className="p-3 md:p-6 pt-0">
+                <div className="h-40 md:h-48 bg-muted rounded"></div>
               </CardContent>
             </Card>
           ))}
         </motion.div>
 
         {/* Activity and Actions Skeleton */}
-        <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-6">
           <div className="lg:col-span-2">
             <Card className="animate-pulse">
-              <CardHeader>
-                <div className="h-6 bg-muted rounded w-40"></div>
+              <CardHeader className="p-3 md:p-6">
+                <div className="h-5 md:h-6 bg-muted rounded w-32 md:w-40"></div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+              <CardContent className="p-3 md:p-6 pt-0">
+                <div className="space-y-3 md:space-y-4">
                   {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3">
+                    <div key={i} className="flex items-start gap-2 md:gap-3 p-2 md:p-3">
                       <div className="w-4 h-4 bg-muted rounded-full"></div>
                       <div className="flex-1">
-                        <div className="h-4 bg-muted rounded w-3/4 mb-1"></div>
+                        <div className="h-3 md:h-4 bg-muted rounded w-3/4 mb-1"></div>
                         <div className="h-3 bg-muted rounded w-full mb-1"></div>
                         <div className="h-3 bg-muted rounded w-1/2"></div>
                       </div>
@@ -634,27 +635,27 @@ function AdminDashboard() {
               </CardContent>
             </Card>
           </div>
-          <div className="space-y-6">
+          <div className="space-y-3 md:space-y-6">
             <Card className="animate-pulse">
-              <CardHeader>
-                <div className="h-6 bg-muted rounded w-32"></div>
+              <CardHeader className="p-3 md:p-6">
+                <div className="h-5 md:h-6 bg-muted rounded w-24 md:w-32"></div>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <CardContent className="p-3 md:p-6 pt-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
                   {[...Array(4)].map((_, i) => (
-                    <div key={i} className="h-20 bg-muted rounded"></div>
+                    <div key={i} className="h-16 md:h-20 bg-muted rounded"></div>
                   ))}
                 </div>
               </CardContent>
             </Card>
             <Card className="animate-pulse">
-              <CardHeader>
-                <div className="h-6 bg-muted rounded w-32"></div>
+              <CardHeader className="p-3 md:p-6">
+                <div className="h-5 md:h-6 bg-muted rounded w-24 md:w-32"></div>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+              <CardContent className="p-3 md:p-6 pt-0">
+                <div className="space-y-2 md:space-y-3">
                   {[...Array(3)].map((_, i) => (
-                    <div key={i} className="h-16 bg-muted rounded"></div>
+                    <div key={i} className="h-12 md:h-16 bg-muted rounded"></div>
                   ))}
                 </div>
               </CardContent>
@@ -669,10 +670,10 @@ function AdminDashboard() {
     return (
       <div className="p-3 md:p-6">
         <Card>
-          <CardContent className="p-6 text-center">
-            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Failed to Load Dashboard</h2>
-            <p className="text-muted-foreground mb-4">
+          <CardContent className="p-3 md:p-6 text-center">
+            <AlertTriangle className="h-10 w-10 md:h-12 md:w-12 text-red-500 mx-auto mb-3 md:mb-4" />
+            <h2 className="text-lg md:text-xl font-semibold mb-2">Failed to Load Dashboard</h2>
+            <p className="text-sm text-muted-foreground mb-3 md:mb-4">
               There was an error loading the dashboard data. Please try refreshing the page.
             </p>
             <Button 
