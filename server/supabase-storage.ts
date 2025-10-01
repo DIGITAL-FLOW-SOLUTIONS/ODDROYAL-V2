@@ -1228,12 +1228,26 @@ export class SupabaseStorage implements IStorage {
       throw new Error(`Failed to get all bets: ${error.message}`);
     }
 
-    const bets = data?.map((bet: any) => ({
-      ...mappers.toBet(bet),
-      username: bet.users?.username,
-      email: bet.users?.email,
-      selections: bet.bet_selections?.map(mappers.toBetSelection) || []
-    })) || [];
+    const bets = data?.map((bet: any) => {
+      const mapped = mappers.toBet(bet);
+      return {
+        id: mapped.id,
+        userId: mapped.userId,
+        username: bet.users?.username || '',
+        userEmail: bet.users?.email || '',
+        betType: mapped.type,
+        totalStakeCents: mapped.totalStake,
+        potentialWinCents: mapped.potentialWinnings,
+        actualWinCents: mapped.actualWinnings,
+        status: mapped.status,
+        placedAt: mapped.placedAt,
+        settledAt: mapped.settledAt,
+        selectionsCount: bet.bet_selections?.length || 0,
+        selections: bet.bet_selections?.map(mappers.toBetSelection) || [],
+        totalOdds: mapped.totalOdds,
+        ipAddress: bet.ip_address
+      };
+    }) || [];
 
     return { 
       bets, 

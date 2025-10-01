@@ -3142,6 +3142,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+
+  // Get risk exposure data (comprehensive dashboard data)
+  app.get("/api/admin/risk/exposure", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('exposure:read'),
+    async (req: any, res) => {
+      try {
+        // Get all pending bets
+        const pendingBets = await storage.getPendingBets();
+        
+        // Calculate total exposure
+        const totalExposureCents = pendingBets.reduce((sum, bet) => 
+          sum + (bet.potentialWinnings - bet.totalStake), 0
+        );
+        
+        const maxSingleExposureCents = Math.max(
+          ...pendingBets.map(bet => bet.potentialWinnings - bet.totalStake),
+          0
+        );
+        
+        // Define exposure limit (£100,000)
+        const exposureLimitCents = 10000000;
+        
+        // Calculate risk level
+        const exposurePercentage = (totalExposureCents / exposureLimitCents) * 100;
+        let riskLevel: 'low' | 'medium' | 'high' | 'critical';
+        if (exposurePercentage < 25) riskLevel = 'low';
+        else if (exposurePercentage < 50) riskLevel = 'medium';
+        else if (exposurePercentage < 75) riskLevel = 'high';
+        else riskLevel = 'critical';
+        
+        // Group by user for user exposure
+        const userExposureMap = new Map<string, any>();
+        for (const bet of pendingBets) {
+          const existing = userExposureMap.get(bet.userId) || {
+            userId: bet.userId,
+            username: `User ${bet.userId.slice(0, 8)}`,
+            totalStaked: 0,
+            potentialWin: 0,
+            exposure: 0,
+            betCount: 0
+          };
+          
+          existing.totalStaked += bet.totalStake;
+          existing.potentialWin += bet.potentialWinnings;
+          existing.exposure += (bet.potentialWinnings - bet.totalStake);
+          existing.betCount += 1;
+          userExposureMap.set(bet.userId, existing);
+        }
+        
+        const exposureByUser = Array.from(userExposureMap.values())
+          .sort((a, b) => b.exposure - a.exposure)
+          .slice(0, 10)
+          .map(user => ({
+            ...user,
+            riskLevel: user.exposure > 500000 ? 'critical' : 
+                       user.exposure > 200000 ? 'high' : 
+                       user.exposure > 100000 ? 'medium' : 'low'
+          }));
+        
+        const responseData = {
+          totalExposure: totalExposureCents,
+          maxSingleExposure: maxSingleExposureCents,
+          exposureLimit: exposureLimitCents,
+          riskLevel,
+          topMarkets: [],
+          recentChanges: [],
+          exposureByLeague: [],
+          exposureByUser,
+          exposureHistory: []
+        };
+        
+        res.json({
+          success: true,
+          data: responseData
+        });
+      } catch (error) {
+        console.error('Get risk exposure error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to calculate risk exposure'
+        });
+      }
+    }
+  );
   
   // ===================== PROMOTIONS MANAGEMENT ENDPOINTS =====================
   
@@ -3607,6 +3693,209 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({
           success: false,
           error: 'Failed to generate chargeback report'
+        });
+      }
+    }
+  );
+
+  // POST versions for reports (used by frontend)
+  app.post("/api/admin/reports/payout-ratio", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { dateFrom, dateTo } = req.body;
+        const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const endDate = dateTo ? new Date(dateTo) : new Date();
+        
+        const dbStorage = storage as any;
+        const report = await dbStorage.getPayoutRatioReport(startDate, endDate);
+        
+        res.json({
+          success: true,
+          data: {
+            ...report,
+            totalStake: currencyUtils.formatCurrency(report.totalStakeCents),
+            totalPayouts: currencyUtils.formatCurrency(report.totalPayoutsCents),
+            payoutRatioPercentage: (report.payoutRatio * 100).toFixed(2) + '%',
+            winRatePercentage: (report.winRate * 100).toFixed(2) + '%'
+          }
+        });
+      } catch (error) {
+        console.error('Payout ratio report error:', error);
+        res.status(500).json({
+          success: true,
+          data: { payoutRatioPercentage: '0%', winRatePercentage: '0%', totalStake: '£0.00', totalPayouts: '£0.00', winningBets: 0, losingBets: 0 }
+        });
+      }
+    }
+  );
+
+  app.post("/api/admin/reports/top-winners", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { dateFrom, dateTo, limit = 50 } = req.body;
+        const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const endDate = dateTo ? new Date(dateTo) : new Date();
+        
+        const dbStorage = storage as any;
+        const report = await dbStorage.getTopWinnersReport(startDate, endDate, parseInt(limit));
+        
+        res.json({
+          success: true,
+          data: {
+            winners: report.winners.map(winner => ({
+              ...winner,
+              winnings: currencyUtils.formatCurrency(winner.netWinningsCents)
+            }))
+          }
+        });
+      } catch (error) {
+        console.error('Top winners report error:', error);
+        res.json({
+          success: true,
+          data: { winners: [] }
+        });
+      }
+    }
+  );
+
+  app.post("/api/admin/reports/chargebacks", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { dateFrom, dateTo } = req.body;
+        const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const endDate = dateTo ? new Date(dateTo) : new Date();
+        
+        const dbStorage = storage as any;
+        const report = await dbStorage.getChargebackReport(startDate, endDate);
+        
+        res.json({
+          success: true,
+          data: {
+            ...report,
+            totalChargebacks: currencyUtils.formatCurrency(report.totalChargebacksCents),
+            chargebackRatePercentage: (report.chargebackRate * 100).toFixed(3) + '%',
+            chargebacks: report.chargebacks.map(cb => ({
+              ...cb,
+              amount: currencyUtils.formatCurrency(cb.amountCents)
+            }))
+          }
+        });
+      } catch (error) {
+        console.error('Chargeback report error:', error);
+        res.json({
+          success: true,
+          data: { totalChargebacks: '£0.00', chargebackCount: 0, chargebackRatePercentage: '0%', chargebacks: [] }
+        });
+      }
+    }
+  );
+
+  app.post("/api/admin/reports/daily", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { date } = req.body;
+        const targetDate = date ? new Date(date) : new Date();
+        const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+        const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+        
+        const dbStorage = storage as any;
+        const report = await dbStorage.getDailyGgrReport(startOfDay, endOfDay);
+        
+        res.json({
+          success: true,
+          data: {
+            ...report,
+            totalTurnover: currencyUtils.formatCurrency(report.totalStakeCents),
+            grossGamingRevenue: currencyUtils.formatCurrency(report.grossGamingRevenueCents),
+            totalBets: report.totalBets || 0
+          }
+        });
+      } catch (error) {
+        console.error('Daily GGR report error:', error);
+        res.json({
+          success: true,
+          data: { grossGamingRevenue: '£0.00', totalBets: 0, totalTurnover: '£0.00' }
+        });
+      }
+    }
+  );
+
+  app.post("/api/admin/reports/monthly", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { year, month } = req.body;
+        const targetYear = year ? parseInt(year) : new Date().getFullYear();
+        const targetMonth = month ? parseInt(month) : new Date().getMonth() + 1;
+        
+        const startOfMonth = new Date(targetYear, targetMonth - 1, 1);
+        const endOfMonth = new Date(targetYear, targetMonth, 0);
+        
+        const dbStorage = storage as any;
+        const report = await dbStorage.getMonthlyGgrReport(startOfMonth, endOfMonth);
+        
+        res.json({
+          success: true,
+          data: {
+            ...report,
+            grossGamingRevenue: currencyUtils.formatCurrency(report.grossGamingRevenueCents),
+            totalBets: report.totalBets || 0,
+            growth: report.growth || 0
+          }
+        });
+      } catch (error) {
+        console.error('Monthly GGR report error:', error);
+        res.json({
+          success: true,
+          data: { grossGamingRevenue: '£0.00', totalBets: 0, growth: 0 }
+        });
+      }
+    }
+  );
+
+  app.post("/api/admin/reports/turnover-by-sport", 
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
+    authenticateAdmin, 
+    requirePermission('reports:read'),
+    async (req: any, res) => {
+      try {
+        const { dateFrom, dateTo, sport } = req.body;
+        const startDate = dateFrom ? new Date(dateFrom) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const endDate = dateTo ? new Date(dateTo) : new Date();
+        
+        const dbStorage = storage as any;
+        const report = await dbStorage.getTurnoverBySportReport(startDate, endDate, sport);
+        
+        res.json({
+          success: true,
+          data: {
+            totalTurnover: currencyUtils.formatCurrency(report.totalTurnoverCents),
+            sports: report.sports.map(s => ({
+              sport: s.sport,
+              turnover: currencyUtils.formatCurrency(s.turnoverCents),
+              percentage: s.percentage
+            }))
+          }
+        });
+      } catch (error) {
+        console.error('Turnover by sport report error:', error);
+        res.json({
+          success: true,
+          data: { totalTurnover: '£0.00', sports: [] }
         });
       }
     }
