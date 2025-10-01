@@ -4865,39 +4865,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const { limit = 50, offset = 0, status, isManual, leagueName } = req.query;
         
-        // Get all matches with optional filters
-        let matches = await storage.getAllMatches();
+        // Build params for storage layer to handle filtering at database level
+        const params: any = {
+          limit: parseInt(limit as string),
+          offset: parseInt(offset as string)
+        };
         
-        // Apply filters
+        // Map route params to storage params
         if (status && status !== 'all') {
-          matches = matches.filter(match => match.status === status);
+          params.status = status;
         }
         if (isManual === 'true') {
-          matches = matches.filter(match => match.isManual === true);
+          params.source = 'manual';
         }
         if (isManual === 'false') {
-          matches = matches.filter(match => match.isManual === false);
+          params.source = 'sportmonks';
         }
         if (leagueName) {
-          matches = matches.filter(match => 
-            match.leagueName.toLowerCase().includes(leagueName.toLowerCase())
-          );
+          params.league = leagueName; // Storage will handle league name search
         }
         
-        // Apply pagination
-        const totalMatches = matches.length;
-        const paginatedMatches = matches.slice(
-          parseInt(offset), 
-          parseInt(offset) + parseInt(limit)
-        );
+        // Get matches with database-level filtering
+        const matchesData = await storage.getAllMatches(params);
         
         res.json({
           success: true,
           data: {
-            matches: paginatedMatches,
-            total: totalMatches,
-            limit: parseInt(limit),
-            offset: parseInt(offset)
+            matches: matchesData.matches || [],
+            total: matchesData.total || 0,
+            limit: parseInt(limit as string),
+            offset: parseInt(offset as string)
           }
         });
       } catch (error) {

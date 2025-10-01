@@ -1308,19 +1308,545 @@ export class SupabaseStorage implements IStorage {
     limit?: number;
     offset?: number;
   }): Promise<{ matches: any[]; total: number }> {
-    // For now, return empty matches as this requires a matches table in the database
-    // This can be implemented when match management is fully set up
-    return { matches: [], total: 0 };
+    try {
+      let query = this.client
+        .from('matches')
+        .select('*, markets(id)', { count: 'exact' });
+
+      if (params?.status) {
+        query = query.eq('status', params.status);
+      }
+      if (params?.sport) {
+        query = query.eq('sport', params.sport);
+      }
+      if (params?.league) {
+        query = query.eq('league_id', params.league);
+      }
+      if (params?.source === 'manual') {
+        query = query.eq('is_manual', true);
+      } else if (params?.source === 'sportmonks') {
+        query = query.eq('is_manual', false);
+      }
+      if (params?.dateFrom) {
+        query = query.gte('kickoff_time', params.dateFrom.toISOString());
+      }
+      if (params?.dateTo) {
+        query = query.lte('kickoff_time', params.dateTo.toISOString());
+      }
+      if (params?.search) {
+        query = query.or(`home_team_name.ilike.%${params.search}%,away_team_name.ilike.%${params.search}%,league_name.ilike.%${params.search}%`);
+      }
+
+      const limit = params?.limit || 50;
+      const offset = params?.offset || 0;
+      query = query.range(offset, offset + limit - 1);
+      query = query.order('kickoff_time', { ascending: false });
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        throw new Error(`Failed to get matches: ${error.message}`);
+      }
+
+      const matches = data?.map((match: any) => ({
+        id: match.id,
+        externalId: match.external_id,
+        externalSource: match.external_source,
+        sport: match.sport,
+        sportId: match.sport_id,
+        sportName: match.sport_name,
+        leagueId: match.league_id,
+        leagueName: match.league_name,
+        homeTeamId: match.home_team_id,
+        homeTeamName: match.home_team_name,
+        awayTeamId: match.away_team_id,
+        awayTeamName: match.away_team_name,
+        kickoffTime: match.kickoff_time,
+        status: match.status,
+        homeScore: match.home_score,
+        awayScore: match.away_score,
+        isManual: match.is_manual,
+        createdBy: match.created_by,
+        updatedBy: match.updated_by,
+        createdAt: match.created_at,
+        updatedAt: match.updated_at,
+        marketsCount: match.markets?.length || 0
+      })) || [];
+
+      return { matches, total: count || 0 };
+    } catch (error: any) {
+      console.error('Error getting matches:', error);
+      return { matches: [], total: 0 };
+    }
   }
 
-  // All other stub methods with minimal implementations
-  async getMatchesByTeamsAndTime(): Promise<any[]> { return []; }
-  async createMatch(): Promise<any> { throw new Error("createMatch not implemented yet"); }
-  async getMatch(): Promise<any> { return null; }
-  async updateMatch(): Promise<any> { throw new Error("updateMatch not implemented yet"); }
-  async softDeleteMatch(): Promise<void> { throw new Error("softDeleteMatch not implemented yet"); }
-  async createMarket(): Promise<any> { throw new Error("createMarket not implemented yet"); }
-  async updateMarket(): Promise<any> { throw new Error("updateMarket not implemented yet"); }
+  async getMatchesByTeamsAndTime(homeTeamId: string, awayTeamId: string, kickoffTime: Date): Promise<any[]> {
+    try {
+      const { data, error } = await this.client
+        .from('matches')
+        .select('*')
+        .eq('home_team_id', homeTeamId)
+        .eq('away_team_id', awayTeamId)
+        .eq('kickoff_time', kickoffTime.toISOString());
+
+      if (error) {
+        throw new Error(`Failed to get matches by teams and time: ${error.message}`);
+      }
+
+      return data?.map((match: any) => ({
+        id: match.id,
+        externalId: match.external_id,
+        externalSource: match.external_source,
+        sport: match.sport,
+        leagueId: match.league_id,
+        leagueName: match.league_name,
+        homeTeamId: match.home_team_id,
+        homeTeamName: match.home_team_name,
+        awayTeamId: match.away_team_id,
+        awayTeamName: match.away_team_name,
+        kickoffTime: match.kickoff_time,
+        status: match.status,
+        homeScore: match.home_score,
+        awayScore: match.away_score,
+        isManual: match.is_manual
+      })) || [];
+    } catch (error: any) {
+      console.error('Error getting matches by teams and time:', error);
+      return [];
+    }
+  }
+
+  async createMatch(matchData: any): Promise<any> {
+    try {
+      const insertData: any = {
+        external_id: matchData.externalId,
+        external_source: matchData.externalSource,
+        sport: matchData.sport || 'football',
+        sport_id: matchData.sportId,
+        sport_name: matchData.sportName,
+        league_id: matchData.leagueId,
+        league_name: matchData.leagueName,
+        home_team_id: matchData.homeTeamId,
+        home_team_name: matchData.homeTeamName,
+        away_team_id: matchData.awayTeamId,
+        away_team_name: matchData.awayTeamName,
+        kickoff_time: matchData.kickoffTime,
+        status: matchData.status || 'scheduled',
+        home_score: matchData.homeScore,
+        away_score: matchData.awayScore,
+        is_manual: matchData.isManual || false,
+        created_by: matchData.adminId,
+        updated_by: matchData.adminId
+      };
+
+      const { data, error } = await this.client
+        .from('matches')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to create match: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        externalId: data.external_id,
+        externalSource: data.external_source,
+        sport: data.sport,
+        sportId: data.sport_id,
+        sportName: data.sport_name,
+        leagueId: data.league_id,
+        leagueName: data.league_name,
+        homeTeamId: data.home_team_id,
+        homeTeamName: data.home_team_name,
+        awayTeamId: data.away_team_id,
+        awayTeamName: data.away_team_name,
+        kickoffTime: data.kickoff_time,
+        status: data.status,
+        homeScore: data.home_score,
+        awayScore: data.away_score,
+        isManual: data.is_manual,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+    } catch (error: any) {
+      console.error('Error creating match:', error);
+      throw error;
+    }
+  }
+
+  async getMatch(id: string): Promise<any> {
+    try {
+      const { data, error } = await this.client
+        .from('matches')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') return null;
+        throw new Error(`Failed to get match: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        externalId: data.external_id,
+        externalSource: data.external_source,
+        sport: data.sport,
+        sportId: data.sport_id,
+        sportName: data.sport_name,
+        leagueId: data.league_id,
+        leagueName: data.league_name,
+        homeTeamId: data.home_team_id,
+        homeTeamName: data.home_team_name,
+        awayTeamId: data.away_team_id,
+        awayTeamName: data.away_team_name,
+        kickoffTime: data.kickoff_time,
+        status: data.status,
+        homeScore: data.home_score,
+        awayScore: data.away_score,
+        isManual: data.is_manual,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+    } catch (error: any) {
+      console.error('Error getting match:', error);
+      return null;
+    }
+  }
+
+  async updateMatch(id: string, updates: any): Promise<any> {
+    try {
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (updates.status !== undefined) updateData.status = updates.status;
+      if (updates.homeScore !== undefined) updateData.home_score = updates.homeScore;
+      if (updates.awayScore !== undefined) updateData.away_score = updates.awayScore;
+      if (updates.kickoffTime !== undefined) updateData.kickoff_time = updates.kickoffTime;
+      if (updates.adminId !== undefined) updateData.updated_by = updates.adminId;
+
+      const { data, error } = await this.client
+        .from('matches')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to update match: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        externalId: data.external_id,
+        externalSource: data.external_source,
+        sport: data.sport,
+        leagueId: data.league_id,
+        leagueName: data.league_name,
+        homeTeamId: data.home_team_id,
+        homeTeamName: data.home_team_name,
+        awayTeamId: data.away_team_id,
+        awayTeamName: data.away_team_name,
+        kickoffTime: data.kickoff_time,
+        status: data.status,
+        homeScore: data.home_score,
+        awayScore: data.away_score,
+        isManual: data.is_manual,
+        updatedAt: data.updated_at
+      };
+    } catch (error: any) {
+      console.error('Error updating match:', error);
+      throw error;
+    }
+  }
+
+  async softDeleteMatch(id: string, adminId: string): Promise<void> {
+    try {
+      await this.updateMatch(id, { 
+        status: 'cancelled',
+        adminId 
+      });
+    } catch (error: any) {
+      console.error('Error soft deleting match:', error);
+      throw error;
+    }
+  }
+
+  async getMatchMarkets(matchId: string): Promise<any[]> {
+    try {
+      const { data, error } = await this.client
+        .from('markets')
+        .select('*, market_outcomes(*)')
+        .eq('match_id', matchId)
+        .order('display_order', { ascending: true });
+
+      if (error) {
+        throw new Error(`Failed to get match markets: ${error.message}`);
+      }
+
+      return data?.map((market: any) => ({
+        id: market.id,
+        matchId: market.match_id,
+        name: market.name,
+        type: market.type,
+        line: market.line,
+        status: market.status,
+        displayOrder: market.display_order,
+        createdAt: market.created_at,
+        updatedAt: market.updated_at,
+        outcomes: market.market_outcomes?.map((outcome: any) => ({
+          id: outcome.id,
+          marketId: outcome.market_id,
+          name: outcome.name,
+          odds: outcome.odds,
+          isActive: outcome.is_active,
+          createdAt: outcome.created_at,
+          updatedAt: outcome.updated_at
+        })) || []
+      })) || [];
+    } catch (error: any) {
+      console.error('Error getting match markets:', error);
+      return [];
+    }
+  }
+
+  async createMarket(marketData: any): Promise<any> {
+    try {
+      const insertData: any = {
+        match_id: marketData.matchId,
+        name: marketData.name,
+        type: marketData.type,
+        line: marketData.line,
+        status: marketData.status || 'active',
+        display_order: marketData.displayOrder || 0
+      };
+
+      const { data, error } = await this.client
+        .from('markets')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to create market: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        matchId: data.match_id,
+        name: data.name,
+        type: data.type,
+        line: data.line,
+        status: data.status,
+        displayOrder: data.display_order,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+    } catch (error: any) {
+      console.error('Error creating market:', error);
+      throw error;
+    }
+  }
+
+  async createMarketWithOutcomes(marketData: any): Promise<any> {
+    try {
+      const market = await this.createMarket(marketData);
+      
+      if (marketData.outcomes && marketData.outcomes.length > 0) {
+        const outcomes = [];
+        for (const outcomeData of marketData.outcomes) {
+          const outcome = await this.createMarketOutcome({
+            marketId: market.id,
+            name: outcomeData.name,
+            odds: outcomeData.odds,
+            isActive: outcomeData.isActive !== false
+          });
+          outcomes.push(outcome);
+        }
+        market.outcomes = outcomes;
+      }
+
+      return market;
+    } catch (error: any) {
+      console.error('Error creating market with outcomes:', error);
+      throw error;
+    }
+  }
+
+  async createMarketOutcome(outcomeData: any): Promise<any> {
+    try {
+      const insertData: any = {
+        market_id: outcomeData.marketId,
+        name: outcomeData.name,
+        odds: outcomeData.odds,
+        is_active: outcomeData.isActive !== false
+      };
+
+      const { data, error } = await this.client
+        .from('market_outcomes')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to create market outcome: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        marketId: data.market_id,
+        name: data.name,
+        odds: data.odds,
+        isActive: data.is_active,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+    } catch (error: any) {
+      console.error('Error creating market outcome:', error);
+      throw error;
+    }
+  }
+
+  async updateMarket(id: string, updates: any): Promise<any> {
+    try {
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (updates.status !== undefined) updateData.status = updates.status;
+      if (updates.name !== undefined) updateData.name = updates.name;
+      if (updates.line !== undefined) updateData.line = updates.line;
+      if (updates.displayOrder !== undefined) updateData.display_order = updates.displayOrder;
+
+      const { data, error } = await this.client
+        .from('markets')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to update market: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        matchId: data.match_id,
+        name: data.name,
+        type: data.type,
+        line: data.line,
+        status: data.status,
+        displayOrder: data.display_order,
+        updatedAt: data.updated_at
+      };
+    } catch (error: any) {
+      console.error('Error updating market:', error);
+      throw error;
+    }
+  }
+
+  async updateMarketStatus(marketId: string, status: string): Promise<any> {
+    return this.updateMarket(marketId, { status });
+  }
+
+  async updateOutcomeOdds(outcomeId: string, odds: string): Promise<any> {
+    try {
+      const { data, error } = await this.client
+        .from('market_outcomes')
+        .update({ 
+          odds: parseFloat(odds),
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', outcomeId)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to update outcome odds: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        marketId: data.market_id,
+        name: data.name,
+        odds: data.odds,
+        isActive: data.is_active,
+        updatedAt: data.updated_at
+      };
+    } catch (error: any) {
+      console.error('Error updating outcome odds:', error);
+      throw error;
+    }
+  }
+
+  async createMatchEvent(eventData: any): Promise<any> {
+    try {
+      const insertData: any = {
+        match_id: eventData.matchId,
+        type: eventData.type,
+        team: eventData.team,
+        player_name: eventData.playerName,
+        minute: eventData.minute,
+        extra_info: eventData.extraInfo
+      };
+
+      const { data, error } = await this.client
+        .from('match_events')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to create match event: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        matchId: data.match_id,
+        type: data.type,
+        team: data.team,
+        playerName: data.player_name,
+        minute: data.minute,
+        extraInfo: data.extra_info,
+        createdAt: data.created_at
+      };
+    } catch (error: any) {
+      console.error('Error creating match event:', error);
+      throw error;
+    }
+  }
+
+  async getMatchEvents(matchId: string): Promise<any[]> {
+    try {
+      const { data, error } = await this.client
+        .from('match_events')
+        .select('*')
+        .eq('match_id', matchId)
+        .order('minute', { ascending: true });
+
+      if (error) {
+        throw new Error(`Failed to get match events: ${error.message}`);
+      }
+
+      return data?.map((event: any) => ({
+        id: event.id,
+        matchId: event.match_id,
+        type: event.type,
+        team: event.team,
+        playerName: event.player_name,
+        minute: event.minute,
+        extraInfo: event.extra_info,
+        createdAt: event.created_at
+      })) || [];
+    } catch (error: any) {
+      console.error('Error getting match events:', error);
+      return [];
+    }
+  }
+
   async getMatchExposure(): Promise<any> { return null; }
   async getMarketExposure(): Promise<any> { return null; }
   async getOverallExposure(): Promise<any> { return null; }
@@ -1334,4 +1860,224 @@ export class SupabaseStorage implements IStorage {
   async exportFinancialData(): Promise<any> { return null; }
   async getScheduledManualMatches(): Promise<any[]> { return []; }
   async getMatchWithEvents(): Promise<any> { return { match: null, events: [] }; }
+
+  async deleteMarket(marketId: string, adminId: string): Promise<void> {
+    try {
+      const { error } = await this.client
+        .from('markets')
+        .delete()
+        .eq('id', marketId);
+
+      if (error) {
+        throw new Error(`Failed to delete market: ${error.message}`);
+      }
+    } catch (error: any) {
+      console.error('Error deleting market:', error);
+      throw error;
+    }
+  }
+
+  async reorderMarkets(matchId: string, marketOrder: string[]): Promise<void> {
+    try {
+      for (let i = 0; i < marketOrder.length; i++) {
+        await this.updateMarket(marketOrder[i], { displayOrder: i });
+      }
+    } catch (error: any) {
+      console.error('Error reordering markets:', error);
+      throw error;
+    }
+  }
+
+  async getMarketOutcomes(marketId: string): Promise<any[]> {
+    try {
+      const { data, error } = await this.client
+        .from('market_outcomes')
+        .select('*')
+        .eq('market_id', marketId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        throw new Error(`Failed to get market outcomes: ${error.message}`);
+      }
+
+      return data?.map((outcome: any) => ({
+        id: outcome.id,
+        marketId: outcome.market_id,
+        name: outcome.name,
+        odds: outcome.odds,
+        isActive: outcome.is_active,
+        createdAt: outcome.created_at,
+        updatedAt: outcome.updated_at
+      })) || [];
+    } catch (error: any) {
+      console.error('Error getting market outcomes:', error);
+      return [];
+    }
+  }
+
+  async updateMarketOutcome(outcomeId: string, updates: any): Promise<any> {
+    try {
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (updates.odds !== undefined) updateData.odds = parseFloat(updates.odds);
+      if (updates.status !== undefined) updateData.is_active = updates.status === 'active';
+
+      const { data, error } = await this.client
+        .from('market_outcomes')
+        .update(updateData)
+        .eq('id', outcomeId)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to update market outcome: ${error.message}`);
+      }
+
+      return {
+        id: data.id,
+        marketId: data.market_id,
+        name: data.name,
+        odds: data.odds,
+        isActive: data.is_active,
+        updatedAt: data.updated_at
+      };
+    } catch (error: any) {
+      console.error('Error updating market outcome:', error);
+      throw error;
+    }
+  }
+
+  async getSports(): Promise<Array<{ id: string; name: string; displayName: string; matchCount: number }>> {
+    try {
+      const { data, error } = await this.client
+        .from('matches')
+        .select('sport, sport_name')
+        .order('sport');
+
+      if (error) {
+        throw new Error(`Failed to get sports: ${error.message}`);
+      }
+
+      const sportsMap = new Map<string, { name: string; count: number }>();
+      data?.forEach((match: any) => {
+        const sportId = match.sport || 'football';
+        const sportName = match.sport_name || 'Football';
+        if (!sportsMap.has(sportId)) {
+          sportsMap.set(sportId, { name: sportName, count: 0 });
+        }
+        sportsMap.set(sportId, {
+          name: sportsMap.get(sportId)!.name,
+          count: sportsMap.get(sportId)!.count + 1
+        });
+      });
+
+      return Array.from(sportsMap.entries()).map(([id, data]) => ({
+        id,
+        name: id,
+        displayName: data.name,
+        matchCount: data.count
+      }));
+    } catch (error: any) {
+      console.error('Error getting sports:', error);
+      return [];
+    }
+  }
+
+  async getLeagues(sportFilter?: string): Promise<Array<{ id: string; name: string; sport: string; matchCount: number }>> {
+    try {
+      let query = this.client
+        .from('matches')
+        .select('league_id, league_name, sport');
+
+      if (sportFilter) {
+        query = query.eq('sport', sportFilter);
+      }
+
+      const { data, error } = await query.order('league_name');
+
+      if (error) {
+        throw new Error(`Failed to get leagues: ${error.message}`);
+      }
+
+      const leaguesMap = new Map<string, { name: string; sport: string; count: number }>();
+      data?.forEach((match: any) => {
+        const leagueId = match.league_id;
+        if (!leaguesMap.has(leagueId)) {
+          leaguesMap.set(leagueId, {
+            name: match.league_name,
+            sport: match.sport || 'football',
+            count: 0
+          });
+        }
+        leaguesMap.set(leagueId, {
+          ...leaguesMap.get(leagueId)!,
+          count: leaguesMap.get(leagueId)!.count + 1
+        });
+      });
+
+      return Array.from(leaguesMap.entries()).map(([id, data]) => ({
+        id,
+        name: data.name,
+        sport: data.sport,
+        matchCount: data.count
+      }));
+    } catch (error: any) {
+      console.error('Error getting leagues:', error);
+      return [];
+    }
+  }
+
+  async updateMatchToLive(matchId: string): Promise<void> {
+    await this.updateMatch(matchId, { status: 'live' });
+  }
+
+  async updateMatchScore(matchId: string, homeScore: number, awayScore: number): Promise<void> {
+    await this.updateMatch(matchId, { homeScore, awayScore });
+  }
+
+  async markEventAsExecuted(eventId: string): Promise<void> {
+    return;
+  }
+
+  async suspendAllMarkets(matchId: string): Promise<void> {
+    try {
+      const { error } = await this.client
+        .from('markets')
+        .update({ status: 'suspended', updated_at: new Date().toISOString() })
+        .eq('match_id', matchId);
+
+      if (error) {
+        throw new Error(`Failed to suspend markets: ${error.message}`);
+      }
+    } catch (error: any) {
+      console.error('Error suspending markets:', error);
+      throw error;
+    }
+  }
+
+  async reopenAllMarkets(matchId: string): Promise<void> {
+    try {
+      const { error } = await this.client
+        .from('markets')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('match_id', matchId);
+
+      if (error) {
+        throw new Error(`Failed to reopen markets: ${error.message}`);
+      }
+    } catch (error: any) {
+      console.error('Error reopening markets:', error);
+      throw error;
+    }
+  }
+
+  async finishMatch(matchId: string, homeScore: number, awayScore: number): Promise<void> {
+    await this.updateMatch(matchId, { 
+      status: 'finished',
+      homeScore,
+      awayScore
+    });
+  }
 }
