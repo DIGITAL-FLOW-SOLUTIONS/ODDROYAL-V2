@@ -1577,6 +1577,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get Session Status
+  app.get("/api/admin/auth/session-status", authenticateAdmin, async (req: any, res) => {
+    try {
+      // If we reach here, the session is valid (authenticateAdmin would have rejected it otherwise)
+      const now = new Date();
+      const expiresAt = req.sessionMetadata?.expiresAt;
+      
+      if (!expiresAt) {
+        return res.status(500).json({
+          success: false,
+          error: 'Session metadata not available'
+        });
+      }
+      
+      // Calculate remaining time in milliseconds
+      const remainingMs = new Date(expiresAt).getTime() - now.getTime();
+      
+      res.json({
+        success: true,
+        data: {
+          valid: true,
+          remainingMs: Math.max(0, remainingMs),
+          expiresAt: expiresAt
+        }
+      });
+      
+    } catch (error) {
+      console.error('Get session status error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get session status'
+      });
+    }
+  });
+
   // ===================== RBAC API ENDPOINTS =====================
   
   // Helper function to get role descriptions
