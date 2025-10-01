@@ -56,6 +56,7 @@ export interface IStorage {
   ): Promise<Transaction>;
   updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction | undefined>;
   getUserTransactions(userId: string, limit?: number): Promise<Transaction[]>;
+  getAllTransactions(): Promise<Transaction[]>;
 
   // Session operations
   createSession(
@@ -897,6 +898,10 @@ export class MemStorage implements IStorage {
       .filter((transaction) => transaction.userId === userId)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit);
+  }
+
+  async getAllTransactions(): Promise<Transaction[]> {
+    return Array.from(this.transactions.values());
   }
 
   // Session operations

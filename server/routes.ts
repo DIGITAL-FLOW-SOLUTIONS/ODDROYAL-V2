@@ -1779,9 +1779,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const twoWeeksAgo = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
       
       // Get all data from storage
-      const allUsers = Array.from((storage as any).users.values());
-      const allBets = Array.from((storage as any).bets.values());
-      const allTransactions = Array.from((storage as any).transactions.values());
+      const allUsers = await storage.getAllUsers();
+      const { bets: allBets } = await storage.getAllBets({});
+      const allTransactions = await storage.getAllTransactions();
       const auditLogs = await storage.getAuditLogs(20);
       
       // User metrics
