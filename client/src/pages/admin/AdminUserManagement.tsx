@@ -172,11 +172,11 @@ export default function AdminUserManagement() {
       }
       // Add balance range filters (convert pounds to cents for API)
       if (filters.balanceMin) {
-        const minCents = currencyUtils.poundsToCents(filters.balanceMin);
+        const minCents = currencyUtils.poundsToCents(parseFloat(filters.balanceMin));
         params.append('balanceMin', minCents.toString());
       }
       if (filters.balanceMax) {
-        const maxCents = currencyUtils.poundsToCents(filters.balanceMax);
+        const maxCents = currencyUtils.poundsToCents(parseFloat(filters.balanceMax));
         params.append('balanceMax', maxCents.toString());
       }
       // Add date range filters
@@ -420,8 +420,8 @@ export default function AdminUserManagement() {
 
       {/* Search and Filters */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4 mb-4">
+        <CardContent className="p-3 md:p-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-4 mb-3 md:mb-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
@@ -435,6 +435,7 @@ export default function AdminUserManagement() {
             <Button
               variant="outline"
               onClick={() => setShowFilters(!showFilters)}
+              className="w-full sm:w-auto"
               data-testid="button-toggle-filters"
             >
               <Filter className="w-4 h-4 mr-2" />
@@ -454,9 +455,9 @@ export default function AdminUserManagement() {
               exit={{ height: 0, opacity: 0 }}
               className="border-t pt-4 space-y-4"
             >
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
                 <div>
-                  <Label htmlFor="status-filter">Status</Label>
+                  <Label htmlFor="status-filter" className="text-xs md:text-sm">Status</Label>
                   <Select
                     value={filters.status}
                     onValueChange={(value) => handleFilterChange('status', value)}
@@ -473,7 +474,7 @@ export default function AdminUserManagement() {
                 </div>
 
                 <div>
-                  <Label htmlFor="balance-min">Min Balance (£)</Label>
+                  <Label htmlFor="balance-min" className="text-xs md:text-sm">Min Balance (£)</Label>
                   <Input
                     id="balance-min"
                     type="number"
@@ -486,7 +487,7 @@ export default function AdminUserManagement() {
                 </div>
 
                 <div>
-                  <Label htmlFor="balance-max">Max Balance (£)</Label>
+                  <Label htmlFor="balance-max" className="text-xs md:text-sm">Max Balance (£)</Label>
                   <Input
                     id="balance-max"
                     type="number"
@@ -499,7 +500,7 @@ export default function AdminUserManagement() {
                 </div>
 
                 <div>
-                  <Label htmlFor="date-from">From Date</Label>
+                  <Label htmlFor="date-from" className="text-xs md:text-sm">From Date</Label>
                   <Input
                     id="date-from"
                     type="date"
@@ -510,7 +511,7 @@ export default function AdminUserManagement() {
                 </div>
 
                 <div>
-                  <Label htmlFor="date-to">To Date</Label>
+                  <Label htmlFor="date-to" className="text-xs md:text-sm">To Date</Label>
                   <Input
                     id="date-to"
                     type="date"
@@ -521,7 +522,7 @@ export default function AdminUserManagement() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button
                   variant="outline"
                   size="sm"
@@ -539,14 +540,14 @@ export default function AdminUserManagement() {
       {/* Bulk Actions */}
       {selectedUsers.size > 0 && (
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-muted-foreground">
+          <CardContent className="p-3 md:p-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                <span className="text-xs md:text-sm text-muted-foreground">
                   {selectedUsers.size} user{selectedUsers.size !== 1 ? 's' : ''} selected
                 </span>
-                <Separator orientation="vertical" className="h-6" />
-                <div className="flex items-center gap-2">
+                <Separator orientation="vertical" className="h-6 hidden sm:block" />
+                <div className="flex items-center gap-2 flex-wrap">
                   <Button
                     variant="outline"
                     size="sm"
@@ -571,6 +572,7 @@ export default function AdminUserManagement() {
                 variant="outline"
                 size="sm"
                 onClick={() => setSelectedUsers(new Set())}
+                className="w-full md:w-auto"
                 data-testid="button-clear-selection"
               >
                 Clear Selection
@@ -582,16 +584,16 @@ export default function AdminUserManagement() {
 
       {/* Users Table */}
       <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="flex items-center justify-between">
-            <span>Users ({totalUsers.toLocaleString()})</span>
+        <CardHeader className="p-3 md:p-6 pb-3 md:pb-4">
+          <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-4 text-base md:text-lg">
+            <span className="truncate">Users ({totalUsers.toLocaleString()})</span>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Show:</span>
+              <span className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">Show:</span>
               <Select
                 value={pagination.limit.toString()}
                 onValueChange={handleLimitChange}
               >
-                <SelectTrigger className="w-20" data-testid="select-items-per-page">
+                <SelectTrigger className="w-16 md:w-20" data-testid="select-items-per-page">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -606,14 +608,14 @@ export default function AdminUserManagement() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto scrollbar-thin">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
                       checked={selectedUsers.size === users.length && users.length > 0}
-                      onCheckedChange={handleSelectAll}
+                      onCheckedChange={(v) => handleSelectAll(!!v)}
                       data-testid="checkbox-select-all-users"
                     />
                   </TableHead>
@@ -752,18 +754,19 @@ export default function AdminUserManagement() {
       {/* Pagination */}
       {totalPages > 1 && (
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
+          <CardContent className="p-3 md:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-4">
+              <div className="text-xs md:text-sm text-muted-foreground truncate">
                 Showing {startItem.toLocaleString()} to {endItem.toLocaleString()} of {totalUsers.toLocaleString()} users
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 md:gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handlePageChange(1)}
                   disabled={pagination.page === 1}
                   data-testid="button-first-page"
+                  className="hidden sm:inline-flex"
                 >
                   <ChevronsLeft className="w-4 h-4" />
                 </Button>
@@ -776,7 +779,7 @@ export default function AdminUserManagement() {
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
-                <span className="text-sm">
+                <span className="text-xs md:text-sm whitespace-nowrap px-2">
                   Page {pagination.page} of {totalPages}
                 </span>
                 <Button
@@ -794,6 +797,7 @@ export default function AdminUserManagement() {
                   onClick={() => handlePageChange(totalPages)}
                   disabled={pagination.page === totalPages}
                   data-testid="button-last-page"
+                  className="hidden sm:inline-flex"
                 >
                   <ChevronsRight className="w-4 h-4" />
                 </Button>
@@ -805,16 +809,16 @@ export default function AdminUserManagement() {
 
       {/* User Detail Modal */}
       <Dialog open={showUserDetail} onOpenChange={setShowUserDetail}>
-        <DialogContent className="max-w-2xl" data-testid="dialog-user-detail">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-user-detail">
           <DialogHeader>
-            <DialogTitle>User Details</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base md:text-lg">User Details</DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">
               View detailed information about this user account
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-3 md:space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>
                   <Label>Username</Label>
                   <div className="text-sm font-medium">{selectedUser.username}</div>
