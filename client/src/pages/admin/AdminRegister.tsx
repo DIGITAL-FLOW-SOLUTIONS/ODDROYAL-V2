@@ -36,7 +36,7 @@ function AdminRegister() {
     enabled: !isAuthenticated,
   });
 
-  const adminsExist = adminsCheckData?.data?.adminsExist ?? true;
+  const adminsExist = adminsCheckData?.data?.adminsExist ?? false;
 
   // Redirect unauthenticated users to login ONLY if admins already exist
   useEffect(() => {

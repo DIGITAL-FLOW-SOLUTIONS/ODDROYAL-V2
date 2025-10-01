@@ -23,12 +23,8 @@ function AdminRouter() {
       {/* Admin Login - Not protected */}
       <Route path="/prime-admin/login" component={AdminLogin} />
       
-      {/* Admin Register - Protected for superadmin only */}
-      <Route path="/prime-admin/register">
-        <AdminAuthGuard>
-          <AdminRegister />
-        </AdminAuthGuard>
-      </Route>
+      {/* Admin Register - Handles its own auth logic (allows first admin creation) */}
+      <Route path="/prime-admin/register" component={AdminRegister} />
       
       {/* Protected Admin Routes */}
       <Route path="/prime-admin">
