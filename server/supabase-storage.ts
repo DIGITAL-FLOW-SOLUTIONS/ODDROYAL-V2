@@ -1018,8 +1018,38 @@ export class SupabaseStorage implements IStorage {
     throw new Error("disableAdmin2FA not implemented yet");
   }
 
-  async getAdminUsers(limit?: number, offset?: number): Promise<AdminUser[]> {
-    throw new Error("getAdminUsers not implemented yet");
+  async getAdminUsers(limit: number = 50, offset: number = 0): Promise<AdminUser[]> {
+    try {
+      const { data, error } = await this.client
+        .from('admin_users')
+        .select('*')
+        .range(offset, offset + limit - 1)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw new Error(`Failed to get admin users: ${error.message}`);
+      }
+
+      return (data || []).map(admin => ({
+        id: admin.id,
+        username: admin.username,
+        email: admin.email,
+        passwordHash: admin.password_hash,
+        role: admin.role,
+        totpSecret: admin.totp_secret,
+        isActive: admin.is_active,
+        lastLogin: admin.last_login,
+        loginAttempts: admin.login_attempts,
+        lockedUntil: admin.locked_until,
+        ipWhitelist: admin.ip_whitelist,
+        createdAt: admin.created_at,
+        updatedAt: admin.updated_at,
+        createdBy: admin.created_by
+      }));
+    } catch (error) {
+      console.error('Error fetching admin users:', error);
+      throw error;
+    }
   }
 
   async getAdminsByRole(role: string): Promise<AdminUser[]> {

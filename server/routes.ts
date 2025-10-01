@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { supabaseAdmin } from "./supabase";
 import { pdfReportService } from "./pdf-service";
@@ -1255,26 +1256,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Admin Registration - Requires special registration code
+  // Admin Registration - Requires special registration code (bootstrap) or authenticated admin
   app.post("/api/admin/auth/register", async (req, res) => {
     try {
       const validatedData = adminRegistrationSchema.parse(req.body);
       
-      // Verify registration code against environment variable
-      const SUPER_ADMIN_REGISTRATION_CODE = process.env.SUPER_ADMIN_REGISTRATION_CODE;
-      if (!SUPER_ADMIN_REGISTRATION_CODE) {
-        console.error('SUPER_ADMIN_REGISTRATION_CODE environment variable is not set');
-        return res.status(500).json({
-          success: false,
-          error: 'Server configuration error'
-        });
-      }
+      // Check if any admins exist in the system
+      const existingAdmins = await storage.getAdminUsers(1, 0);
+      const adminsExist = existingAdmins.length > 0;
       
-      if (validatedData.registrationCode !== SUPER_ADMIN_REGISTRATION_CODE) {
-        return res.status(403).json({
-          success: false,
-          error: 'Invalid registration code'
-        });
+      // If admins exist, require authenticated superadmin (NOT code-based registration)
+      if (adminsExist) {
+        // This should be an authenticated endpoint - require admin session
+        // For now, reject code-based registration when admins exist
+        if (validatedData.registrationCode) {
+          // Check if request has admin authentication
+          const adminSessionToken = req.headers.authorization?.split(' ')[1] || req.cookies?.admin_session;
+          
+          if (!adminSessionToken) {
+            return res.status(401).json({
+              success: false,
+              error: 'Authentication required. Admin registration code is only valid during initial setup.'
+            });
+          }
+          
+          // Verify admin session
+          const session = await storage.getAdminSessionByToken(adminSessionToken);
+          if (!session || new Date(session.expiresAt) < new Date()) {
+            return res.status(401).json({
+              success: false,
+              error: 'Invalid or expired session'
+            });
+          }
+          
+          // Get admin user
+          const adminUser = await storage.getAdminUser(session.adminId);
+          if (!adminUser || !adminUser.isActive || adminUser.role !== 'superadmin') {
+            return res.status(403).json({
+              success: false,
+              error: 'Only active superadmins can create new admin accounts'
+            });
+          }
+          
+          // Verify registration code for authenticated admins
+          const SUPER_ADMIN_REGISTRATION_CODE = process.env.SUPER_ADMIN_REGISTRATION_CODE;
+          if (!SUPER_ADMIN_REGISTRATION_CODE) {
+            console.error('SUPER_ADMIN_REGISTRATION_CODE environment variable is not set');
+            return res.status(500).json({
+              success: false,
+              error: 'Server configuration error'
+            });
+          }
+          
+          // Use constant-time comparison for security
+          const codeBuffer = Buffer.from(validatedData.registrationCode);
+          const expectedBuffer = Buffer.from(SUPER_ADMIN_REGISTRATION_CODE);
+          
+          if (codeBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(codeBuffer, expectedBuffer)) {
+            return res.status(403).json({
+              success: false,
+              error: 'Invalid registration code'
+            });
+          }
+        } else {
+          return res.status(401).json({
+            success: false,
+            error: 'Authentication required'
+          });
+        }
+      } else {
+        // Bootstrap mode: No admins exist, allow code-based registration
+        const SUPER_ADMIN_REGISTRATION_CODE = process.env.SUPER_ADMIN_REGISTRATION_CODE;
+        if (!SUPER_ADMIN_REGISTRATION_CODE) {
+          console.error('SUPER_ADMIN_REGISTRATION_CODE environment variable is not set');
+          return res.status(500).json({
+            success: false,
+            error: 'Server configuration error. Super admin registration code must be configured.'
+          });
+        }
+        
+        // Use constant-time comparison for security
+        const codeBuffer = Buffer.from(validatedData.registrationCode);
+        const expectedBuffer = Buffer.from(SUPER_ADMIN_REGISTRATION_CODE);
+        
+        if (codeBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(codeBuffer, expectedBuffer)) {
+          return res.status(403).json({
+            success: false,
+            error: 'Invalid registration code'
+          });
+        }
       }
       
       // Check if username already exists
