@@ -2,6 +2,16 @@
 
 OddRoyal is a premium sports betting web application featuring real-time sports data, live odds, and a comprehensive betting interface. The platform focuses on football (soccer) betting with live match tracking, pre-match odds, and an integrated bet slip system. Built as a modern full-stack application with React frontend and Express backend, it integrates with SportMonks API for live sports data and features a mobile-first, dark-themed design optimized for quick betting decisions.
 
+# Recent Changes
+
+## October 1, 2025 - Admin Panel Production Fixes
+- **Storage Layer**: Implemented missing SupabaseStorage methods (`getAllUsers`, `getAllBets`, `getAllMatches`, `getActiveAdminSessions`) to replace MemStorage for production use
+- **API Endpoints**: Fixed `/api/admin/customers` to use `storage.getAllUsers()` instead of accessing internal MemStorage Maps
+- **Frontend Response Handling**: Updated all admin pages (AdminSettlement, AdminSecurity, AdminRiskExposure, AdminReports) to properly extract `.data` property from API responses
+- **Cache Invalidation**: Fixed AdminSettlement to properly invalidate both `/api/admin/settlement/pending` and `/api/admin/settlement/history` query keys after mutations
+- **TypeScript Fixes**: Resolved implicit `any` type errors and optional chaining issues across admin pages
+- **Production Note**: The admin panel at `/prime-admin` now uses SupabaseStorage exclusively for all operations
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -20,7 +30,8 @@ Preferred communication style: Simple, everyday language.
 - **Framework**: Express.js with TypeScript, configured for both development and production
 - **Data Layer**: Drizzle ORM for database operations with PostgreSQL support
 - **API Structure**: RESTful endpoints for fixtures, odds, and health checks
-- **Data Storage**: In-memory storage implementation with interface for future database integration
+- **Data Storage**: SupabaseStorage (PostgreSQL) used in production for all CRUD operations
+- **Admin System**: Full-featured admin panel at `/prime-admin` with authentication, RBAC, and comprehensive management tools
 
 ## Database Design
 - **ORM**: Drizzle with PostgreSQL dialect
