@@ -1055,8 +1055,37 @@ export class SupabaseStorage implements IStorage {
     }
   }
 
-  async getAuditLogs(limit?: number, offset?: number): Promise<AuditLog[]> {
-    throw new Error("getAuditLogs not implemented yet");
+  async getAuditLogs(limit: number = 50, offset: number = 0): Promise<AuditLog[]> {
+    try {
+      const { data, error } = await this.client
+        .from('audit_logs')
+        .select('*')
+        .range(offset, offset + limit - 1)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw new Error(`Failed to get audit logs: ${error.message}`);
+      }
+
+      return (data || []).map(log => ({
+        id: log.id,
+        adminId: log.admin_id,
+        actionType: log.action_type,
+        targetType: log.target_type,
+        targetId: log.target_id,
+        dataBefore: log.data_before,
+        dataAfter: log.data_after,
+        ipAddress: log.ip_address,
+        userAgent: log.user_agent,
+        note: log.note,
+        success: log.success,
+        errorMessage: log.error_message,
+        createdAt: log.created_at
+      }));
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      throw error;
+    }
   }
 
   async enableAdmin2FA(adminId: string, totpSecret: string): Promise<AdminUser | undefined> {

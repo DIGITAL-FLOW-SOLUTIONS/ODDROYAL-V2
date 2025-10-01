@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,10 +30,11 @@ function AdminLogin() {
   const [loginAttempted, setLoginAttempted] = useState(false);
 
   // Redirect if already authenticated
-  if (isAuthenticated) {
-    setLocation('/prime-admin');
-    return null;
-  }
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLocation('/prime-admin');
+    }
+  }, [isAuthenticated, setLocation]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

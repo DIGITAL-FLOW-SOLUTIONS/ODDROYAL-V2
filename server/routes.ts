@@ -1919,7 +1919,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: 'bet_placed',
           title: 'New Bet Placed',
           description: `${bet.type} bet for £${(bet.totalStake / 100).toFixed(2)}`,
-          timestamp: bet.placedAt.toISOString(),
+          timestamp: typeof bet.placedAt === 'string' ? bet.placedAt : bet.placedAt.toISOString(),
           userId: bet.userId,
           betId: bet.id,
           amount: bet.totalStake,
@@ -1938,7 +1938,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: 'user_registered',
           title: 'New User Registration',
           description: `User ${user.username} registered`,
-          timestamp: user.createdAt.toISOString(),
+          timestamp: typeof user.createdAt === 'string' ? user.createdAt : user.createdAt.toISOString(),
           userId: user.id,
           severity: 'success'
         });
@@ -1951,7 +1951,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           type: 'admin_action',
           title: 'Admin Action',
           description: log.actionType.replace('_', ' ').toUpperCase(),
-          timestamp: log.timestamp.toISOString(),
+          timestamp: typeof log.createdAt === 'string' ? log.createdAt : log.createdAt.toISOString(),
           adminId: log.adminId,
           severity: 'info'
         });
