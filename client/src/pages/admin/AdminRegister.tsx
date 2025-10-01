@@ -38,6 +38,46 @@ function AdminRegister() {
 
   const adminsExist = adminsCheckData?.data?.adminsExist ?? false;
 
+  // Form setup with validation - MUST be at top level (before any conditional returns)
+  const form = useForm<AdminRegistration>({
+    resolver: zodResolver(adminRegistrationSchema),
+    mode: "onChange",
+    defaultValues: {
+      registrationCode: "",
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    }
+  });
+
+  // Registration mutation - MUST be at top level (before any conditional returns)
+  const registerMutation = useMutation({
+    mutationFn: async (data: AdminRegistration) => {
+      const response = await apiRequest('POST', '/api/admin/auth/register', data);
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      setRegistrationSuccess(true);
+      toast({
+        title: "Admin Created Successfully",
+        description: `Admin user "${data.data.admin.username}" has been created. They can now login with their credentials.`,
+      });
+      form.reset();
+      // Auto-redirect after 3 seconds
+      setTimeout(() => {
+        setLocation('/prime-admin/users');
+      }, 3000);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Registration Failed",
+        description: error.message || "An error occurred while creating the admin user.",
+        variant: "destructive"
+      });
+    }
+  });
+
   // Redirect unauthenticated users to login ONLY if admins already exist
   useEffect(() => {
     if (!isAuthenticated && adminsExist && !checkingAdmins) {
@@ -54,6 +94,15 @@ function AdminRegister() {
     // Just verify the code is entered, actual validation happens on backend
     setCodeVerified(true);
     setCodeError("");
+  };
+
+  const onSubmit = (data: AdminRegistration) => {
+    // If unauthenticated (first admin), use the verified super admin code
+    const submissionData = !isAuthenticated && !adminsExist 
+      ? { ...data, registrationCode: superAdminCode }
+      : data;
+    
+    registerMutation.mutate(submissionData);
   };
 
   // If checking admins, show loading
@@ -164,55 +213,6 @@ function AdminRegister() {
       </div>
     );
   }
-
-  // Form setup with validation
-  const form = useForm<AdminRegistration>({
-    resolver: zodResolver(adminRegistrationSchema),
-    mode: "onChange", // Enable real-time validation
-    defaultValues: {
-      registrationCode: "",
-      username: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    }
-  });
-
-  // Registration mutation
-  const registerMutation = useMutation({
-    mutationFn: async (data: AdminRegistration) => {
-      const response = await apiRequest('POST', '/api/admin/auth/register', data);
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      setRegistrationSuccess(true);
-      toast({
-        title: "Admin Created Successfully",
-        description: `Admin user "${data.data.admin.username}" has been created. They can now login with their credentials.`,
-      });
-      form.reset();
-      // Auto-redirect after 3 seconds
-      setTimeout(() => {
-        setLocation('/prime-admin/users');
-      }, 3000);
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Registration Failed",
-        description: error.message || "An error occurred while creating the admin user.",
-        variant: "destructive"
-      });
-    }
-  });
-
-  const onSubmit = (data: AdminRegistration) => {
-    // If unauthenticated (first admin), use the verified super admin code
-    const submissionData = !isAuthenticated && !adminsExist 
-      ? { ...data, registrationCode: superAdminCode }
-      : data;
-    
-    registerMutation.mutate(submissionData);
-  };
 
   if (registrationSuccess) {
     return (
