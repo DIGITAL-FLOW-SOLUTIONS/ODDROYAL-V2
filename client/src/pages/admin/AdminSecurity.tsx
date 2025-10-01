@@ -66,22 +66,25 @@ export default function AdminSecurity() {
   const [selectedSession, setSelectedSession] = useState<AdminSession | null>(null);
 
   // Fetch IP allowlist
-  const { data: ipAllowlist = [], refetch: refetchIPAllowlist } = useQuery<IPAllowlistEntry[]>({
+  const { data: ipAllowlistResponse, refetch: refetchIPAllowlist } = useQuery({
     queryKey: ['/api/admin/security/ip-allowlist'],
     refetchInterval: 30000,
   });
+  const ipAllowlist = (ipAllowlistResponse as any)?.data || [];
 
   // Fetch active admin sessions
-  const { data: activeSessions = [], refetch: refetchSessions } = useQuery<AdminSession[]>({
+  const { data: activeSessionsResponse, refetch: refetchSessions } = useQuery({
     queryKey: ['/api/admin/security/sessions'],
     refetchInterval: 10000,
   });
+  const activeSessions = (activeSessionsResponse as any)?.data || [];
 
   // Fetch system status
-  const { data: systemStatus, refetch: refetchSystemStatus } = useQuery<SystemStatus>({
+  const { data: systemStatusResponse, refetch: refetchSystemStatus } = useQuery({
     queryKey: ['/api/admin/security/system-status'],
     refetchInterval: 5000,
   });
+  const systemStatus = (systemStatusResponse as any)?.data;
 
   // Add IP to allowlist mutation
   const addIPMutation = useMutation({
@@ -413,7 +416,7 @@ export default function AdminSecurity() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {ipAllowlist.map((entry) => (
+                    {ipAllowlist.map((entry: any) => (
                       <TableRow key={entry.id}>
                         <TableCell className="font-mono">{entry.ipAddress}</TableCell>
                         <TableCell>{entry.description}</TableCell>
@@ -466,7 +469,7 @@ export default function AdminSecurity() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {activeSessions.map((session) => (
+                  {activeSessions.map((session: any) => (
                     <TableRow key={session.id}>
                       <TableCell className="font-medium">{session.username}</TableCell>
                       <TableCell>

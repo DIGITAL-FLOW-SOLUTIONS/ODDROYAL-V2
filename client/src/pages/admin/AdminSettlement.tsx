@@ -90,26 +90,30 @@ export default function AdminSettlement() {
   });
 
   // Fetch pending bets for settlement
-  const { data: pendingBets = [], refetch: refetchPendingBets } = useQuery<SettlementBet[]>({
+  const { data: pendingBetsResponse, refetch: refetchPendingBets } = useQuery({
     queryKey: ['/api/admin/settlement/pending'],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+  const pendingBets = (pendingBetsResponse as any)?.data?.bets || [];
 
   // Fetch reconciliation issues
-  const { data: reconciliationIssues = [], refetch: refetchIssues } = useQuery<ReconciliationIssue[]>({
+  const { data: reconciliationIssuesResponse, refetch: refetchIssues } = useQuery({
     queryKey: ['/api/admin/settlement/reconciliation-issues']
   });
+  const reconciliationIssues = (reconciliationIssuesResponse as any)?.data || [];
 
   // Fetch settlement worker status
-  const { data: workerStatus, refetch: refetchWorkerStatus } = useQuery<SettlementWorkerStatus>({
+  const { data: workerStatusResponse, refetch: refetchWorkerStatus } = useQuery({
     queryKey: ['/api/admin/settlement/worker-status'],
     refetchInterval: 10000, // Refresh every 10 seconds
   });
+  const workerStatus = (workerStatusResponse as any)?.data;
 
   // Fetch settlement history
-  const { data: settlementHistory = [] } = useQuery<SettlementBet[]>({
+  const { data: settlementHistoryResponse } = useQuery({
     queryKey: ['/api/admin/settlement/history', searchFilters],
   });
+  const settlementHistory = (settlementHistoryResponse as any)?.data?.bets || [];
 
   // Force settle bet mutation
   const forceSettleMutation = useMutation({
@@ -128,7 +132,8 @@ export default function AdminSettlement() {
       setForceSettleDialogOpen(false);
       setSelectedBet(null);
       setSettlementReason("");
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/settlement'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/settlement/pending'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/settlement/history'] });
     },
     onError: (error) => {
       toast({

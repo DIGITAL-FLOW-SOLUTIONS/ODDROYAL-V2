@@ -156,7 +156,7 @@ export default function AdminRiskExposure() {
   });
 
   // Fetch exposure data with real-time updates
-  const { data: exposureData, isLoading, error, refetch } = useQuery<ExposureData>({
+  const { data: exposureDataResponse, isLoading, error, refetch } = useQuery({
     queryKey: ['/api/admin/risk/exposure', filters],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -170,6 +170,8 @@ export default function AdminRiskExposure() {
     refetchInterval: refreshInterval,
     staleTime: 5000, // Consider data stale after 5 seconds
   });
+  
+  const exposureData = (exposureDataResponse as any)?.data as ExposureData | undefined;
 
   // Mutations
   const suspendMarketMutation = useMutation({

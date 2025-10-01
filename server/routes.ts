@@ -2588,8 +2588,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { limit = 50, offset = 0, search, isActive } = req.query;
       
-      // Get all users from database
-      const allUsers = Array.from(((await storage as any).users as Map<string, User>).values());
+      // Get all users from database using storage method
+      const allUsers = await storage.getAllUsers();
       let filteredUsers = allUsers;
       
       // Apply filters
@@ -2607,7 +2607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const total = filteredUsers.length;
       const users = filteredUsers
-        .slice(parseInt(offset), parseInt(offset) + parseInt(limit))
+        .slice(parseInt(offset as string), parseInt(offset as string) + parseInt(limit as string))
         .map(user => ({
           id: user.id,
           username: user.username,

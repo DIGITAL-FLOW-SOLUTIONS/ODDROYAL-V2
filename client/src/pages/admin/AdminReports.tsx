@@ -635,7 +635,7 @@ export default function AdminReports() {
                       </div>
                     </div>
 
-                    {chargebacks?.data?.chargebacks?.length > 0 && (
+                    {(chargebacks?.data?.chargebacks?.length || 0) > 0 && (
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -646,7 +646,7 @@ export default function AdminReports() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {chargebacks.data.chargebacks.map((chargeback: any, index: number) => (
+                          {chargebacks?.data?.chargebacks?.map((chargeback: any, index: number) => (
                             <TableRow key={index} data-testid={`row-chargeback-${index}`}>
                               <TableCell>{chargeback.userId}</TableCell>
                               <TableCell className="text-red-600">{chargeback.amount}</TableCell>
