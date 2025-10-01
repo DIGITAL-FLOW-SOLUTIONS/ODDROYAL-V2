@@ -156,14 +156,20 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    const url = queryKey.join("/") as string;
     const authToken = localStorage.getItem('authToken');
+    const adminAuthToken = localStorage.getItem('adminAuthToken');
     const headers: Record<string, string> = {};
     
-    if (authToken) {
+    // Use admin token for admin routes, regular token for user routes
+    const isAdminRoute = url.startsWith('/api/admin');
+    if (isAdminRoute && adminAuthToken) {
+      headers['Authorization'] = `Bearer ${adminAuthToken}`;
+    } else if (!isAdminRoute && authToken) {
       headers['Authorization'] = `Bearer ${authToken}`;
     }
 
-    const res = await fetch(queryKey.join("/") as string, {
+    const res = await fetch(url, {
       credentials: "include",
       headers,
     });
