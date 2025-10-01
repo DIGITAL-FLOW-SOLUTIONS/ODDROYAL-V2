@@ -401,6 +401,42 @@ export class SupabaseStorage implements IStorage {
     return data?.map(mappers.toTransaction) || [];
   }
 
+  async getAllTransactions(): Promise<Transaction[]> {
+    const { data, error } = await this.client
+      .from('transactions')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to get all transactions: ${error.message}`);
+    }
+
+    return data?.map(mappers.toTransaction) || [];
+  }
+
+  async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction | undefined> {
+    const updateData: any = {};
+    
+    if (updates.status !== undefined) updateData.status = updates.status;
+    if (updates.type !== undefined) updateData.type = updates.type;
+    if (updates.amount !== undefined) updateData.amount = updates.amount;
+    if (updates.description !== undefined) updateData.description = updates.description;
+
+    const { data, error } = await this.client
+      .from('transactions')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return undefined;
+      throw new Error(`Failed to update transaction: ${error.message}`);
+    }
+
+    return data ? mappers.toTransaction(data) : undefined;
+  }
+
   // ===================== PLACEHOLDER METHODS (TODO) =====================
 
   // Atomic bet placement using individual operations
