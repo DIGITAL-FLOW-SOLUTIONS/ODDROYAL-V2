@@ -181,8 +181,9 @@ async function withTimeout<T>(
           ).catch(err => {
             console.warn("⚠️ Admin user creation timeout:", err.message);
           });
-        } else if (isDemoMode) {
-          // In demo/dev mode, create default admin
+        } else if (false && isDemoMode) {
+          // COMMENTED OUT: In demo/dev mode, create default admin
+          // Disabled to allow testing first-time admin registration
           console.log("🔑 Creating default super admin user (demo mode)...");
           await withTimeout(
             createSuperAdminUser(),
