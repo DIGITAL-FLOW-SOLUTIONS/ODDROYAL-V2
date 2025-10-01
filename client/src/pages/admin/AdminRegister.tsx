@@ -41,12 +41,25 @@ function AdminRegister() {
   // For first-time setup, make registrationCode optional in validation
   // but we'll add it back in the submit handler
   const formSchema = (!isAuthenticated && !adminsExist)
-    ? adminRegistrationSchema.omit({ registrationCode: true })
+    ? z.object({
+        registrationCode: z.string().optional(), // Make it optional for first-time setup
+        username: z.string().min(3).max(50).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
+        email: z.string().email("Please enter a valid email address"),
+        password: z.string()
+          .min(8, "Password must be at least 8 characters long")
+          .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+          .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+          .regex(/[0-9]/, "Password must contain at least one number"),
+        confirmPassword: z.string()
+      }).refine((data) => data.password === data.confirmPassword, {
+        message: "Passwords do not match",
+        path: ["confirmPassword"],
+      })
     : adminRegistrationSchema;
 
   // Form setup with validation - MUST be at top level (before any conditional returns)
-  const form = useForm<AdminRegistration>({
-    resolver: zodResolver(formSchema as any),
+  const form = useForm({
+    resolver: zodResolver(formSchema),
     mode: "onChange",
     defaultValues: {
       registrationCode: "",
