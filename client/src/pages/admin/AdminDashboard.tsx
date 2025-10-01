@@ -562,7 +562,7 @@ function AdminDashboard() {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="p-6 space-y-6"
+        className="p-3 md:p-6 space-y-4 md:space-y-6"
       >
         {/* Header Skeleton */}
         <motion.div variants={itemVariants}>
@@ -667,7 +667,7 @@ function AdminDashboard() {
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-3 md:p-6">
         <Card>
           <CardContent className="p-6 text-center">
             <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -702,20 +702,20 @@ function AdminDashboard() {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="p-6 space-y-6"
+      className="p-3 md:p-6 space-y-4 md:space-y-6"
     >
       {/* Header */}
       <motion.div variants={itemVariants}>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold" data-testid="text-admin-dashboard-title">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl md:text-3xl font-bold truncate" data-testid="text-admin-dashboard-title">
               Admin Dashboard
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground truncate">
               Welcome back, {admin?.username}. Real-time insights for OddRoyal.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
             <Badge 
               variant={metrics?.systemStatus === 'operational' ? 'default' : 'destructive'}
               className="flex items-center gap-1"
@@ -753,7 +753,7 @@ function AdminDashboard() {
       </motion.div>
 
       {/* Key Metrics Grid */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         <MetricCard
           title="Total Users"
           value={metrics?.totalUsers || 0}
@@ -800,7 +800,7 @@ function AdminDashboard() {
       </motion.div>
 
       {/* Financial Overview */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
         <MetricCard
           title="Weekly Revenue (GGR)"
           value={metrics?.ggrThisWeekCents ? formatCurrency(metrics.ggrThisWeekCents) : '£0'}
@@ -843,7 +843,7 @@ function AdminDashboard() {
       </motion.div>
 
       {/* Charts Section */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-6">
         <ChartCard
           title="Bet Volume Trend"
           data={trends?.betVolume || []}
@@ -861,7 +861,7 @@ function AdminDashboard() {
         />
       </motion.div>
 
-      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-6">
         <ChartCard
           title="User Registrations"
           data={trends?.userRegistrations || []}
@@ -880,12 +880,12 @@ function AdminDashboard() {
       </motion.div>
 
       {/* Activity and Actions */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-6">
         <div className="lg:col-span-2">
           <ActivityFeed activities={recentActivity} />
         </div>
         
-        <div className="space-y-6">
+        <div className="space-y-3 md:space-y-6">
           <QuickActions actions={quickActions} />
           <SystemAlerts alerts={systemAlerts} />
         </div>
@@ -894,16 +894,16 @@ function AdminDashboard() {
       {/* Footer Info */}
       <motion.div variants={itemVariants}>
         <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>Last updated: {lastRefresh.toLocaleTimeString()}</span>
-                <Separator orientation="vertical" className="h-4" />
-                <span>Auto-refresh: 30s</span>
-                <Separator orientation="vertical" className="h-4" />
-                <span>Connected clients: {dashboardData?.connectedClients || 0}</span>
-                <Separator orientation="vertical" className="h-4" />
-                <span>WebSocket: {connectionStatus}</span>
+          <CardContent className="p-3 md:p-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-3">
+              <div className="flex items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground overflow-x-auto scrollbar-hide">
+                <span className="whitespace-nowrap">Last updated: {lastRefresh.toLocaleTimeString()}</span>
+                <Separator orientation="vertical" className="h-4 hidden md:block" />
+                <span className="whitespace-nowrap">Auto-refresh: 30s</span>
+                <Separator orientation="vertical" className="h-4 hidden md:block" />
+                <span className="whitespace-nowrap">Connected clients: {dashboardData?.connectedClients || 0}</span>
+                <Separator orientation="vertical" className="h-4 hidden lg:block" />
+                <span className="whitespace-nowrap">WebSocket: {connectionStatus}</span>
               </div>
               <Badge variant="outline" className="flex items-center gap-1">
                 <div className={`w-2 h-2 rounded-full ${

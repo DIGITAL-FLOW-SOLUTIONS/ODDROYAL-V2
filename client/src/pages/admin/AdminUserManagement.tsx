@@ -385,18 +385,18 @@ export default function AdminUserManagement() {
   const endItem = Math.min(pagination.page * pagination.limit, totalUsers);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 md:p-6 space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="text-users-title">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl md:text-3xl font-bold tracking-tight truncate" data-testid="text-users-title">
             User Management
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-xs md:text-sm text-muted-foreground truncate">
             Manage customer accounts, balances, and permissions
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"

@@ -236,17 +236,17 @@ function AdminBreadcrumbs() {
 
   return (
     <Breadcrumb>
-      <BreadcrumbList>
+      <BreadcrumbList className="inline-flex flex-nowrap">
         {breadcrumbs.map((crumb, index) => (
-          <div key={crumb.href || crumb.label} className="flex items-center">
+          <div key={crumb.href || crumb.label} className="flex items-center whitespace-nowrap">
             {index > 0 && <BreadcrumbSeparator />}
             <BreadcrumbItem>
               {crumb.href ? (
-                <BreadcrumbLink href={crumb.href} className="text-sm">
+                <BreadcrumbLink href={crumb.href} className="text-xs md:text-sm">
                   {crumb.label}
                 </BreadcrumbLink>
               ) : (
-                <BreadcrumbPage className="text-sm font-medium">
+                <BreadcrumbPage className="text-xs md:text-sm font-medium">
                   {crumb.label}
                 </BreadcrumbPage>
               )}
@@ -288,33 +288,33 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <SidebarContent>
             {/* Admin Panel Header */}
             <SidebarGroup>
-              <div className="p-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-red-600 rounded-lg flex items-center justify-center">
-                    <Crown className="w-4 h-4 text-white" />
+              <div className="p-3 md:p-4">
+                <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                  <div className="w-7 h-7 md:w-8 md:h-8 bg-gradient-to-br from-purple-600 to-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Crown className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
                   </div>
-                  <div>
-                    <h2 className="font-bold text-lg">OddRoyal</h2>
-                    <p className="text-xs text-muted-foreground">Admin Panel</p>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="font-bold text-base md:text-lg truncate">OddRoyal</h2>
+                    <p className="text-xs text-muted-foreground truncate">Admin Panel</p>
                   </div>
                 </div>
                 
                 {/* Admin User Info */}
-                <div className="bg-accent/30 rounded-lg p-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar>
+                <div className="bg-accent/30 rounded-lg p-2.5 md:p-3">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <Avatar className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0">
                       <AvatarFallback className={getRoleColor(admin.role)}>
                         {admin.username.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{admin.username}</p>
-                      <div className="flex items-center gap-2">
+                      <p className="font-medium text-xs md:text-sm truncate">{admin.username}</p>
+                      <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
                         <Badge variant="secondary" className="text-xs">
                           {getRoleDisplayName(admin.role)}
                         </Badge>
                         {admin.totpSecret && (
-                          <Shield className={`w-3 h-3 ${twoFactorVerified ? 'text-green-500' : 'text-yellow-500'}`} />
+                          <Shield className={`w-3 h-3 flex-shrink-0 ${twoFactorVerified ? 'text-green-500' : 'text-yellow-500'}`} />
                         )}
                       </div>
                     </div>
@@ -383,22 +383,22 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
         <div className="flex flex-col flex-1">
           {/* Admin Header */}
-          <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-            <div className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-4">
+          <header className="sticky top-0 z-[100] border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+            <div className="flex items-center justify-between p-3 md:p-4">
+              <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
                 <SidebarTrigger data-testid="button-admin-sidebar-toggle" />
-                <div className="hidden md:block">
-                  <h1 className="text-xl font-semibold">Admin Panel</h1>
-                  <p className="text-sm text-muted-foreground">
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-base md:text-xl font-semibold truncate">Admin Panel</h1>
+                  <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">
                     Welcome back, {admin.username}
                   </p>
                 </div>
               </div>
             
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
                 <ThemeToggle />
                 {!twoFactorVerified && admin.totpSecret && (
-                  <Badge variant="destructive" className="text-xs">
+                  <Badge variant="destructive" className="text-xs hidden sm:inline-flex">
                     2FA Required
                   </Badge>
                 )}
@@ -406,18 +406,19 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </div>
             
             {/* Breadcrumb Navigation */}
-            <div className="px-4 pb-3 border-b">
-              <AdminBreadcrumbs />
+            <div className="px-3 md:px-4 pb-2 md:pb-3 border-b">
+              <div className="overflow-x-auto scrollbar-hide sm:overflow-visible -mx-2 px-2">
+                <AdminBreadcrumbs />
+              </div>
             </div>
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 overflow-hidden">
+          <main className="flex-1 min-h-0 overflow-auto">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="h-full"
             >
               {children}
             </motion.div>
