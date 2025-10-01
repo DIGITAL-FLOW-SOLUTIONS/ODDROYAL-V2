@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
-import { Crown, Shield, AlertCircle, Eye, EyeOff, UserPlus, CheckCircle } from "lucide-react";
+import { Crown, Shield, AlertCircle, Eye, EyeOff, UserPlus, CheckCircle, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import { adminRegistrationSchema, type AdminRegistration } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
@@ -23,16 +23,146 @@ function AdminRegister() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [superAdminCode, setSuperAdminCode] = useState("");
+  const [codeVerified, setCodeVerified] = useState(false);
+  const [codeError, setCodeError] = useState("");
 
-  // Redirect unauthenticated users to login
+  // Check if any admins exist in the system
+  const { data: adminsCheckData, isLoading: checkingAdmins } = useQuery<{
+    success: boolean;
+    data: { adminsExist: boolean };
+  }>({
+    queryKey: ['/api/admin/auth/check-admins-exist'],
+    enabled: !isAuthenticated,
+  });
+
+  const adminsExist = adminsCheckData?.data?.adminsExist ?? true;
+
+  // Redirect unauthenticated users to login ONLY if admins already exist
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && adminsExist && !checkingAdmins) {
       setLocation('/prime-admin/login');
     }
-  }, [isAuthenticated, setLocation]);
+  }, [isAuthenticated, adminsExist, checkingAdmins, setLocation]);
 
-  if (!isAuthenticated) {
+  // For unauthenticated users when no admins exist, show code verification
+  const handleCodeVerification = () => {
+    if (!superAdminCode.trim()) {
+      setCodeError("Please enter the super admin registration code");
+      return;
+    }
+    // Just verify the code is entered, actual validation happens on backend
+    setCodeVerified(true);
+    setCodeError("");
+  };
+
+  // If checking admins, show loading
+  if (checkingAdmins) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 flex items-center justify-center p-4">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full"
+        />
+      </div>
+    );
+  }
+
+  // If unauthenticated and admins exist, they'll be redirected to login
+  if (!isAuthenticated && adminsExist) {
     return null;
+  }
+
+  // If unauthenticated and no admins exist, show code verification first
+  if (!isAuthenticated && !adminsExist && !codeVerified) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md"
+        >
+          {/* Header */}
+          <div className="text-center mb-8">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              className="w-16 h-16 bg-gradient-to-br from-purple-600 to-red-600 rounded-xl flex items-center justify-center mx-auto mb-4"
+            >
+              <Lock className="w-8 h-8 text-white" />
+            </motion.div>
+            <h1 className="text-3xl font-bold mb-2" data-testid="text-super-admin-code-title">
+              OddRoyal
+            </h1>
+            <p className="text-muted-foreground">Super Admin Registration</p>
+          </div>
+
+          <Card className="border-accent/20 backdrop-blur-sm">
+            <CardHeader className="text-center pb-4">
+              <CardTitle className="flex items-center gap-2 justify-center">
+                <Shield className="w-5 h-5" />
+                First-Time Setup
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No administrators exist in the system. To create the first super admin account, please enter the super admin registration code.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-2">
+                <Label htmlFor="superAdminCode">Super Admin Registration Code</Label>
+                <Input
+                  id="superAdminCode"
+                  type="password"
+                  placeholder="Enter super admin code"
+                  value={superAdminCode}
+                  onChange={(e) => {
+                    setSuperAdminCode(e.target.value);
+                    setCodeError("");
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleCodeVerification();
+                    }
+                  }}
+                  data-testid="input-super-admin-code"
+                  className="transition-all duration-200"
+                />
+                {codeError && (
+                  <p className="text-sm text-red-500" data-testid="error-super-admin-code">
+                    {codeError}
+                  </p>
+                )}
+              </div>
+
+              <Button
+                onClick={handleCodeVerification}
+                className="w-full"
+                data-testid="button-verify-super-admin-code"
+              >
+                Verify Code & Continue
+              </Button>
+
+              <div className="bg-accent/10 rounded-lg p-3 mt-4">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                  <div className="text-xs text-muted-foreground">
+                    <p className="font-medium text-foreground mb-1">Security Notice</p>
+                    <p>This code is required to bootstrap the first administrator account. Contact your system administrator if you don't have access to this code.</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    );
   }
 
   // Form setup with validation
@@ -40,6 +170,7 @@ function AdminRegister() {
     resolver: zodResolver(adminRegistrationSchema),
     mode: "onChange", // Enable real-time validation
     defaultValues: {
+      registrationCode: "",
       username: "",
       email: "",
       password: "",
@@ -75,7 +206,12 @@ function AdminRegister() {
   });
 
   const onSubmit = (data: AdminRegistration) => {
-    registerMutation.mutate(data);
+    // If unauthenticated (first admin), use the verified super admin code
+    const submissionData = !isAuthenticated && !adminsExist 
+      ? { ...data, registrationCode: superAdminCode }
+      : data;
+    
+    registerMutation.mutate(submissionData);
   };
 
   if (registrationSuccess) {
@@ -144,6 +280,27 @@ function AdminRegister() {
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {/* Registration Code Field - Only show for authenticated admins */}
+              {isAuthenticated && (
+                <div className="space-y-2">
+                  <Label htmlFor="registrationCode">Registration Code</Label>
+                  <Input
+                    id="registrationCode"
+                    type="password"
+                    placeholder="Enter registration code"
+                    {...form.register('registrationCode')}
+                    disabled={registerMutation.isPending}
+                    data-testid="input-admin-register-code"
+                    className="transition-all duration-200"
+                  />
+                  {form.formState.errors.registrationCode && (
+                    <p className="text-sm text-red-500" data-testid="error-registration-code">
+                      {form.formState.errors.registrationCode.message}
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Username Field */}
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>

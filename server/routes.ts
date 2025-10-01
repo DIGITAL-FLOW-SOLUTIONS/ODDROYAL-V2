@@ -1236,13 +1236,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ADMIN AUTHENTICATION ROUTES
   // =====================================
   
+  // Check if any admins exist in the system
+  app.get("/api/admin/auth/check-admins-exist", async (req, res) => {
+    try {
+      const admins = await storage.getAdminUsers(1, 0);
+      res.json({
+        success: true,
+        data: {
+          adminsExist: admins.length > 0
+        }
+      });
+    } catch (error) {
+      console.error('Check admins exist error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check admin existence'
+      });
+    }
+  });
+  
   // Admin Registration - Requires special registration code
   app.post("/api/admin/auth/register", async (req, res) => {
     try {
       const validatedData = adminRegistrationSchema.parse(req.body);
       
-      // Verify registration code
-      const SUPER_ADMIN_REGISTRATION_CODE = "Superadmin-Nzana@20#21";
+      // Verify registration code against environment variable
+      const SUPER_ADMIN_REGISTRATION_CODE = process.env.SUPER_ADMIN_REGISTRATION_CODE;
+      if (!SUPER_ADMIN_REGISTRATION_CODE) {
+        console.error('SUPER_ADMIN_REGISTRATION_CODE environment variable is not set');
+        return res.status(500).json({
+          success: false,
+          error: 'Server configuration error'
+        });
+      }
+      
       if (validatedData.registrationCode !== SUPER_ADMIN_REGISTRATION_CODE) {
         return res.status(403).json({
           success: false,
