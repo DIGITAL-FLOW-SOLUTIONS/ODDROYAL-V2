@@ -38,9 +38,15 @@ function AdminRegister() {
 
   const adminsExist = adminsCheckData?.data?.adminsExist ?? false;
 
+  // For first-time setup, make registrationCode optional in validation
+  // but we'll add it back in the submit handler
+  const formSchema = (!isAuthenticated && !adminsExist)
+    ? adminRegistrationSchema.omit({ registrationCode: true })
+    : adminRegistrationSchema;
+
   // Form setup with validation - MUST be at top level (before any conditional returns)
   const form = useForm<AdminRegistration>({
-    resolver: zodResolver(adminRegistrationSchema),
+    resolver: zodResolver(formSchema as any),
     mode: "onChange",
     defaultValues: {
       registrationCode: "",
@@ -97,11 +103,15 @@ function AdminRegister() {
   };
 
   const onSubmit = (data: AdminRegistration) => {
+    console.log('Form submitted with data:', data);
+    console.log('Form errors:', form.formState.errors);
+    
     // If unauthenticated (first admin), use the verified super admin code
     const submissionData = !isAuthenticated && !adminsExist 
       ? { ...data, registrationCode: superAdminCode }
       : data;
     
+    console.log('Submitting to API:', submissionData);
     registerMutation.mutate(submissionData);
   };
 
