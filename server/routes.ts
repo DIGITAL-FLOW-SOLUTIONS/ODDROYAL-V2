@@ -1531,7 +1531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get Current Admin User
-  app.get("/api/admin/auth/me", authenticateAdmin, async (req: any, res) => {
+  app.get("/api/admin/auth/me", authenticateAdmin, CSRFProtectionManager.provideCSRFToken(), async (req: any, res) => {
     try {
       const adminUser = await storage.getAdminUser(req.adminUser.id);
       if (!adminUser) {
@@ -1555,6 +1555,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         error: 'Failed to get admin user'
+      });
+    }
+  });
+  
+  // Get CSRF Token
+  app.get("/api/admin/csrf-token", authenticateAdmin, CSRFProtectionManager.provideCSRFToken(), async (req: any, res) => {
+    try {
+      res.json({
+        success: true,
+        data: {
+          message: 'CSRF token provided in header and response'
+        }
+      });
+    } catch (error) {
+      console.error('Get CSRF token error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get CSRF token'
       });
     }
   });
