@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, adminApiRequest, queryClient } from "@/lib/queryClient";
+import { currencyUtils } from "@shared/schema";
 import { 
   RefreshCw, 
   CheckCircle, 
@@ -33,13 +34,13 @@ interface SettlementBet {
   id: string;
   userId: string;
   type: string;
-  totalStake: number;
-  potentialWinnings: number;
+  totalStakeCents: number;
+  potentialWinCents: number;
   totalOdds: string;
   status: string;
   placedAt: string;
   settledAt?: string;
-  actualWinnings?: number;
+  actualWinCents?: number;
   selections: SettlementSelection[];
 }
 
@@ -228,7 +229,7 @@ export default function AdminSettlement() {
   };
 
   const formatCurrency = (amountCents: number) => {
-    return `$${(amountCents / 100).toFixed(2)}`;
+    return currencyUtils.formatCurrency(amountCents);
   };
 
   const getStatusBadge = (status: string) => {
@@ -362,8 +363,8 @@ export default function AdminSettlement() {
                       <TableCell className="font-mono text-sm">{bet.id.slice(0, 8)}...</TableCell>
                       <TableCell>{bet.userId.slice(0, 8)}...</TableCell>
                       <TableCell>{bet.type}</TableCell>
-                      <TableCell>{formatCurrency(bet.totalStake)}</TableCell>
-                      <TableCell>{formatCurrency(bet.potentialWinnings)}</TableCell>
+                      <TableCell>{formatCurrency(bet.totalStakeCents)}</TableCell>
+                      <TableCell>{formatCurrency(bet.potentialWinCents)}</TableCell>
                       <TableCell>{new Date(bet.placedAt).toLocaleDateString()}</TableCell>
                       <TableCell>{getStatusBadge(bet.status)}</TableCell>
                       <TableCell>
@@ -577,8 +578,8 @@ export default function AdminSettlement() {
                     <TableRow key={bet.id}>
                       <TableCell className="font-mono text-sm">{bet.id.slice(0, 8)}...</TableCell>
                       <TableCell>{bet.type}</TableCell>
-                      <TableCell>{formatCurrency(bet.totalStake)}</TableCell>
-                      <TableCell>{formatCurrency(bet.actualWinnings || 0)}</TableCell>
+                      <TableCell>{formatCurrency(bet.totalStakeCents)}</TableCell>
+                      <TableCell>{formatCurrency(bet.actualWinCents || 0)}</TableCell>
                       <TableCell>{getStatusBadge(bet.status)}</TableCell>
                       <TableCell>{bet.settledAt ? new Date(bet.settledAt).toLocaleDateString() : "-"}</TableCell>
                       <TableCell>
