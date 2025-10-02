@@ -108,7 +108,8 @@ interface MarketSetup {
 interface Sport {
   id: number;
   name: string;
-  displayName: string;
+  icon: string;
+  endpoint: string;
 }
 
 interface League {
@@ -1149,7 +1150,7 @@ export default function AdminMatchesMarkets() {
                       <SelectItem value="all">All Sports</SelectItem>
                       {availableSports.map((sport: Sport) => (
                         <SelectItem key={sport.id} value={sport.name.toLowerCase()}>
-                          {sport.displayName}
+                          {sport.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1275,7 +1276,7 @@ export default function AdminMatchesMarkets() {
                         <ChevronRight className="w-5 h-5" />
                       }
                       <Globe className="w-6 h-6 text-primary" />
-                      <span className="text-xl">{sportGroup.sport.displayName}</span>
+                      <span className="text-xl">{sportGroup.sport.name}</span>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
                       {sportGroup.liveCount > 0 && (
@@ -1475,7 +1476,7 @@ export default function AdminMatchesMarkets() {
                           <TableCell className="font-bold">
                             <div className="flex items-center gap-2">
                               <Globe className="w-4 h-4 text-primary" />
-                              {sportGroup.sport.displayName}
+                              {sportGroup.sport.name}
                               {sportGroup.liveCount > 0 && (
                                 <Badge variant="destructive" className="text-xs px-1 py-0 h-5 ml-2">
                                   {sportGroup.liveCount} LIVE
@@ -1758,7 +1759,7 @@ export default function AdminMatchesMarkets() {
                     <SelectContent>
                       {availableSports.map((sport: Sport) => (
                         <SelectItem key={sport.id} value={sport.name.toLowerCase()}>
-                          {sport.displayName}
+                          {sport.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
