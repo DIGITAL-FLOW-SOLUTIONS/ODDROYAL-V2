@@ -1755,9 +1755,9 @@ export default function AdminMatchesMarkets() {
                     <SelectTrigger id="sport-select" data-testid="select-create-sport" className="text-white">
                       <SelectValue placeholder="Choose a sport" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="text-white">
                       {availableSports.map((sport: Sport) => (
-                        <SelectItem key={sport.id} value={sport.name.toLowerCase()}>
+                        <SelectItem key={sport.id} value={sport.name.toLowerCase()} className="text-white">
                           <div className="flex items-center gap-2">
                             <Globe className="w-4 h-4" />
                             {sport.displayName}
