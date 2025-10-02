@@ -35,8 +35,18 @@ import {
   TrendingUp,
   Info,
   Shield,
-  AlertTriangle
+  AlertTriangle,
+  type LucideIcon
 } from "lucide-react";
+import { 
+  SiFootballball, 
+  SiHockey, 
+  SiTennis, 
+  SiBasketball, 
+  SiBaseball, 
+  SiVolleyball, 
+  SiRugby 
+} from "react-icons/si";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -171,6 +181,29 @@ const MATCH_STATUS_ICONS = {
   cancelled: XCircle,
   postponed: PauseCircle
 } as const;
+
+// Sport icon mapping
+const getSportIcon = (sportName: string) => {
+  const name = sportName.toLowerCase();
+  switch (name) {
+    case 'football':
+      return SiFootballball;
+    case 'hockey':
+      return SiHockey;
+    case 'tennis':
+      return SiTennis;
+    case 'basketball':
+      return SiBasketball;
+    case 'baseball':
+      return SiBaseball;
+    case 'volleyball':
+      return SiVolleyball;
+    case 'rugby':
+      return SiRugby;
+    default:
+      return Globe;
+  }
+};
 
 // Enhanced validation functions
 const validateEventData = (eventData: Partial<MatchEvent>, existingEvents: MatchEvent[]): string | null => {
@@ -1147,12 +1180,23 @@ export default function AdminMatchesMarkets() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Sports</SelectItem>
-                      {availableSports.map((sport: Sport) => (
-                        <SelectItem key={sport.id} value={sport.name.toLowerCase()}>
-                          {sport.name}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="all">
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-4 h-4" />
+                          <span>All Sports</span>
+                        </div>
+                      </SelectItem>
+                      {availableSports.map((sport: Sport) => {
+                        const SportIcon = getSportIcon(sport.name);
+                        return (
+                          <SelectItem key={sport.id} value={sport.name.toLowerCase()}>
+                            <div className="flex items-center gap-2">
+                              <SportIcon className="w-4 h-4" />
+                              <span>{sport.name}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1275,7 +1319,10 @@ export default function AdminMatchesMarkets() {
                         <ChevronDown className="w-5 h-5" /> : 
                         <ChevronRight className="w-5 h-5" />
                       }
-                      <Globe className="w-6 h-6 text-primary" />
+                      {(() => {
+                        const SportIcon = getSportIcon(sportGroup.sport.name);
+                        return <SportIcon className="w-6 h-6 text-primary" />;
+                      })()}
                       <span className="text-xl">{sportGroup.sport.name}</span>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
@@ -1475,7 +1522,10 @@ export default function AdminMatchesMarkets() {
                         <TableRow key={`${sportGroup.sport.name}-${league.id}-header`} className="bg-muted/50 border-b-2">
                           <TableCell className="font-bold">
                             <div className="flex items-center gap-2">
-                              <Globe className="w-4 h-4 text-primary" />
+                              {(() => {
+                                const SportIcon = getSportIcon(sportGroup.sport.name);
+                                return <SportIcon className="w-4 h-4 text-primary" />;
+                              })()}
                               {sportGroup.sport.name}
                               {sportGroup.liveCount > 0 && (
                                 <Badge variant="destructive" className="text-xs px-1 py-0 h-5 ml-2">
@@ -1757,11 +1807,17 @@ export default function AdminMatchesMarkets() {
                       <SelectValue placeholder="Choose a sport" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableSports.map((sport: Sport) => (
-                        <SelectItem key={sport.id} value={sport.name.toLowerCase()}>
-                          {sport.name}
-                        </SelectItem>
-                      ))}
+                      {availableSports.map((sport: Sport) => {
+                        const SportIcon = getSportIcon(sport.name);
+                        return (
+                          <SelectItem key={sport.id} value={sport.name.toLowerCase()}>
+                            <div className="flex items-center gap-2">
+                              <SportIcon className="w-4 h-4" />
+                              <span>{sport.name}</span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
