@@ -38,15 +38,6 @@ import {
   AlertTriangle,
   type LucideIcon
 } from "lucide-react";
-import { 
-  SiFootballball, 
-  SiHockey, 
-  SiTennis, 
-  SiBasketball, 
-  SiBaseball, 
-  SiVolleyball, 
-  SiRugby 
-} from "react-icons/si";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -187,19 +178,20 @@ const getSportIcon = (sportName: string) => {
   const name = sportName.toLowerCase();
   switch (name) {
     case 'football':
-      return SiFootballball;
+    case 'soccer':
+      return Trophy;
     case 'hockey':
-      return SiHockey;
+      return Target;
     case 'tennis':
-      return SiTennis;
+      return Activity;
     case 'basketball':
-      return SiBasketball;
+      return Trophy;
     case 'baseball':
-      return SiBaseball;
+      return Target;
     case 'volleyball':
-      return SiVolleyball;
+      return Activity;
     case 'rugby':
-      return SiRugby;
+      return Trophy;
     default:
       return Globe;
   }
