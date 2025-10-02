@@ -1752,12 +1752,12 @@ export default function AdminMatchesMarkets() {
                     value={createMatchData.sport}
                     onValueChange={(value) => setCreateMatchData(prev => ({ ...prev, sport: value }))}
                   >
-                    <SelectTrigger id="sport-select" data-testid="select-create-sport" className="text-white">
+                    <SelectTrigger id="sport-select" data-testid="select-create-sport">
                       <SelectValue placeholder="Choose a sport" />
                     </SelectTrigger>
-                    <SelectContent className="bg-popover text-white">
+                    <SelectContent>
                       {availableSports.map((sport: Sport) => (
-                        <SelectItem key={sport.id} value={sport.name.toLowerCase()} className="!text-white">
+                        <SelectItem key={sport.id} value={sport.name.toLowerCase()}>
                           {sport.displayName}
                         </SelectItem>
                       ))}
