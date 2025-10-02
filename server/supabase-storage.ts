@@ -1618,11 +1618,18 @@ export class SupabaseStorage implements IStorage {
     try {
       const insertData: any = {
         match_id: marketData.matchId,
+        key: marketData.key,
         name: marketData.name,
         type: marketData.type,
-        line: marketData.line,
-        status: marketData.status || 'active',
-        display_order: marketData.displayOrder || 0
+        parameter: marketData.parameter,
+        status: marketData.status || 'open',
+        min_stake_cents: marketData.minStakeCents,
+        max_stake_cents: marketData.maxStakeCents,
+        max_liability_cents: marketData.maxLiabilityCents,
+        display_order: marketData.displayOrder || 0,
+        is_published: marketData.isPublished !== false,
+        created_by: marketData.createdBy,
+        updated_by: marketData.updatedBy
       };
 
       const { data, error } = await this.client
@@ -1638,11 +1645,18 @@ export class SupabaseStorage implements IStorage {
       return {
         id: data.id,
         matchId: data.match_id,
+        key: data.key,
         name: data.name,
         type: data.type,
-        line: data.line,
+        parameter: data.parameter,
         status: data.status,
+        minStakeCents: data.min_stake_cents,
+        maxStakeCents: data.max_stake_cents,
+        maxLiabilityCents: data.max_liability_cents,
         displayOrder: data.display_order,
+        isPublished: data.is_published,
+        createdBy: data.created_by,
+        updatedBy: data.updated_by,
         createdAt: data.created_at,
         updatedAt: data.updated_at
       };

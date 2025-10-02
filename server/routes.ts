@@ -2917,11 +2917,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Create markets and outcomes
         for (const market of marketsToCreate) {
+          // Generate unique key for market (type + parameter if exists)
+          let marketKey = market.type;
+          if (market.line !== undefined && market.line !== null) {
+            marketKey = `${market.type}_${market.line}`;
+          } else if (market.parameter) {
+            marketKey = `${market.type}_${market.parameter}`;
+          }
+          
           const createdMarket = await storage.createMarket({
             matchId: match.id,
-            key: market.type,
+            key: marketKey,
             name: market.name,
             type: market.type,
+            parameter: market.parameter,
             status: 'open',
             minStakeCents: 100, // £1 minimum
             maxStakeCents: 10000000, // £100k maximum  
