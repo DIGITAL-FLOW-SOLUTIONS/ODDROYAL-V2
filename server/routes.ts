@@ -2824,7 +2824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create manual match
   app.post("/api/admin/matches", 
     authenticateAdmin,
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
     requirePermission('matches:create'), 
     auditAction('match_create'),
     async (req: any, res) => {
