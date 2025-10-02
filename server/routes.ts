@@ -1480,13 +1480,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errorMessage: null
       });
       
-      // Return admin user (without password) and session
+      // Generate CSRF token for the admin user
+      const { CSRFProtectionManager } = await import('./security-middleware');
+      const csrfToken = await CSRFProtectionManager.generateCSRFToken(adminUser.id);
+      
+      // Return admin user (without password), session, and CSRF token
       const { passwordHash: _, ...adminWithoutPassword } = adminUser;
       res.json({
         success: true,
         data: {
           admin: adminWithoutPassword,
-          sessionToken
+          sessionToken,
+          csrfToken
         }
       });
       

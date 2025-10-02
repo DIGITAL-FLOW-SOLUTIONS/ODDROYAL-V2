@@ -154,6 +154,11 @@ export function AdminAuthProvider({ children }: AdminAuthProviderProps) {
           });
         } else {
           localStorage.setItem('adminAuthToken', response.data.sessionToken);
+          // Store CSRF token if provided
+          if (response.data.csrfToken) {
+            localStorage.setItem('adminCSRFToken', response.data.csrfToken);
+            setCsrfToken(response.data.csrfToken);
+          }
           setAdmin(response.data.admin);
           setTwoFactorVerified(!response.data.requiresTwoFactor);
           setRequiresTwoFactor(false);
