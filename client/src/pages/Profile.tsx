@@ -152,42 +152,42 @@ function Profile() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
-            <User className="h-8 w-8 text-primary-foreground" />
+    <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="w-12 h-12 md:w-16 md:h-16 bg-primary rounded-full flex items-center justify-center shrink-0">
+            <User className="h-6 w-6 md:h-8 md:w-8 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-profile-title">Profile</h1>
-            <p className="text-muted-foreground">Manage your account settings</p>
+            <h1 className="text-xl md:text-3xl font-bold" data-testid="text-profile-title">Profile</h1>
+            <p className="text-sm md:text-base text-muted-foreground">Manage your account settings</p>
           </div>
         </div>
-        <Badge variant={userProfile?.isActive ? 'default' : 'destructive'} data-testid="badge-account-status">
+        <Badge variant={userProfile?.isActive ? 'default' : 'destructive'} data-testid="badge-account-status" className="w-fit">
           {userProfile?.isActive ? 'Active Account' : 'Inactive Account'}
         </Badge>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="general" data-testid="tab-general">
-            <User className="h-4 w-4 mr-2" />
-            General
+      <Tabs defaultValue="general" className="space-y-4 md:space-y-6">
+        <TabsList className="w-full grid grid-cols-2">
+          <TabsTrigger value="general" data-testid="tab-general" className="gap-2">
+            <User className="h-4 w-4" />
+            <span className="hidden sm:inline">General</span>
           </TabsTrigger>
-          <TabsTrigger value="security" data-testid="tab-security">
-            <Shield className="h-4 w-4 mr-2" />
-            Security
+          <TabsTrigger value="security" data-testid="tab-security" className="gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">Security</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general" className="space-y-6">
+        <TabsContent value="general" className="space-y-4 md:space-y-6">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Personal Information</CardTitle>
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 space-y-0">
+              <CardTitle className="text-lg md:text-2xl">Personal Information</CardTitle>
               {!isEditing && (
-                <Button variant="outline" onClick={handleEdit} data-testid="button-edit-profile">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
+                <Button variant="outline" onClick={handleEdit} data-testid="button-edit-profile" size="sm" className="w-full sm:w-auto">
+                  <Edit className="h-4 w-4 sm:mr-2" />
+                  <span className="sm:inline">Edit</span>
                 </Button>
               )}
             </CardHeader>
@@ -221,11 +221,12 @@ function Profile() {
                         </FormItem>
                       )}
                     />
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Button 
                         type="submit"
                         disabled={updateProfileMutation.isPending}
                         data-testid="button-save-profile"
+                        className="w-full sm:w-auto"
                       >
                         {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
                       </Button>
@@ -234,6 +235,7 @@ function Profile() {
                         variant="outline" 
                         onClick={() => setIsEditing(false)}
                         data-testid="button-cancel-edit"
+                        className="w-full sm:w-auto"
                       >
                         Cancel
                       </Button>
@@ -241,39 +243,39 @@ function Profile() {
                   </form>
                 </Form>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
                       <label className="text-sm font-medium">Username</label>
                     </div>
-                    <p className="text-lg" data-testid="text-username">{userProfile?.username}</p>
+                    <p className="text-base md:text-lg break-words" data-testid="text-username">{userProfile?.username}</p>
                   </div>
                   
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       <label className="text-sm font-medium">Email</label>
                     </div>
-                    <p className="text-lg" data-testid="text-email">{userProfile?.email}</p>
+                    <p className="text-base md:text-lg break-words" data-testid="text-email">{userProfile?.email}</p>
                   </div>
                   
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <label className="text-sm font-medium">Member Since</label>
                     </div>
-                    <p className="text-lg" data-testid="text-member-since">
+                    <p className="text-base md:text-lg" data-testid="text-member-since">
                       {userProfile ? new Date(userProfile.createdAt).toLocaleDateString() : ''}
                     </p>
                   </div>
                   
                   <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-muted-foreground" />
                       <label className="text-sm font-medium">Account Balance</label>
                     </div>
-                    <p className="text-lg font-bold text-green-600" data-testid="text-balance">
+                    <p className="text-base md:text-lg font-bold text-green-600" data-testid="text-balance">
                       {userProfile ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(userProfile.balance))) : ''}
                     </p>
                   </div>
@@ -283,35 +285,35 @@ function Profile() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="security" className="space-y-6">
+        <TabsContent value="security" className="space-y-4 md:space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Security Settings</CardTitle>
+              <CardTitle className="text-lg md:text-2xl">Security Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Key className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Password</p>
-                      <p className="text-sm text-muted-foreground">Change your account password</p>
+              <div className="space-y-3 md:space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 md:p-4 border rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Key className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm md:text-base">Password</p>
+                      <p className="text-xs md:text-sm text-muted-foreground">Change your account password</p>
                     </div>
                   </div>
-                  <Button variant="outline" data-testid="button-change-password">
+                  <Button variant="outline" data-testid="button-change-password" size="sm" className="w-full sm:w-auto shrink-0">
                     Change Password
                   </Button>
                 </div>
                 
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Shield className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="font-medium">Two-Factor Authentication</p>
-                      <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 md:p-4 border rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Shield className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm md:text-base">Two-Factor Authentication</p>
+                      <p className="text-xs md:text-sm text-muted-foreground">Add an extra layer of security</p>
                     </div>
                   </div>
-                  <Button variant="outline" data-testid="button-setup-2fa">
+                  <Button variant="outline" data-testid="button-setup-2fa" size="sm" className="w-full sm:w-auto shrink-0">
                     Setup 2FA
                   </Button>
                 </div>
@@ -319,21 +321,23 @@ function Profile() {
               
               <Separator />
               
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-destructive">Danger Zone</h3>
-                <div className="flex items-center justify-between p-4 border border-destructive rounded-lg">
-                  <div>
-                    <p className="font-medium">Logout</p>
-                    <p className="text-sm text-muted-foreground">Sign out of your account</p>
+              <div className="space-y-3 md:space-y-4">
+                <h3 className="text-base md:text-lg font-medium text-destructive">Danger Zone</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 md:p-4 border border-destructive rounded-lg">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm md:text-base">Logout</p>
+                    <p className="text-xs md:text-sm text-muted-foreground">Sign out of your account</p>
                   </div>
                   <Button 
                     variant="destructive" 
                     onClick={() => logoutMutation.mutate()}
                     disabled={logoutMutation.isPending}
                     data-testid="button-logout"
+                    size="sm"
+                    className="w-full sm:w-auto shrink-0"
                   >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    {logoutMutation.isPending ? "Logging out..." : "Logout"}
+                    <LogOut className="h-4 w-4 sm:mr-2" />
+                    <span>{logoutMutation.isPending ? "Logging out..." : "Logout"}</span>
                   </Button>
                 </div>
               </div>

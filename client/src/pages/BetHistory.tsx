@@ -173,25 +173,25 @@ function BetHistory() {
   const winRate = settledBets > 0 ? ((stats.won / settledBets) * 100) : 0;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center">
-            <History className="h-8 w-8 text-primary-foreground" />
+    <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="w-12 h-12 md:w-16 md:h-16 bg-primary rounded-full flex items-center justify-center shrink-0">
+            <History className="h-6 w-6 md:h-8 md:w-8 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-bet-history-title">Bet History</h1>
-            <p className="text-muted-foreground">Track all your betting activity</p>
+            <h1 className="text-xl md:text-3xl font-bold" data-testid="text-bet-history-title">Bet History</h1>
+            <p className="text-sm md:text-base text-muted-foreground">Track all your betting activity</p>
           </div>
         </div>
-        <div className="flex space-x-2">
-          <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh" className="flex-1 sm:flex-none">
+            <RefreshCw className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
-          <Button variant="outline" data-testid="button-export">
-            <Download className="h-4 w-4 mr-2" />
-            Export
+          <Button variant="outline" data-testid="button-export" className="flex-1 sm:flex-none">
+            <Download className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Export</span>
           </Button>
         </div>
       </div>
@@ -279,10 +279,10 @@ function BetHistory() {
         </CardHeader>
         {isFiltersExpanded && (
           <CardContent className="animate-in slide-in-from-top-1 duration-200">
-            <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-[200px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="sm:col-span-2 lg:col-span-3">
                 <label className="text-sm font-medium">Search</label>
-                <div className="relative">
+                <div className="relative mt-1">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search teams, leagues, or bet ID..."
@@ -294,10 +294,10 @@ function BetHistory() {
                 </div>
               </div>
 
-              <div className="min-w-[150px]">
+              <div>
                 <label className="text-sm font-medium">Status</label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger data-testid="select-status">
+                  <SelectTrigger data-testid="select-status" className="mt-1">
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
@@ -310,10 +310,10 @@ function BetHistory() {
                 </Select>
               </div>
 
-              <div className="min-w-[150px]">
+              <div>
                 <label className="text-sm font-medium">Bet Type</label>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger data-testid="select-type">
+                  <SelectTrigger data-testid="select-type" className="mt-1">
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
@@ -325,51 +325,14 @@ function BetHistory() {
                 </Select>
               </div>
 
-              <div className="min-w-[200px]">
-                <label className="text-sm font-medium">Date Range</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal"
-                      data-testid="button-date-range"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange?.from ? (
-                        dateRange.to ? (
-                          <>
-                            {format(dateRange.from, "LLL dd")} -{" "}
-                            {format(dateRange.to, "LLL dd, y")}
-                          </>
-                        ) : (
-                          format(dateRange.from, "LLL dd, y")
-                        )
-                      ) : (
-                        <span>Pick a date range</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={dateRange?.from}
-                      selected={dateRange}
-                      onSelect={setDateRange}
-                      numberOfMonths={2}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="min-w-[150px]">
+              <div>
                 <label className="text-sm font-medium">Sort By</label>
                 <Select value={`${sortField}-${sortDirection}`} onValueChange={(value) => {
                   const [field, direction] = value.split('-') as [SortField, SortDirection];
                   setSortField(field);
                   setSortDirection(direction);
                 }}>
-                  <SelectTrigger data-testid="select-sort">
+                  <SelectTrigger data-testid="select-sort" className="mt-1">
                     <SelectValue placeholder="Sort by..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -383,6 +346,45 @@ function BetHistory() {
                     <SelectItem value="type-desc">Type (Z-A)</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-1">
+                <label className="text-sm font-medium">Date Range</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal mt-1"
+                      data-testid="button-date-range"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      <span className="truncate">
+                        {dateRange?.from ? (
+                          dateRange.to ? (
+                            <>
+                              {format(dateRange.from, "LLL dd")} -{" "}
+                              {format(dateRange.to, "LLL dd, y")}
+                            </>
+                          ) : (
+                            format(dateRange.from, "LLL dd, y")
+                          )
+                        ) : (
+                          "Pick a date range"
+                        )}
+                      </span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={window.innerWidth < 640 ? 1 : 2}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </CardContent>
@@ -417,15 +419,15 @@ function BetHistory() {
               )}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 md:space-y-4">
               {filteredAndSortedBets.map((bet) => (
                 <div 
                   key={bet.id} 
-                  className="border rounded-lg p-4 hover-elevate transition-all duration-200" 
+                  className="border rounded-lg p-3 md:p-4 hover-elevate transition-all duration-200" 
                   data-testid={`bet-card-${bet.id}`}
                 >
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center space-x-2">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Badge variant={
                         bet.status === 'won' ? 'default' : 
                         bet.status === 'lost' ? 'destructive' : 
@@ -437,68 +439,72 @@ function BetHistory() {
                       <Badge variant="outline">
                         {bet.type.toUpperCase()}
                       </Badge>
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-xs md:text-sm text-muted-foreground">
                         #{bet.id.slice(-8)}
                       </span>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">
-                        Stake: {currencyUtils.formatCurrency(bet.totalStake)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {bet.status === 'won' && bet.actualWinnings ? 
-                          `Won: ${currencyUtils.formatCurrency(bet.actualWinnings)}` :
-                          `Potential: ${currencyUtils.formatCurrency(bet.potentialWinnings)}`
-                        }
-                      </p>
+                    <div className="flex justify-between sm:block sm:text-right">
+                      <div>
+                        <p className="text-sm md:text-base font-medium">
+                          Stake: {currencyUtils.formatCurrency(bet.totalStake)}
+                        </p>
+                        <p className="text-xs md:text-sm text-muted-foreground">
+                          {bet.status === 'won' && bet.actualWinnings ? 
+                            `Won: ${currencyUtils.formatCurrency(bet.actualWinnings)}` :
+                            `Potential: ${currencyUtils.formatCurrency(bet.potentialWinnings)}`
+                          }
+                        </p>
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="space-y-2">
+                  <div className="space-y-2 md:space-y-3">
                     {bet.selections.map((selection, index) => (
-                      <div key={index} className="text-sm flex justify-between items-center">
-                        <div>
-                          <div className="font-medium">
-                            {selection.homeTeam} vs {selection.awayTeam}
+                      <div key={index} className="text-xs md:text-sm">
+                        <div className="flex justify-between items-start gap-2 mb-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">
+                              {selection.homeTeam} vs {selection.awayTeam}
+                            </div>
                           </div>
-                          <div className="text-muted-foreground">
-                            {selection.league} • {selection.market}: {selection.selection}
+                          <div className="text-right shrink-0 flex items-center gap-2">
+                            <div className="font-medium whitespace-nowrap">
+                              @{selection.odds}
+                            </div>
+                            {selection.status && (
+                              <Badge 
+                                variant={
+                                  selection.status === 'won' ? 'default' : 
+                                  selection.status === 'lost' ? 'destructive' : 
+                                  'secondary'
+                                }
+                                className="text-xs"
+                              >
+                                {selection.status}
+                              </Badge>
+                            )}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-medium">
-                            @{selection.odds}
-                          </div>
-                          {selection.status && (
-                            <Badge 
-                              variant={
-                                selection.status === 'won' ? 'default' : 
-                                selection.status === 'lost' ? 'destructive' : 
-                                'secondary'
-                              }
-                              className="text-xs"
-                            >
-                              {selection.status}
-                            </Badge>
-                          )}
+                        <div className="text-muted-foreground text-xs">
+                          {selection.league} • {selection.market}: {selection.selection}
                         </div>
                       </div>
                     ))}
                   </div>
                   
-                  <div className="flex justify-between items-center mt-3 pt-3 border-t">
-                    <div className="text-sm text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mt-3 pt-3 border-t">
+                    <div className="text-xs md:text-sm text-muted-foreground space-y-0.5">
                       <div>Placed: {new Date(bet.placedAt).toLocaleString()}</div>
                       {bet.settledAt && (
                         <div>Settled: {new Date(bet.settledAt).toLocaleString()}</div>
                       )}
                     </div>
-                    <div className="text-right">
-                      <span className="font-medium">
+                    <div className="flex justify-between sm:block sm:text-right">
+                      <span className="text-sm md:text-base font-medium">
                         Total Odds: {bet.totalOdds}
                       </span>
                       {bet.status === 'pending' && (
-                        <div className="flex items-center mt-1">
+                        <div className="flex items-center">
                           <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
                           <span className="text-xs text-muted-foreground">Awaiting result</span>
                         </div>
