@@ -3899,8 +3899,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // POST versions for reports (used by frontend)
   app.post("/api/admin/reports/payout-ratio", 
-    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), 
     requirePermission('reports:read'),
     async (req: any, res) => {
       try {
@@ -3932,8 +3932,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   app.post("/api/admin/reports/top-winners", 
-    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), 
     requirePermission('reports:read'),
     async (req: any, res) => {
       try {
@@ -3964,8 +3964,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   app.post("/api/admin/reports/chargebacks", 
-    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), 
     requirePermission('reports:read'),
     async (req: any, res) => {
       try {
@@ -3999,8 +3999,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   app.post("/api/admin/reports/daily", 
-    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), 
     requirePermission('reports:read'),
     async (req: any, res) => {
       try {
@@ -4032,8 +4032,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   app.post("/api/admin/reports/monthly", 
-    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), 
     requirePermission('reports:read'),
     async (req: any, res) => {
       try {
@@ -4067,8 +4067,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   app.post("/api/admin/reports/turnover-by-sport", 
-    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), 
     requirePermission('reports:read'),
     async (req: any, res) => {
       try {
@@ -4102,8 +4102,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Ad-hoc custom reports with filters
   app.post("/api/admin/reports/custom", 
-    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getStrictMiddleware(), 
     requirePermission('reports:read'),
     auditAction('custom_report_generate'),
     async (req: any, res) => {

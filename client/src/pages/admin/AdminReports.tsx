@@ -309,14 +309,14 @@ export default function AdminReports() {
               <div>
                 <Label htmlFor="sport-filter">Sport</Label>
                 <Select
-                  value={filters.sport || ""}
-                  onValueChange={(value) => setFilters({ ...filters, sport: value || undefined })}
+                  value={filters.sport || "all"}
+                  onValueChange={(value) => setFilters({ ...filters, sport: value === "all" ? undefined : value })}
                 >
                   <SelectTrigger data-testid="select-sport-filter">
                     <SelectValue placeholder="All Sports" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Sports</SelectItem>
+                    <SelectItem value="all">All Sports</SelectItem>
                     <SelectItem value="football">Football</SelectItem>
                     <SelectItem value="basketball">Basketball</SelectItem>
                     <SelectItem value="tennis">Tennis</SelectItem>
