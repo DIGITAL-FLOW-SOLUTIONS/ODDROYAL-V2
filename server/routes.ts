@@ -742,19 +742,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get upcoming football fixtures
+  // Get upcoming football fixtures (merges API + manual matches)
   app.get("/api/fixtures/upcoming", async (req, res) => {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
-      const fixtures = await getUpcomingFixtures(limit);
       
-      // Transform SportMonks data to our format
-      const transformedFixtures = fixtures.map(transformFixture);
+      // Fetch both API fixtures and manual matches in parallel
+      const [apiFixtures, manualMatches] = await Promise.all([
+        getUpcomingFixtures(limit).catch(err => {
+          console.warn('Failed to fetch API fixtures:', err);
+          return [];
+        }),
+        storage.getUpcomingManualMatches(limit).catch(err => {
+          console.warn('Failed to fetch manual matches:', err);
+          return [];
+        })
+      ]);
+      
+      // Transform both to common format
+      const transformedApiFixtures = apiFixtures.map(transformFixture);
+      const transformedManualFixtures = manualMatches.map(transformManualFixture);
+      
+      // Merge and sort by kickoff time
+      const allFixtures = [...transformedApiFixtures, ...transformedManualFixtures];
+      allFixtures.sort((a, b) => 
+        new Date(a.kickoffTime).getTime() - new Date(b.kickoffTime).getTime()
+      );
+      
+      // Limit the total results
+      const limitedFixtures = allFixtures.slice(0, limit);
       
       res.json({ 
         success: true, 
-        data: transformedFixtures,
-        count: transformedFixtures.length 
+        data: limitedFixtures,
+        count: limitedFixtures.length,
+        sources: {
+          api: transformedApiFixtures.length,
+          manual: transformedManualFixtures.length
+        }
       });
     } catch (error) {
       console.error('Error fetching upcoming fixtures:', error);
@@ -788,19 +813,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get live Football fixtures only (no mock data)
+  // Get live Football fixtures only (merges API + manual matches)
   app.get("/api/fixtures/live/football", async (req, res) => {
     try {
       const { getLiveFootballFixtures } = await import("./sportmonks");
-      const fixtures = await getLiveFootballFixtures();
       
-      // Transform SportMonks data to our format
-      const transformedFixtures = fixtures.map(transformLiveFixture);
+      // Fetch both API fixtures and manual matches in parallel
+      const [apiFixtures, manualMatches] = await Promise.all([
+        getLiveFootballFixtures().catch(err => {
+          console.warn('Failed to fetch API live fixtures:', err);
+          return [];
+        }),
+        storage.getLiveManualMatches(50).catch(err => {
+          console.warn('Failed to fetch manual live matches:', err);
+          return [];
+        })
+      ]);
+      
+      // Transform both to common format
+      const transformedApiFixtures = apiFixtures.map(transformLiveFixture);
+      const transformedManualFixtures = manualMatches.map(transformManualLiveFixture);
+      
+      // Merge - live matches don't need strict sorting
+      const allFixtures = [...transformedApiFixtures, ...transformedManualFixtures];
       
       res.json({ 
         success: true, 
-        data: transformedFixtures,
-        count: transformedFixtures.length 
+        data: allFixtures,
+        count: allFixtures.length,
+        sources: {
+          api: transformedApiFixtures.length,
+          manual: transformedManualFixtures.length
+        }
       });
     } catch (error) {
       console.error('Error fetching live football fixtures:', error);
@@ -7164,13 +7208,96 @@ function transformFixture(fixture: SportMonksFixture) {
     status: 'upcoming' as const,
     league: fixture.league?.name || 'Unknown League',
     venue: 'Stadium', // SportMonks doesn't include venue in basic fixture data
-    // Add default odds that match frontend expectations
     odds: {
       home: 2.25,
       draw: 3.10,
       away: 2.85
     },
     additionalMarkets: 12
+  };
+}
+
+// Transform manual match data to fixture format (for upcoming matches)
+function transformManualFixture(match: any) {
+  const markets = match.markets || [];
+  const match1x2 = markets.find((m: any) => m.key === '1x2' || m.type === '1x2');
+  let odds = { home: 2.50, draw: 3.20, away: 2.80 };
+  
+  if (match1x2 && match1x2.market_outcomes) {
+    const outcomes = match1x2.market_outcomes;
+    const homeOutcome = outcomes.find((o: any) => o.key === 'home' || o.key === '1');
+    const drawOutcome = outcomes.find((o: any) => o.key === 'draw' || o.key === 'X');
+    const awayOutcome = outcomes.find((o: any) => o.key === 'away' || o.key === '2');
+    
+    odds = {
+      home: homeOutcome ? parseFloat(homeOutcome.odds) : 2.50,
+      draw: drawOutcome ? parseFloat(drawOutcome.odds) : 3.20,
+      away: awayOutcome ? parseFloat(awayOutcome.odds) : 2.80
+    };
+  }
+  
+  return {
+    id: match.id,
+    homeTeam: {
+      id: match.homeTeamId || match.id + '_home',
+      name: match.homeTeamName
+    },
+    awayTeam: {
+      id: match.awayTeamId || match.id + '_away',
+      name: match.awayTeamName
+    },
+    kickoffTime: match.kickoffTime,
+    status: 'upcoming' as const,
+    league: match.leagueName || 'Unknown League',
+    venue: 'Stadium',
+    odds,
+    additionalMarkets: markets.length > 1 ? markets.length - 1 : 0
+  };
+}
+
+// Transform manual match data to live fixture format
+function transformManualLiveFixture(match: any) {
+  const startTime = new Date(match.kickoffTime);
+  const now = new Date();
+  const elapsedMinutes = Math.floor((now.getTime() - startTime.getTime()) / (1000 * 60));
+  const minute = Math.max(1, Math.min(elapsedMinutes, 90));
+  
+  const markets = match.markets || [];
+  const match1x2 = markets.find((m: any) => m.key === '1x2' || m.type === '1x2');
+  let odds = { home: 2.50, draw: 3.20, away: 2.80 };
+  
+  if (match1x2 && match1x2.market_outcomes) {
+    const outcomes = match1x2.market_outcomes;
+    const homeOutcome = outcomes.find((o: any) => o.key === 'home' || o.key === '1');
+    const drawOutcome = outcomes.find((o: any) => o.key === 'draw' || o.key === 'X');
+    const awayOutcome = outcomes.find((o: any) => o.key === 'away' || o.key === '2');
+    
+    odds = {
+      home: homeOutcome ? parseFloat(homeOutcome.odds) : 2.50,
+      draw: drawOutcome ? parseFloat(drawOutcome.odds) : 3.20,
+      away: awayOutcome ? parseFloat(awayOutcome.odds) : 2.80
+    };
+  }
+  
+  return {
+    id: match.id,
+    homeTeam: {
+      id: match.homeTeamId || match.id + '_home',
+      name: match.homeTeamName,
+      score: match.homeScore || 0
+    },
+    awayTeam: {
+      id: match.awayTeamId || match.id + '_away',
+      name: match.awayTeamName,
+      score: match.awayScore || 0
+    },
+    league: match.leagueName || 'Unknown League',
+    kickoffTime: match.kickoffTime,
+    status: 'live' as const,
+    minute,
+    venue: 'Stadium',
+    odds,
+    additionalMarkets: markets.length > 1 ? markets.length - 1 : 0
   };
 }
 
