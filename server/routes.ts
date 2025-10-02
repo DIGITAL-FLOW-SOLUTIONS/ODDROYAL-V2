@@ -7186,7 +7186,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
   
+  // Start background services
+  startMatchStatusTransitionService(storage);
+  
   return httpServer;
+}
+
+// Background service to automatically transition match statuses
+function startMatchStatusTransitionService(storage: IStorage) {
+  const CHECK_INTERVAL_MS = 30000; // Check every 30 seconds
+  const MATCH_DURATION_MINUTES = 95; // 90 minutes + 5 min stoppage
+  
+  async function updateMatchStatuses() {
+    try {
+      const now = new Date();
+      
+      // Get all manual matches that might need status updates
+      const [scheduledMatches, liveMatches] = await Promise.all([
+        storage.getUpcomingManualMatches(100),
+        storage.getLiveManualMatches(100)
+      ]);
+      
+      // Transition scheduled → live (matches that should have started)
+      for (const match of scheduledMatches) {
+        const kickoffTime = new Date(match.kickoffTime);
+        if (now >= kickoffTime) {
+          console.log(`Transitioning match ${match.id} from scheduled to live`);
+          await storage.updateMatch(match.id, {
+            status: 'live',
+            homeScore: 0,
+            awayScore: 0
+          });
+        }
+      }
+      
+      // Transition live → finished (matches that should have ended)
+      for (const match of liveMatches) {
+        const kickoffTime = new Date(match.kickoffTime);
+        const matchEndTime = new Date(kickoffTime.getTime() + MATCH_DURATION_MINUTES * 60000);
+        
+        if (now >= matchEndTime) {
+          console.log(`Transitioning match ${match.id} from live to finished`);
+          await storage.updateMatch(match.id, {
+            status: 'finished'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error in match status transition service:', error);
+    }
+  }
+  
+  // Run immediately on startup
+  updateMatchStatuses();
+  
+  // Then run on interval
+  setInterval(updateMatchStatuses, CHECK_INTERVAL_MS);
+  
+  console.log('Match status transition service started');
 }
 
 // Transform SportMonks fixture data to our app format
