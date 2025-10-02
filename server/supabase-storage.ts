@@ -1591,9 +1591,10 @@ export class SupabaseStorage implements IStorage {
       return data?.map((market: any) => ({
         id: market.id,
         matchId: market.match_id,
+        key: market.key,
         name: market.name,
         type: market.type,
-        line: market.line,
+        parameter: market.parameter,
         status: market.status,
         displayOrder: market.display_order,
         createdAt: market.created_at,
@@ -1601,9 +1602,12 @@ export class SupabaseStorage implements IStorage {
         outcomes: market.market_outcomes?.map((outcome: any) => ({
           id: outcome.id,
           marketId: outcome.market_id,
-          name: outcome.name,
+          key: outcome.key,
+          label: outcome.label,
           odds: outcome.odds,
-          isActive: outcome.is_active,
+          status: outcome.status,
+          liabilityLimitCents: outcome.liability_limit_cents,
+          displayOrder: outcome.display_order,
           createdAt: outcome.created_at,
           updatedAt: outcome.updated_at
         })) || []
@@ -1672,12 +1676,17 @@ export class SupabaseStorage implements IStorage {
       
       if (marketData.outcomes && marketData.outcomes.length > 0) {
         const outcomes = [];
-        for (const outcomeData of marketData.outcomes) {
+        for (let i = 0; i < marketData.outcomes.length; i++) {
+          const outcomeData = marketData.outcomes[i];
           const outcome = await this.createMarketOutcome({
             marketId: market.id,
-            name: outcomeData.name,
+            key: outcomeData.key,
+            label: outcomeData.label,
             odds: outcomeData.odds,
-            isActive: outcomeData.isActive !== false
+            status: outcomeData.status || 'active',
+            liabilityLimitCents: outcomeData.liabilityLimitCents || 50000000,
+            displayOrder: outcomeData.displayOrder !== undefined ? outcomeData.displayOrder : i,
+            updatedBy: marketData.createdBy || marketData.updatedBy
           });
           outcomes.push(outcome);
         }
@@ -1695,9 +1704,13 @@ export class SupabaseStorage implements IStorage {
     try {
       const insertData: any = {
         market_id: outcomeData.marketId,
-        name: outcomeData.name,
+        key: outcomeData.key,
+        label: outcomeData.label,
         odds: outcomeData.odds,
-        is_active: outcomeData.isActive !== false
+        status: outcomeData.status || 'active',
+        liability_limit_cents: outcomeData.liabilityLimitCents || 50000000,
+        display_order: outcomeData.displayOrder || 0,
+        updated_by: outcomeData.updatedBy
       };
 
       const { data, error } = await this.client
@@ -1713,9 +1726,16 @@ export class SupabaseStorage implements IStorage {
       return {
         id: data.id,
         marketId: data.market_id,
-        name: data.name,
+        key: data.key,
+        label: data.label,
         odds: data.odds,
-        isActive: data.is_active,
+        previousOdds: data.previous_odds,
+        oddsSource: data.odds_source,
+        status: data.status,
+        liabilityLimitCents: data.liability_limit_cents,
+        displayOrder: data.display_order,
+        isDeleted: data.is_deleted,
+        updatedBy: data.updated_by,
         createdAt: data.created_at,
         updatedAt: data.updated_at
       };
@@ -1786,9 +1806,10 @@ export class SupabaseStorage implements IStorage {
       return {
         id: data.id,
         marketId: data.market_id,
-        name: data.name,
+        key: data.key,
+        label: data.label,
         odds: data.odds,
-        isActive: data.is_active,
+        status: data.status,
         updatedAt: data.updated_at
       };
     } catch (error: any) {
@@ -1918,9 +1939,12 @@ export class SupabaseStorage implements IStorage {
       return data?.map((outcome: any) => ({
         id: outcome.id,
         marketId: outcome.market_id,
-        name: outcome.name,
+        key: outcome.key,
+        label: outcome.label,
         odds: outcome.odds,
-        isActive: outcome.is_active,
+        status: outcome.status,
+        liabilityLimitCents: outcome.liability_limit_cents,
+        displayOrder: outcome.display_order,
         createdAt: outcome.created_at,
         updatedAt: outcome.updated_at
       })) || [];
@@ -1937,7 +1961,9 @@ export class SupabaseStorage implements IStorage {
       };
 
       if (updates.odds !== undefined) updateData.odds = parseFloat(updates.odds);
-      if (updates.status !== undefined) updateData.is_active = updates.status === 'active';
+      if (updates.status !== undefined) updateData.status = updates.status;
+      if (updates.label !== undefined) updateData.label = updates.label;
+      if (updates.liabilityLimitCents !== undefined) updateData.liability_limit_cents = updates.liabilityLimitCents;
 
       const { data, error } = await this.client
         .from('market_outcomes')
@@ -1953,9 +1979,12 @@ export class SupabaseStorage implements IStorage {
       return {
         id: data.id,
         marketId: data.market_id,
-        name: data.name,
+        key: data.key,
+        label: data.label,
         odds: data.odds,
-        isActive: data.is_active,
+        status: data.status,
+        liabilityLimitCents: data.liability_limit_cents,
+        displayOrder: data.display_order,
         updatedAt: data.updated_at
       };
     } catch (error: any) {
