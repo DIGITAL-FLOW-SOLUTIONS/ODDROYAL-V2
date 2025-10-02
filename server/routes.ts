@@ -1726,8 +1726,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Update admin user role (superadmin only)
   app.patch("/api/admin/users/:id/role", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requireSuperadmin(), 
     require2FA, 
     auditAction('admin_role_change', (req) => ({ 
@@ -2135,8 +2135,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Match import from SportMonks endpoint
   app.post("/api/admin/matches/import-sportmonks", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('matches:write'), 
     auditAction('matches_import', (req) => ({ 
       targetType: 'system', 
@@ -2419,8 +2419,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Force settle bet endpoint
   app.post("/api/admin/bets/:id/force-settle",
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
     authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
     requirePermission('bets:settle'),
     require2FA,
     auditAction('force_bet_settlement', (req) => ({
@@ -2478,8 +2478,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Refund bet endpoint
   app.post("/api/admin/bets/:id/refund",
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
     authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
     requirePermission('bets:settle'),
     auditAction('bet_refund', (req) => ({
       targetType: 'bet',
@@ -2516,8 +2516,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Legacy settle endpoint - kept for backwards compatibility
   app.patch("/api/admin/bets/:id/settle", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('bets:settle'), 
     auditAction('bet_settlement', (req) => ({ 
       targetType: 'bet', 
@@ -2557,8 +2557,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Bulk bet operations endpoint
   app.post("/api/admin/bets/bulk",
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
     authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
     requirePermission('bets:settle'),
     require2FA,
     auditAction('bulk_bet_operations', (req) => ({
@@ -2734,8 +2734,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Financial operations
   app.patch("/api/admin/customers/:id/balance", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('users:wallet:adjust'),
     require2FA,
     auditAction('balance_adjustment', (req) => ({ 
@@ -2973,8 +2973,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Update match
   app.put("/api/admin/matches/:id", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('matches:update'), 
     auditAction('match_update', (req) => ({ 
       targetType: 'match', 
@@ -3016,8 +3016,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Delete match (soft delete)
   app.delete("/api/admin/matches/:id", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('matches:delete'), 
     require2FA,
     auditAction('match_delete', (req) => ({ 
@@ -3065,8 +3065,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Create market for match
   app.post("/api/admin/markets", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('markets:create'), 
     auditAction('market_create'),
     async (req: any, res) => {
@@ -3112,8 +3112,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Update market
   app.put("/api/admin/markets/:id", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('markets:update'), 
     auditAction('market_update', (req) => ({ 
       targetType: 'market', 
@@ -3321,8 +3321,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Create promotion
   app.post("/api/admin/promotions", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('promotions:create'), 
     auditAction('promotion_create'),
     async (req: any, res) => {
@@ -3370,8 +3370,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Update promotion
   app.put("/api/admin/promotions/:id", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('promotions:update'), 
     auditAction('promotion_update', (req) => ({ 
       targetType: 'promotion', 
@@ -4007,8 +4007,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Export reports (CSV/PDF)
   app.post("/api/admin/reports/export", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('reports:export'),
     auditAction('report_export'),
     async (req: any, res) => {
@@ -4166,8 +4166,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Schedule report exports
   app.post("/api/admin/reports/schedule", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('reports:schedule'),
     auditAction('report_schedule'),
     async (req: any, res) => {
@@ -4218,8 +4218,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Send notification/alert
   app.post("/api/admin/notifications/send", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('notifications:send'),
     auditAction('notification_send'),
     async (req: any, res) => {
@@ -4365,8 +4365,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Configure notification settings
   app.put("/api/admin/notifications/settings", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('notifications:configure'),
     auditAction('notification_settings_update'),
     async (req: any, res) => {
@@ -4713,8 +4713,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // POST /api/admin/matches/:id/markets - create market for specific match
   app.post("/api/admin/matches/:id/markets", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('markets:create'), 
     auditAction('market_create_for_match'),
     async (req: any, res) => {
@@ -4765,8 +4765,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // PATCH /api/admin/markets/:id/status - update market status
   app.patch("/api/admin/markets/:id/status", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('markets:update'), 
     auditAction('market_status_change', (req) => ({ 
       targetType: 'market', 
@@ -4810,8 +4810,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // PATCH /api/admin/outcomes/:id/odds - update outcome odds
   app.patch("/api/admin/outcomes/:id/odds", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('odds:manage'), 
     require2FA,
     auditAction('odds_change', (req) => ({ 
@@ -5833,8 +5833,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Force settle bet - Manual override capability
   app.post("/api/admin/settlement/force-settle/:betId", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('bets:settle'), 
     require2FA,
     auditAction('force_settle_bet', (req) => ({ 
@@ -5930,8 +5930,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Start/stop settlement worker
   app.post("/api/admin/settlement/worker/:action", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('bets:settle'), 
     auditAction('settlement_worker_control', (req) => ({ 
       targetType: 'system', 
@@ -5974,8 +5974,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Manual reconciliation for a specific fixture
   app.post("/api/admin/settlement/reconcile/:fixtureId", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('bets:settle'), 
     auditAction('manual_reconciliation', (req) => ({ 
       targetType: 'fixture', 
@@ -6010,8 +6010,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Re-fetch results from SportMonks for a fixture
   app.post("/api/admin/settlement/refetch-results/:fixtureId", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('bets:settle'), 
     auditAction('refetch_results', (req) => ({ 
       targetType: 'fixture', 
@@ -6140,8 +6140,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Add IP to allowlist
   app.post("/api/admin/security/ip-allowlist", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requireSuperadmin(), 
     auditAction('ip_allowlist_add', (req) => ({ 
       targetType: 'ip_allowlist', 
@@ -6195,8 +6195,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Remove IP from allowlist
   app.delete("/api/admin/security/ip-allowlist/:id", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requireSuperadmin(), 
     auditAction('ip_allowlist_remove', (req) => ({ 
       targetType: 'ip_allowlist', 
@@ -6278,8 +6278,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Emergency shutdown toggle - PANIC BUTTON
   app.post("/api/admin/security/emergency-shutdown", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requireSuperadmin(), 
     require2FA,
     auditAction('emergency_shutdown', (req) => ({ 
@@ -6323,8 +6323,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Toggle betting system
   app.post("/api/admin/security/toggle-betting", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requireAnyRole(['superadmin', 'admin', 'risk_manager']), 
     auditAction('toggle_betting', (req) => ({ 
       targetType: 'system', 
@@ -6363,8 +6363,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Terminate admin session
   app.post("/api/admin/security/terminate-session/:sessionId", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requireSuperadmin(), 
     auditAction('terminate_session', (req) => ({ 
       targetType: 'admin_session', 
@@ -6402,8 +6402,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Force 2FA for all admins
   app.post("/api/admin/security/force-2fa", 
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(),
-    authenticateAdmin, 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requireSuperadmin(), 
     auditAction('force_2fa_all'),
     async (req: any, res) => {
