@@ -1370,7 +1370,8 @@ export class SupabaseStorage implements IStorage {
         updatedBy: match.updated_by,
         createdAt: match.created_at,
         updatedAt: match.updated_at,
-        marketsCount: match.markets?.length || 0
+        marketsCount: match.markets?.length || 0,
+        totalExposure: 0
       })) || [];
 
       return { matches, total: count || 0 };

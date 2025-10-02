@@ -459,6 +459,7 @@ export default function AdminMatchesMarkets() {
   const [sessionCheckInterval, setSessionCheckInterval] = useState<NodeJS.Timeout | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showMarketEditor, setShowMarketEditor] = useState(false);
   const [viewMode, setViewMode] = useState<'grouped' | 'table'>('grouped');
   const [expandedSports, setExpandedSports] = useState<Set<string>>(new Set());
   const [createStep, setCreateStep] = useState(1);
@@ -805,9 +806,11 @@ export default function AdminMatchesMarkets() {
           if (response.status === 403) {
             throw new Error('ACCESS_DENIED');
           }
-          throw new Error('Failed to create match');
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Failed to create match');
         }
-        return response.json();
+        const result = await response.json();
+        return result;
       } catch (error: any) {
         if (error.message === 'CSRF_TOKEN_INVALID') {
           throw new Error('CSRF_TOKEN_INVALID');
@@ -961,7 +964,10 @@ export default function AdminMatchesMarkets() {
   };
 
   const openMarketEditor = (match: Match) => {
-    setLocation(`/prime-admin/matches/${match.id}/markets`);
+    toast({
+      title: "Market Management",
+      description: `Opening market editor for ${match.homeTeamName} vs ${match.awayTeamName}. Market management functionality will be available in the next update.`,
+    });
   };
 
   const openDeleteModal = (match: Match) => {
@@ -1369,8 +1375,8 @@ export default function AdminMatchesMarkets() {
                                     <div
                                       key={match.id}
                                       className={`p-4 rounded-lg border hover-elevate transition-all ${
-                                        match.status === 'live' ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950' :
-                                        match.status === 'scheduled' ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950' :
+                                        match.status === 'live' ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/50' :
+                                        match.status === 'scheduled' ? 'border-border bg-card' :
                                         'border-muted bg-background'
                                       }`}
                                     >
