@@ -599,21 +599,29 @@ export class CSRFProtectionManager {
           return next();
         }
 
-        // Generate CSRF token for the admin user
-        const csrfToken = await CSRFProtectionManager.generateCSRFToken(req.adminUser.id);
+        // IMPORTANT: Only generate NEW tokens for GET requests or specific token endpoints
+        // For state-changing operations (POST, PUT, DELETE, PATCH), we should NOT generate
+        // a new token as it would invalidate the token the client is trying to use
+        const isStateChangingRequest = req.method === 'POST' || req.method === 'PUT' || 
+                                       req.method === 'DELETE' || req.method === 'PATCH';
+        
+        if (!isStateChangingRequest || req.path === '/api/admin/csrf-token') {
+          // Generate CSRF token for the admin user (GET requests or token refresh)
+          const csrfToken = await CSRFProtectionManager.generateCSRFToken(req.adminUser.id);
 
-        // Add CSRF token to response headers (safe for CORS)
-        res.setHeader('X-CSRF-Token', csrfToken);
+          // Add CSRF token to response headers (safe for CORS)
+          res.setHeader('X-CSRF-Token', csrfToken);
 
-        // Also make it available in response body for certain endpoints
-        if (req.path === '/api/admin/auth/me' || req.path === '/api/admin/csrf-token') {
-          const originalJson = res.json;
-          res.json = function(data: any) {
-            if (data && typeof data === 'object' && data.success) {
-              data.csrfToken = csrfToken;
-            }
-            return originalJson.call(this, data);
-          };
+          // Also make it available in response body for certain endpoints
+          if (req.path === '/api/admin/auth/me' || req.path === '/api/admin/csrf-token') {
+            const originalJson = res.json;
+            res.json = function(data: any) {
+              if (data && typeof data === 'object' && data.success) {
+                data.csrfToken = csrfToken;
+              }
+              return originalJson.call(this, data);
+            };
+          }
         }
 
         next();
