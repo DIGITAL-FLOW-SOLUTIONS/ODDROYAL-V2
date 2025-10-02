@@ -885,6 +885,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Helper function to detect if ID is UUID vs numeric
+      const isUUID = (id: string) => {
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      };
+
+      // If ID is a UUID, fetch manual match from storage
+      if (isUUID(fixtureId)) {
+        try {
+          const match = await storage.getMatch(fixtureId);
+          
+          if (!match) {
+            return res.status(404).json({ 
+              success: false, 
+              error: 'Match not found' 
+            });
+          }
+
+          // Transform based on match status
+          let transformedMatch;
+          if (match.status === 'live') {
+            transformedMatch = transformManualLiveFixture(match);
+          } else {
+            transformedMatch = transformManualFixture(match);
+          }
+          
+          return res.json({ success: true, data: transformedMatch });
+        } catch (error) {
+          console.error('Error fetching manual match:', error);
+          return res.status(500).json({ 
+            success: false, 
+            error: 'Failed to fetch manual match' 
+          });
+        }
+      }
+
+      // If ID is numeric, fetch from SportMonks API (existing logic)
       // First check if fixture exists in upcoming fixtures
       const upcomingFixtures = await getUpcomingFixtures(100); // Get more to ensure we find it
       const fixture = upcomingFixtures.find((f: SportMonksFixture) => f.id.toString() === fixtureId);
@@ -923,7 +959,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get odds for a specific fixture
   app.get("/api/fixtures/:id/odds", async (req, res) => {
     try {
-      const fixtureId = parseInt(req.params.id);
+      const fixtureIdParam = req.params.id;
+      
+      // Helper function to detect if ID is UUID vs numeric
+      const isUUID = (id: string) => {
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      };
+
+      // If ID is a UUID, fetch manual match markets from storage
+      if (isUUID(fixtureIdParam)) {
+        try {
+          const markets = await storage.getMatchMarkets(fixtureIdParam);
+          
+          if (!markets || markets.length === 0) {
+            return res.json({ 
+              success: true, 
+              data: [] 
+            });
+          }
+
+          // Transform manual markets to SportMonks odds format
+          const transformedOdds = markets.flatMap((market: any) => {
+            if (!market.outcomes || market.outcomes.length === 0) {
+              return [];
+            }
+
+            return market.outcomes.map((outcome: any) => ({
+              id: outcome.id,
+              fixture_id: fixtureIdParam,
+              market_id: market.id,
+              label: outcome.label,
+              value: outcome.odds,
+              market: {
+                id: market.id,
+                name: market.name
+              }
+            }));
+          });
+
+          return res.json({ 
+            success: true, 
+            data: transformedOdds 
+          });
+        } catch (error) {
+          console.error('Error fetching manual match markets:', error);
+          return res.status(500).json({ 
+            success: false, 
+            error: 'Failed to fetch manual match markets' 
+          });
+        }
+      }
+
+      // If ID is numeric, fetch from SportMonks API (existing logic)
+      const fixtureId = parseInt(fixtureIdParam);
       if (isNaN(fixtureId)) {
         return res.status(400).json({ 
           success: false, 
