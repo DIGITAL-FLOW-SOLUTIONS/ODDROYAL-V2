@@ -1439,7 +1439,12 @@ export default function AdminMatchesMarkets() {
                                               </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
-                                              <DropdownMenuItem onClick={() => setLocation(`/prime-admin/matches/${match.id}/exposure`)}>
+                                              <DropdownMenuItem onClick={() => {
+                                                toast({
+                                                  title: 'Exposure Analysis',
+                                                  description: `Opening exposure analysis for ${match.homeTeamName} vs ${match.awayTeamName}. Detailed exposure breakdown will be available in the next update.`
+                                                });
+                                              }}>
                                                 <Activity className="w-4 h-4 mr-2" />
                                                 View Exposure
                                               </DropdownMenuItem>
@@ -1678,7 +1683,10 @@ export default function AdminMatchesMarkets() {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={(e) => {
                                       e.stopPropagation();
-                                      setLocation(`/prime-admin/matches/${match.id}/exposure`);
+                                      toast({
+                                        title: 'Exposure Analysis',
+                                        description: `Opening exposure analysis for ${match.homeTeamName} vs ${match.awayTeamName}. Detailed exposure breakdown will be available in the next update.`
+                                      });
                                     }}>
                                       <Activity className="w-4 h-4 mr-2" />
                                       View Exposure
