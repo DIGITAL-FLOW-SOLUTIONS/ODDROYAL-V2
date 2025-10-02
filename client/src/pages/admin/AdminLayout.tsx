@@ -360,12 +360,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <a href="/prime-admin/admin-users" onClick={(e) => {
+                      <a href="/prime-admin/security" onClick={(e) => {
                         e.preventDefault();
-                        setLocation('/prime-admin/admin-users');
+                        setLocation('/prime-admin/security');
                       }}>
                         <UserCheck className="w-4 h-4" />
-                        <span>Admin Users</span>
+                        <span>Admin Security</span>
                       </a>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
