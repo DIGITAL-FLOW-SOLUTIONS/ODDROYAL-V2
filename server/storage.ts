@@ -83,6 +83,8 @@ export interface IStorage {
   updateMatch(id: string, updates: any): Promise<any>;
   softDeleteMatch(id: string, adminId: string): Promise<void>;
   getActiveBetsByMatch(matchId: string): Promise<Bet[]>;
+  getUpcomingManualMatches(limit?: number): Promise<any[]>;
+  getLiveManualMatches(limit?: number): Promise<any[]>;
 
   // Market management operations
   createMarket(market: any): Promise<any>;

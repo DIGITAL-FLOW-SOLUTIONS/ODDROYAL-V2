@@ -1576,6 +1576,95 @@ export class SupabaseStorage implements IStorage {
     }
   }
 
+  async getUpcomingManualMatches(limit: number = 50): Promise<any[]> {
+    try {
+      const now = new Date().toISOString();
+      
+      const { data, error } = await this.client
+        .from('matches')
+        .select('*, markets(*, market_outcomes(*))')
+        .eq('is_manual', true)
+        .eq('status', 'scheduled')
+        .gte('kickoff_time', now)
+        .order('kickoff_time', { ascending: true })
+        .limit(limit);
+
+      if (error) {
+        console.error('Error fetching upcoming manual matches:', error);
+        return [];
+      }
+
+      return data?.map((match: any) => ({
+        id: match.id,
+        externalId: match.external_id,
+        externalSource: match.external_source || 'manual',
+        sport: match.sport,
+        sportId: match.sport_id,
+        sportName: match.sport_name,
+        leagueId: match.league_id,
+        leagueName: match.league_name,
+        homeTeamId: match.home_team_id,
+        homeTeamName: match.home_team_name,
+        awayTeamId: match.away_team_id,
+        awayTeamName: match.away_team_name,
+        kickoffTime: match.kickoff_time,
+        status: match.status,
+        homeScore: match.home_score,
+        awayScore: match.away_score,
+        isManual: match.is_manual,
+        createdAt: match.created_at,
+        updatedAt: match.updated_at,
+        markets: match.markets || []
+      })) || [];
+    } catch (error: any) {
+      console.error('Error getting upcoming manual matches:', error);
+      return [];
+    }
+  }
+
+  async getLiveManualMatches(limit: number = 50): Promise<any[]> {
+    try {
+      const { data, error } = await this.client
+        .from('matches')
+        .select('*, markets(*, market_outcomes(*))')
+        .eq('is_manual', true)
+        .eq('status', 'live')
+        .order('kickoff_time', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('Error fetching live manual matches:', error);
+        return [];
+      }
+
+      return data?.map((match: any) => ({
+        id: match.id,
+        externalId: match.external_id,
+        externalSource: match.external_source || 'manual',
+        sport: match.sport,
+        sportId: match.sport_id,
+        sportName: match.sport_name,
+        leagueId: match.league_id,
+        leagueName: match.league_name,
+        homeTeamId: match.home_team_id,
+        homeTeamName: match.home_team_name,
+        awayTeamId: match.away_team_id,
+        awayTeamName: match.away_team_name,
+        kickoffTime: match.kickoff_time,
+        status: match.status,
+        homeScore: match.home_score || 0,
+        awayScore: match.away_score || 0,
+        isManual: match.is_manual,
+        createdAt: match.created_at,
+        updatedAt: match.updated_at,
+        markets: match.markets || []
+      })) || [];
+    } catch (error: any) {
+      console.error('Error getting live manual matches:', error);
+      return [];
+    }
+  }
+
   async getMatchMarkets(matchId: string): Promise<any[]> {
     try {
       const { data, error } = await this.client
