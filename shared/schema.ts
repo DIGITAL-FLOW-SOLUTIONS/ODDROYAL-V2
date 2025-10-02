@@ -450,6 +450,62 @@ export const stakeValidation = {
   }
 };
 
+// ===================== MATCH TYPES =====================
+
+export const matchSchema = z.object({
+  id: z.string(),
+  externalId: z.string().optional(),
+  leagueId: z.string(),
+  leagueName: z.string(),
+  homeTeamId: z.string(),
+  homeTeamName: z.string(),
+  awayTeamId: z.string(),
+  awayTeamName: z.string(),
+  kickoffTime: z.union([z.string(), z.date()]),
+  status: z.enum(['scheduled', 'live', 'finished', 'cancelled', 'postponed']).default('scheduled'),
+  homeScore: z.number().int().optional(),
+  awayScore: z.number().int().optional(),
+  isManual: z.boolean().default(false),
+  isDeleted: z.boolean().default(false),
+  createdBy: z.string().optional(),
+  updatedBy: z.string().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+  sport: z.string().optional(),
+  simulatedResult: z.object({
+    homeScore: z.number().int(),
+    awayScore: z.number().int(),
+    winner: z.enum(['home', 'away', 'draw'])
+  }).optional(),
+});
+
+export const insertMatchSchema = z.object({
+  externalId: z.string().optional(),
+  leagueId: z.string(),
+  leagueName: z.string(),
+  homeTeamId: z.string(),
+  homeTeamName: z.string(),
+  awayTeamId: z.string(),
+  awayTeamName: z.string(),
+  kickoffTime: z.union([z.string(), z.date()]),
+  status: z.enum(['scheduled', 'live', 'finished', 'cancelled', 'postponed']).default('scheduled'),
+  homeScore: z.number().int().optional(),
+  awayScore: z.number().int().optional(),
+  isManual: z.boolean().default(false),
+  isDeleted: z.boolean().default(false),
+  createdBy: z.string().optional(),
+  updatedBy: z.string().optional(),
+  sport: z.string().optional(),
+  simulatedResult: z.object({
+    homeScore: z.number().int(),
+    awayScore: z.number().int(),
+    winner: z.enum(['home', 'away', 'draw'])
+  }).optional(),
+});
+
+export type Match = z.infer<typeof matchSchema>;
+export type InsertMatch = z.infer<typeof insertMatchSchema>;
+
 export const currencyUtils = {
   centsToKES: (cents: number): string => {
     return (cents / 100).toFixed(2);
