@@ -408,11 +408,9 @@ function MpesaDeposit() {
                       </h3>
                       <div className="space-y-1 text-sm">
                         <p
-                          className="font-medium"
+                          className="font-medium text-left"
                           data-testid="text-business-name"
-                        >
-                          OddRoyal
-                        </p>
+                        >DAILYYIELD INVESTMENT</p>
                         <p className="text-muted-foreground">M-PESA Paybill</p>
                         <p className="text-muted-foreground">
                           Paybill Number:{" "}
