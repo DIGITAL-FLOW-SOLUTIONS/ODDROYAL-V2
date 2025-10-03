@@ -6635,13 +6635,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         callbackUrl
       });
 
+      // Get user's current balance for transaction record
+      const user = await storage.getUser(req.user.id);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
       // Store transaction record for tracking
       const transactionId = randomUUID();
       await storage.createTransaction({
         id: transactionId,
         userId: req.user.id,
         type: 'deposit',
-        amount: amount.toString(),
+        amount: amount,
+        balanceBefore: user.balance,
+        balanceAfter: user.balance, // Balance doesn't change until payment is confirmed
         status: 'pending',
         description: `M-PESA deposit - ${description || 'Account deposit'}`,
         metadata: JSON.stringify({
