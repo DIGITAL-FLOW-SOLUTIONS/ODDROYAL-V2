@@ -6719,7 +6719,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else if (statusResult.ResultCode && statusResult.ResultCode !== '1037') {
           // 1037 is "Transaction in progress", anything else is an error
           status = 'failed';
-          message = statusResult.ResultDesc || 'Payment failed';
+          
+          // Provide user-friendly messages for common error codes
+          const resultCode = statusResult.ResultCode;
+          const resultDesc = statusResult.ResultDesc || '';
+          
+          if (resultCode === '1032' || resultDesc.includes('cancelled')) {
+            message = 'Payment was cancelled by user';
+          } else if (resultCode === '1' || resultDesc.includes('insufficient')) {
+            message = 'Insufficient balance in M-PESA account';
+          } else if (resultCode === '2001' || resultDesc.includes('PIN')) {
+            message = 'Wrong M-PESA PIN entered';
+          } else if (resultCode === '1025' || resultDesc.includes('limit')) {
+            message = 'Transaction exceeds M-PESA limit';
+          } else {
+            message = resultDesc || 'Payment failed';
+          }
         }
 
         // Update transaction status if changed (idempotent update)
@@ -6814,11 +6829,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update transaction based on callback result (idempotent)
       if (transaction.status === 'pending') {
         const status = callbackResult.resultCode === 0 ? 'completed' : 'failed';
-        const resultDescription = callbackResult.resultDesc || 'Unknown result';
+        const resultCode = callbackResult.resultCode;
+        const resultDesc = callbackResult.resultDesc || 'Unknown result';
+        
+        // Provide user-friendly messages for common error codes
+        let userMessage = resultDesc;
+        if (status === 'failed') {
+          if (resultCode === 1032 || resultDesc.includes('cancelled')) {
+            userMessage = 'Payment was cancelled by user';
+          } else if (resultCode === 1 || resultDesc.includes('insufficient')) {
+            userMessage = 'Insufficient balance in M-PESA account';
+          } else if (resultCode === 2001 || resultDesc.includes('PIN')) {
+            userMessage = 'Wrong M-PESA PIN entered';
+          } else if (resultCode === 1025 || resultDesc.includes('limit')) {
+            userMessage = 'Transaction exceeds M-PESA limit';
+          }
+        }
 
         await storage.updateTransaction(transaction.id, {
           status,
-          description: `${transaction.description} - ${resultDescription}`
+          description: `${transaction.description} - ${userMessage}`
         });
 
         // If payment was successful, update user balance (idempotent)
@@ -6827,7 +6857,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateUserBalance(userId, amount);
           console.log(`✅ User ${userId} balance updated by ${amount} for transaction ${transaction.id}`);
         } else {
-          console.log(`❌ Transaction ${transaction.id} failed: ${resultDescription}`);
+          console.log(`❌ Transaction ${transaction.id} failed: ${userMessage} (Code: ${resultCode})`);
         }
 
         console.log(`Transaction ${transaction.id} updated to status: ${status}`);
