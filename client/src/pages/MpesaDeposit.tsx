@@ -23,7 +23,7 @@ interface MpesaDepositProps {
   currency?: string;
 }
 
-type PaymentStatus = 'idle' | 'initiating' | 'pending' | 'success' | 'failed';
+type PaymentStatus = 'idle' | 'initiating' | 'awaiting_pin' | 'checking' | 'success' | 'failed';
 
 function MpesaDeposit() {
   const [, setLocation] = useLocation();
@@ -37,6 +37,7 @@ function MpesaDeposit() {
   const [mobileNumber, setMobileNumber] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('idle');
   const [transactionId, setTransactionId] = useState<string>('');
+  const [countdown, setCountdown] = useState<number>(0);
 
   // Format mobile number as user types
   const formatMobileNumber = (value: string) => {
@@ -81,12 +82,13 @@ function MpesaDeposit() {
         // Invalidate queries to refresh balance after successful payment
         queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
         queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-        setPaymentStatus('pending');
-        // Start polling for payment status
+        setPaymentStatus('awaiting_pin');
+        setCountdown(15); // Show 15 second countdown
+        // Start polling for payment status after giving user time to enter PIN
         pollPaymentStatus(data.data.CheckoutRequestID);
         toast({
-          title: "Payment Initiated",
-          description: "Please check your phone and enter your M-PESA PIN"
+          title: "STK Push Sent",
+          description: "Check your phone and enter your M-PESA PIN to complete the payment"
         });
       } else {
         setPaymentStatus('failed');
@@ -108,10 +110,17 @@ function MpesaDeposit() {
   });
 
   const pollPaymentStatus = async (checkoutRequestID: string) => {
-    const maxAttempts = 30; // Poll for 3 minutes max
+    const maxAttempts = 24; // Poll for 2 minutes (24 checks * 5 seconds = 120 seconds)
     let attempts = 0;
+    const INITIAL_DELAY = 15000; // Wait 15 seconds before first check (gives user time to read and enter PIN)
+    const POLL_INTERVAL = 5000; // Check every 5 seconds after initial delay
 
     const checkStatus = async () => {
+      // Update status to show we're checking
+      if (attempts > 0) {
+        setPaymentStatus('checking');
+      }
+
       try {
         const response = await apiRequest('GET', `/api/mpesa/payment-status/${checkoutRequestID}`);
         const data: any = await response.json();
@@ -119,10 +128,14 @@ function MpesaDeposit() {
         if (data.success) {
           if (data.data.status === 'completed') {
             setPaymentStatus('success');
+            setCountdown(0);
             toast({
-              title: "Payment Successful",
-              description: `Successfully deposited ${currency} ${amount}`
+              title: "Payment Successful! 🎉",
+              description: `Successfully deposited ${currency} ${parseInt(amount).toLocaleString()}`
             });
+            // Invalidate queries to refresh balance
+            queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
             // Redirect to deposit page after 3 seconds
             setTimeout(() => {
               setLocation('/deposit');
@@ -130,9 +143,10 @@ function MpesaDeposit() {
             return;
           } else if (data.data.status === 'failed') {
             setPaymentStatus('failed');
+            setCountdown(0);
             toast({
               title: "Payment Failed",
-              description: data.data.message || "Payment was not completed",
+              description: data.data.message || "Payment was not completed. You may have cancelled or entered wrong PIN.",
               variant: "destructive"
             });
             return;
@@ -141,12 +155,13 @@ function MpesaDeposit() {
 
         attempts++;
         if (attempts < maxAttempts) {
-          setTimeout(checkStatus, 6000); // Check every 6 seconds
+          setTimeout(checkStatus, POLL_INTERVAL);
         } else {
           setPaymentStatus('failed');
+          setCountdown(0);
           toast({
-            title: "Payment Timeout",
-            description: "Payment verification timed out. Please check your M-PESA messages.",
+            title: "Transaction Timeout",
+            description: "Payment verification timed out. Please check your M-PESA messages or try again.",
             variant: "destructive"
           });
         }
@@ -154,12 +169,21 @@ function MpesaDeposit() {
         console.error('Status check error:', error);
         attempts++;
         if (attempts < maxAttempts) {
-          setTimeout(checkStatus, 6000);
+          setTimeout(checkStatus, POLL_INTERVAL);
+        } else {
+          setPaymentStatus('failed');
+          setCountdown(0);
+          toast({
+            title: "Connection Error",
+            description: "Unable to verify payment. Please check your M-PESA messages.",
+            variant: "destructive"
+          });
         }
       }
     };
 
-    checkStatus();
+    // Wait initial delay before first check to give user time to enter PIN
+    setTimeout(checkStatus, INITIAL_DELAY);
   };
 
   const handleSubmit = () => {
@@ -179,8 +203,11 @@ function MpesaDeposit() {
   const getStatusIcon = () => {
     switch (paymentStatus) {
       case 'initiating':
-      case 'pending':
         return <Loader2 className="h-8 w-8 animate-spin text-blue-500" />;
+      case 'awaiting_pin':
+        return <Smartphone className="h-12 w-12 text-green-600 animate-pulse" />;
+      case 'checking':
+        return <Clock className="h-8 w-8 animate-pulse text-blue-500" />;
       case 'success':
         return <CheckCircle className="h-8 w-8 text-green-500" />;
       case 'failed':
@@ -193,17 +220,31 @@ function MpesaDeposit() {
   const getStatusMessage = () => {
     switch (paymentStatus) {
       case 'initiating':
-        return "Initiating payment...";
-      case 'pending':
-        return "Check your phone for M-PESA prompt";
+        return "Sending STK push to your phone...";
+      case 'awaiting_pin':
+        return countdown > 0 
+          ? `Enter your M-PESA PIN on your phone to confirm (${countdown}s)` 
+          : "Enter your M-PESA PIN on your phone to confirm";
+      case 'checking':
+        return "Verifying payment... Please wait";
       case 'success':
         return "Payment completed successfully!";
       case 'failed':
-        return "Payment failed. Please try again.";
+        return "Payment failed or was cancelled";
       default:
         return "Enter your M-PESA number to continue";
     }
   };
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (countdown > 0 && paymentStatus === 'awaiting_pin') {
+      const timer = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown, paymentStatus]);
 
   useEffect(() => {
     // Clear localStorage on component mount
@@ -305,6 +346,31 @@ function MpesaDeposit() {
                       <Smartphone className="h-4 w-4 mr-2" />
                       Pay Now
                     </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Awaiting PIN / Checking Status Instructions */}
+              <AnimatePresence>
+                {(paymentStatus === 'awaiting_pin' || paymentStatus === 'checking') && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="space-y-3 text-center"
+                  >
+                    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        {paymentStatus === 'awaiting_pin' 
+                          ? "📱 Check your phone for the M-PESA prompt" 
+                          : "⏳ Verifying your payment..."}
+                      </p>
+                      <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
+                        {paymentStatus === 'awaiting_pin'
+                          ? "Enter your M-PESA PIN to complete the transaction"
+                          : "Please wait while we confirm your payment"}
+                      </p>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>

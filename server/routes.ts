@@ -6765,21 +6765,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // M-PESA callback endpoint
+  // M-PESA callback endpoint (public - no authentication required as it's called by M-PESA servers)
   app.post("/api/mpesa/callback", async (req, res) => {
     try {
       console.log('M-PESA Callback received:', {
         CheckoutRequestID: req.body.Body?.stkCallback?.CheckoutRequestID,
         ResultCode: req.body.Body?.stkCallback?.ResultCode,
+        ResultDesc: req.body.Body?.stkCallback?.ResultDesc,
         timestamp: new Date().toISOString()
       });
       
+      // Validate callback data structure
+      if (!req.body?.Body?.stkCallback) {
+        console.error('Invalid callback structure:', JSON.stringify(req.body));
+        return res.json({ ResultCode: 0, ResultDesc: "Invalid callback structure" });
+      }
+
       const callbackResult = mpesaService.processCallback(req.body);
-      const checkoutRequestID = req.body.Body?.stkCallback?.CheckoutRequestID;
+      const checkoutRequestID = req.body.Body.stkCallback.CheckoutRequestID;
       
       if (!checkoutRequestID) {
         console.error('No CheckoutRequestID in callback');
-        return res.status(400).json({ ResultCode: 1, ResultDesc: "Invalid callback data" });
+        return res.json({ ResultCode: 0, ResultDesc: "Invalid callback data" });
       }
 
       // Find the transaction in our database by CheckoutRequestID stored in reference field
@@ -6800,39 +6807,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!transaction || !userId) {
         console.error('Transaction not found for CheckoutRequestID:', checkoutRequestID);
+        // Return success to M-PESA to prevent retries for unknown transactions
         return res.json({ ResultCode: 0, ResultDesc: "Transaction not found" });
       }
 
       // Update transaction based on callback result (idempotent)
       if (transaction.status === 'pending') {
         const status = callbackResult.resultCode === 0 ? 'completed' : 'failed';
+        const resultDescription = callbackResult.resultDesc || 'Unknown result';
 
         await storage.updateTransaction(transaction.id, {
-          status
+          status,
+          description: `${transaction.description} - ${resultDescription}`
         });
 
         // If payment was successful, update user balance (idempotent)
         if (status === 'completed') {
           const amount = transaction.amount;
           await storage.updateUserBalance(userId, amount);
-          console.log(`User ${userId} balance updated by ${amount} for transaction ${transaction.id}`);
+          console.log(`✅ User ${userId} balance updated by ${amount} for transaction ${transaction.id}`);
+        } else {
+          console.log(`❌ Transaction ${transaction.id} failed: ${resultDescription}`);
         }
 
         console.log(`Transaction ${transaction.id} updated to status: ${status}`);
       } else {
-        console.log(`Transaction ${transaction.id} already processed with status: ${transaction.status}`);
+        console.log(`⚠️ Transaction ${transaction.id} already processed with status: ${transaction.status}`);
       }
       
-      // Respond to M-PESA
+      // Always respond success to M-PESA to prevent retries
       res.json({
         ResultCode: 0,
         ResultDesc: "Callback processed successfully"
       });
     } catch (error: any) {
       console.error('M-PESA callback processing error:', error);
-      res.status(500).json({
-        ResultCode: 1,
-        ResultDesc: "Internal server error"
+      console.error('Stack trace:', error.stack);
+      // Still return success to prevent M-PESA retries on our internal errors
+      res.json({
+        ResultCode: 0,
+        ResultDesc: "Callback received"
       });
     }
   });
