@@ -6710,6 +6710,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const statusResult = await mpesaService.querySTKPushStatus(checkoutRequestID);
         
+        console.log(`M-PESA Status Query Result for ${checkoutRequestID}:`, {
+          ResultCode: statusResult.ResultCode,
+          ResultDesc: statusResult.ResultDesc
+        });
+        
         let status = 'pending';
         let message = 'Payment is being processed';
 
@@ -6717,23 +6722,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status = 'completed';
           message = 'Payment completed successfully';
         } else if (statusResult.ResultCode && statusResult.ResultCode !== '1037') {
-          // 1037 is "Transaction in progress", anything else is an error
-          status = 'failed';
-          
-          // Provide user-friendly messages for common error codes
+          // 1037 is "Transaction in progress" - keep as pending
+          // Only mark as failed for specific known error codes
           const resultCode = statusResult.ResultCode;
           const resultDesc = statusResult.ResultDesc || '';
           
-          if (resultCode === '1032' || resultDesc.includes('cancelled')) {
-            message = 'Payment was cancelled by user';
-          } else if (resultCode === '1' || resultDesc.includes('insufficient')) {
-            message = 'Insufficient balance in M-PESA account';
-          } else if (resultCode === '2001' || resultDesc.includes('PIN')) {
-            message = 'Wrong M-PESA PIN entered';
-          } else if (resultCode === '1025' || resultDesc.includes('limit')) {
-            message = 'Transaction exceeds M-PESA limit';
+          // Known failure codes that mean the transaction is definitely failed
+          const definiteFailureCodes = ['1032', '1', '2001', '1025', '1026', '1027', '1029', '1030', '1031', '1', '2'];
+          
+          if (definiteFailureCodes.includes(resultCode) || 
+              resultDesc.includes('cancelled') || 
+              resultDesc.includes('insufficient') ||
+              resultDesc.includes('PIN') ||
+              resultDesc.includes('limit')) {
+            status = 'failed';
+            
+            if (resultCode === '1032' || resultDesc.includes('cancelled')) {
+              message = 'Payment was cancelled by user';
+            } else if (resultCode === '1' || resultDesc.includes('insufficient')) {
+              message = 'Insufficient balance in M-PESA account';
+            } else if (resultCode === '2001' || resultDesc.includes('PIN')) {
+              message = 'Wrong M-PESA PIN entered';
+            } else if (resultCode === '1025' || resultDesc.includes('limit')) {
+              message = 'Transaction exceeds M-PESA limit';
+            } else {
+              message = resultDesc || 'Payment failed';
+            }
           } else {
-            message = resultDesc || 'Payment failed';
+            // Unknown result code - keep as pending and let callback handle it
+            console.log(`Unknown M-PESA ResultCode ${resultCode}, keeping transaction pending`);
+            status = 'pending';
+            message = 'Payment is being processed';
           }
         }
 
