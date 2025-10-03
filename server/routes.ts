@@ -6611,7 +6611,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             data: {
               CheckoutRequestID: metadata.checkoutRequestID,
               CustomerMessage: "Previous transaction still processing",
-              transactionId: recentDuplicate.id
+              transactionId: recentDuplicate.id,
+              depositId: metadata.depositId
             }
           });
         } catch (e) {
@@ -6624,8 +6625,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const host = req.headers['x-forwarded-host'] || req.get('host');
       const callbackUrl = process.env.MPESA_CALLBACK_BASE_URL || `${protocol}://${host}/api/mpesa/callback`;
       
-      // Generate unique account reference for tracking
-      const accountReference = `DEP-${req.user.id.substring(0, 8)}-${Date.now()}`;
+      // Generate robust account reference for M-PESA using timestamp for uniqueness
+      const accountReference = `DEP${Date.now()}${req.user.id.substring(0, 4)}`;
       
       const stkPushResult = await mpesaService.stkPush({
         phoneNumber,
@@ -6634,6 +6635,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transactionDesc: description || `Deposit to ${req.user.username}`,
         callbackUrl
       });
+
+      // Generate 6-digit display ID by hashing the unique CheckoutRequestID
+      // This ensures the same CheckoutRequestID always maps to the same display ID
+      const hash = crypto.createHash('sha256').update(stkPushResult.CheckoutRequestID).digest('hex');
+      const displayId = (parseInt(hash.substring(0, 8), 16) % 900000 + 100000).toString();
 
       // Get user's current balance for transaction record
       const user = await storage.getUser(req.user.id);
@@ -6651,14 +6657,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         balanceAfter: user.balance, // Balance doesn't change until payment is confirmed
         status: 'pending',
         reference: stkPushResult.CheckoutRequestID,
-        description: `M-PESA deposit - ${description || 'Account deposit'} (${phoneNumber})`
+        description: `M-PESA deposit - ${description || 'Account deposit'} (${phoneNumber})`,
+        metadata: JSON.stringify({
+          depositId: displayId,
+          accountReference: accountReference,
+          checkoutRequestID: stkPushResult.CheckoutRequestID,
+          phoneNumber: phoneNumber
+        })
       });
 
       res.json({
         success: true,
         data: {
           CheckoutRequestID: stkPushResult.CheckoutRequestID,
-          CustomerMessage: stkPushResult.CustomerMessage
+          CustomerMessage: stkPushResult.CustomerMessage,
+          depositId: displayId
         }
       });
     } catch (error: any) {
