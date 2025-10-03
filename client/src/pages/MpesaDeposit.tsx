@@ -78,11 +78,16 @@ function MpesaDeposit() {
     return regex.test(number);
   };
 
-  const { data: transactionsData = [] } = useQuery<Transaction[]>({
+  const { data: transactionsResponse } = useQuery<{
+    success: boolean;
+    data: Transaction[];
+  }>({
     queryKey: ['/api/transactions'],
     enabled: !!user
   });
 
+  const transactionsData = transactionsResponse?.data || [];
+  
   const depositTransactions = transactionsData
     .filter(t => t.type === 'deposit')
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
