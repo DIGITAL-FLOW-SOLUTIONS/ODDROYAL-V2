@@ -48,12 +48,23 @@ function MpesaDeposit() {
   const [currency] = useState(urlParams.get('currency') || localStorage.getItem('mpesa_currency') || 'KES');
   const [mobileNumber, setMobileNumber] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('idle');
-  const [depositId, setDepositId] = useState<string>('');
+  const [depositId, setDepositId] = useState<string>(() => {
+    // Generate a random 6-digit numeric deposit ID with timestamp for uniqueness
+    return (100000 + (Date.now() % 900000)).toString();
+  });
   const [transactionId, setTransactionId] = useState<string>('');
   const [countdown, setCountdown] = useState<number>(0);
   const [depositDate] = useState(new Date());
 
-  const paybillNumber = "174379";
+  // Fetch M-PESA configuration with error handling
+  const { data: mpesaConfig, isLoading: configLoading, error: configError } = useQuery<{
+    success: boolean;
+    data: { shortcode: string };
+  }>({
+    queryKey: ['/api/mpesa/config']
+  });
+
+  const paybillNumber = mpesaConfig?.data?.shortcode || '';
 
   const formatMobileNumber = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -94,27 +105,31 @@ function MpesaDeposit() {
     .slice(0, 10);
 
   const mpesaPaymentMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (paymentDepositId: string) => {
       const response = await apiRequest('POST', '/api/mpesa/stk-push', {
         phoneNumber: mobileNumber,
         amount: parseInt(amount),
         currency,
-        description: `Deposit to ${user?.username || 'account'}`
+        description: `Deposit to ${user?.username || 'account'}`,
+        depositId: paymentDepositId
       });
       return response.json();
     },
     onSuccess: (data: any) => {
       if (data.success) {
         setTransactionId(data.data.CheckoutRequestID);
-        setDepositId(data.data.depositId || '');
+        // Update depositId with the authoritative value from backend
+        if (data.data.depositId) {
+          setDepositId(data.data.depositId);
+        }
         queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
         queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
         setPaymentStatus('awaiting_pin');
         setCountdown(15);
         pollPaymentStatus(data.data.CheckoutRequestID);
         toast({
-          title: "STK Push Sent",
-          description: "Check your phone and enter your M-PESA PIN to complete the payment"
+          title: "Success! Payment Request Sent",
+          description: `STK Push sent to ${mobileNumber}. Check your phone and enter your M-PESA PIN to complete the payment.`
         });
       } else {
         setPaymentStatus('failed');
@@ -218,8 +233,17 @@ function MpesaDeposit() {
       return;
     }
 
+    // Generate new depositId for each payment attempt with timestamp and randomness for uniqueness
+    const newDepositId = (100000 + ((Date.now() + Math.floor(Math.random() * 1000)) % 900000)).toString();
+    setDepositId(newDepositId);
+    
     setPaymentStatus('initiating');
-    mpesaPaymentMutation.mutate();
+    toast({
+      title: "Payment Initializing...",
+      description: "Please wait while we process your request"
+    });
+    // Pass the new depositId directly to mutation to avoid async state issues
+    mpesaPaymentMutation.mutate(newDepositId);
   };
 
   useEffect(() => {
@@ -276,12 +300,13 @@ function MpesaDeposit() {
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-6 flex flex-col">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
+              className="order-1 relative z-0"
             >
               <Card data-testid="card-deposit-details">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -311,7 +336,16 @@ function MpesaDeposit() {
                       <div className="space-y-1 text-sm">
                         <p className="font-medium" data-testid="text-business-name">OddRoyal</p>
                         <p className="text-muted-foreground">M-PESA Paybill</p>
-                        <p className="text-muted-foreground">Paybill Number: <span className="font-mono font-semibold text-foreground" data-testid="text-paybill">{paybillNumber}</span></p>
+                        <p className="text-muted-foreground">
+                          Paybill Number: {' '}
+                          {configLoading ? (
+                            <Loader2 className="h-3 w-3 inline animate-spin" />
+                          ) : paybillNumber ? (
+                            <span className="font-mono font-semibold text-foreground" data-testid="text-paybill">{paybillNumber}</span>
+                          ) : (
+                            <span className="text-destructive text-xs">Not available</span>
+                          )}
+                        </p>
                         <p className="text-muted-foreground">Nairobi, Kenya</p>
                       </div>
                     </div>
@@ -324,7 +358,7 @@ function MpesaDeposit() {
                       <div className="space-y-1 text-sm">
                         <p className="font-medium" data-testid="text-username">{user?.username || 'Your Account'}</p>
                         <p className="text-muted-foreground">{user?.email || ''}</p>
-                        <p className="text-muted-foreground">Account Balance: <span className="font-semibold text-foreground">{currencyUtils.formatCurrency(Number(user?.balance) || 0)}</span></p>
+                        <p className="text-muted-foreground">Account Balance: <span className="font-semibold text-foreground">KES {(Number(user?.balance) || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></p>
                       </div>
                     </div>
                   </div>
@@ -354,6 +388,7 @@ function MpesaDeposit() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
+                className="order-3 lg:order-2 relative z-0"
               >
                 <Card data-testid="card-transactions">
                   <CardHeader>
@@ -433,12 +468,12 @@ function MpesaDeposit() {
             )}
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 order-2 lg:order-3">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.15 }}
-              className="sticky top-6"
+              className="lg:sticky lg:top-6 relative z-0"
             >
               <Card className="bg-primary/5 border-primary/20" data-testid="card-payment">
                 <CardHeader className="text-center">
@@ -454,6 +489,24 @@ function MpesaDeposit() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <AnimatePresence mode="wait">
+                    {paymentStatus === 'initiating' && (
+                      <motion.div
+                        key="initiating"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className="text-center py-6 space-y-4"
+                      >
+                        <Loader2 className="h-16 w-16 mx-auto text-primary animate-spin" />
+                        <div>
+                          <p className="font-semibold text-lg">Sending STK Push...</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Initiating payment request to {mobileNumber}
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+
                     {paymentStatus === 'idle' && (
                       <motion.div
                         key="form"
@@ -496,20 +549,32 @@ function MpesaDeposit() {
 
                         <div className="space-y-3 text-sm bg-card p-4 rounded-lg border">
                           <p className="font-semibold text-center mb-2">Manual Payment Instructions</p>
-                          <div className="space-y-2">
-                            <div>
-                              <p className="text-muted-foreground text-xs">1. Enter business no:</p>
-                              <p className="font-mono font-bold text-primary text-lg" data-testid="text-manual-paybill">{paybillNumber}</p>
+                          {configLoading ? (
+                            <div className="text-center py-4">
+                              <Loader2 className="h-4 w-4 animate-spin mx-auto text-muted-foreground" />
+                              <p className="text-xs text-muted-foreground mt-2">Loading payment details...</p>
                             </div>
-                            <div>
-                              <p className="text-muted-foreground text-xs">2. Enter account no:</p>
-                              <p className="font-mono font-bold text-primary text-lg" data-testid="text-manual-account">{depositId || 'Will be generated'}</p>
+                          ) : configError || !paybillNumber ? (
+                            <div className="text-center py-4">
+                              <AlertCircle className="h-4 w-4 mx-auto text-destructive mb-2" />
+                              <p className="text-xs text-destructive">Unable to load paybill number. Please try again.</p>
                             </div>
-                            <div>
-                              <p className="text-muted-foreground text-xs">3. Enter amount:</p>
-                              <p className="font-mono font-bold text-primary text-lg" data-testid="text-manual-amount">{parseInt(amount).toLocaleString()} KES</p>
+                          ) : (
+                            <div className="space-y-2">
+                              <div>
+                                <p className="text-muted-foreground text-xs">1. Enter business no:</p>
+                                <p className="font-mono font-bold text-primary text-lg" data-testid="text-manual-paybill">{paybillNumber}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">2. Enter account no:</p>
+                                <p className="font-mono font-bold text-primary text-lg" data-testid="text-manual-account">{depositId}</p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs">3. Enter amount:</p>
+                                <p className="font-mono font-bold text-primary text-lg" data-testid="text-manual-amount">{parseInt(amount).toLocaleString()} KES</p>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </motion.div>
                     )}
@@ -545,8 +610,8 @@ function MpesaDeposit() {
                         <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                           <p className="text-sm text-blue-900 dark:text-blue-100">
                             {paymentStatus === 'awaiting_pin'
-                              ? 'Enter your M-PESA PIN on your phone to complete the transaction'
-                              : 'Please wait while we confirm your payment'}
+                              ? `Enter your M-PESA PIN on your phone (${mobileNumber}) to complete the transaction`
+                              : 'Verifying payment with M-PESA. Please wait...'}
                           </p>
                         </div>
                       </motion.div>
