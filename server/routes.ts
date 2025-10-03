@@ -6570,6 +6570,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===================== M-PESA PAYMENT ROUTES =====================
   
+  // Get M-PESA configuration (public information only)
+  app.get("/api/mpesa/config", async (req, res) => {
+    try {
+      res.json({
+        success: true,
+        data: {
+          shortcode: process.env.MPESA_SHORTCODE || ''
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get M-PESA configuration'
+      });
+    }
+  });
+  
   // Initiate M-PESA STK Push payment
   app.post("/api/mpesa/stk-push", authenticateUser, async (req: any, res) => {
     try {
@@ -6587,11 +6604,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }).refine((phone) => /^254[17]\d{8}$/.test(phone), "Invalid Kenyan mobile number"),
         amount: z.number().min(2000, "Minimum amount is KES 2000"),
         currency: z.literal("KES", { errorMap: () => ({ message: "Only KES currency is supported" }) }),
-        description: z.string().optional()
+        description: z.string().optional(),
+        depositId: z.string().regex(/^\d{6}$/, "Deposit ID must be 6 digits").optional()
       });
 
       const validatedData = stkPushSchema.parse(req.body);
-      const { phoneNumber, amount, currency, description } = validatedData;
+      const { phoneNumber, amount, currency, description, depositId: clientDepositId } = validatedData;
 
       // Check for duplicate recent transactions (idempotency)
       const recentTransactions = await storage.getUserTransactions(req.user.id);
@@ -6636,10 +6654,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         callbackUrl
       });
 
-      // Generate 6-digit display ID by hashing the unique CheckoutRequestID
-      // This ensures the same CheckoutRequestID always maps to the same display ID
-      const hash = crypto.createHash('sha256').update(stkPushResult.CheckoutRequestID).digest('hex');
-      const displayId = (parseInt(hash.substring(0, 8), 16) % 900000 + 100000).toString();
+      // Use client-provided depositId or generate a 6-digit display ID
+      const displayId = clientDepositId || (() => {
+        const hash = crypto.createHash('sha256').update(stkPushResult.CheckoutRequestID).digest('hex');
+        return (parseInt(hash.substring(0, 8), 16) % 900000 + 100000).toString();
+      })();
 
       // Get user's current balance for transaction record
       const user = await storage.getUser(req.user.id);
