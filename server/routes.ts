@@ -6642,31 +6642,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Store transaction record for tracking
-      const transactionId = randomUUID();
+      // Store CheckoutRequestID in reference field for callback lookup
       await storage.createTransaction({
-        id: transactionId,
         userId: req.user.id,
         type: 'deposit',
         amount: amount,
         balanceBefore: user.balance,
         balanceAfter: user.balance, // Balance doesn't change until payment is confirmed
         status: 'pending',
-        description: `M-PESA deposit - ${description || 'Account deposit'}`,
-        metadata: JSON.stringify({
-          checkoutRequestID: stkPushResult.CheckoutRequestID,
-          merchantRequestID: stkPushResult.MerchantRequestID,
-          phoneNumber,
-          accountReference,
-          currency
-        })
+        reference: stkPushResult.CheckoutRequestID,
+        description: `M-PESA deposit - ${description || 'Account deposit'} (${phoneNumber})`
       });
 
       res.json({
         success: true,
         data: {
           CheckoutRequestID: stkPushResult.CheckoutRequestID,
-          CustomerMessage: stkPushResult.CustomerMessage,
-          transactionId
+          CustomerMessage: stkPushResult.CustomerMessage
         }
       });
     } catch (error: any) {
@@ -6691,15 +6683,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { checkoutRequestID } = req.params;
       
       // First check our database for the transaction
+      // CheckoutRequestID is stored in the reference field
       const transactions = await storage.getUserTransactions(req.user.id);
-      const transaction = transactions.find(t => {
-        try {
-          const metadata = JSON.parse(t.metadata || '{}');
-          return metadata.checkoutRequestID === checkoutRequestID;
-        } catch {
-          return false;
-        }
-      });
+      const transaction = transactions.find(t => t.reference === checkoutRequestID);
 
       if (!transaction) {
         return res.status(404).json({
@@ -6739,23 +6725,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update transaction status if changed (idempotent update)
         if (status !== 'pending' && transaction.status === 'pending') {
           await storage.updateTransaction(transaction.id, {
-            status,
-            metadata: JSON.stringify({
-              ...JSON.parse(transaction.metadata || '{}'),
-              mpesaResult: statusResult,
-              statusUpdatedAt: new Date().toISOString()
-            })
+            status
           });
 
           // If completed, update user balance (idempotent)
           if (status === 'completed') {
-            const amount = parseInt(transaction.amount);
-            const currentUser = await storage.getUser(req.user.id);
-            if (currentUser) {
-              const newBalance = currentUser.balance + amount;
-              await storage.updateUserBalance(req.user.id, newBalance);
-              console.log(`User ${req.user.id} balance updated by ${amount} cents (new balance: ${newBalance}) for transaction ${transaction.id}`);
-            }
+            const amount = transaction.amount;
+            await storage.updateUserBalance(req.user.id, amount);
+            console.log(`User ${req.user.id} balance updated by ${amount} for transaction ${transaction.id}`);
           }
         }
 
@@ -6805,21 +6782,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ ResultCode: 1, ResultDesc: "Invalid callback data" });
       }
 
-      // Find the transaction in our database
+      // Find the transaction in our database by CheckoutRequestID stored in reference field
       const allUsers = await storage.getAllUsers();
       let transaction = null;
       let userId = null;
 
       for (const user of allUsers) {
         const userTransactions = await storage.getUserTransactions(user.id);
-        const foundTransaction = userTransactions.find(t => {
-          try {
-            const metadata = JSON.parse(t.metadata || '{}');
-            return metadata.checkoutRequestID === checkoutRequestID;
-          } catch {
-            return false;
-          }
-        });
+        const foundTransaction = userTransactions.find(t => t.reference === checkoutRequestID);
         
         if (foundTransaction) {
           transaction = foundTransaction;
@@ -6836,20 +6806,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update transaction based on callback result (idempotent)
       if (transaction.status === 'pending') {
         const status = callbackResult.resultCode === 0 ? 'completed' : 'failed';
-        const updatedMetadata = {
-          ...JSON.parse(transaction.metadata || '{}'),
-          callbackResult,
-          completedAt: new Date().toISOString()
-        };
 
         await storage.updateTransaction(transaction.id, {
-          status,
-          metadata: JSON.stringify(updatedMetadata)
+          status
         });
 
         // If payment was successful, update user balance (idempotent)
         if (status === 'completed') {
-          const amount = parseInt(transaction.amount);
+          const amount = transaction.amount;
           await storage.updateUserBalance(userId, amount);
           console.log(`User ${userId} balance updated by ${amount} for transaction ${transaction.id}`);
         }

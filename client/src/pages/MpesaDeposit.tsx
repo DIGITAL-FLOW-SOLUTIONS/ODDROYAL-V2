@@ -67,22 +67,23 @@ function MpesaDeposit() {
 
   const mpesaPaymentMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('POST', '/api/mpesa/stk-push', {
+      const response = await apiRequest('POST', '/api/mpesa/stk-push', {
         phoneNumber: mobileNumber,
         amount: parseInt(amount),
         currency,
         description: `Deposit to ${user?.username || 'account'}`
       });
+      return response.json();
     },
-    onSuccess: (response: any) => {
-      if (response.success) {
-        setTransactionId(response.data.CheckoutRequestID);
+    onSuccess: (data: any) => {
+      if (data.success) {
+        setTransactionId(data.data.CheckoutRequestID);
         // Invalidate queries to refresh balance after successful payment
         queryClient.invalidateQueries({ queryKey: ['/api/transactions'] });
         queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
         setPaymentStatus('pending');
         // Start polling for payment status
-        pollPaymentStatus(response.data.CheckoutRequestID);
+        pollPaymentStatus(data.data.CheckoutRequestID);
         toast({
           title: "Payment Initiated",
           description: "Please check your phone and enter your M-PESA PIN"
@@ -91,7 +92,7 @@ function MpesaDeposit() {
         setPaymentStatus('failed');
         toast({
           title: "Payment Failed",
-          description: response.message || "Unable to initiate payment",
+          description: data.message || "Unable to initiate payment",
           variant: "destructive"
         });
       }
@@ -112,10 +113,11 @@ function MpesaDeposit() {
 
     const checkStatus = async () => {
       try {
-        const response: any = await apiRequest('GET', `/api/mpesa/payment-status/${checkoutRequestID}`);
+        const response = await apiRequest('GET', `/api/mpesa/payment-status/${checkoutRequestID}`);
+        const data: any = await response.json();
         
-        if (response.success) {
-          if (response.data.status === 'completed') {
+        if (data.success) {
+          if (data.data.status === 'completed') {
             setPaymentStatus('success');
             toast({
               title: "Payment Successful",
@@ -126,11 +128,11 @@ function MpesaDeposit() {
               setLocation('/deposit');
             }, 3000);
             return;
-          } else if (response.data.status === 'failed') {
+          } else if (data.data.status === 'failed') {
             setPaymentStatus('failed');
             toast({
               title: "Payment Failed",
-              description: response.data.message || "Payment was not completed",
+              description: data.data.message || "Payment was not completed",
               variant: "destructive"
             });
             return;
