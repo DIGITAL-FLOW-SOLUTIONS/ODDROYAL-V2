@@ -306,7 +306,7 @@ function MpesaDeposit() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="order-1 relative z-0"
+              className="order-2 lg:order-1 relative z-0"
             >
               <Card data-testid="card-deposit-details">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
@@ -468,7 +468,7 @@ function MpesaDeposit() {
             )}
           </div>
 
-          <div className="space-y-6 order-2 lg:order-3">
+          <div className="space-y-6 order-1 lg:order-3">
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
