@@ -383,7 +383,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
         <div className="flex flex-col flex-1">
           {/* Admin Header */}
-          <header className="sticky top-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="flex items-center justify-between p-3 md:p-4">
               <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
                 <SidebarTrigger data-testid="button-admin-sidebar-toggle" />

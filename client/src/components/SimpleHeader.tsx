@@ -20,7 +20,7 @@ export default function SimpleHeader() {
     <motion.header 
       initial={{ y: -50, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="sticky top-0 flex h-16 items-center justify-between bg-sidebar border-b border-sidebar-border px-4"
+      className="sticky top-0 z-50 flex h-16 items-center justify-between bg-sidebar border-b border-sidebar-border px-4"
     >
       {/* Left section - Logo only (no sidebar trigger) */}
       <div className="flex items-center gap-4">
