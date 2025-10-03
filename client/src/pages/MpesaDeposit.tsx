@@ -130,7 +130,7 @@ function MpesaDeposit() {
             setPaymentStatus('success');
             setCountdown(0);
             toast({
-              title: "Payment Successful! 🎉",
+              title: "Payment Successful",
               description: `Successfully deposited ${currency} ${parseInt(amount).toLocaleString()}`
             });
             // Invalidate queries to refresh balance
@@ -362,8 +362,8 @@ function MpesaDeposit() {
                     <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                       <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
                         {paymentStatus === 'awaiting_pin' 
-                          ? "📱 Check your phone for the M-PESA prompt" 
-                          : "⏳ Verifying your payment..."}
+                          ? "Check your phone for the M-PESA prompt" 
+                          : "Verifying your payment..."}
                       </p>
                       <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
                         {paymentStatus === 'awaiting_pin'
@@ -439,7 +439,7 @@ function MpesaDeposit() {
           className="max-w-md mx-auto"
         >
           <div className="text-center text-xs text-muted-foreground space-y-2">
-            <p>🔒 Your payment is secured by Safaricom M-PESA</p>
+            <p>Your payment is secured by Safaricom M-PESA</p>
             <p>You will receive an SMS confirmation upon completion</p>
           </div>
         </motion.div>
