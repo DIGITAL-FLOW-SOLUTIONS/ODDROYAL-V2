@@ -51,18 +51,18 @@ function AdminRouter() {
         </AdminAuthGuard>
       </Route>
       
-      <Route path="/prime-admin/matches">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <AdminMatchesMarkets />
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-
       <Route path="/prime-admin/matches/:matchId/markets">
         <AdminAuthGuard>
           <AdminLayout>
             <AdminMarketEditor />
+          </AdminLayout>
+        </AdminAuthGuard>
+      </Route>
+
+      <Route path="/prime-admin/matches">
+        <AdminAuthGuard>
+          <AdminLayout>
+            <AdminMatchesMarkets />
           </AdminLayout>
         </AdminAuthGuard>
       </Route>
