@@ -145,6 +145,14 @@ function AdminRouter() {
           </AdminLayout>
         </AdminAuthGuard>
       </Route>
+      
+      {/* Fallback - shows what route is being accessed */}
+      <Route>
+        {(params) => {
+          console.log('Unmatched admin route:', window.location.pathname, params);
+          return <NotFound />;
+        }}
+      </Route>
     </Switch>
   );
 }
