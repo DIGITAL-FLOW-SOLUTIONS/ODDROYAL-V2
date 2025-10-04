@@ -51,7 +51,7 @@ function AdminRouter() {
         </AdminAuthGuard>
       </Route>
       
-      <Route path="/prime-admin/matches/:matchId/markets">
+      <Route path="/prime-admin/matches/markets/:matchId">
         <AdminAuthGuard>
           <AdminLayout>
             <AdminMarketEditor />
