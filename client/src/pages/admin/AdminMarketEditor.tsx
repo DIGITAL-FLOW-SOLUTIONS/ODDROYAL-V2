@@ -117,62 +117,14 @@ const MARKET_TEMPLATES: MarketTemplate[] = [
   },
   {
     category: "Goal Markets",
-    key: "totals_0_5",
-    name: "Total Goals O/U 0.5",
-    type: "totals",
-    hasParameter: true,
-    defaultParameter: "0.5",
-    outcomes: [
-      { key: "over", label: "Over 0.5", defaultOdds: 1.15 },
-      { key: "under", label: "Under 0.5", defaultOdds: 5.50 }
-    ]
-  },
-  {
-    category: "Goal Markets",
-    key: "totals_1_5",
-    name: "Total Goals O/U 1.5",
-    type: "totals",
-    hasParameter: true,
-    defaultParameter: "1.5",
-    outcomes: [
-      { key: "over", label: "Over 1.5", defaultOdds: 1.40 },
-      { key: "under", label: "Under 1.5", defaultOdds: 2.90 }
-    ]
-  },
-  {
-    category: "Goal Markets",
-    key: "totals_2_5",
-    name: "Total Goals O/U 2.5",
+    key: "totals",
+    name: "Total Goals (Over/Under)",
     type: "totals",
     hasParameter: true,
     defaultParameter: "2.5",
     outcomes: [
-      { key: "over", label: "Over 2.5", defaultOdds: 1.80 },
-      { key: "under", label: "Under 2.5", defaultOdds: 2.00 }
-    ]
-  },
-  {
-    category: "Goal Markets",
-    key: "totals_3_5",
-    name: "Total Goals O/U 3.5",
-    type: "totals",
-    hasParameter: true,
-    defaultParameter: "3.5",
-    outcomes: [
-      { key: "over", label: "Over 3.5", defaultOdds: 2.75 },
-      { key: "under", label: "Under 3.5", defaultOdds: 1.44 }
-    ]
-  },
-  {
-    category: "Goal Markets",
-    key: "totals_4_5",
-    name: "Total Goals O/U 4.5",
-    type: "totals",
-    hasParameter: true,
-    defaultParameter: "4.5",
-    outcomes: [
-      { key: "over", label: "Over 4.5", defaultOdds: 4.50 },
-      { key: "under", label: "Under 4.5", defaultOdds: 1.18 }
+      { key: "over", label: "Over", defaultOdds: 1.80 },
+      { key: "under", label: "Under", defaultOdds: 2.00 }
     ]
   },
   {
@@ -393,62 +345,26 @@ const MARKET_TEMPLATES: MarketTemplate[] = [
   },
   {
     category: "Special Markets",
-    key: "handicap_-2",
-    name: "Asian Handicap -2",
-    type: "handicap",
-    hasParameter: true,
-    defaultParameter: "-2",
-    outcomes: [
-      { key: "home", label: "Home -2", defaultOdds: 3.20 },
-      { key: "away", label: "Away +2", defaultOdds: 1.35 }
-    ]
-  },
-  {
-    category: "Special Markets",
-    key: "handicap_-1",
-    name: "Asian Handicap -1",
-    type: "handicap",
-    hasParameter: true,
-    defaultParameter: "-1",
-    outcomes: [
-      { key: "home", label: "Home -1", defaultOdds: 2.10 },
-      { key: "away", label: "Away +1", defaultOdds: 1.75 }
-    ]
-  },
-  {
-    category: "Special Markets",
-    key: "handicap_0",
-    name: "Asian Handicap 0",
+    key: "handicap",
+    name: "Handicap",
     type: "handicap",
     hasParameter: true,
     defaultParameter: "0",
     outcomes: [
-      { key: "home", label: "Home", defaultOdds: 1.55 },
-      { key: "away", label: "Away", defaultOdds: 2.40 }
+      { key: "home", label: "Home", defaultOdds: 1.90 },
+      { key: "away", label: "Away", defaultOdds: 1.90 }
     ]
   },
   {
     category: "Special Markets",
-    key: "handicap_+1",
-    name: "Asian Handicap +1",
-    type: "handicap",
+    key: "asian_handicap",
+    name: "Asian Handicap",
+    type: "asian_handicap",
     hasParameter: true,
-    defaultParameter: "+1",
+    defaultParameter: "0",
     outcomes: [
-      { key: "home", label: "Home +1", defaultOdds: 1.75 },
-      { key: "away", label: "Away -1", defaultOdds: 2.10 }
-    ]
-  },
-  {
-    category: "Special Markets",
-    key: "handicap_+2",
-    name: "Asian Handicap +2",
-    type: "handicap",
-    hasParameter: true,
-    defaultParameter: "+2",
-    outcomes: [
-      { key: "home", label: "Home +2", defaultOdds: 1.35 },
-      { key: "away", label: "Away -2", defaultOdds: 3.20 }
+      { key: "home", label: "Home", defaultOdds: 1.90 },
+      { key: "away", label: "Away", defaultOdds: 1.90 }
     ]
   },
   {
