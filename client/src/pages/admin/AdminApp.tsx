@@ -145,11 +145,6 @@ function AdminRouter() {
           </AdminLayout>
         </AdminAuthGuard>
       </Route>
-      
-      {/* Catch all other admin routes */}
-      <Route path="/prime-admin/:rest*">
-        <NotFound />
-      </Route>
     </Switch>
   );
 }
