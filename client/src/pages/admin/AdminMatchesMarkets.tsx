@@ -964,10 +964,7 @@ export default function AdminMatchesMarkets() {
   };
 
   const openMarketEditor = (match: Match) => {
-    toast({
-      title: "Market Management",
-      description: `Opening market editor for ${match.homeTeamName} vs ${match.awayTeamName}. Market management functionality will be available in the next update.`,
-    });
+    setLocation(`/prime-admin/matches/${match.id}/markets`);
   };
 
   const openDeleteModal = (match: Match) => {

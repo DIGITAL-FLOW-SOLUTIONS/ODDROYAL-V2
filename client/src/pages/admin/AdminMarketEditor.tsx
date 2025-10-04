@@ -1,27 +1,20 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { motion, Reorder } from "framer-motion";
 import { useParams, useLocation } from "wouter";
 import {
   ArrowLeft,
   Plus,
   Save,
-  Eye,
+  X,
   Lock,
   Unlock,
-  Edit3,
-  Trash2,
-  Upload,
-  Download,
   AlertTriangle,
-  CheckCircle,
-  GripVertical,
-  DollarSign,
-  Target,
   Activity,
-  Settings,
-  FileText,
-  Clock
+  Clock,
+  ChevronDown,
+  ChevronRight,
+  Target,
+  CheckCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,15 +22,25 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, adminApiRequest } from "@/lib/queryClient";
 
-// Types for Market Editor
+interface MarketOutcome {
+  id: string;
+  key: string;
+  label: string;
+  odds: number;
+  previousOdds?: number;
+  oddsSource: 'manual' | 'sportmonks' | 'automated';
+  status: 'active' | 'inactive' | 'won' | 'lost';
+  liabilityLimitCents: number;
+  displayOrder: number;
+  updatedAt: string;
+}
+
 interface Market {
   id: string;
   key: string;
@@ -55,19 +58,6 @@ interface Market {
   updatedAt: string;
 }
 
-interface MarketOutcome {
-  id: string;
-  key: string;
-  label: string;
-  odds: number;
-  previousOdds?: number;
-  oddsSource: 'manual' | 'sportmonks' | 'automated';
-  status: 'active' | 'inactive' | 'won' | 'lost';
-  liabilityLimitCents: number;
-  displayOrder: number;
-  updatedAt: string;
-}
-
 interface Match {
   id: string;
   homeTeamName: string;
@@ -78,16 +68,13 @@ interface Match {
   markets: Market[];
 }
 
-interface OddsChangeRequest {
-  outcomeId: string;
-  newOdds: number;
-  reason: string;
-}
-
 interface MarketTemplate {
   key: string;
   name: string;
   type: string;
+  category: string;
+  hasParameter?: boolean;
+  defaultParameter?: string;
   outcomes: Array<{
     key: string;
     label: string;
@@ -97,31 +84,406 @@ interface MarketTemplate {
 
 const MARKET_TEMPLATES: MarketTemplate[] = [
   {
+    category: "Main Markets",
     key: "1x2",
-    name: "Match Winner",
+    name: "Match Winner (1X2)",
     type: "1x2",
     outcomes: [
-      { key: "home", label: "Home", defaultOdds: 2.00 },
-      { key: "draw", label: "Draw", defaultOdds: 3.20 },
-      { key: "away", label: "Away", defaultOdds: 2.80 }
+      { key: "home", label: "Home Win", defaultOdds: 2.10 },
+      { key: "draw", label: "Draw", defaultOdds: 3.40 },
+      { key: "away", label: "Away Win", defaultOdds: 3.20 }
     ]
   },
   {
+    category: "Main Markets",
+    key: "double_chance",
+    name: "Double Chance",
+    type: "double_chance",
+    outcomes: [
+      { key: "home_draw", label: "Home or Draw", defaultOdds: 1.30 },
+      { key: "home_away", label: "Home or Away", defaultOdds: 1.35 },
+      { key: "draw_away", label: "Draw or Away", defaultOdds: 1.65 }
+    ]
+  },
+  {
+    category: "Main Markets",
+    key: "draw_no_bet",
+    name: "Draw No Bet",
+    type: "draw_no_bet",
+    outcomes: [
+      { key: "home", label: "Home", defaultOdds: 1.55 },
+      { key: "away", label: "Away", defaultOdds: 2.40 }
+    ]
+  },
+  {
+    category: "Goal Markets",
+    key: "totals_0_5",
+    name: "Total Goals O/U 0.5",
+    type: "totals",
+    hasParameter: true,
+    defaultParameter: "0.5",
+    outcomes: [
+      { key: "over", label: "Over 0.5", defaultOdds: 1.15 },
+      { key: "under", label: "Under 0.5", defaultOdds: 5.50 }
+    ]
+  },
+  {
+    category: "Goal Markets",
+    key: "totals_1_5",
+    name: "Total Goals O/U 1.5",
+    type: "totals",
+    hasParameter: true,
+    defaultParameter: "1.5",
+    outcomes: [
+      { key: "over", label: "Over 1.5", defaultOdds: 1.40 },
+      { key: "under", label: "Under 1.5", defaultOdds: 2.90 }
+    ]
+  },
+  {
+    category: "Goal Markets",
     key: "totals_2_5",
     name: "Total Goals O/U 2.5",
     type: "totals",
+    hasParameter: true,
+    defaultParameter: "2.5",
     outcomes: [
       { key: "over", label: "Over 2.5", defaultOdds: 1.80 },
       { key: "under", label: "Under 2.5", defaultOdds: 2.00 }
     ]
   },
   {
+    category: "Goal Markets",
+    key: "totals_3_5",
+    name: "Total Goals O/U 3.5",
+    type: "totals",
+    hasParameter: true,
+    defaultParameter: "3.5",
+    outcomes: [
+      { key: "over", label: "Over 3.5", defaultOdds: 2.75 },
+      { key: "under", label: "Under 3.5", defaultOdds: 1.44 }
+    ]
+  },
+  {
+    category: "Goal Markets",
+    key: "totals_4_5",
+    name: "Total Goals O/U 4.5",
+    type: "totals",
+    hasParameter: true,
+    defaultParameter: "4.5",
+    outcomes: [
+      { key: "over", label: "Over 4.5", defaultOdds: 4.50 },
+      { key: "under", label: "Under 4.5", defaultOdds: 1.18 }
+    ]
+  },
+  {
+    category: "Goal Markets",
     key: "btts",
-    name: "Both Teams To Score",
+    name: "Both Teams to Score",
     type: "btts",
     outcomes: [
       { key: "yes", label: "Yes", defaultOdds: 1.70 },
       { key: "no", label: "No", defaultOdds: 2.10 }
+    ]
+  },
+  {
+    category: "Goal Markets",
+    key: "exact_goals",
+    name: "Exact Number of Goals",
+    type: "exact_goals",
+    outcomes: [
+      { key: "0", label: "0 Goals", defaultOdds: 9.00 },
+      { key: "1", label: "1 Goal", defaultOdds: 6.00 },
+      { key: "2", label: "2 Goals", defaultOdds: 4.00 },
+      { key: "3", label: "3 Goals", defaultOdds: 4.50 },
+      { key: "4+", label: "4+ Goals", defaultOdds: 3.20 }
+    ]
+  },
+  {
+    category: "Goal Markets",
+    key: "odd_even",
+    name: "Odd/Even Goals",
+    type: "odd_even",
+    outcomes: [
+      { key: "odd", label: "Odd", defaultOdds: 1.95 },
+      { key: "even", label: "Even", defaultOdds: 1.95 }
+    ]
+  },
+  {
+    category: "Goal Markets",
+    key: "both_halves_over_1_5",
+    name: "Both Halves Over 1.5",
+    type: "both_halves",
+    outcomes: [
+      { key: "yes", label: "Yes", defaultOdds: 8.50 },
+      { key: "no", label: "No", defaultOdds: 1.08 }
+    ]
+  },
+  {
+    category: "Half Markets",
+    key: "first_half_1x2",
+    name: "First Half 1X2",
+    type: "first_half_1x2",
+    outcomes: [
+      { key: "home", label: "Home Win", defaultOdds: 3.20 },
+      { key: "draw", label: "Draw", defaultOdds: 2.10 },
+      { key: "away", label: "Away Win", defaultOdds: 4.50 }
+    ]
+  },
+  {
+    category: "Half Markets",
+    key: "first_half_totals",
+    name: "First Half Goals O/U",
+    type: "first_half_totals",
+    hasParameter: true,
+    defaultParameter: "0.5",
+    outcomes: [
+      { key: "over", label: "Over 0.5", defaultOdds: 1.60 },
+      { key: "under", label: "Under 0.5", defaultOdds: 2.30 }
+    ]
+  },
+  {
+    category: "Half Markets",
+    key: "second_half_1x2",
+    name: "Second Half 1X2",
+    type: "second_half_1x2",
+    outcomes: [
+      { key: "home", label: "Home Win", defaultOdds: 3.50 },
+      { key: "draw", label: "Draw", defaultOdds: 2.00 },
+      { key: "away", label: "Away Win", defaultOdds: 4.20 }
+    ]
+  },
+  {
+    category: "Half Markets",
+    key: "second_half_totals",
+    name: "Second Half Goals O/U",
+    type: "second_half_totals",
+    hasParameter: true,
+    defaultParameter: "0.5",
+    outcomes: [
+      { key: "over", label: "Over 0.5", defaultOdds: 1.55 },
+      { key: "under", label: "Under 0.5", defaultOdds: 2.40 }
+    ]
+  },
+  {
+    category: "Half Markets",
+    key: "highest_scoring_half",
+    name: "Highest Scoring Half",
+    type: "highest_scoring_half",
+    outcomes: [
+      { key: "first", label: "First Half", defaultOdds: 2.80 },
+      { key: "equal", label: "Equal", defaultOdds: 3.00 },
+      { key: "second", label: "Second Half", defaultOdds: 2.20 }
+    ]
+  },
+  {
+    category: "Team Performance",
+    key: "team_to_score_first",
+    name: "Team to Score First",
+    type: "team_to_score_first",
+    outcomes: [
+      { key: "home", label: "Home", defaultOdds: 1.85 },
+      { key: "away", label: "Away", defaultOdds: 2.10 },
+      { key: "no_goals", label: "No Goals", defaultOdds: 15.00 }
+    ]
+  },
+  {
+    category: "Team Performance",
+    key: "team_to_score_last",
+    name: "Team to Score Last",
+    type: "team_to_score_last",
+    outcomes: [
+      { key: "home", label: "Home", defaultOdds: 1.90 },
+      { key: "away", label: "Away", defaultOdds: 2.05 }
+    ]
+  },
+  {
+    category: "Team Performance",
+    key: "clean_sheet",
+    name: "Clean Sheet",
+    type: "clean_sheet",
+    outcomes: [
+      { key: "home", label: "Home Clean Sheet", defaultOdds: 2.50 },
+      { key: "away", label: "Away Clean Sheet", defaultOdds: 3.20 },
+      { key: "neither", label: "Neither", defaultOdds: 1.80 }
+    ]
+  },
+  {
+    category: "Team Performance",
+    key: "to_win_either_half",
+    name: "To Win Either Half",
+    type: "to_win_either_half",
+    outcomes: [
+      { key: "home", label: "Home", defaultOdds: 1.35 },
+      { key: "away", label: "Away", defaultOdds: 1.75 }
+    ]
+  },
+  {
+    category: "Team Performance",
+    key: "to_win_both_halves",
+    name: "To Win Both Halves",
+    type: "to_win_both_halves",
+    outcomes: [
+      { key: "home", label: "Home", defaultOdds: 4.50 },
+      { key: "away", label: "Away", defaultOdds: 6.50 },
+      { key: "neither", label: "Neither", defaultOdds: 1.30 }
+    ]
+  },
+  {
+    category: "Team Performance",
+    key: "to_score_both_halves",
+    name: "To Score in Both Halves",
+    type: "to_score_both_halves",
+    outcomes: [
+      { key: "home", label: "Home", defaultOdds: 2.75 },
+      { key: "away", label: "Away", defaultOdds: 3.40 },
+      { key: "both", label: "Both Teams", defaultOdds: 4.20 }
+    ]
+  },
+  {
+    category: "Special Markets",
+    key: "correct_score",
+    name: "Correct Score",
+    type: "correct_score",
+    outcomes: [
+      { key: "1-0", label: "1-0", defaultOdds: 7.50 },
+      { key: "2-0", label: "2-0", defaultOdds: 9.00 },
+      { key: "2-1", label: "2-1", defaultOdds: 8.50 },
+      { key: "3-0", label: "3-0", defaultOdds: 16.00 },
+      { key: "3-1", label: "3-1", defaultOdds: 15.00 },
+      { key: "0-0", label: "0-0", defaultOdds: 9.00 },
+      { key: "1-1", label: "1-1", defaultOdds: 6.50 },
+      { key: "2-2", label: "2-2", defaultOdds: 14.00 },
+      { key: "0-1", label: "0-1", defaultOdds: 10.00 },
+      { key: "0-2", label: "0-2", defaultOdds: 14.00 },
+      { key: "1-2", label: "1-2", defaultOdds: 10.00 },
+      { key: "other", label: "Any Other", defaultOdds: 6.00 }
+    ]
+  },
+  {
+    category: "Special Markets",
+    key: "ht_ft",
+    name: "Half Time/Full Time",
+    type: "ht_ft",
+    outcomes: [
+      { key: "hh", label: "Home/Home", defaultOdds: 3.60 },
+      { key: "hd", label: "Home/Draw", defaultOdds: 8.00 },
+      { key: "ha", label: "Home/Away", defaultOdds: 15.00 },
+      { key: "dh", label: "Draw/Home", defaultOdds: 5.00 },
+      { key: "dd", label: "Draw/Draw", defaultOdds: 6.50 },
+      { key: "da", label: "Draw/Away", defaultOdds: 7.50 },
+      { key: "ah", label: "Away/Home", defaultOdds: 20.00 },
+      { key: "ad", label: "Away/Draw", defaultOdds: 12.00 },
+      { key: "aa", label: "Away/Away", defaultOdds: 6.00 }
+    ]
+  },
+  {
+    category: "Special Markets",
+    key: "winning_margin",
+    name: "Winning Margin",
+    type: "winning_margin",
+    outcomes: [
+      { key: "home_1", label: "Home by 1", defaultOdds: 5.50 },
+      { key: "home_2", label: "Home by 2", defaultOdds: 6.50 },
+      { key: "home_3+", label: "Home by 3+", defaultOdds: 9.00 },
+      { key: "away_1", label: "Away by 1", defaultOdds: 7.00 },
+      { key: "away_2", label: "Away by 2", defaultOdds: 9.50 },
+      { key: "away_3+", label: "Away by 3+", defaultOdds: 15.00 },
+      { key: "draw", label: "Draw", defaultOdds: 3.40 }
+    ]
+  },
+  {
+    category: "Special Markets",
+    key: "handicap_-2",
+    name: "Asian Handicap -2",
+    type: "handicap",
+    hasParameter: true,
+    defaultParameter: "-2",
+    outcomes: [
+      { key: "home", label: "Home -2", defaultOdds: 3.20 },
+      { key: "away", label: "Away +2", defaultOdds: 1.35 }
+    ]
+  },
+  {
+    category: "Special Markets",
+    key: "handicap_-1",
+    name: "Asian Handicap -1",
+    type: "handicap",
+    hasParameter: true,
+    defaultParameter: "-1",
+    outcomes: [
+      { key: "home", label: "Home -1", defaultOdds: 2.10 },
+      { key: "away", label: "Away +1", defaultOdds: 1.75 }
+    ]
+  },
+  {
+    category: "Special Markets",
+    key: "handicap_0",
+    name: "Asian Handicap 0",
+    type: "handicap",
+    hasParameter: true,
+    defaultParameter: "0",
+    outcomes: [
+      { key: "home", label: "Home", defaultOdds: 1.55 },
+      { key: "away", label: "Away", defaultOdds: 2.40 }
+    ]
+  },
+  {
+    category: "Special Markets",
+    key: "handicap_+1",
+    name: "Asian Handicap +1",
+    type: "handicap",
+    hasParameter: true,
+    defaultParameter: "+1",
+    outcomes: [
+      { key: "home", label: "Home +1", defaultOdds: 1.75 },
+      { key: "away", label: "Away -1", defaultOdds: 2.10 }
+    ]
+  },
+  {
+    category: "Special Markets",
+    key: "handicap_+2",
+    name: "Asian Handicap +2",
+    type: "handicap",
+    hasParameter: true,
+    defaultParameter: "+2",
+    outcomes: [
+      { key: "home", label: "Home +2", defaultOdds: 1.35 },
+      { key: "away", label: "Away -2", defaultOdds: 3.20 }
+    ]
+  },
+  {
+    category: "Special Markets",
+    key: "first_goal_interval",
+    name: "First Goal Interval",
+    type: "first_goal_interval",
+    outcomes: [
+      { key: "0-15", label: "0-15 min", defaultOdds: 4.50 },
+      { key: "16-30", label: "16-30 min", defaultOdds: 3.80 },
+      { key: "31-45", label: "31-45 min", defaultOdds: 4.20 },
+      { key: "46-60", label: "46-60 min", defaultOdds: 4.50 },
+      { key: "61-75", label: "61-75 min", defaultOdds: 5.50 },
+      { key: "76-90", label: "76-90 min", defaultOdds: 6.50 },
+      { key: "no_goal", label: "No Goal", defaultOdds: 15.00 }
+    ]
+  },
+  {
+    category: "Special Markets",
+    key: "penalty_awarded",
+    name: "Penalty Awarded",
+    type: "penalty_awarded",
+    outcomes: [
+      { key: "yes", label: "Yes", defaultOdds: 3.20 },
+      { key: "no", label: "No", defaultOdds: 1.35 }
+    ]
+  },
+  {
+    category: "Special Markets",
+    key: "own_goal",
+    name: "Own Goal",
+    type: "own_goal",
+    outcomes: [
+      { key: "yes", label: "Yes", defaultOdds: 8.00 },
+      { key: "no", label: "No", defaultOdds: 1.08 }
     ]
   }
 ];
@@ -131,22 +493,18 @@ export default function AdminMarketEditor() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // State management
-  const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
-  const [editingOutcome, setEditingOutcome] = useState<string | null>(null);
-  const [editingOdds, setEditingOdds] = useState<string>("");
-  const [showOddsChangeModal, setShowOddsChangeModal] = useState(false);
-  const [showAddMarketModal, setShowAddMarketModal] = useState(false);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [oddsChangeRequest, setOddsChangeRequest] = useState<OddsChangeRequest | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
+    "Main Markets": true,
+    "Goal Markets": true,
+    "Half Markets": false,
+    "Team Performance": false,
+    "Special Markets": false
+  });
+  const [selectedMarketKey, setSelectedMarketKey] = useState<string | null>(null);
+  const [marketParameter, setMarketParameter] = useState<string>("");
+  const [showParameterDialog, setShowParameterDialog] = useState(false);
 
-  // Form states
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
-  const [customMarketName, setCustomMarketName] = useState<string>("");
-
-  // Fetch match and markets data
-  const { data: matchData, isLoading, error, refetch } = useQuery<Match>({
+  const { data: matchData, isLoading, error } = useQuery<any>({
     queryKey: ['/api/admin/matches', matchId, 'markets'],
     queryFn: async () => {
       const response = await adminApiRequest('GET', `/api/admin/matches/${matchId}/markets`);
@@ -155,28 +513,50 @@ export default function AdminMarketEditor() {
     enabled: !!matchId
   });
 
-  // Sort markets by display order
-  const [markets, setMarkets] = useState<Market[]>([]);
-  
-  useEffect(() => {
-    if (matchData?.data?.markets) {
-      setMarkets([...matchData.data.markets].sort((a, b) => a.displayOrder - b.displayOrder));
-    }
-  }, [matchData]);
+  const markets = matchData?.data?.markets || [];
+  const match = matchData?.data;
+  const defaultMarket = markets.find((m: Market) => m.key === "1x2");
+  const addedMarkets = markets.filter((m: Market) => m.key !== "1x2");
 
-  // Auto-select first market
-  useEffect(() => {
-    if (markets.length > 0 && !selectedMarket) {
-      setSelectedMarket(markets[0]);
-    }
-  }, [markets, selectedMarket]);
+  const createMarketMutation = useMutation({
+    mutationFn: async (data: { template: MarketTemplate; parameter?: string }) => {
+      const { template, parameter } = data;
+      const response = await adminApiRequest('POST', `/api/admin/matches/${matchId}/markets`, {
+        key: template.key,
+        name: template.name,
+        type: template.type,
+        parameter: parameter || template.defaultParameter,
+        outcomes: template.outcomes
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create market');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/matches', matchId, 'markets'] });
+      toast({
+        title: "Success",
+        description: "Market added successfully",
+      });
+      setShowParameterDialog(false);
+      setSelectedMarketKey(null);
+      setMarketParameter("");
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add market",
+        variant: "destructive",
+      });
+    },
+  });
 
-  // Mutations
   const updateOddsMutation = useMutation({
-    mutationFn: async (data: OddsChangeRequest) => {
+    mutationFn: async (data: { outcomeId: string; odds: number }) => {
       const response = await adminApiRequest('PATCH', `/api/admin/outcomes/${data.outcomeId}/odds`, {
-        odds: data.newOdds,
-        reason: data.reason
+        odds: data.odds,
+        reason: "Manual odds adjustment"
       });
       if (!response.ok) {
         throw new Error('Failed to update odds');
@@ -189,12 +569,8 @@ export default function AdminMarketEditor() {
         title: "Success",
         description: "Odds updated successfully",
       });
-      setShowOddsChangeModal(false);
-      setOddsChangeRequest(null);
-      setEditingOutcome(null);
-      setEditingOdds("");
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Error",
         description: "Failed to update odds",
@@ -203,79 +579,33 @@ export default function AdminMarketEditor() {
     },
   });
 
-  const createMarketMutation = useMutation({
-    mutationFn: async (templateKey: string) => {
-      const template = MARKET_TEMPLATES.find(t => t.key === templateKey);
-      if (!template) throw new Error('Template not found');
-
-      const response = await adminApiRequest('POST', `/api/admin/matches/${matchId}/markets`, {
-        key: template.key,
-        name: customMarketName || template.name,
-        type: template.type,
-        outcomes: template.outcomes
-      });
-      if (!response.ok) {
-        throw new Error('Failed to create market');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/matches', matchId, 'markets'] });
-      toast({
-        title: "Success",
-        description: "Market created successfully",
-      });
-      setShowAddMarketModal(false);
-      setSelectedTemplate("");
-      setCustomMarketName("");
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to create market",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const toggleMarketStatusMutation = useMutation({
-    mutationFn: async (data: { marketId: string; action: 'publish' | 'unpublish' | 'suspend' | 'reopen' | 'lock' }) => {
+  const toggleMarketMutation = useMutation({
+    mutationFn: async (data: { marketId: string; isPublished: boolean }) => {
       const response = await adminApiRequest('PATCH', `/api/admin/markets/${data.marketId}/status`, {
-        action: data.action
+        action: data.isPublished ? 'unpublish' : 'publish'
       });
       if (!response.ok) {
-        throw new Error(`Failed to ${data.action} market`);
+        throw new Error('Failed to toggle market');
       }
       return response.json();
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/matches', matchId, 'markets'] });
-      toast({
-        title: "Success",
-        description: `Market ${variables.action}ed successfully`,
-      });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Error",
-        description: "Failed to update market status",
+        description: "Failed to toggle market status",
         variant: "destructive",
       });
     },
   });
 
-  const updateMarketOrderMutation = useMutation({
-    mutationFn: async (reorderedMarkets: Market[]) => {
-      const updates = reorderedMarkets.map((market, index) => ({
-        id: market.id,
-        displayOrder: index + 1
-      }));
-
-      const response = await adminApiRequest('PATCH', `/api/admin/matches/${matchId}/markets/reorder`, {
-        markets: updates
-      });
+  const deleteMarketMutation = useMutation({
+    mutationFn: async (marketId: string) => {
+      const response = await adminApiRequest('DELETE', `/api/admin/markets/${marketId}`);
       if (!response.ok) {
-        throw new Error('Failed to update market order');
+        throw new Error('Failed to delete market');
       }
       return response.json();
     },
@@ -283,29 +613,48 @@ export default function AdminMarketEditor() {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/matches', matchId, 'markets'] });
       toast({
         title: "Success",
-        description: "Market order updated successfully",
+        description: "Market removed successfully",
       });
     },
-    onError: (error) => {
+    onError: () => {
       toast({
         title: "Error",
-        description: "Failed to update market order",
+        description: "Failed to remove market",
         variant: "destructive",
       });
     },
   });
 
-  // Helper functions
-  const handleOddsEdit = (outcomeId: string, currentOdds: number) => {
-    setEditingOutcome(outcomeId);
-    setEditingOdds(currentOdds.toString());
+  const handleAddMarket = (template: MarketTemplate) => {
+    const alreadyAdded = markets.some((m: Market) => m.key === template.key);
+    if (alreadyAdded) {
+      toast({
+        title: "Market Already Added",
+        description: `${template.name} is already added to this match`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (template.hasParameter) {
+      setSelectedMarketKey(template.key);
+      setMarketParameter(template.defaultParameter || "");
+      setShowParameterDialog(true);
+    } else {
+      createMarketMutation.mutate({ template });
+    }
   };
 
-  const handleOddsChange = (outcomeId: string) => {
-    const newOdds = parseFloat(editingOdds);
-    const currentOutcome = selectedMarket?.outcomes.find(o => o.id === outcomeId);
-    
-    if (isNaN(newOdds) || newOdds < 1.01) {
+  const handleConfirmParameter = () => {
+    const template = MARKET_TEMPLATES.find(t => t.key === selectedMarketKey);
+    if (template) {
+      createMarketMutation.mutate({ template, parameter: marketParameter });
+    }
+  };
+
+  const handleOddsChange = (outcomeId: string, newOdds: string) => {
+    const odds = parseFloat(newOdds);
+    if (isNaN(odds) || odds < 1.01) {
       toast({
         title: "Invalid Odds",
         description: "Odds must be at least 1.01",
@@ -313,60 +662,25 @@ export default function AdminMarketEditor() {
       });
       return;
     }
+    updateOddsMutation.mutate({ outcomeId, odds });
+  };
 
-    const currentOdds = currentOutcome?.odds || 0;
-    const threshold = 0.5; // 50% change threshold
-    const changePercent = Math.abs((newOdds - currentOdds) / currentOdds);
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
 
-    if (changePercent > threshold) {
-      // Show audit reason modal for significant changes
-      setOddsChangeRequest({
-        outcomeId,
-        newOdds,
-        reason: ""
-      });
-      setShowOddsChangeModal(true);
-    } else {
-      // Update directly for small changes
-      updateOddsMutation.mutate({
-        outcomeId,
-        newOdds,
-        reason: "Minor odds adjustment"
-      });
+  const marketsByCategory = MARKET_TEMPLATES.reduce((acc, template) => {
+    if (!acc[template.category]) {
+      acc[template.category] = [];
     }
-  };
+    acc[template.category].push(template);
+    return acc;
+  }, {} as Record<string, MarketTemplate[]>);
 
-  const handleMarketReorder = (newOrder: Market[]) => {
-    setMarkets(newOrder);
-    setHasUnsavedChanges(true);
-  };
-
-  const saveMarketOrder = () => {
-    updateMarketOrderMutation.mutate(markets);
-    setHasUnsavedChanges(false);
-  };
-
-  const formatCurrency = (cents: number) => {
-    return `£${(cents / 100).toLocaleString()}`;
-  };
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'open': return 'default';
-      case 'suspended': return 'secondary';
-      case 'closed': return 'outline';
-      default: return 'default';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'open': return <Activity className="w-3 h-3" />;
-      case 'suspended': return <Clock className="w-3 h-3" />;
-      case 'closed': return <Lock className="w-3 h-3" />;
-      default: return <Activity className="w-3 h-3" />;
-    }
-  };
+  const isMarketAdded = (key: string) => markets.some((m: Market) => m.key === key);
 
   if (isLoading) {
     return (
@@ -386,14 +700,11 @@ export default function AdminMarketEditor() {
       <div className="p-6">
         <Card>
           <CardContent className="p-6 text-center">
-            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Failed to Load Match Data</h2>
             <p className="text-muted-foreground mb-4">
               There was an error loading the match data.
             </p>
-            <Button onClick={() => refetch()} data-testid="button-retry-match-data">
-              Retry
-            </Button>
           </CardContent>
         </Card>
       </div>
@@ -402,7 +713,6 @@ export default function AdminMarketEditor() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
@@ -412,433 +722,247 @@ export default function AdminMarketEditor() {
             data-testid="button-back-to-matches"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Matches
+            Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight" data-testid="text-market-editor-title">
+            <h1 className="text-2xl font-bold tracking-tight" data-testid="text-market-editor-title">
               Market Editor
             </h1>
-            <p className="text-muted-foreground">
-              {matchData?.data?.homeTeamName} vs {matchData?.data?.awayTeamName} • {matchData?.data?.leagueName}
+            <p className="text-sm text-muted-foreground">
+              {match?.homeTeamName} vs {match?.awayTeamName}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowPreviewModal(true)}
-            data-testid="button-preview-markets"
-          >
-            <Eye className="w-4 h-4 mr-2" />
-            Preview
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAddMarketModal(true)}
-            data-testid="button-add-market"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Market
-          </Button>
-          {hasUnsavedChanges && (
-            <Button
-              onClick={saveMarketOrder}
-              data-testid="button-save-changes"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              Save Order
-            </Button>
-          )}
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Markets List */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5" />
-              Markets ({markets.length})
-            </CardTitle>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Default Markets</CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[600px]">
-              <Reorder.Group
-                axis="y"
-                onReorder={handleMarketReorder}
-                values={markets}
-                className="space-y-2"
-              >
-                {markets.map((market) => (
-                  <Reorder.Item
-                    key={market.id}
-                    value={market}
-                    className={`p-3 border rounded-lg cursor-pointer transition-colors hover-elevate ${
-                      selectedMarket?.id === market.id ? 'border-primary bg-primary/5' : 'border-border'
-                    }`}
-                    onClick={() => setSelectedMarket(market)}
-                    data-testid={`market-item-${market.id}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <GripVertical className="w-4 h-4 text-muted-foreground hover:text-foreground cursor-grab" />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-medium text-sm">{market.name}</h4>
-                          <Badge variant={getStatusBadgeVariant(market.status)} className="text-xs">
-                            {getStatusIcon(market.status)}
-                            {market.status}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {market.outcomes.length} outcomes • {market.type}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          {market.isPublished ? (
-                            <Badge variant="default" className="text-xs">Published</Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">Draft</Badge>
-                          )}
-                        </div>
-                      </div>
+            {defaultMarket ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-sm">{defaultMarket.name}</h3>
+                  <Badge variant="outline" className="text-xs">
+                    <Lock className="w-3 h-3 mr-1" />
+                    Default
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  {defaultMarket.outcomes.map((outcome: MarketOutcome) => (
+                    <div
+                      key={outcome.id}
+                      className="flex items-center justify-between p-2 bg-muted/50 rounded"
+                      data-testid={`default-outcome-${outcome.key}`}
+                    >
+                      <span className="text-sm">{outcome.label}</span>
+                      <span className="font-mono text-sm font-semibold">
+                        {outcome.odds.toFixed(2)}
+                      </span>
                     </div>
-                  </Reorder.Item>
-                ))}
-              </Reorder.Group>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        {/* Right Column: Market Details & Outcomes */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Edit3 className="w-5 h-5" />
-                {selectedMarket ? selectedMarket.name : "Select a Market"}
-              </CardTitle>
-              {selectedMarket && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleMarketStatusMutation.mutate({
-                      marketId: selectedMarket.id,
-                      action: selectedMarket.status === 'suspended' ? 'reopen' : 'suspend'
-                    })}
-                    data-testid="button-toggle-market-status"
-                  >
-                    {selectedMarket.status === 'suspended' ? (
-                      <>
-                        <Unlock className="w-4 h-4 mr-2" />
-                        Reopen
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-4 h-4 mr-2" />
-                        Suspend
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleMarketStatusMutation.mutate({
-                      marketId: selectedMarket.id,
-                      action: selectedMarket.isPublished ? 'unpublish' : 'publish'
-                    })}
-                    data-testid="button-toggle-publish"
-                  >
-                    {selectedMarket.isPublished ? 'Unpublish' : 'Publish'}
-                  </Button>
-                </div>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {selectedMarket ? (
-              <div className="space-y-6">
-                {/* Market Info */}
-                <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Min Stake</Label>
-                    <p className="text-sm font-mono">{formatCurrency(selectedMarket.minStakeCents)}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Max Stake</Label>
-                    <p className="text-sm font-mono">{formatCurrency(selectedMarket.maxStakeCents)}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Max Liability</Label>
-                    <p className="text-sm font-mono">{formatCurrency(selectedMarket.maxLiabilityCents)}</p>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Status</Label>
-                    <Badge variant={getStatusBadgeVariant(selectedMarket.status)} className="text-xs">
-                      {getStatusIcon(selectedMarket.status)}
-                      {selectedMarket.status}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Outcomes Grid */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">Market Outcomes</h3>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Outcome</TableHead>
-                          <TableHead>Current Odds</TableHead>
-                          <TableHead>Previous</TableHead>
-                          <TableHead>Source</TableHead>
-                          <TableHead>Liability Limit</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {selectedMarket.outcomes.map((outcome) => (
-                          <TableRow key={outcome.id} className="hover-elevate">
-                            <TableCell className="font-medium">
-                              <div>
-                                <div className="font-semibold" data-testid={`outcome-label-${outcome.id}`}>
-                                  {outcome.label}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {outcome.key}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {editingOutcome === outcome.id ? (
-                                <div className="flex items-center gap-2">
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    min="1.01"
-                                    max="1000"
-                                    value={editingOdds}
-                                    onChange={(e) => setEditingOdds(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        handleOddsChange(outcome.id);
-                                      }
-                                      if (e.key === 'Escape') {
-                                        setEditingOutcome(null);
-                                        setEditingOdds("");
-                                      }
-                                    }}
-                                    className="w-20 h-8 text-sm"
-                                    autoFocus
-                                    data-testid={`input-odds-${outcome.id}`}
-                                  />
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleOddsChange(outcome.id)}
-                                    data-testid={`button-save-odds-${outcome.id}`}
-                                  >
-                                    <CheckCircle className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div
-                                  className="font-mono cursor-pointer hover:bg-accent hover:text-accent-foreground p-2 rounded transition-colors"
-                                  onClick={() => handleOddsEdit(outcome.id, outcome.odds)}
-                                  data-testid={`odds-display-${outcome.id}`}
-                                >
-                                  {outcome.odds.toFixed(2)}
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {outcome.previousOdds ? (
-                                <span className="text-xs text-muted-foreground font-mono">
-                                  {outcome.previousOdds.toFixed(2)}
-                                </span>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge 
-                                variant={outcome.oddsSource === 'manual' ? 'default' : 'secondary'}
-                                className="text-xs"
-                              >
-                                {outcome.oddsSource}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-sm font-mono">
-                                {formatCurrency(outcome.liabilityLimitCents)}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <Badge 
-                                variant={outcome.status === 'active' ? 'default' : 'secondary'}
-                                className="text-xs"
-                              >
-                                {outcome.status}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  ))}
                 </div>
               </div>
             ) : (
-              <div className="flex items-center justify-center h-96">
-                <div className="text-center text-muted-foreground">
-                  <Target className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Select a market from the left to edit outcomes and odds</p>
-                </div>
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                <Lock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No default market set</p>
               </div>
             )}
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
+              Added Markets ({addedMarkets.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[600px]">
+              {addedMarkets.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>No markets added yet</p>
+                  <p className="text-xs mt-1">Add markets from the library</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {addedMarkets.map((market: Market) => (
+                    <div
+                      key={market.id}
+                      className="border rounded-lg p-3 space-y-3"
+                      data-testid={`added-market-${market.key}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <h3 className="font-medium text-sm">{market.name}</h3>
+                          {market.parameter && (
+                            <Badge variant="secondary" className="text-xs mt-1">
+                              Line: {market.parameter}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Switch
+                            checked={market.isPublished}
+                            onCheckedChange={() =>
+                              toggleMarketMutation.mutate({
+                                marketId: market.id,
+                                isPublished: market.isPublished
+                              })
+                            }
+                            data-testid={`toggle-market-${market.id}`}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => deleteMarketMutation.mutate(market.id)}
+                            data-testid={`remove-market-${market.id}`}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {market.outcomes.map((outcome: MarketOutcome) => (
+                          <div
+                            key={outcome.id}
+                            className="flex items-center gap-2"
+                            data-testid={`outcome-${outcome.id}`}
+                          >
+                            <Label className="text-xs flex-1">{outcome.label}</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="1.01"
+                              defaultValue={outcome.odds.toFixed(2)}
+                              onBlur={(e) => handleOddsChange(outcome.id, e.target.value)}
+                              className="w-20 h-7 text-xs text-right font-mono"
+                              data-testid={`input-odds-${outcome.id}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Market Library</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[600px]">
+              <div className="space-y-1">
+                {Object.entries(marketsByCategory).map(([category, templates]) => (
+                  <div key={category} className="space-y-1">
+                    <button
+                      onClick={() => toggleCategory(category)}
+                      className="flex items-center gap-2 w-full p-2 hover-elevate rounded text-left"
+                      data-testid={`category-${category}`}
+                    >
+                      {expandedCategories[category] ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4" />
+                      )}
+                      <span className="font-semibold text-sm">{category}</span>
+                      <Badge variant="secondary" className="text-xs ml-auto">
+                        {templates.length}
+                      </Badge>
+                    </button>
+                    {expandedCategories[category] && (
+                      <div className="ml-6 space-y-1">
+                        {templates.map((template) => {
+                          const added = isMarketAdded(template.key);
+                          return (
+                            <div
+                              key={template.key}
+                              className={`flex items-center justify-between p-2 rounded text-sm ${
+                                added
+                                  ? 'bg-primary/10 border border-primary/20'
+                                  : 'hover-elevate'
+                              }`}
+                              data-testid={`market-template-${template.key}`}
+                            >
+                              <span className={added ? 'text-primary font-medium' : ''}>
+                                {template.name}
+                              </span>
+                              <Button
+                                variant={added ? "outline" : "default"}
+                                size="sm"
+                                className="h-6 text-xs"
+                                onClick={() => handleAddMarket(template)}
+                                disabled={added || createMarketMutation.isPending}
+                                data-testid={`add-market-${template.key}`}
+                              >
+                                {added ? (
+                                  <>
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Added
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus className="w-3 h-3 mr-1" />
+                                    Add
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Add Market Modal */}
-      <Dialog open={showAddMarketModal} onOpenChange={setShowAddMarketModal}>
-        <DialogContent data-testid="modal-add-market">
+      <Dialog open={showParameterDialog} onOpenChange={setShowParameterDialog}>
+        <DialogContent data-testid="dialog-market-parameter">
           <DialogHeader>
-            <DialogTitle>Add Market</DialogTitle>
+            <DialogTitle>Set Market Parameter</DialogTitle>
             <DialogDescription>
-              Choose a market template to add to this match
+              Enter the line/parameter for this market
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="market-template">Market Template</Label>
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                <SelectTrigger id="market-template" data-testid="select-market-template">
-                  <SelectValue placeholder="Select a market template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {MARKET_TEMPLATES.map(template => (
-                    <SelectItem key={template.key} value={template.key}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="market-name">Custom Market Name (optional)</Label>
+              <Label htmlFor="parameter">Parameter/Line</Label>
               <Input
-                id="market-name"
-                placeholder="Leave empty to use template name"
-                value={customMarketName}
-                onChange={(e) => setCustomMarketName(e.target.value)}
-                data-testid="input-custom-market-name"
+                id="parameter"
+                type="text"
+                value={marketParameter}
+                onChange={(e) => setMarketParameter(e.target.value)}
+                placeholder="e.g., 2.5, -1, +2"
+                data-testid="input-market-parameter"
               />
             </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowAddMarketModal(false)}
+              onClick={() => setShowParameterDialog(false)}
             >
               Cancel
             </Button>
             <Button
-              onClick={() => createMarketMutation.mutate(selectedTemplate)}
-              disabled={!selectedTemplate || createMarketMutation.isPending}
-              data-testid="button-create-market"
+              onClick={handleConfirmParameter}
+              disabled={!marketParameter || createMarketMutation.isPending}
+              data-testid="button-confirm-parameter"
             >
-              Create Market
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Odds Change Audit Modal */}
-      <Dialog open={showOddsChangeModal} onOpenChange={setShowOddsChangeModal}>
-        <DialogContent data-testid="modal-odds-change-audit">
-          <DialogHeader>
-            <DialogTitle>Significant Odds Change</DialogTitle>
-            <DialogDescription>
-              This odds change is significant and requires an audit reason.
-            </DialogDescription>
-          </DialogHeader>
-          {oddsChangeRequest && (
-            <div className="space-y-4">
-              <div className="p-4 bg-muted/50 rounded-lg">
-                <div className="text-sm">
-                  <p><strong>Current Odds:</strong> {selectedMarket?.outcomes.find(o => o.id === oddsChangeRequest.outcomeId)?.odds.toFixed(2)}</p>
-                  <p><strong>New Odds:</strong> {oddsChangeRequest.newOdds.toFixed(2)}</p>
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="change-reason">Reason for Change</Label>
-                <Textarea
-                  id="change-reason"
-                  placeholder="Explain why you're making this odds change..."
-                  value={oddsChangeRequest.reason}
-                  onChange={(e) => setOddsChangeRequest(prev => 
-                    prev ? { ...prev, reason: e.target.value } : null
-                  )}
-                  data-testid="textarea-change-reason"
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowOddsChangeModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => oddsChangeRequest && updateOddsMutation.mutate(oddsChangeRequest)}
-              disabled={!oddsChangeRequest?.reason.trim() || updateOddsMutation.isPending}
-              data-testid="button-confirm-odds-change"
-            >
-              Confirm Change
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Preview Modal */}
-      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
-        <DialogContent className="max-w-4xl" data-testid="modal-preview-markets">
-          <DialogHeader>
-            <DialogTitle>Market Preview</DialogTitle>
-            <DialogDescription>
-              This is how the markets will appear to customers
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 max-h-96 overflow-y-auto">
-            {markets.filter(m => m.isPublished && m.status === 'open').map((market) => (
-              <Card key={market.id} className="border">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">{market.name}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-3 gap-2">
-                    {market.outcomes.filter(o => o.status === 'active').map((outcome) => (
-                      <Button
-                        key={outcome.id}
-                        variant="outline"
-                        className="h-16 flex flex-col items-center justify-center"
-                        data-testid={`preview-outcome-${outcome.id}`}
-                      >
-                        <span className="text-sm font-medium">{outcome.label}</span>
-                        <span className="text-lg font-bold">{outcome.odds.toFixed(2)}</span>
-                      </Button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setShowPreviewModal(false)}>
-              Close Preview
+              Add Market
             </Button>
           </DialogFooter>
         </DialogContent>
