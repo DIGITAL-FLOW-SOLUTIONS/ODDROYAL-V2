@@ -35,8 +35,21 @@ function Router() {
   
   return (
     <Switch>
-      {/* Admin Panel Routes - Must come first to match before general routes */}
-      <Route path="/prime-admin/:rest*" component={AdminApp} />
+      {/* Admin Panel Routes - Must come first and use specific patterns */}
+      <Route path="/prime-admin/login" component={AdminApp} />
+      <Route path="/prime-admin/register" component={AdminApp} />
+      <Route path="/prime-admin/markets/:matchId" component={AdminApp} />
+      <Route path="/prime-admin/matches" component={AdminApp} />
+      <Route path="/prime-admin/users" component={AdminApp} />
+      <Route path="/prime-admin/bets" component={AdminApp} />
+      <Route path="/prime-admin/exposure" component={AdminApp} />
+      <Route path="/prime-admin/promotions" component={AdminApp} />
+      <Route path="/prime-admin/reports" component={AdminApp} />
+      <Route path="/prime-admin/notifications" component={AdminApp} />
+      <Route path="/prime-admin/audit" component={AdminApp} />
+      <Route path="/prime-admin/settings" component={AdminApp} />
+      <Route path="/prime-admin/settlement" component={AdminApp} />
+      <Route path="/prime-admin/security" component={AdminApp} />
       <Route path="/prime-admin" component={AdminApp} />
       
       {/* Regular App Routes */}

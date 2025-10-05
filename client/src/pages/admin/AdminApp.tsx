@@ -16,28 +16,29 @@ import AdminReports from "./AdminReports";
 import AdminNotifications from "./AdminNotifications";
 import NotFound from "@/pages/not-found";
 
-// Admin router component with relative paths
-// Since the parent router matches /prime-admin/:rest*, these routes are relative to /prime-admin
+// Admin router component
 function AdminRouter() {
   return (
       <Switch>
         {/* Admin Login - Not protected */}
-        <Route path="~/login" component={AdminLogin} />
+        <Route path="/prime-admin/login" component={AdminLogin} />
         
         {/* Admin Register - Handles its own auth logic (allows first admin creation) */}
-        <Route path="~/register" component={AdminRegister} />
+        <Route path="/prime-admin/register" component={AdminRegister} />
         
-        {/* Market Editor */}
-        <Route path="~/markets/:matchId">
-          <AdminAuthGuard>
-            <AdminLayout>
-              <AdminMarketEditor />
-            </AdminLayout>
-          </AdminAuthGuard>
+        {/* Market Editor - MUST come before /prime-admin to avoid being shadowed */}
+        <Route path="/prime-admin/markets/:matchId">
+          {(params) => (
+            <AdminAuthGuard>
+              <AdminLayout>
+                <AdminMarketEditor />
+              </AdminLayout>
+            </AdminAuthGuard>
+          )}
         </Route>
 
         {/* Matches Management */}
-        <Route path="~/matches">
+        <Route path="/prime-admin/matches">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminMatchesMarkets />
@@ -46,7 +47,7 @@ function AdminRouter() {
         </Route>
         
         {/* Other protected routes */}
-        <Route path="~/users">
+        <Route path="/prime-admin/users">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminUserManagement />
@@ -54,7 +55,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="~/bets">
+        <Route path="/prime-admin/bets">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminBetManagement />
@@ -62,7 +63,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="~/exposure">
+        <Route path="/prime-admin/exposure">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminRiskExposure />
@@ -70,7 +71,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="~/promotions">
+        <Route path="/prime-admin/promotions">
           <AdminAuthGuard>
             <AdminLayout>
               <div className="p-6">
@@ -83,7 +84,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="~/reports">
+        <Route path="/prime-admin/reports">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminReports />
@@ -91,7 +92,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="~/notifications">
+        <Route path="/prime-admin/notifications">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminNotifications />
@@ -99,7 +100,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="~/audit">
+        <Route path="/prime-admin/audit">
           <AdminAuthGuard>
             <AdminLayout>
               <div className="p-6">
@@ -112,7 +113,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="~/settings">
+        <Route path="/prime-admin/settings">
           <AdminAuthGuard>
             <AdminLayout>
               <div className="p-6">
@@ -125,7 +126,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="~/settlement">
+        <Route path="/prime-admin/settlement">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminSettlement />
@@ -133,7 +134,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="~/security">
+        <Route path="/prime-admin/security">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminSecurity />
@@ -141,8 +142,8 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        {/* Dashboard - matches /prime-admin exactly */}
-        <Route path="~/">
+        {/* Dashboard - MUST be last to avoid shadowing other /prime-admin/* routes */}
+        <Route path="/prime-admin">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminDashboard />
