@@ -675,7 +675,7 @@ export default function AdminMarketEditor() {
                     >
                       <span className="text-sm">{outcome.label}</span>
                       <span className="font-mono text-sm font-semibold">
-                        {outcome.odds.toFixed(2)}
+                        {Number(outcome.odds).toFixed(2)}
                       </span>
                     </div>
                   ))}
@@ -755,7 +755,7 @@ export default function AdminMarketEditor() {
                               type="number"
                               step="0.01"
                               min="1.01"
-                              defaultValue={outcome.odds.toFixed(2)}
+                              defaultValue={Number(outcome.odds).toFixed(2)}
                               onBlur={(e) => handleOddsChange(outcome.id, e.target.value)}
                               className="w-20 h-7 text-xs text-right font-mono"
                               data-testid={`input-odds-${outcome.id}`}
