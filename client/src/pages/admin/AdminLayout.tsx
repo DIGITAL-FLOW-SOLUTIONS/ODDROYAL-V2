@@ -54,73 +54,73 @@ interface AdminLayoutProps {
 const adminMenuItems = [
   {
     title: "Dashboard",
-    url: "/",
+    url: "/prime-admin",
     icon: LayoutDashboard,
     permission: "dashboard:read"
   },
   {
     title: "User Management",
-    url: "/users",
+    url: "/prime-admin/users",
     icon: Users,
     permission: "users:read"
   },
   {
     title: "Bet Management",
-    url: "/bets",
+    url: "/prime-admin/bets",
     icon: Trophy,
     permission: "bets:read"
   },
   {
     title: "Matches & Markets",
-    url: "/matches",
+    url: "/prime-admin/matches",
     icon: Target,
     permission: "matches:read"
   },
   {
     title: "Risk & Exposure",
-    url: "/exposure",
+    url: "/prime-admin/exposure",
     icon: AlertTriangle,
     permission: "exposure:read"
   },
   {
     title: "Promotions",
-    url: "/promotions",
+    url: "/prime-admin/promotions",
     icon: Gift,
     permission: "promotions:read"
   },
   {
     title: "Financial Reports",
-    url: "/reports",
+    url: "/prime-admin/reports",
     icon: BarChart3,
     permission: "reports:read"
   },
   {
     title: "Notifications",
-    url: "/notifications",
+    url: "/prime-admin/notifications",
     icon: Bell,
     permission: "notifications:read"
   },
   {
     title: "Audit Logs",
-    url: "/audit",
+    url: "/prime-admin/audit",
     icon: Activity,
     permission: "audit:read"
   },
   {
     title: "Settlement",
-    url: "/settlement",
+    url: "/prime-admin/settlement",
     icon: FileText,
     permission: "bets:settle"
   },
   {
     title: "Settings",
-    url: "/settings",
+    url: "/prime-admin/settings",
     icon: Settings,
     permission: "dashboard:read"
   },
   {
     title: "Security & Access",
-    url: "/security",
+    url: "/prime-admin/security",
     icon: Shield,
     permission: "dashboard:read"
   }
@@ -189,28 +189,28 @@ function ThemeToggle() {
 function AdminBreadcrumbs() {
   const [location] = useLocation();
   
-  // Define breadcrumb paths and labels (relative to /prime-admin base)
+  // Define breadcrumb paths and labels
   const breadcrumbMap: Record<string, { label: string; href?: string }> = {
-    '/': { label: 'Dashboard' },
-    '/users': { label: 'User Management' },
-    '/bets': { label: 'Bet Management' },
-    '/matches': { label: 'Matches & Markets' },
-    '/exposure': { label: 'Risk & Exposure' },
-    '/promotions': { label: 'Promotions' },
-    '/reports': { label: 'Financial Reports' },
-    '/notifications': { label: 'Notifications' },
-    '/audit': { label: 'Audit Logs' },
-    '/settlement': { label: 'Settlement Control' },
-    '/settings': { label: 'Settings' },
-    '/security': { label: 'Security & Access' },
+    '/prime-admin': { label: 'Dashboard' },
+    '/prime-admin/users': { label: 'User Management' },
+    '/prime-admin/bets': { label: 'Bet Management' },
+    '/prime-admin/matches': { label: 'Matches & Markets' },
+    '/prime-admin/exposure': { label: 'Risk & Exposure' },
+    '/prime-admin/promotions': { label: 'Promotions' },
+    '/prime-admin/reports': { label: 'Financial Reports' },
+    '/prime-admin/notifications': { label: 'Notifications' },
+    '/prime-admin/audit': { label: 'Audit Logs' },
+    '/prime-admin/settlement': { label: 'Settlement Control' },
+    '/prime-admin/settings': { label: 'Settings' },
+    '/prime-admin/security': { label: 'Security & Access' },
   };
 
   // Parse current path to build breadcrumbs
   const buildBreadcrumbs = (): Array<{ label: string; href?: string }> => {
-    const breadcrumbs: Array<{ label: string; href?: string }> = [{ label: 'Admin Panel', href: '/' }];
+    const breadcrumbs: Array<{ label: string; href?: string }> = [{ label: 'Admin Panel', href: '/prime-admin' }];
     
-    // Don't show breadcrumbs for root page
-    if (location === '/') {
+    // Don't show breadcrumbs for root admin page
+    if (location === '/prime-admin') {
       return [];
     }
     
@@ -219,6 +219,9 @@ function AdminBreadcrumbs() {
     
     segments.forEach((segment, index) => {
       currentPath += `/${segment}`;
+      
+      // Skip first segment (prime-admin) as it's the root
+      if (index === 0) return;
       
       const breadcrumb = breadcrumbMap[currentPath];
       if (breadcrumb) {
@@ -268,7 +271,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const handleLogout = () => {
     logout();
-    setLocation('/login');
+    setLocation('/prime-admin/login');
   };
 
   if (!admin) {
@@ -364,9 +367,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <a href="/security" onClick={(e) => {
+                      <a href="/prime-admin/security" onClick={(e) => {
                         e.preventDefault();
-                        setLocation('/security');
+                        setLocation('/prime-admin/security');
                       }}>
                         <UserCheck className="w-4 h-4" />
                         <span>Admin Security</span>

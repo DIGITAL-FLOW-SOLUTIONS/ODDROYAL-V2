@@ -16,7 +16,7 @@ function AdminAuthGuard({ children }: AdminAuthGuardProps) {
   useEffect(() => {
     // Only redirect if we're not loading and not authenticated
     if (!isLoading && !isAuthenticated) {
-      setLocation('/login');
+      setLocation('/prime-admin/login');
     }
   }, [isLoading, isAuthenticated, setLocation]);
 

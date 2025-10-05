@@ -533,7 +533,7 @@ export default function AdminMatchesMarkets() {
     
     setShowCreateModal(false);
     setShowSessionWarning(false);
-    setLocation('/login');
+    setLocation('/prime-admin/login');
   };
   
   const extendSession = async () => {
@@ -964,7 +964,7 @@ export default function AdminMatchesMarkets() {
   };
 
   const openMarketEditor = (match: Match) => {
-    setLocation(`/matches/markets/${match.id}`);
+    setLocation(`/prime-admin/matches/markets/${match.id}`);
   };
 
   const openDeleteModal = (match: Match) => {
@@ -1108,7 +1108,7 @@ export default function AdminMatchesMarkets() {
                   description: sessionResult.error || "Your admin session has expired. Please log in again.",
                   variant: "destructive",
                 });
-                setLocation('/login');
+                setLocation('/prime-admin/login');
                 return;
               }
               

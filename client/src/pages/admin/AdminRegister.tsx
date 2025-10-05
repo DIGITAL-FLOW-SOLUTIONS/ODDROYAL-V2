@@ -86,7 +86,7 @@ function AdminRegister() {
       form.reset();
       // Auto-redirect after 3 seconds
       setTimeout(() => {
-        setLocation('/users');
+        setLocation('/prime-admin/users');
       }, 3000);
     },
     onError: (error: any) => {
@@ -101,7 +101,7 @@ function AdminRegister() {
   // Redirect unauthenticated users to login ONLY if admins already exist
   useEffect(() => {
     if (!isAuthenticated && adminsExist && !checkingAdmins) {
-      setLocation('/login');
+      setLocation('/prime-admin/login');
     }
   }, [isAuthenticated, adminsExist, checkingAdmins, setLocation]);
 
@@ -489,7 +489,7 @@ function AdminRegister() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setLocation('/')}
+            onClick={() => setLocation('/prime-admin')}
             className="text-muted-foreground hover:text-foreground"
             data-testid="button-back-to-admin"
           >

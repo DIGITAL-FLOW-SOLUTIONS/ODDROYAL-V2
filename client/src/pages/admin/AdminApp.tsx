@@ -19,16 +19,15 @@ import NotFound from "@/pages/not-found";
 // Admin router component
 function AdminRouter() {
   return (
-    <Router base="/prime-admin">
       <Switch>
         {/* Admin Login - Not protected */}
-        <Route path="/login" component={AdminLogin} />
+        <Route path="/prime-admin/login" component={AdminLogin} />
         
         {/* Admin Register - Handles its own auth logic (allows first admin creation) */}
-        <Route path="/register" component={AdminRegister} />
+        <Route path="/prime-admin/register" component={AdminRegister} />
         
         {/* Market Editor - Must come before /matches to prevent route conflict */}
-        <Route path="/matches/markets/:matchId">
+        <Route path="/prime-admin/matches/markets/:matchId">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminMarketEditor />
@@ -37,7 +36,7 @@ function AdminRouter() {
         </Route>
 
         {/* Matches Management */}
-        <Route path="/matches">
+        <Route path="/prime-admin/matches">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminMatchesMarkets />
@@ -46,7 +45,7 @@ function AdminRouter() {
         </Route>
         
         {/* Protected Admin Routes */}
-        <Route path="/">
+        <Route path="/prime-admin" exact>
           <AdminAuthGuard>
             <AdminLayout>
               <AdminDashboard />
@@ -54,7 +53,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="/users">
+        <Route path="/prime-admin/users">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminUserManagement />
@@ -62,7 +61,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="/bets">
+        <Route path="/prime-admin/bets">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminBetManagement />
@@ -70,7 +69,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="/exposure">
+        <Route path="/prime-admin/exposure">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminRiskExposure />
@@ -78,7 +77,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="/promotions">
+        <Route path="/prime-admin/promotions">
           <AdminAuthGuard>
             <AdminLayout>
               <div className="p-6">
@@ -91,7 +90,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="/reports">
+        <Route path="/prime-admin/reports">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminReports />
@@ -99,7 +98,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="/notifications">
+        <Route path="/prime-admin/notifications">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminNotifications />
@@ -107,7 +106,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="/audit">
+        <Route path="/prime-admin/audit">
           <AdminAuthGuard>
             <AdminLayout>
               <div className="p-6">
@@ -120,7 +119,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="/settings">
+        <Route path="/prime-admin/settings">
           <AdminAuthGuard>
             <AdminLayout>
               <div className="p-6">
@@ -133,7 +132,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="/settlement">
+        <Route path="/prime-admin/settlement">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminSettlement />
@@ -141,7 +140,7 @@ function AdminRouter() {
           </AdminAuthGuard>
         </Route>
         
-        <Route path="/security">
+        <Route path="/prime-admin/security">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminSecurity />
@@ -154,7 +153,6 @@ function AdminRouter() {
           <NotFound />
         </Route>
       </Switch>
-    </Router>
   );
 }
 
