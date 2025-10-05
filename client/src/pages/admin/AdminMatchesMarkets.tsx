@@ -533,7 +533,7 @@ export default function AdminMatchesMarkets() {
     
     setShowCreateModal(false);
     setShowSessionWarning(false);
-    setLocation('/prime-admin/login');
+    setLocation('/login');
   };
   
   const extendSession = async () => {
@@ -1108,7 +1108,7 @@ export default function AdminMatchesMarkets() {
                   description: sessionResult.error || "Your admin session has expired. Please log in again.",
                   variant: "destructive",
                 });
-                setLocation('/prime-admin/login');
+                setLocation('/login');
                 return;
               }
               

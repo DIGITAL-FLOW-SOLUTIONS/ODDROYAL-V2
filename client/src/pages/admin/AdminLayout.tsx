@@ -264,7 +264,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   const handleLogout = () => {
     logout();
-    setLocation('/prime-admin/login');
+    setLocation('/login');
   };
 
   if (!admin) {
@@ -360,9 +360,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild>
-                      <a href="/prime-admin/security" onClick={(e) => {
+                      <a href="/security" onClick={(e) => {
                         e.preventDefault();
-                        setLocation('/prime-admin/security');
+                        setLocation('/security');
                       }}>
                         <UserCheck className="w-4 h-4" />
                         <span>Admin Security</span>

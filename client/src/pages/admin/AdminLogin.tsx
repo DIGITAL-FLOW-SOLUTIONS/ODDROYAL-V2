@@ -32,7 +32,7 @@ function AdminLogin() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      setLocation('/prime-admin');
+      setLocation('/');
     }
   }, [isAuthenticated, setLocation]);
 
@@ -55,7 +55,7 @@ function AdminLogin() {
           title: "Login Successful",
           description: "Welcome to OddRoyal Admin Panel"
         });
-        setLocation('/prime-admin');
+        setLocation('/');
       }
     } catch (error: any) {
       // Error handling is done in the auth context, but we can show specific UI feedback

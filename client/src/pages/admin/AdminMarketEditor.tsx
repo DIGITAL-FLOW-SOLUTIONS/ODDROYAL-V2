@@ -634,7 +634,7 @@ export default function AdminMarketEditor() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setLocation('/prime-admin/matches')}
+            onClick={() => setLocation('/matches')}
             data-testid="button-back-to-matches"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />

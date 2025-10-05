@@ -19,7 +19,8 @@ import NotFound from "@/pages/not-found";
 // Admin router component
 function AdminRouter() {
   return (
-    <Switch>
+    <Router base="/prime-admin">
+      <Switch>
         {/* Admin Login - Not protected */}
         <Route path="/login" component={AdminLogin} />
         
@@ -153,6 +154,7 @@ function AdminRouter() {
           <NotFound />
         </Route>
       </Switch>
+    </Router>
   );
 }
 
