@@ -26,8 +26,8 @@ function AdminRouter() {
         {/* Admin Register - Handles its own auth logic (allows first admin creation) */}
         <Route path="/prime-admin/register" component={AdminRegister} />
         
-        {/* Market Editor - Must come before /matches to prevent route conflict */}
-        <Route path="/prime-admin/matches/markets/:matchId">
+        {/* Market Editor */}
+        <Route path="/prime-admin/markets/:matchId">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminMarketEditor />

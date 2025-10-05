@@ -964,7 +964,7 @@ export default function AdminMatchesMarkets() {
   };
 
   const openMarketEditor = (match: Match) => {
-    setLocation(`/prime-admin/matches/markets/${match.id}`);
+    setLocation(`/prime-admin/markets/${match.id}`);
   };
 
   const openDeleteModal = (match: Match) => {
