@@ -1,4 +1,5 @@
-import { Switch, Route, Router } from "wouter";
+import { Switch, Route, Router, useRouter } from "wouter";
+import { useMemo } from "react";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import AdminAuthGuard from "./AdminAuthGuard";
 import AdminLayout from "./AdminLayout";
@@ -16,9 +17,48 @@ import AdminReports from "./AdminReports";
 import AdminNotifications from "./AdminNotifications";
 import NotFound from "@/pages/not-found";
 
+// Custom matcher that handles the /prime-admin base path
+const nestedMatcher = (patterns: string[], path: string) => {
+  const basePath = "/prime-admin";
+  
+  // Remove base path from the current path for matching
+  const relativePath = path.startsWith(basePath) 
+    ? path.slice(basePath.length) || "/" 
+    : path;
+  
+  for (const pattern of patterns) {
+    // Remove base path from pattern as well
+    const relativePattern = pattern.startsWith(basePath)
+      ? pattern.slice(basePath.length) || "/"
+      : pattern;
+    
+    const regexp = new RegExp(
+      "^" +
+        relativePattern
+          .replace(/\//g, "\\/")
+          .replace(/:(\w+)/g, "([^/]+)")
+          .replace(/\*/g, ".*") +
+        "$"
+    );
+    
+    const match = relativePath.match(regexp);
+    if (match) {
+      return match;
+    }
+  }
+  return null;
+};
+
 // Admin router component
 function AdminRouter() {
+  const router = useRouter();
+  const customRouter = useMemo(() => ({
+    ...router,
+    matcher: nestedMatcher
+  }), [router]);
+
   return (
+    <Router hook={() => customRouter}>
       <Switch>
         {/* Admin Login - Not protected */}
         <Route path="/prime-admin/login" component={AdminLogin} />
@@ -153,6 +193,7 @@ function AdminRouter() {
           <NotFound />
         </Route>
       </Switch>
+    </Router>
   );
 }
 
