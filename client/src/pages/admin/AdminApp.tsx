@@ -45,7 +45,7 @@ function AdminRouter() {
         </Route>
         
         {/* Protected Admin Routes */}
-        <Route path="/prime-admin" exact>
+        <Route path="/prime-admin">
           <AdminAuthGuard>
             <AdminLayout>
               <AdminDashboard />
