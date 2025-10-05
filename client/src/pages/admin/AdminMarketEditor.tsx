@@ -1,20 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import {
   ArrowLeft,
   Plus,
-  Save,
   X,
-  Lock,
-  Unlock,
   AlertTriangle,
   Activity,
-  Clock,
   ChevronDown,
   ChevronRight,
   Target,
-  CheckCircle
+  CheckCircle,
+  List
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,8 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, adminApiRequest } from "@/lib/queryClient";
 
@@ -419,6 +415,7 @@ export default function AdminMarketEditor() {
   const [selectedMarketKey, setSelectedMarketKey] = useState<string | null>(null);
   const [marketParameter, setMarketParameter] = useState<string>("");
   const [showParameterDialog, setShowParameterDialog] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const { data: matchData, isLoading, error } = useQuery<any>({
     queryKey: ['/api/admin/matches', matchId, 'markets'],
@@ -431,7 +428,6 @@ export default function AdminMarketEditor() {
 
   const markets = matchData?.data?.markets || [];
   const match = matchData?.data;
-  const defaultMarket = markets.find((m: Market) => m.key === "1x2");
   const addedMarkets = markets.filter((m: Market) => m.key !== "1x2");
 
   const createMarketMutation = useMutation({
@@ -458,6 +454,7 @@ export default function AdminMarketEditor() {
       setShowParameterDialog(false);
       setSelectedMarketKey(null);
       setMarketParameter("");
+      setIsSheetOpen(false);
     },
     onError: () => {
       toast({
@@ -490,28 +487,6 @@ export default function AdminMarketEditor() {
       toast({
         title: "Error",
         description: "Failed to update odds",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const toggleMarketMutation = useMutation({
-    mutationFn: async (data: { marketId: string; isPublished: boolean }) => {
-      const response = await adminApiRequest('PATCH', `/api/admin/markets/${data.marketId}/status`, {
-        action: data.isPublished ? 'unpublish' : 'publish'
-      });
-      if (!response.ok) {
-        throw new Error('Failed to toggle market');
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/matches', matchId, 'markets'] });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to toggle market status",
         variant: "destructive",
       });
     },
@@ -598,6 +573,74 @@ export default function AdminMarketEditor() {
 
   const isMarketAdded = (key: string) => markets.some((m: Market) => m.key === key);
 
+  const MarketLibraryContent = () => (
+    <ScrollArea className="h-[600px] md:h-auto">
+      <div className="space-y-1">
+        {Object.entries(marketsByCategory).map(([category, templates]) => (
+          <div key={category} className="space-y-1">
+            <button
+              onClick={() => toggleCategory(category)}
+              className="flex items-center gap-2 w-full p-2 hover-elevate rounded text-left"
+              data-testid={`category-${category}`}
+            >
+              {expandedCategories[category] ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+              <span className="font-semibold text-sm">{category}</span>
+              <Badge variant="secondary" className="text-xs ml-auto">
+                {templates.length}
+              </Badge>
+            </button>
+            {expandedCategories[category] && (
+              <div className="ml-6 space-y-1">
+                {templates.map((template) => {
+                  const added = isMarketAdded(template.key);
+                  return (
+                    <div
+                      key={template.key}
+                      className={`flex items-center justify-between p-2 rounded text-sm ${
+                        added
+                          ? 'bg-primary/10 border border-primary/20'
+                          : 'hover-elevate'
+                      }`}
+                      data-testid={`market-template-${template.key}`}
+                    >
+                      <span className={added ? 'text-primary font-medium' : ''}>
+                        {template.name}
+                      </span>
+                      <Button
+                        variant={added ? "outline" : "default"}
+                        size="sm"
+                        className="h-6 text-xs"
+                        onClick={() => handleAddMarket(template)}
+                        disabled={added || createMarketMutation.isPending}
+                        data-testid={`add-market-${template.key}`}
+                      >
+                        {added ? (
+                          <>
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Added
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </ScrollArea>
+  );
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-6">
@@ -628,7 +671,7 @@ export default function AdminMarketEditor() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
@@ -641,63 +684,25 @@ export default function AdminMarketEditor() {
             Back
           </Button>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight" data-testid="text-market-editor-title">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight" data-testid="text-market-editor-title">
               Market Editor
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               {match?.homeTeamName} vs {match?.awayTeamName}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Default Markets</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {defaultMarket ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-sm">{defaultMarket.name}</h3>
-                  <Badge variant="outline" className="text-xs">
-                    <Lock className="w-3 h-3 mr-1" />
-                    Default
-                  </Badge>
-                </div>
-                <div className="space-y-2">
-                  {defaultMarket.outcomes.map((outcome: MarketOutcome) => (
-                    <div
-                      key={outcome.id}
-                      className="flex items-center justify-between p-2 bg-muted/50 rounded"
-                      data-testid={`default-outcome-${outcome.key}`}
-                    >
-                      <span className="text-sm">{outcome.label}</span>
-                      <span className="font-mono text-sm font-semibold">
-                        {Number(outcome.odds).toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                <Lock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p>No default market set</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
+      <div className="flex flex-col md:grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card className="md:col-span-2 lg:col-span-2">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
               Added Markets ({addedMarkets.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[600px]">
+            <ScrollArea className="h-[400px] md:h-[600px]">
               {addedMarkets.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
                   <Target className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -721,27 +726,15 @@ export default function AdminMarketEditor() {
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Switch
-                            checked={market.isPublished}
-                            onCheckedChange={() =>
-                              toggleMarketMutation.mutate({
-                                marketId: market.id,
-                                isPublished: market.isPublished
-                              })
-                            }
-                            data-testid={`toggle-market-${market.id}`}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => deleteMarketMutation.mutate(market.id)}
-                            data-testid={`remove-market-${market.id}`}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => deleteMarketMutation.mutate(market.id)}
+                          data-testid={`remove-market-${market.id}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
                       </div>
                       <div className="space-y-2">
                         {market.outcomes.map((outcome: MarketOutcome) => (
@@ -771,78 +764,39 @@ export default function AdminMarketEditor() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="hidden lg:block">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Market Library</CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[600px]">
-              <div className="space-y-1">
-                {Object.entries(marketsByCategory).map(([category, templates]) => (
-                  <div key={category} className="space-y-1">
-                    <button
-                      onClick={() => toggleCategory(category)}
-                      className="flex items-center gap-2 w-full p-2 hover-elevate rounded text-left"
-                      data-testid={`category-${category}`}
-                    >
-                      {expandedCategories[category] ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4" />
-                      )}
-                      <span className="font-semibold text-sm">{category}</span>
-                      <Badge variant="secondary" className="text-xs ml-auto">
-                        {templates.length}
-                      </Badge>
-                    </button>
-                    {expandedCategories[category] && (
-                      <div className="ml-6 space-y-1">
-                        {templates.map((template) => {
-                          const added = isMarketAdded(template.key);
-                          return (
-                            <div
-                              key={template.key}
-                              className={`flex items-center justify-between p-2 rounded text-sm ${
-                                added
-                                  ? 'bg-primary/10 border border-primary/20'
-                                  : 'hover-elevate'
-                              }`}
-                              data-testid={`market-template-${template.key}`}
-                            >
-                              <span className={added ? 'text-primary font-medium' : ''}>
-                                {template.name}
-                              </span>
-                              <Button
-                                variant={added ? "outline" : "default"}
-                                size="sm"
-                                className="h-6 text-xs"
-                                onClick={() => handleAddMarket(template)}
-                                disabled={added || createMarketMutation.isPending}
-                                data-testid={`add-market-${template.key}`}
-                              >
-                                {added ? (
-                                  <>
-                                    <CheckCircle className="w-3 h-3 mr-1" />
-                                    Added
-                                  </>
-                                ) : (
-                                  <>
-                                    <Plus className="w-3 h-3 mr-1" />
-                                    Add
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
+            <MarketLibraryContent />
           </CardContent>
         </Card>
+      </div>
+
+      <div className="lg:hidden fixed bottom-6 right-6 z-50">
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetTrigger asChild>
+            <Button
+              size="lg"
+              className="h-14 w-14 rounded-full shadow-lg"
+              data-testid="button-browse-markets"
+            >
+              <List className="w-6 h-6" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-[85vh]">
+            <SheetHeader>
+              <SheetTitle>Market Library</SheetTitle>
+              <SheetDescription>
+                Browse and add markets to this match
+              </SheetDescription>
+            </SheetHeader>
+            <div className="mt-4">
+              <MarketLibraryContent />
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
 
       <Dialog open={showParameterDialog} onOpenChange={setShowParameterDialog}>
@@ -850,18 +804,17 @@ export default function AdminMarketEditor() {
           <DialogHeader>
             <DialogTitle>Set Market Parameter</DialogTitle>
             <DialogDescription>
-              Enter the line/parameter for this market
+              Enter the parameter value for this market
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="parameter">Parameter/Line</Label>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="parameter">Parameter Value</Label>
               <Input
                 id="parameter"
-                type="text"
                 value={marketParameter}
                 onChange={(e) => setMarketParameter(e.target.value)}
-                placeholder="e.g., 2.5, -1, +2"
+                placeholder="e.g., 2.5"
                 data-testid="input-market-parameter"
               />
             </div>
@@ -870,6 +823,7 @@ export default function AdminMarketEditor() {
             <Button
               variant="outline"
               onClick={() => setShowParameterDialog(false)}
+              data-testid="button-cancel-parameter"
             >
               Cancel
             </Button>

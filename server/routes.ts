@@ -4855,7 +4855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // POST /api/admin/matches/:id/markets - create market for specific match
   app.post("/api/admin/matches/:id/markets", 
     authenticateAdmin,
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(), 
     requirePermission('markets:create'), 
     auditAction('market_create_for_match'),
     async (req: any, res) => {
@@ -4867,6 +4867,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({
             success: false,
             error: 'Market key, name, type, and outcomes array are required'
+          });
+        }
+        
+        // Validate market type
+        const validMarketTypes = ['1x2', 'totals', 'btts', 'handicap', 'correct_score', 'custom'];
+        if (!validMarketTypes.includes(type)) {
+          return res.status(400).json({
+            success: false,
+            error: `Invalid market type. Must be one of: ${validMarketTypes.join(', ')}`
           });
         }
         
@@ -4907,7 +4916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PATCH /api/admin/markets/:id/status - update market status
   app.patch("/api/admin/markets/:id/status", 
     authenticateAdmin,
-    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(), 
     requirePermission('markets:update'), 
     auditAction('market_status_change', (req) => ({ 
       targetType: 'market', 
@@ -4918,10 +4927,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { id } = req.params;
         const { action } = req.body;
         
-        if (!action || !['publish', 'unpublish', 'suspend', 'reopen', 'lock'].includes(action)) {
+        // Validate action and ensure resulting status is valid
+        const validActions = ['publish', 'unpublish', 'suspend', 'reopen', 'lock'];
+        if (!action || !validActions.includes(action)) {
           return res.status(400).json({
             success: false,
-            error: 'Valid action is required (publish, unpublish, suspend, reopen, lock)'
+            error: `Valid action is required. Must be one of: ${validActions.join(', ')}`
+          });
+        }
+        
+        // Map actions to valid status values (active, inactive, suspended, locked)
+        // This ensures the database only receives valid status values
+        const actionToStatus: Record<string, string> = {
+          'publish': 'active',
+          'unpublish': 'inactive',
+          'suspend': 'suspended',
+          'reopen': 'active',
+          'lock': 'locked'
+        };
+        
+        const resultingStatus = actionToStatus[action];
+        if (!resultingStatus || !['active', 'inactive', 'suspended', 'locked'].includes(resultingStatus)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid status value. Must be one of: active, inactive, suspended, locked'
           });
         }
         
