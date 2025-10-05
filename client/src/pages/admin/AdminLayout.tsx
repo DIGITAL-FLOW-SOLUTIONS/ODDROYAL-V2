@@ -54,73 +54,73 @@ interface AdminLayoutProps {
 const adminMenuItems = [
   {
     title: "Dashboard",
-    url: "/prime-admin",
+    url: "/",
     icon: LayoutDashboard,
     permission: "dashboard:read"
   },
   {
     title: "User Management",
-    url: "/prime-admin/users",
+    url: "/users",
     icon: Users,
     permission: "users:read"
   },
   {
     title: "Bet Management",
-    url: "/prime-admin/bets",
+    url: "/bets",
     icon: Trophy,
     permission: "bets:read"
   },
   {
     title: "Matches & Markets",
-    url: "/prime-admin/matches",
+    url: "/matches",
     icon: Target,
     permission: "matches:read"
   },
   {
     title: "Risk & Exposure",
-    url: "/prime-admin/exposure",
+    url: "/exposure",
     icon: AlertTriangle,
     permission: "exposure:read"
   },
   {
     title: "Promotions",
-    url: "/prime-admin/promotions",
+    url: "/promotions",
     icon: Gift,
     permission: "promotions:read"
   },
   {
     title: "Financial Reports",
-    url: "/prime-admin/reports",
+    url: "/reports",
     icon: BarChart3,
     permission: "reports:read"
   },
   {
     title: "Notifications",
-    url: "/prime-admin/notifications",
+    url: "/notifications",
     icon: Bell,
     permission: "notifications:read"
   },
   {
     title: "Audit Logs",
-    url: "/prime-admin/audit",
+    url: "/audit",
     icon: Activity,
     permission: "audit:read"
   },
   {
     title: "Settlement",
-    url: "/prime-admin/settlement",
+    url: "/settlement",
     icon: FileText,
     permission: "bets:settle"
   },
   {
     title: "Settings",
-    url: "/prime-admin/settings",
+    url: "/settings",
     icon: Settings,
     permission: "dashboard:read"
   },
   {
     title: "Security & Access",
-    url: "/prime-admin/security",
+    url: "/security",
     icon: Shield,
     permission: "dashboard:read"
   }
@@ -189,32 +189,36 @@ function ThemeToggle() {
 function AdminBreadcrumbs() {
   const [location] = useLocation();
   
-  // Define breadcrumb paths and labels
+  // Define breadcrumb paths and labels (relative to /prime-admin base)
   const breadcrumbMap: Record<string, { label: string; href?: string }> = {
-    '/prime-admin': { label: 'Dashboard' },
-    '/prime-admin/users': { label: 'User Management' },
-    '/prime-admin/bets': { label: 'Bet Management' },
-    '/prime-admin/matches': { label: 'Matches & Markets' },
-    '/prime-admin/exposure': { label: 'Risk & Exposure' },
-    '/prime-admin/promotions': { label: 'Promotions' },
-    '/prime-admin/reports': { label: 'Financial Reports' },
-    '/prime-admin/audit': { label: 'Audit Logs' },
-    '/prime-admin/settlement': { label: 'Settlement Control' },
-    '/prime-admin/settings': { label: 'Settings' },
-    '/prime-admin/security': { label: 'Security & Access' },
+    '/': { label: 'Dashboard' },
+    '/users': { label: 'User Management' },
+    '/bets': { label: 'Bet Management' },
+    '/matches': { label: 'Matches & Markets' },
+    '/exposure': { label: 'Risk & Exposure' },
+    '/promotions': { label: 'Promotions' },
+    '/reports': { label: 'Financial Reports' },
+    '/notifications': { label: 'Notifications' },
+    '/audit': { label: 'Audit Logs' },
+    '/settlement': { label: 'Settlement Control' },
+    '/settings': { label: 'Settings' },
+    '/security': { label: 'Security & Access' },
   };
 
   // Parse current path to build breadcrumbs
   const buildBreadcrumbs = (): Array<{ label: string; href?: string }> => {
-    const segments = location.split('/').filter(Boolean);
-    const breadcrumbs: Array<{ label: string; href?: string }> = [{ label: 'Admin Panel', href: '/prime-admin' }];
+    const breadcrumbs: Array<{ label: string; href?: string }> = [{ label: 'Admin Panel', href: '/' }];
     
+    // Don't show breadcrumbs for root page
+    if (location === '/') {
+      return [];
+    }
+    
+    const segments = location.split('/').filter(Boolean);
     let currentPath = '';
+    
     segments.forEach((segment, index) => {
       currentPath += `/${segment}`;
-      
-      // Skip first segment (prime-admin) as it's the root
-      if (index === 0) return;
       
       const breadcrumb = breadcrumbMap[currentPath];
       if (breadcrumb) {
