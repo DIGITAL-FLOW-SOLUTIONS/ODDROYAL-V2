@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Router } from "wouter";
 import { AdminAuthProvider } from "@/contexts/AdminAuthContext";
 import AdminAuthGuard from "./AdminAuthGuard";
 import AdminLayout from "./AdminLayout";
@@ -19,141 +19,142 @@ import NotFound from "@/pages/not-found";
 // Admin router component
 function AdminRouter() {
   return (
-    <Switch>
-      {/* Admin Login - Not protected */}
-      <Route path="/prime-admin/login" component={AdminLogin} />
-      
-      {/* Admin Register - Handles its own auth logic (allows first admin creation) */}
-      <Route path="/prime-admin/register" component={AdminRegister} />
-      
-      {/* Protected Admin Routes */}
-      <Route path="/prime-admin">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <AdminDashboard />
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-      
-      <Route path="/prime-admin/users">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <AdminUserManagement />
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-      
-      <Route path="/prime-admin/bets">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <AdminBetManagement />
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-      
-      <Route path="/prime-admin/matches/markets/:matchId">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <AdminMarketEditor />
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
+    <Router base="/prime-admin">
+      <Switch>
+        {/* Admin Login - Not protected */}
+        <Route path="/login" component={AdminLogin} />
+        
+        {/* Admin Register - Handles its own auth logic (allows first admin creation) */}
+        <Route path="/register" component={AdminRegister} />
+        
+        {/* Market Editor - Must come before /matches to prevent route conflict */}
+        <Route path="/matches/markets/:matchId">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <AdminMarketEditor />
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
 
-      <Route path="/prime-admin/matches">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <AdminMatchesMarkets />
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-      
-      <Route path="/prime-admin/exposure">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <AdminRiskExposure />
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-      
-      <Route path="/prime-admin/promotions">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <div className="p-6">
-              <h1 className="text-2xl font-bold mb-4">Promotions</h1>
-              <p className="text-muted-foreground">
-                Promotions management interface coming soon...
-              </p>
-            </div>
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-      
-      <Route path="/prime-admin/reports">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <AdminReports />
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-      
-      <Route path="/prime-admin/notifications">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <AdminNotifications />
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-      
-      <Route path="/prime-admin/audit">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <div className="p-6">
-              <h1 className="text-2xl font-bold mb-4">Audit Logs</h1>
-              <p className="text-muted-foreground">
-                Audit logs interface coming soon...
-              </p>
-            </div>
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-      
-      <Route path="/prime-admin/settings">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <div className="p-6">
-              <h1 className="text-2xl font-bold mb-4">Settings</h1>
-              <p className="text-muted-foreground">
-                Settings interface coming soon...
-              </p>
-            </div>
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-      
-      <Route path="/prime-admin/settlement">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <AdminSettlement />
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-      
-      <Route path="/prime-admin/security">
-        <AdminAuthGuard>
-          <AdminLayout>
-            <AdminSecurity />
-          </AdminLayout>
-        </AdminAuthGuard>
-      </Route>
-      
-      {/* Fallback - shows what route is being accessed */}
-      <Route>
-        {(params) => {
-          console.log('Unmatched admin route:', window.location.pathname, params);
-          return <NotFound />;
-        }}
-      </Route>
-    </Switch>
+        {/* Matches Management */}
+        <Route path="/matches">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <AdminMatchesMarkets />
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
+        
+        {/* Protected Admin Routes */}
+        <Route path="/">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <AdminDashboard />
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
+        
+        <Route path="/users">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <AdminUserManagement />
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
+        
+        <Route path="/bets">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <AdminBetManagement />
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
+        
+        <Route path="/exposure">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <AdminRiskExposure />
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
+        
+        <Route path="/promotions">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <div className="p-6">
+                <h1 className="text-2xl font-bold mb-4">Promotions</h1>
+                <p className="text-muted-foreground">
+                  Promotions management interface coming soon...
+                </p>
+              </div>
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
+        
+        <Route path="/reports">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <AdminReports />
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
+        
+        <Route path="/notifications">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <AdminNotifications />
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
+        
+        <Route path="/audit">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <div className="p-6">
+                <h1 className="text-2xl font-bold mb-4">Audit Logs</h1>
+                <p className="text-muted-foreground">
+                  Audit logs interface coming soon...
+                </p>
+              </div>
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
+        
+        <Route path="/settings">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <div className="p-6">
+                <h1 className="text-2xl font-bold mb-4">Settings</h1>
+                <p className="text-muted-foreground">
+                  Settings interface coming soon...
+                </p>
+              </div>
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
+        
+        <Route path="/settlement">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <AdminSettlement />
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
+        
+        <Route path="/security">
+          <AdminAuthGuard>
+            <AdminLayout>
+              <AdminSecurity />
+            </AdminLayout>
+          </AdminAuthGuard>
+        </Route>
+        
+        {/* Fallback */}
+        <Route>
+          <NotFound />
+        </Route>
+      </Switch>
+    </Router>
   );
 }
 
