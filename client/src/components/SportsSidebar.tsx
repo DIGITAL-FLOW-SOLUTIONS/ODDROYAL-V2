@@ -146,9 +146,6 @@ export default function SportsSidebar() {
                         <Link href={`/league/football/${league.league_id}`}>
                           <Crown className="h-4 w-4" />
                           <span className="flex-1 text-sm">{league.league_name}</span>
-                          <Badge className="text-xs px-1.5 py-0 bg-surface-6 text-foreground border-0">
-                            {league.match_count}
-                          </Badge>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -193,9 +190,6 @@ export default function SportsSidebar() {
                               return <Icon className="h-4 w-4" />;
                             })()}
                             <span className="flex-1">{sport.sport_title}</span>
-                            <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">
-                              {sport.total_matches}
-                            </Badge>
                             <ChevronRight 
                               className={`h-3 w-3 transition-transform ${expandedSports.includes(sport.sport_key) ? 'rotate-90' : ''}`} 
                             />
@@ -219,9 +213,6 @@ export default function SportsSidebar() {
                                   >
                                     <Link href={`/league/${sport.sport_key}/${league.league_id}`}>
                                       <span className="flex-1 text-xs">{league.league_name}</span>
-                                      <Badge className="text-xs px-1.5 py-0 bg-surface-6 text-foreground border-0">
-                                        {league.match_count}
-                                      </Badge>
                                     </Link>
                                   </SidebarMenuSubButton>
                                 </SidebarMenuSubItem>
