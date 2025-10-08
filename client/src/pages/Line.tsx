@@ -83,13 +83,11 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     kickoffTime: match.kickoffTime || match.kickoff,
     league: match.league,
     venue: match.venue,
-    odds: match.odds
-      ? {
-          home: match.odds.home,
-          draw: match.odds.draw,
-          away: match.odds.away,
-        }
-      : null,
+    odds: {
+      home: match.odds?.home || 0,
+      draw: match.odds?.draw || 0,
+      away: match.odds?.away || 0,
+    },
     additionalMarkets: match.additionalMarkets || 0,
   }));
 
@@ -120,13 +118,11 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         },
         kickoffTime: match.kickoffTime || match.kickoff,
         venue: match.venue,
-        odds: match.odds
-          ? {
-              home: match.odds.home,
-              draw: match.odds.draw,
-              away: match.odds.away,
-            }
-          : null,
+        odds: {
+          home: match.odds?.home || 0,
+          draw: match.odds?.draw || 0,
+          away: match.odds?.away || 0,
+        },
         additionalMarkets: match.additionalMarkets || 0,
       });
     });

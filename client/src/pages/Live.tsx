@@ -81,60 +81,61 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch live matches using new cache-only endpoints with mode
+  // Fetch live matches from cache
   const { data: liveMatchesData, isLoading: liveLoading } = useQuery({
-    queryKey: ['/api/fixtures/live/football', mode],
+    queryKey: ['/api/live/matches'],
     queryFn: async () => {
-      // Try new cache endpoint first, fallback to old endpoint
-      try {
-        const response = await fetch(`/api/menu?mode=${mode}`);
-        if (!response.ok) throw new Error('Cache endpoint failed');
-        const result = await response.json();
-        
-        // Transform menu data to match old format
-        const matches: LiveMatch[] = [];
-        if (result.success && result.sports) {
-          result.sports.forEach((sport: any) => {
-            sport.leagues?.forEach((league: any) => {
-              league.matches?.forEach((match: any) => {
-                // Extract odds from bookmakers
-                const h2hMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "h2h");
-                const totalsMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "totals");
-                
-                matches.push({
-                  id: match.id,
-                  homeTeam: match.home_team,
-                  awayTeam: match.away_team,
-                  league: league.name,
-                  homeScore: match.scores?.home || 0,
-                  awayScore: match.scores?.away || 0,
-                  minute: match.minute || 0,
-                  status: match.status || "live",
-                  odds: {
-                    "1x2": {
-                      home: h2hMarket?.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
-                      draw: h2hMarket?.outcomes?.find((o: any) => o.name === "Draw")?.price || 0,
-                      away: h2hMarket?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
+      // Fetch menu to get sports and leagues with live matches
+      const menuResponse = await fetch('/api/menu?mode=live');
+      if (!menuResponse.ok) throw new Error('Failed to fetch menu');
+      const menuResult = await menuResponse.json();
+      
+      const allMatches: LiveMatch[] = [];
+      
+      if (menuResult.success && menuResult.data.sports) {
+        // Fetch matches for each league
+        for (const sport of menuResult.data.sports) {
+          for (const league of sport.leagues) {
+            const lineResponse = await fetch(`/api/line/${sport.sport_key}/${league.league_id}?mode=live`);
+            if (lineResponse.ok) {
+              const lineResult = await lineResponse.json();
+              if (lineResult.success && lineResult.data.matches) {
+                lineResult.data.matches.forEach((match: any) => {
+                  // Extract odds from bookmakers
+                  const h2hMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "h2h");
+                  const totalsMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "totals");
+                  
+                  allMatches.push({
+                    id: match.match_id,
+                    homeTeam: match.home_team,
+                    awayTeam: match.away_team,
+                    league: league.league_name,
+                    homeScore: match.scores?.home || 0,
+                    awayScore: match.scores?.away || 0,
+                    minute: match.minute || 0,
+                    status: match.status || "live",
+                    odds: {
+                      "1x2": {
+                        home: h2hMarket?.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
+                        draw: h2hMarket?.outcomes?.find((o: any) => o.name === "Draw")?.price || 0,
+                        away: h2hMarket?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
+                      },
+                      totalgoals: totalsMarket ? {
+                        over35: totalsMarket.outcomes?.find((o: any) => o.name === "Over")?.price,
+                        under35: totalsMarket.outcomes?.find((o: any) => o.name === "Under")?.price,
+                      } : undefined,
                     },
-                    totalgoals: totalsMarket ? {
-                      over35: totalsMarket.outcomes?.find((o: any) => o.name === "Over")?.price,
-                      under35: totalsMarket.outcomes?.find((o: any) => o.name === "Under")?.price,
-                    } : undefined,
-                  },
+                  });
                 });
-              });
-            });
-          });
+              }
+            }
+          }
         }
-        return { data: matches };
-      } catch (err) {
-        // Fallback to old endpoint
-        const response = await fetch('/api/fixtures/live/football');
-        if (!response.ok) throw new Error('Failed to fetch live matches');
-        return response.json();
       }
+      
+      return { data: allMatches };
     },
-    refetchInterval: mode === "live" ? 5000 : 15000, // Faster refresh for live mode
+    refetchInterval: 15000, // Refresh every 15 seconds for live matches
   });
 
   const liveMatches: LiveMatch[] = liveMatchesData?.data || [];
