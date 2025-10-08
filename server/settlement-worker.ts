@@ -241,36 +241,37 @@ export class BetSettlementWorker {
         };
       }
       
-      // If not in cache, try to fetch scores from The Odds API
-      // The Odds API has a scores endpoint that returns completed matches
+      // If not in cache, check if we have a match record to get sport information
       try {
-        const scores = await oddsApiClient.getScores();
-        
-        // Find the match by ID or by team names
-        const scoreData = scores.find((s: any) => {
-          // Match by ID if available
-          if (s.id === matchId) return true;
+        const match = await storage.getMatch(matchId);
+        if (match && match.sport) {
+          // Try to fetch scores from The Odds API with the correct sport
+          const scores = await oddsApiClient.getScores(match.sport, 3);
           
-          // Otherwise try to match by creating the same ID format
-          // This depends on how match IDs are generated in your system
-          return false;
-        });
-        
-        if (scoreData && scoreData.completed) {
-          const homeScore = scoreData.scores?.find((s: any) => s.name === scoreData.home_team)?.score ?? 0;
-          const awayScore = scoreData.scores?.find((s: any) => s.name === scoreData.away_team)?.score ?? 0;
+          // Find the match by team names
+          const scoreData = scores.find((s: any) => {
+            // Match by team names (case-insensitive comparison)
+            const homeMatch = s.home_team?.toLowerCase() === match.homeTeamName?.toLowerCase();
+            const awayMatch = s.away_team?.toLowerCase() === match.awayTeamName?.toLowerCase();
+            return homeMatch && awayMatch;
+          });
           
-          return {
-            fixtureId: matchId,
-            homeScore: parseInt(homeScore) || 0,
-            awayScore: parseInt(awayScore) || 0,
-            totalGoals: (parseInt(homeScore) || 0) + (parseInt(awayScore) || 0),
-            status: 'finished',
-            winner: homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw',
-            matchDate: scoreData.commence_time || new Date().toISOString(),
-            homeTeam: scoreData.home_team || '',
-            awayTeam: scoreData.away_team || ''
-          };
+          if (scoreData && scoreData.completed) {
+            const homeScore = scoreData.scores?.find((s: any) => s.name === scoreData.home_team)?.score ?? 0;
+            const awayScore = scoreData.scores?.find((s: any) => s.name === scoreData.away_team)?.score ?? 0;
+            
+            return {
+              fixtureId: matchId,
+              homeScore: parseInt(homeScore) || 0,
+              awayScore: parseInt(awayScore) || 0,
+              totalGoals: (parseInt(homeScore) || 0) + (parseInt(awayScore) || 0),
+              status: 'finished',
+              winner: homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw',
+              matchDate: scoreData.commence_time || new Date().toISOString(),
+              homeTeam: scoreData.home_team || '',
+              awayTeam: scoreData.away_team || ''
+            };
+          }
         }
       } catch (scoresError) {
         console.warn(`Could not fetch scores from The Odds API:`, scoresError);
