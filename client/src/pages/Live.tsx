@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
+import { useMode } from "@/contexts/ModeContext";
 import bannerImage from "@assets/banner-live_1757761750950.jpg";
 import { 
   ChevronDown,
@@ -70,6 +71,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
   const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set());
   const [expandedMatches, setExpandedMatches] = useState<Set<string>>(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
+  const { mode } = useMode();
 
   // Update current time every second for live matches
   useEffect(() => {
@@ -79,15 +81,60 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch live Football matches only (no sport toggle needed)
+  // Fetch live matches using new cache-only endpoints with mode
   const { data: liveMatchesData, isLoading: liveLoading } = useQuery({
-    queryKey: ['/api/fixtures/live/football'],
+    queryKey: ['/api/fixtures/live/football', mode],
     queryFn: async () => {
-      const response = await fetch('/api/fixtures/live/football');
-      if (!response.ok) throw new Error('Failed to fetch live matches');
-      return response.json();
+      // Try new cache endpoint first, fallback to old endpoint
+      try {
+        const response = await fetch(`/api/menu?mode=${mode}`);
+        if (!response.ok) throw new Error('Cache endpoint failed');
+        const result = await response.json();
+        
+        // Transform menu data to match old format
+        const matches: LiveMatch[] = [];
+        if (result.success && result.sports) {
+          result.sports.forEach((sport: any) => {
+            sport.leagues?.forEach((league: any) => {
+              league.matches?.forEach((match: any) => {
+                // Extract odds from bookmakers
+                const h2hMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "h2h");
+                const totalsMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "totals");
+                
+                matches.push({
+                  id: match.id,
+                  homeTeam: match.home_team,
+                  awayTeam: match.away_team,
+                  league: league.name,
+                  homeScore: match.scores?.home || 0,
+                  awayScore: match.scores?.away || 0,
+                  minute: match.minute || 0,
+                  status: match.status || "live",
+                  odds: {
+                    "1x2": {
+                      home: h2hMarket?.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
+                      draw: h2hMarket?.outcomes?.find((o: any) => o.name === "Draw")?.price || 0,
+                      away: h2hMarket?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
+                    },
+                    totalgoals: totalsMarket ? {
+                      over35: totalsMarket.outcomes?.find((o: any) => o.name === "Over")?.price,
+                      under35: totalsMarket.outcomes?.find((o: any) => o.name === "Under")?.price,
+                    } : undefined,
+                  },
+                });
+              });
+            });
+          });
+        }
+        return { data: matches };
+      } catch (err) {
+        // Fallback to old endpoint
+        const response = await fetch('/api/fixtures/live/football');
+        if (!response.ok) throw new Error('Failed to fetch live matches');
+        return response.json();
+      }
     },
-    refetchInterval: 5000, // Refresh every 5 seconds for live data
+    refetchInterval: mode === "live" ? 5000 : 15000, // Faster refresh for live mode
   });
 
   const liveMatches: LiveMatch[] = liveMatchesData?.data || [];

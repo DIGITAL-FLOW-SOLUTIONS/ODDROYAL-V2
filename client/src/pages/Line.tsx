@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
+import { useMode } from "@/contexts/ModeContext";
 
 // Import all the new components
 import HeroBanner from "@/components/HeroBanner";
@@ -15,30 +16,68 @@ interface LineProps {
 
 export default function Line({ onAddToBetSlip }: LineProps) {
   const [selectedLeague, setSelectedLeague] = useState("all");
+  const { mode } = useMode();
 
-  // Fetch upcoming matches from SportMonks API
+  // Fetch matches using new cache-only endpoints with mode
   const { data: upcomingMatchesData, isLoading: matchesLoading } = useQuery({
-    queryKey: ["/api/fixtures/upcoming"],
+    queryKey: ["/api/fixtures/upcoming", mode],
     queryFn: async () => {
-      const response = await fetch("/api/fixtures/upcoming?limit=50");
-      if (!response.ok) throw new Error("Failed to fetch upcoming matches");
-      return response.json();
+      // Try new cache endpoint first, fallback to old endpoint
+      try {
+        const response = await fetch(`/api/menu?mode=${mode}`);
+        if (!response.ok) throw new Error("Cache endpoint failed");
+        const result = await response.json();
+        
+        // Transform menu data to match old format
+        const matches: any[] = [];
+        if (result.success && result.sports) {
+          result.sports.forEach((sport: any) => {
+            sport.leagues?.forEach((league: any) => {
+              league.matches?.forEach((match: any) => {
+                matches.push({
+                  id: match.id,
+                  homeTeam: match.home_team,
+                  awayTeam: match.away_team,
+                  league: league.name,
+                  kickoffTime: match.commence_time,
+                  venue: match.venue,
+                  odds: match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "h2h")
+                    ? {
+                        home: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === match.home_team)?.price,
+                        draw: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === "Draw")?.price,
+                        away: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === match.away_team)?.price,
+                      }
+                    : null,
+                  homeTeamLogo: match.home_team_logo,
+                  awayTeamLogo: match.away_team_logo,
+                });
+              });
+            });
+          });
+        }
+        return { data: matches };
+      } catch (err) {
+        // Fallback to old endpoint
+        const response = await fetch("/api/fixtures/upcoming?limit=50");
+        if (!response.ok) throw new Error("Failed to fetch upcoming matches");
+        return response.json();
+      }
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: mode === "live" ? 15000 : 30000, // Faster refresh for live
   });
 
   const upcomingMatches = upcomingMatchesData?.data || [];
 
-  // Transform API data for Popular Events - only use real data
+  // Transform API data for Popular Events - only use real data, include logos
   const popularMatches = upcomingMatches.slice(0, 6).map((match: any) => ({
     id: match.id,
     homeTeam: {
       name: match.homeTeam?.name || match.homeTeam,
-      logo: match.homeTeam?.logo,
+      logo: match.homeTeamLogo || match.homeTeam?.logo,
     },
     awayTeam: {
       name: match.awayTeam?.name || match.awayTeam,
-      logo: match.awayTeam?.logo,
+      logo: match.awayTeamLogo || match.awayTeam?.logo,
     },
     kickoffTime: match.kickoffTime || match.kickoff,
     league: match.league,
@@ -72,11 +111,11 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         id: match.id,
         homeTeam: {
           name: match.homeTeam?.name || match.homeTeam,
-          logo: match.homeTeam?.logo,
+          logo: match.homeTeamLogo || match.homeTeam?.logo,
         },
         awayTeam: {
           name: match.awayTeam?.name || match.awayTeam,
-          logo: match.awayTeam?.logo,
+          logo: match.awayTeamLogo || match.awayTeam?.logo,
         },
         kickoffTime: match.kickoffTime || match.kickoff,
         venue: match.venue,
