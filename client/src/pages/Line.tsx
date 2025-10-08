@@ -215,10 +215,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.6 }}
         >
-          <TopLeagues
-            selectedLeague={selectedLeague}
-            onLeagueSelect={handleLeagueSelect}
-          />
+          <TopLeagues />
         </motion.div>
 
         {/* Sports Matches - Table format grouped by sport and league */}

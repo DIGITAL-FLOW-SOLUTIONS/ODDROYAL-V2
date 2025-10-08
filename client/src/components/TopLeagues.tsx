@@ -1,32 +1,35 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
+import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { useMode } from "@/contexts/ModeContext";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Trophy, Crown, Shield, Flag } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trophy, Crown } from "lucide-react";
 
-interface League {
-  id: string;
-  name: string;
-  icon: React.ComponentType<any>;
-  country: string;
-  matchCount?: number;
-  isActive?: boolean;
-}
-
-interface TopLeaguesProps {
-  leagues?: League[];
-  selectedLeague?: string;
-  onLeagueSelect?: (leagueId: string) => void;
-}
-
-
-export default function TopLeagues({ 
-  leagues = [], 
-  selectedLeague = "all",
-  onLeagueSelect 
-}: TopLeaguesProps) {
+export default function TopLeagues() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [location] = useLocation();
+  const { mode } = useMode();
+
+  // Fetch menu data to get football leagues
+  const { data: menuData } = useQuery({
+    queryKey: ['/api/menu', mode],
+    queryFn: async () => {
+      const response = await fetch(`/api/menu?mode=${mode}`);
+      if (!response.ok) throw new Error('Failed to fetch menu');
+      const result = await response.json();
+      return result.data;
+    },
+    staleTime: mode === 'live' ? 60 * 1000 : 5 * 60 * 1000,
+    refetchInterval: mode === 'live' ? 15000 : 30000,
+    placeholderData: (previousData: any) => previousData,
+  });
+
+  const sports = menuData?.sports || [];
+  const footballSport = sports.find((s: any) => s.sport_key === 'football');
+  const footballLeagues = footballSport?.leagues?.slice(0, 8) || [];
 
   const checkScrollPosition = () => {
     if (scrollRef.current) {
@@ -48,10 +51,6 @@ export default function TopLeagues({
       scrollRef.current.scrollBy({ left: 200, behavior: 'smooth' });
       setTimeout(checkScrollPosition, 100);
     }
-  };
-
-  const handleLeagueClick = (leagueId: string) => {
-    onLeagueSelect?.(leagueId);
   };
 
   return (
@@ -93,53 +92,37 @@ export default function TopLeagues({
         data-testid="top-leagues-carousel"
         style={{ width: '100%', maxWidth: '100%' }}
       >
-        {/* All Leagues option */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="flex-shrink-0"
-        >
-          <Button
-            variant={selectedLeague === "all" ? "default" : "outline"}
-            onClick={() => handleLeagueClick("all")}
-            className={`flex flex-col items-center gap-2 h-auto p-4 w-24 hover-elevate ${selectedLeague === "all" ? "odds-button" : ""}`}
-            style={selectedLeague === "all" ? {} : { backgroundColor: 'hsl(var(--surface-3))', borderColor: 'hsl(var(--surface-4))' }}
-            data-testid="button-league-all"
-          >
-            <Trophy className="h-6 w-6" />
-            <div className="text-center">
-              <div className="text-xs font-medium">All</div>
-              <div className="text-xs text-muted-foreground">Leagues</div>
-            </div>
-          </Button>
-        </motion.div>
-
-        {leagues.map((league, index) => (
-          <motion.div
-            key={league.id}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: (index + 1) * 0.05 }}
-            className="flex-shrink-0"
-          >
-            <Button
-              variant={selectedLeague === league.id ? "default" : "outline"}
-              onClick={() => handleLeagueClick(league.id)}
-              className={`flex flex-col items-center gap-2 h-auto p-4 w-24 hover-elevate ${selectedLeague === league.id ? "odds-button" : ""}`}
-              style={selectedLeague === league.id ? {} : { backgroundColor: 'hsl(var(--surface-3))', borderColor: 'hsl(var(--surface-4))' }}
-              data-testid={`button-league-${league.id}`}
+        {footballLeagues.map((league: any, index: number) => {
+          const isActive = location.includes(`/league/football/${league.league_id}`);
+          
+          return (
+            <motion.div
+              key={league.league_id}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="flex-shrink-0"
             >
-              <league.icon className="h-6 w-6" />
-              <div className="text-center">
-                <div className="text-xs font-medium truncate w-full">{league.name}</div>
-                <div className="text-xs text-muted-foreground">{league.country}</div>
-                {league.matchCount && (
-                  <div className="text-xs text-primary font-semibold">{league.matchCount}</div>
-                )}
-              </div>
-            </Button>
-          </motion.div>
-        ))}
+              <Button
+                asChild
+                variant={isActive ? "default" : "outline"}
+                className={`flex flex-col items-center gap-2 h-auto p-4 w-24 hover-elevate ${isActive ? "odds-button" : ""}`}
+                style={isActive ? {} : { backgroundColor: 'hsl(var(--surface-3))', borderColor: 'hsl(var(--surface-4))' }}
+                data-testid={`button-league-${league.league_id}`}
+              >
+                <Link href={`/league/football/${league.league_id}`}>
+                  <Crown className="h-6 w-6" />
+                  <div className="text-center">
+                    <div className="text-xs font-medium truncate w-full">{league.league_name}</div>
+                    {league.match_count > 0 && (
+                      <div className="text-xs text-primary font-semibold">{league.match_count}</div>
+                    )}
+                  </div>
+                </Link>
+              </Button>
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );
