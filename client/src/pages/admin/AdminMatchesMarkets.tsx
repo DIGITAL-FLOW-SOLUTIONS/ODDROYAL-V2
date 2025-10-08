@@ -131,7 +131,7 @@ interface MatchFilters {
   search: string;
   sport: string;
   status: 'all' | 'scheduled' | 'live' | 'finished' | 'cancelled' | 'postponed';
-  source: 'all' | 'manual' | 'sportmonks';
+  source: 'all' | 'manual' | 'api';
   dateFrom: string;
   dateTo: string;
   league: string;
@@ -920,30 +920,6 @@ export default function AdminMatchesMarkets() {
     },
   });
 
-  const importSportMonksMutation = useMutation({
-    mutationFn: async () => {
-      const response = await adminApiRequest('POST', '/api/admin/matches/import-sportmonks');
-      if (!response.ok) {
-        throw new Error('Failed to import from SportMonks');
-      }
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/matches'] });
-      toast({
-        title: "Success",
-        description: `Imported ${data.imported || 0} matches from SportMonks`,
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error", 
-        description: "Failed to import from SportMonks",
-        variant: "destructive",
-      });
-    },
-  });
-
   // Helper functions
   const handleFilterChange = (key: keyof MatchFilters, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -1089,16 +1065,6 @@ export default function AdminMatchesMarkets() {
             Refresh
           </Button>
           <Button
-            variant="outline"
-            size="sm"
-            onClick={() => importSportMonksMutation.mutate()}
-            disabled={importSportMonksMutation.isPending}
-            data-testid="button-import-sportmonks"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Import SportMonks
-          </Button>
-          <Button
             onClick={async () => {
               // Validate session before opening modal
               const sessionResult = await checkSessionValidiy();
@@ -1228,7 +1194,7 @@ export default function AdminMatchesMarkets() {
                     <SelectContent>
                       <SelectItem value="all">All Sources</SelectItem>
                       <SelectItem value="manual">Manual</SelectItem>
-                      <SelectItem value="sportmonks">SportMonks</SelectItem>
+                      <SelectItem value="api">API</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1640,7 +1606,7 @@ export default function AdminMatchesMarkets() {
                             </TableCell>
                             <TableCell>
                               <Badge variant={match.isManual ? 'default' : 'secondary'}>
-                                {match.isManual ? 'Manual' : 'SportMonks'}
+                                {match.isManual ? 'Manual' : 'API'}
                               </Badge>
                             </TableCell>
                             <TableCell>
