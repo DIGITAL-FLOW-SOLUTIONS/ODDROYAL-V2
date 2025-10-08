@@ -1,5 +1,6 @@
 import { storage } from './storage';
-import * as sportmonks from './sportmonks';
+import { oddsApiClient } from './odds-api-client';
+import { redisCache } from './redis-cache';
 import type { Bet, BetSelection } from '@shared/schema';
 
 interface MatchResult {
@@ -192,14 +193,14 @@ export class BetSettlementWorker {
   }
 
   /**
-   * Fetch completed match results from SportMonks API
+   * Fetch completed match results from The Odds API scores endpoint or Redis cache
    */
   private async fetchCompletedMatches(fixtureIds: string[]): Promise<MatchResult[]> {
     const results: MatchResult[] = [];
     
     for (const fixtureId of fixtureIds) {
       try {
-        // Fetch fixture with results from SportMonks API
+        // Fetch fixture result from The Odds API or Redis cache
         const fixtureResult = await this.fetchFixtureResult(fixtureId);
         if (fixtureResult) {
           results.push(fixtureResult);
@@ -213,54 +214,73 @@ export class BetSettlementWorker {
   }
 
   /**
-   * Fetch individual fixture result using SportMonks module
+   * Fetch individual fixture result using The Odds API scores endpoint
    */
-  private async fetchFixtureResult(fixtureId: string): Promise<MatchResult | null> {
+  private async fetchFixtureResult(matchId: string): Promise<MatchResult | null> {
     try {
-      console.log(`Fetching result for fixture ${fixtureId}`);
+      console.log(`Fetching result for match ${matchId}`);
       
-      // Use the sportmonks module function
-      const result = await sportmonks.getFixtureResult(parseInt(fixtureId));
-      if (!result) {
-        console.log(`No result data for fixture ${fixtureId}`);
-        return null;
+      // First, try to get from Redis cache (match details should be cached)
+      const cachedMatch = await redisCache.get<any>(`match:details:${matchId}`);
+      
+      if (cachedMatch && cachedMatch.completed) {
+        // Extract scores from cached match
+        const homeScore = cachedMatch.scores?.home ?? 0;
+        const awayScore = cachedMatch.scores?.away ?? 0;
+        
+        return {
+          fixtureId: matchId,
+          homeScore,
+          awayScore,
+          totalGoals: homeScore + awayScore,
+          status: cachedMatch.scores ? 'finished' : 'postponed',
+          winner: homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw',
+          matchDate: cachedMatch.commence_time || new Date().toISOString(),
+          homeTeam: cachedMatch.home_team || '',
+          awayTeam: cachedMatch.away_team || ''
+        };
       }
       
-      // If match is not settled (not finished/cancelled/postponed), return null
-      if (!result.finished) {
-        console.log(`Fixture ${fixtureId} not settled yet (status: ${result.status})`);
-        return null;
-      }
-      
-      // For cancelled/postponed matches, winner is null
-      let winner: 'home' | 'away' | 'draw' | null = null;
-      if (result.status === 'finished') {
-        if (result.homeScore > result.awayScore) {
-          winner = 'home';
-        } else if (result.awayScore > result.homeScore) {
-          winner = 'away';
-        } else {
-          winner = 'draw';
+      // If not in cache, try to fetch scores from The Odds API
+      // The Odds API has a scores endpoint that returns completed matches
+      try {
+        const scores = await oddsApiClient.getScores();
+        
+        // Find the match by ID or by team names
+        const scoreData = scores.find((s: any) => {
+          // Match by ID if available
+          if (s.id === matchId) return true;
+          
+          // Otherwise try to match by creating the same ID format
+          // This depends on how match IDs are generated in your system
+          return false;
+        });
+        
+        if (scoreData && scoreData.completed) {
+          const homeScore = scoreData.scores?.find((s: any) => s.name === scoreData.home_team)?.score ?? 0;
+          const awayScore = scoreData.scores?.find((s: any) => s.name === scoreData.away_team)?.score ?? 0;
+          
+          return {
+            fixtureId: matchId,
+            homeScore: parseInt(homeScore) || 0,
+            awayScore: parseInt(awayScore) || 0,
+            totalGoals: (parseInt(homeScore) || 0) + (parseInt(awayScore) || 0),
+            status: 'finished',
+            winner: homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw',
+            matchDate: scoreData.commence_time || new Date().toISOString(),
+            homeTeam: scoreData.home_team || '',
+            awayTeam: scoreData.away_team || ''
+          };
         }
+      } catch (scoresError) {
+        console.warn(`Could not fetch scores from The Odds API:`, scoresError);
       }
       
-      console.log(`Fixture ${fixtureId} result: ${result.homeScore}-${result.awayScore} (${result.status}, winner: ${winner})`);
-      
-      // Create MatchResult object with proper status and winner
-      return {
-        fixtureId,
-        homeScore: result.homeScore,
-        awayScore: result.awayScore,
-        totalGoals: result.homeScore + result.awayScore,
-        status: result.status as 'finished' | 'cancelled' | 'postponed', // Cast from the broader type
-        winner,
-        matchDate: result.matchDate,
-        homeTeam: result.homeTeam,
-        awayTeam: result.awayTeam
-      };
+      console.log(`No result data available for match ${matchId}`);
+      return null;
       
     } catch (error) {
-      console.error(`Error fetching fixture ${fixtureId}:`, error);
+      console.error(`Error fetching match ${matchId}:`, error);
       return null;
     }
   }
