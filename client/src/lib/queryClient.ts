@@ -195,7 +195,7 @@ export const queryClient = new QueryClient({
       retry: 1, // Retry once on failure
       retryDelay: 1000, // Wait 1s before retry
       // Show cached data immediately while refetching in background
-      placeholderData: (previousData) => previousData,
+      placeholderData: (previousData: any) => previousData,
     },
     mutations: {
       retry: false,

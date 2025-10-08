@@ -1,6 +1,8 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -30,6 +32,12 @@ import MpesaDeposit from "@/pages/MpesaDeposit";
 import Withdrawal from "@/pages/Withdrawal";
 import NotFound from "@/pages/not-found";
 import AdminApp from "@/pages/admin/AdminApp";
+
+// Create persister for sessionStorage - survives navigation but not browser close
+const persister = createSyncStoragePersister({
+  storage: window.sessionStorage,
+  key: 'ODDROYAL_CACHE',
+});
 
 function Router() {
   // Enable automatic scroll to top on route changes
@@ -85,7 +93,24 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: 1000 * 60 * 60 * 24, // 24 hours
+        dehydrateOptions: {
+          shouldDehydrateQuery: (query) => {
+            // Only persist betting data queries, not user-specific queries
+            const queryKey = query.queryKey[0] as string;
+            return queryKey?.startsWith('/api/menu') ||
+                   queryKey?.startsWith('/api/line') ||
+                   queryKey?.startsWith('/api/prematch') ||
+                   queryKey?.startsWith('/api/live') ||
+                   queryKey?.startsWith('/api/fixtures');
+          },
+        },
+      }}
+    >
       <ThemeProvider defaultTheme="light" storageKey="oddroyal-theme">
         <TooltipProvider>
           <AuthProvider>
@@ -98,7 +123,7 @@ function App() {
           </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 
