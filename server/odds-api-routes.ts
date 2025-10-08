@@ -1,7 +1,7 @@
 import { Express, Request, Response } from 'express';
 import { redisCache } from './redis-cache';
 import { oddsApiClient, oddsApiMetrics } from './odds-api-client';
-import { PRIORITY_SPORTS, getSportIcon } from './match-utils';
+import { getSportIcon } from './match-utils';
 
 export function registerOddsApiRoutes(app: Express): void {
   // Get menu (sports + leagues) based on mode
@@ -20,19 +20,16 @@ export function registerOddsApiRoutes(app: Express): void {
       const menuData = [];
 
       for (const sport of sports) {
-        const prioritySport = PRIORITY_SPORTS.find(ps => ps.key === sport.key);
-        if (!prioritySport) continue;
-
         const leagues = mode === 'live'
-          ? await redisCache.getLiveLeagues(prioritySport.ourKey)
-          : await redisCache.getPrematchLeagues(prioritySport.ourKey);
+          ? await redisCache.getLiveLeagues(sport.key)
+          : await redisCache.getPrematchLeagues(sport.key);
 
         // Only include sports with leagues that have matches
         if (leagues && leagues.length > 0) {
           menuData.push({
-            sport_key: prioritySport.ourKey,
-            sport_title: prioritySport.title,
-            sport_icon: getSportIcon(prioritySport.ourKey),
+            sport_key: sport.key,
+            sport_title: sport.title,
+            sport_icon: getSportIcon(sport.key),
             leagues: leagues.filter(l => l.match_count > 0),
             total_matches: leagues.reduce((sum, l) => sum + l.match_count, 0),
           });
@@ -161,13 +158,14 @@ export function registerOddsApiRoutes(app: Express): void {
       // Find the match in cache
       let matchData = null;
       
-      for (const sport of PRIORITY_SPORTS) {
-        const prematchLeagues = await redisCache.getPrematchLeagues(sport.ourKey) || [];
-        const liveLeagues = await redisCache.getLiveLeagues(sport.ourKey) || [];
+      const sports = await redisCache.getSportsList() || [];
+      for (const sport of sports) {
+        const prematchLeagues = await redisCache.getPrematchLeagues(sport.key) || [];
+        const liveLeagues = await redisCache.getLiveLeagues(sport.key) || [];
 
         for (const league of [...prematchLeagues, ...liveLeagues]) {
-          const matches = await redisCache.getPrematchMatches(sport.ourKey, league.league_id) ||
-                         await redisCache.getLiveMatches(sport.ourKey, league.league_id) ||
+          const matches = await redisCache.getPrematchMatches(sport.key, league.league_id) ||
+                         await redisCache.getLiveMatches(sport.key, league.league_id) ||
                          [];
           
           const match = matches.find(m => m.match_id === matchId);
@@ -278,26 +276,23 @@ export function registerOddsApiRoutes(app: Express): void {
       
       const sportsWithCounts = await Promise.all(
         sports.map(async (sport) => {
-          const prioritySport = PRIORITY_SPORTS.find(ps => ps.key === sport.key);
-          if (!prioritySport) return null;
-
           const leagues = mode === 'live'
-            ? await redisCache.getLiveLeagues(prioritySport.ourKey) || []
-            : await redisCache.getPrematchLeagues(prioritySport.ourKey) || [];
+            ? await redisCache.getLiveLeagues(sport.key) || []
+            : await redisCache.getPrematchLeagues(sport.key) || [];
 
           const totalMatches = leagues.reduce((sum, l) => sum + l.match_count, 0);
 
           return {
-            key: prioritySport.ourKey,
-            title: prioritySport.title,
-            icon: getSportIcon(prioritySport.ourKey),
+            key: sport.key,
+            title: sport.title,
+            icon: getSportIcon(sport.key),
             leagues_count: leagues.length,
             matches_count: totalMatches,
           };
         })
       );
 
-      const filtered = sportsWithCounts.filter(s => s !== null && s.matches_count > 0);
+      const filtered = sportsWithCounts.filter(s => s.matches_count > 0);
 
       res.json({
         success: true,

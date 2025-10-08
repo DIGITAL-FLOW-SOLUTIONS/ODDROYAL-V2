@@ -2,12 +2,14 @@ import { oddsApiClient } from './odds-api-client';
 import { apiFootballClient } from './api-football-client';
 import { redisCache } from './redis-cache';
 import {
-  PRIORITY_SPORTS,
+  groupSportsByCategory,
   normalizeOddsEvent,
   groupMatchesByLeague,
   normalizeMarkets,
   getRefreshInterval,
   isMatchStartingSoon,
+  ApiSport,
+  GroupedSport,
 } from './match-utils';
 import pLimit from 'p-limit';
 
@@ -17,6 +19,7 @@ const limit = pLimit(CONCURRENCY_LIMIT);
 export class RefreshWorker {
   private intervals: Map<string, NodeJS.Timeout> = new Map();
   private running: boolean = false;
+  private groupedSports: GroupedSport[] = [];
 
   async start(): Promise<void> {
     if (this.running) {
@@ -39,15 +42,31 @@ export class RefreshWorker {
       console.error('Cache not ready after 60 seconds, starting refresh anyway');
     }
 
-    // Start refresh loops for each sport
-    for (const sport of PRIORITY_SPORTS) {
-      this.startSportRefresh(sport.key, sport.ourKey, sport.priority);
+    // Fetch and group sports dynamically
+    await this.fetchAndGroupSports();
+
+    // Start refresh loops for each sport league
+    for (const sportGroup of this.groupedSports) {
+      for (const league of sportGroup.leagues) {
+        this.startSportRefresh(league.key, sportGroup.ourKey, sportGroup.priority);
+      }
     }
 
     // Start global housekeeping tasks
     this.startHousekeeping();
 
     console.log('✅ Refresh worker started');
+  }
+
+  private async fetchAndGroupSports(): Promise<void> {
+    try {
+      const allSports = await oddsApiClient.getSports();
+      this.groupedSports = groupSportsByCategory(allSports as ApiSport[]);
+      console.log(`📡 Refresh worker loaded ${this.groupedSports.length} sport categories`);
+    } catch (error) {
+      console.error('Failed to fetch sports for refresh worker:', error);
+      this.groupedSports = [];
+    }
   }
 
   async stop(): Promise<void> {
@@ -199,15 +218,17 @@ export class RefreshWorker {
 
   private async checkResults(): Promise<void> {
     try {
-      for (const sport of PRIORITY_SPORTS) {
-        const scores = await oddsApiClient.getScores(sport.key, 1);
-        
-        // Update completed matches
-        for (const event of scores) {
-          if (event.completed) {
-            const normalizedMatch = normalizeOddsEvent(event, sport.ourKey);
-            // Could trigger settlement here or update match status
-            console.log(`Match completed: ${normalizedMatch.home_team} vs ${normalizedMatch.away_team}`);
+      for (const sportGroup of this.groupedSports) {
+        for (const league of sportGroup.leagues) {
+          const scores = await oddsApiClient.getScores(league.key, 1);
+          
+          // Update completed matches
+          for (const event of scores) {
+            if (event.completed) {
+              const normalizedMatch = normalizeOddsEvent(event, sportGroup.ourKey);
+              // Could trigger settlement here or update match status
+              console.log(`Match completed: ${normalizedMatch.home_team} vs ${normalizedMatch.away_team}`);
+            }
           }
         }
       }
