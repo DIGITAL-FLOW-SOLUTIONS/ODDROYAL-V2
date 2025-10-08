@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { useMode } from "@/contexts/ModeContext";
 import {
   Sidebar,
   SidebarContent,
@@ -14,38 +16,58 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { motion } from "framer-motion";
 import { 
   Trophy, 
-  Clock, 
-  Zap, 
-  Target,
-  Star,
-  TrendingUp,
-  Globe,
   ChevronRight,
   Home,
-  Calendar,
   PlayCircle,
   Crown,
-  Shield,
-  Flag,
-  BarChart3
+  Star,
+  BarChart3,
+  Shield
 } from "lucide-react";
 
 export default function SportsSidebar() {
   const [location] = useLocation();
-  const [footballExpanded, setFootballExpanded] = useState(true);
-  
-  //todo: remove mock functionality
-  const otherSports = [
-    { id: "basketball", name: "Basketball", icon: Target, matchCount: 45 },
-    { id: "tennis", name: "Tennis", icon: Star, matchCount: 32 },
-    { id: "baseball", name: "Baseball", icon: TrendingUp, matchCount: 28 },
-    { id: "hockey", name: "Hockey", icon: Globe, matchCount: 19 },
-  ];
+  const { mode } = useMode();
+  const [expandedSports, setExpandedSports] = useState<string[]>(['football']);
+
+  const { data: menuData, isLoading } = useQuery({
+    queryKey: ['/api/menu', mode],
+    queryFn: async () => {
+      const response = await fetch(`/api/menu?mode=${mode}`);
+      if (!response.ok) throw new Error('Failed to fetch menu');
+      const result = await response.json();
+      return result.data;
+    },
+    refetchInterval: mode === 'live' ? 15000 : 30000,
+  });
+
+  const sports = menuData?.sports || [];
+  const footballSport = sports.find((s: any) => s.sport_key === 'football');
+  const footballLeagues = footballSport?.leagues?.slice(0, 8) || [];
+  const otherSports = sports.filter((s: any) => s.sport_key !== 'football');
+
+  const toggleSport = (sportKey: string) => {
+    setExpandedSports(prev => 
+      prev.includes(sportKey) 
+        ? prev.filter(s => s !== sportKey)
+        : [...prev, sportKey]
+    );
+  };
+
+  const getSportIcon = (sportKey: string) => {
+    const icons: Record<string, typeof Trophy> = {
+      football: Trophy,
+      basketball: BarChart3,
+      tennis: Star,
+      baseball: PlayCircle,
+      hockey: Shield,
+    };
+    return icons[sportKey] || Trophy;
+  };
 
   return (
     <Sidebar className="bg-surface-1 border-0">
@@ -81,161 +103,123 @@ export default function SportsSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Football Section - Expandable */}
-        <SidebarGroup className="bg-surface-2 rounded-md p-3">
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground mb-2">
-            Football
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              <Collapsible open={footballExpanded} onOpenChange={setFootballExpanded}>
-                <motion.div
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton className="bg-surface-3 border-0 rounded-md" data-testid="button-football-toggle">
-                        <Trophy className="h-4 w-4" />
-                        <span className="flex-1">Football</span>
-                        <div className="flex items-center gap-2">
-                          <Badge className="text-xs px-1 py-0 bg-destructive text-destructive-foreground border-0">
-                            Hot
+        {/* Top Leagues - Only show football leagues */}
+        {footballLeagues.length > 0 && (
+          <SidebarGroup className="bg-surface-2 rounded-md p-3">
+            <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground mb-2">
+              Top Leagues
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu className="space-y-1">
+                {footballLeagues.map((league: any, index: number) => (
+                  <motion.div
+                    key={league.league_id}
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.05 + index * 0.02 }}
+                  >
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        data-testid={`link-league-${league.league_id}`}
+                        className={`${location.includes(`/league/football/${league.league_id}`) ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-4"} border-0 rounded-md`}
+                      >
+                        <Link href={`/league/football/${league.league_id}`}>
+                          <Crown className="h-4 w-4" />
+                          <span className="flex-1 text-sm">{league.league_name}</span>
+                          <Badge className="text-xs px-1.5 py-0 bg-surface-6 text-foreground border-0">
+                            {league.match_count}
                           </Badge>
-                          <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">
-                            89
-                          </Badge>
-                          <ChevronRight className={`h-3 w-3 transition-transform ${footballExpanded ? 'rotate-90' : ''}`} />
-                        </div>
+                        </Link>
                       </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub className="space-y-1">
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={location === "/line"}
-                              data-testid="link-prematch"
-                              className={`${location === "/line" ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-4"} border-0 rounded-md`}
-                            >
-                              <Link href="/line">
-                                <Calendar className="h-3 w-3" />
-                                <span>Pre-match</span>
-                                <Badge className="text-xs px-1.5 py-0 ml-auto bg-surface-6 text-foreground border-0">
-                                  67
-                                </Badge>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                          <SidebarMenuSubItem className="mt-2">
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={location === "/live"}
-                              data-testid="link-live"
-                              className={`${location === "/live" ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-4"} border-0 rounded-md`}
-                            >
-                              <Link href="/live">
-                                <Zap className="h-3 w-3" />
-                                <span>Live</span>
-                                <div className="flex items-center gap-2 ml-auto">
-                                  <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
-                                  <Badge className="text-xs px-1.5 py-0 bg-surface-6 text-foreground border-0">
-                                    12
-                                  </Badge>
-                                </div>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        </motion.div>
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </motion.div>
-              </Collapsible>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                    </SidebarMenuItem>
+                  </motion.div>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
-        {/* Top Leagues */}
+        {/* All Sports with Leagues */}
         <SidebarGroup className="bg-surface-2 rounded-md p-3">
           <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground mb-2">
-            Top Leagues
+            {mode === 'live' ? 'Live Sports' : 'All Sports'}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
-              {[
-                { id: "uefa-champions", name: "UEFA Champions League", icon: Crown },
-                { id: "egypt-premier", name: "Egypt Premier League", icon: Flag },
-                { id: "russia-premier", name: "Russia Premier League", icon: Flag },
-                { id: "spain-la-liga", name: "Spain La Liga", icon: Flag },
-                { id: "uefa-europa", name: "UEFA Europa League", icon: Shield },
-                { id: "copa-libertadores", name: "Copa Libertadores", icon: Trophy },
-                { id: "england-premier", name: "England Premier League", icon: Flag },
-                { id: "poland-ekstraklasa", name: "Poland Ekstraklasa", icon: Flag },
-              ].map((league, index) => (
-                <motion.div
-                  key={league.id}
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.15 + index * 0.03 }}
-                >
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      data-testid={`link-league-${league.id}`}
-                      className="bg-surface-4 border-0 rounded-md"
+              {isLoading ? (
+                <>
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-9 bg-surface-4 animate-pulse rounded-md" />
+                  ))}
+                </>
+              ) : sports.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-4">
+                  No {mode} matches available
+                </div>
+              ) : (
+                sports.map((sport: any, sportIndex: number) => (
+                  <Collapsible
+                    key={sport.sport_key}
+                    open={expandedSports.includes(sport.sport_key)}
+                    onOpenChange={() => toggleSport(sport.sport_key)}
+                  >
+                    <motion.div
+                      initial={{ x: -20, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      transition={{ delay: 0.1 + sportIndex * 0.05 }}
                     >
-                      <Link href={`/league/${league.id}`}>
-                        <league.icon className="h-4 w-4" />
-                        <span className="flex-1 text-sm">{league.name}</span>
-                        <ChevronRight className="h-3 w-3" />
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </motion.div>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Other Sports */}
-        <SidebarGroup className="bg-surface-2 rounded-md p-3">
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground mb-2">
-            Other Sports
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              {otherSports.map((sport, index) => (
-                <motion.div
-                  key={sport.id}
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.2 + index * 0.05 }}
-                >
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      disabled
-                      data-testid={`link-sport-${sport.id}`}
-                      className="opacity-50 cursor-not-allowed bg-muted-surface border-0 rounded-md"
-                    >
-                      <sport.icon className="h-4 w-4" />
-                      <span className="flex-1">{sport.name}</span>
-                      <div className="flex items-center gap-2">
-                        <Badge className="text-xs px-1.5 py-0 bg-surface-6 text-muted-foreground border-0">
-                          {sport.matchCount}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">Soon</span>
-                      </div>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </motion.div>
-              ))}
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton 
+                            className="bg-surface-3 border-0 rounded-md" 
+                            data-testid={`button-sport-${sport.sport_key}`}
+                          >
+                            {(() => {
+                              const Icon = getSportIcon(sport.sport_key);
+                              return <Icon className="h-4 w-4" />;
+                            })()}
+                            <span className="flex-1">{sport.sport_title}</span>
+                            <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">
+                              {sport.total_matches}
+                            </Badge>
+                            <ChevronRight 
+                              className={`h-3 w-3 transition-transform ${expandedSports.includes(sport.sport_key) ? 'rotate-90' : ''}`} 
+                            />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub className="space-y-1 mt-1">
+                            {sport.leagues?.map((league: any, leagueIndex: number) => (
+                              <motion.div
+                                key={league.league_id}
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                transition={{ duration: 0.2, delay: leagueIndex * 0.03 }}
+                              >
+                                <SidebarMenuSubItem>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    data-testid={`link-league-${sport.sport_key}-${league.league_id}`}
+                                    className={`${location.includes(`/league/${sport.sport_key}/${league.league_id}`) ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-4"} border-0 rounded-md`}
+                                  >
+                                    <Link href={`/league/${sport.sport_key}/${league.league_id}`}>
+                                      <span className="flex-1 text-xs">{league.league_name}</span>
+                                      <Badge className="text-xs px-1.5 py-0 bg-surface-6 text-foreground border-0">
+                                        {league.match_count}
+                                      </Badge>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              </motion.div>
+                            ))}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </motion.div>
+                  </Collapsible>
+                ))
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -256,7 +240,6 @@ export default function SportsSidebar() {
                   <SidebarMenuButton data-testid="link-favorites" className="bg-surface-3 border-0 rounded-md">
                     <Star className="h-4 w-4" />
                     <span>Favorites</span>
-                    <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">12</Badge>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </motion.div>
@@ -274,7 +257,6 @@ export default function SportsSidebar() {
                     <Link href="/bets">
                       <PlayCircle className="h-4 w-4" />
                       <span>My Bets</span>
-                      <Badge className="text-xs px-1.5 py-0 bg-surface-5 text-foreground border-0">3</Badge>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

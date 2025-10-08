@@ -12,6 +12,7 @@ import SimpleLayout from "@/components/SimpleLayout";
 import Homepage from "@/pages/Homepage";
 import Line from "@/pages/Line";
 import Live from "@/pages/Live";
+import LeagueMatches from "@/pages/LeagueMatches";
 import MatchDetails from "@/pages/MatchDetails";
 import Dashboard from "@/pages/Dashboard";
 import Profile from "@/pages/Profile";
@@ -57,6 +58,7 @@ function Router() {
       <Route path="/" component={() => <Layout><Homepage /></Layout>} />
       <Route path="/line" component={() => <Layout><Line /></Layout>} />
       <Route path="/live" component={() => <Layout><Live /></Layout>} />
+      <Route path="/league/:sport/:leagueId" component={() => <Layout><LeagueMatches /></Layout>} />
       <Route path="/match/:id" component={() => <Layout><MatchDetails /></Layout>} />
       <Route path="/dashboard" component={() => <Layout><Dashboard /></Layout>} />
       <Route path="/profile" component={() => <Layout><Profile /></Layout>} />
