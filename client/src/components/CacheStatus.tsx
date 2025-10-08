@@ -40,7 +40,7 @@ export function CacheStatus() {
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>
+      <TooltipTrigger>
         <Badge
           variant={cacheReady ? "default" : "outline"}
           className="gap-1 cursor-pointer"
