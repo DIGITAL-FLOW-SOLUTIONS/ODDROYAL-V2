@@ -84,10 +84,8 @@ export class PreloadWorker {
         const priorityLeagues = footballGroup.leagues.filter(l => 
           topFootballLeagues.includes(l.key)
         );
-        const footballPromises = priorityLeagues.map(league =>
-          limit(() => this.preloadSport(league.key, footballGroup.ourKey))
-        );
-        await Promise.all(footballPromises);
+        // Aggregate all priority football leagues together
+        await this.preloadSportGroup(footballGroup.ourKey, priorityLeagues);
         console.log(`✅ ${priorityLeagues.length} priority Football leagues preloaded`);
       }
 
@@ -96,18 +94,33 @@ export class PreloadWorker {
       console.log('✅ Cache ready - app can start serving requests');
 
       // BACKGROUND PHASE: Load remaining sports (non-blocking)
+      const backgroundTasks = [];
+      
+      // Add remaining football leagues
+      if (footballGroup) {
+        const remainingFootballLeagues = footballGroup.leagues.filter(l => 
+          !topFootballLeagues.includes(l.key)
+        );
+        if (remainingFootballLeagues.length > 0) {
+          console.log(`📥 Loading ${remainingFootballLeagues.length} additional Football leagues in background...`);
+          backgroundTasks.push(
+            this.preloadSportGroup(footballGroup.ourKey, remainingFootballLeagues, true)
+          );
+        }
+      }
+      
+      // Add other sports
       const otherSports = this.groupedSports.filter(g => g.ourKey !== 'football');
-      if (otherSports.length > 0) {
+      for (const sportGroup of otherSports) {
+        backgroundTasks.push(
+          this.preloadSportGroup(sportGroup.ourKey, sportGroup.leagues, true)
+        );
+      }
+      
+      if (backgroundTasks.length > 0) {
         console.log(`📥 Loading ${otherSports.length} additional sport categories in background...`);
-        
-        // Load other sports without waiting (don't await)
-        Promise.all(
-          otherSports.flatMap(sportGroup =>
-            sportGroup.leagues.map(league =>
-              limit(() => this.preloadSport(league.key, sportGroup.ourKey))
-            )
-          )
-        ).then(() => {
+        // Load without waiting (don't await)
+        Promise.all(backgroundTasks).then(() => {
           console.log('✅ Background sports preload completed');
         }).catch(err => {
           console.error('⚠️  Background preload error:', err);
@@ -169,6 +182,81 @@ export class PreloadWorker {
     }
   }
 
+  // Preload multiple leagues for a sport category, aggregating results
+  private async preloadSportGroup(
+    ourSportKey: string, 
+    leagues: Array<{key: string, title: string}>,
+    isBackground: boolean = false
+  ): Promise<void> {
+    if (!leagues || leagues.length === 0) return;
+
+    try {
+      // Fetch all leagues in parallel (with concurrency limit)
+      const prematchResults = await Promise.all(
+        leagues.map(league => 
+          limit(() => this.fetchPrematchForLeague(league.key, ourSportKey))
+        )
+      );
+      
+      const liveResults = await Promise.all(
+        leagues.map(league => 
+          limit(() => this.fetchLiveForLeague(league.key, ourSportKey))
+        )
+      );
+
+      // Aggregate prematch leagues (leagues already contain matches)
+      const allPrematchLeagues: any[] = [];
+      for (const result of prematchResults) {
+        if (result && result.leagues.length > 0) {
+          allPrematchLeagues.push(...result.leagues);
+        }
+      }
+
+      // Aggregate live leagues (leagues already contain matches)
+      const allLiveLeagues: any[] = [];
+      for (const result of liveResults) {
+        if (result && result.leagues.length > 0) {
+          allLiveLeagues.push(...result.leagues);
+        }
+      }
+
+      // Group and cache aggregated results
+      await this.cacheAggregatedResults(
+        ourSportKey,
+        allPrematchLeagues,
+        allLiveLeagues
+      );
+
+      // Calculate total matches from leagues
+      const totalPrematchMatches = allPrematchLeagues.reduce((sum, lg) => sum + lg.match_count, 0);
+      const totalLiveMatches = allLiveLeagues.reduce((sum, lg) => sum + lg.match_count, 0);
+
+      if (!isBackground) {
+        this.report.sports[ourSportKey] = {
+          prematch: { 
+            leagues: allPrematchLeagues.length, 
+            matches: totalPrematchMatches, 
+            success: true 
+          },
+          live: { 
+            leagues: allLiveLeagues.length, 
+            matches: totalLiveMatches, 
+            success: true 
+          },
+        };
+        this.report.totalLeagues += allPrematchLeagues.length;
+        this.report.totalMatches += totalPrematchMatches;
+      }
+
+      console.log(`  ✅ ${ourSportKey}: ${allPrematchLeagues.length} prematch leagues, ${allLiveLeagues.length} live leagues`);
+    } catch (error) {
+      console.error(`  ❌ Failed to preload ${ourSportKey}:`, error);
+      if (!isBackground) {
+        this.report.failures.push(`${ourSportKey}: ${(error as Error).message}`);
+      }
+    }
+  }
+
   private async preloadSport(sportKey: string, ourSportKey: string): Promise<void> {
     console.log(`📥 Preloading ${ourSportKey} (${sportKey})...`);
 
@@ -182,6 +270,131 @@ export class PreloadWorker {
       this.preloadPrematch(sportKey, ourSportKey),
       this.preloadLive(sportKey, ourSportKey),
     ]);
+  }
+
+  // Fetch prematch data for a single league (returns data without caching)
+  private async fetchPrematchForLeague(sportKey: string, ourSportKey: string): Promise<{leagues: any[], matches: any[]} | null> {
+    try {
+      const events = await oddsApiClient.getOdds(sportKey, {
+        regions: 'uk,eu,us',
+        markets: 'h2h,spreads,totals',
+        oddsFormat: 'decimal',
+        dateFormat: 'iso',
+      });
+
+      if (events.length === 0) return { leagues: [], matches: [] };
+
+      const normalizedMatches = events.map(event => normalizeOddsEvent(event, ourSportKey));
+      const leagueGroups = groupMatchesByLeague(normalizedMatches);
+      const nonEmptyLeagues = leagueGroups.filter(lg => lg.match_count > 0);
+
+      return {
+        leagues: nonEmptyLeagues,
+        matches: normalizedMatches
+      };
+    } catch (error) {
+      console.error(`  ⚠️  Prematch failed for ${sportKey}:`, (error as Error).message);
+      return null;
+    }
+  }
+
+  // Fetch live data for a single league (returns data without caching)
+  private async fetchLiveForLeague(sportKey: string, ourSportKey: string): Promise<{leagues: any[], matches: any[]} | null> {
+    try {
+      const events = await oddsApiClient.getOdds(sportKey, {
+        regions: 'uk,eu,us',
+        markets: 'h2h,spreads,totals',
+        oddsFormat: 'decimal',
+        dateFormat: 'iso',
+        status: 'live',
+      });
+
+      if (events.length === 0) return { leagues: [], matches: [] };
+
+      const normalizedMatches = events.map(event => normalizeOddsEvent(event, ourSportKey));
+      const leagueGroups = groupMatchesByLeague(normalizedMatches);
+      const nonEmptyLeagues = leagueGroups.filter(lg => lg.match_count > 0);
+
+      return {
+        leagues: nonEmptyLeagues,
+        matches: normalizedMatches
+      };
+    } catch (error) {
+      console.error(`  ⚠️  Live failed for ${sportKey}:`, (error as Error).message);
+      return null;
+    }
+  }
+
+  // Cache aggregated results for a sport
+  private async cacheAggregatedResults(
+    ourSportKey: string,
+    prematchLeagues: any[],
+    liveLeagues: any[]
+  ): Promise<void> {
+    // Cache prematch leagues
+    if (prematchLeagues.length > 0) {
+      const leaguesForCache = prematchLeagues.map(lg => ({
+        league_id: lg.league_id,
+        league_name: lg.league_name,
+        match_count: lg.match_count,
+      }));
+      await redisCache.setPrematchLeagues(ourSportKey, leaguesForCache, 900);
+
+      // Cache matches for each league (leagues already contain matches array)
+      for (const league of prematchLeagues) {
+        if (league.matches && league.matches.length > 0) {
+          await redisCache.setPrematchMatches(
+            ourSportKey,
+            league.league_id,
+            league.matches,
+            600
+          );
+
+          // Prefetch markets
+          for (const match of league.matches) {
+            await this.prefetchMatchMarkets(match, false);
+          }
+        }
+      }
+    }
+
+    // Cache live leagues
+    if (liveLeagues.length > 0) {
+      const leaguesForCache = liveLeagues.map(lg => ({
+        league_id: lg.league_id,
+        league_name: lg.league_name,
+        match_count: lg.match_count,
+      }));
+      await redisCache.setLiveLeagues(ourSportKey, leaguesForCache, 90);
+
+      // Cache matches for each league (leagues already contain matches array)
+      for (const league of liveLeagues) {
+        if (league.matches && league.matches.length > 0) {
+          await redisCache.setLiveMatches(
+            ourSportKey,
+            league.league_id,
+            league.matches,
+            60
+          );
+
+          // Prefetch markets
+          for (const match of league.matches) {
+            await this.prefetchMatchMarkets(match, true);
+          }
+        }
+      }
+    }
+
+    // Prefetch logos for football
+    if (ourSportKey === 'football') {
+      const allMatches = [
+        ...prematchLeagues.flatMap(lg => lg.matches || []),
+        ...liveLeagues.flatMap(lg => lg.matches || [])
+      ];
+      if (allMatches.length > 0) {
+        await this.prefetchFootballLogos(allMatches);
+      }
+    }
   }
 
   private async preloadPrematch(sportKey: string, ourSportKey: string): Promise<void> {
