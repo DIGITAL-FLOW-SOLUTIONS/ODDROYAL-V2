@@ -1,0 +1,275 @@
+import crypto from 'crypto';
+
+// Sport key mappings between The Odds API and our system
+export const PRIORITY_SPORTS = [
+  { key: 'soccer_epl', title: 'Football', ourKey: 'football', priority: 1 },
+  { key: 'basketball_nba', title: 'Basketball', ourKey: 'basketball', priority: 2 },
+  { key: 'americanfootball_nfl', title: 'American Football', ourKey: 'americanfootball', priority: 3 },
+  { key: 'baseball_mlb', title: 'Baseball', ourKey: 'baseball', priority: 4 },
+  { key: 'icehockey_nhl', title: 'Ice Hockey', ourKey: 'icehockey', priority: 5 },
+  { key: 'cricket_test_match', title: 'Cricket', ourKey: 'cricket', priority: 6 },
+  { key: 'mma_mixed_martial_arts', title: 'MMA', ourKey: 'mma', priority: 7 },
+];
+
+// Extended sport keys for The Odds API
+export const ODDS_API_SPORT_KEYS: Record<string, string[]> = {
+  football: [
+    'soccer_epl',
+    'soccer_spain_la_liga',
+    'soccer_italy_serie_a',
+    'soccer_germany_bundesliga',
+    'soccer_france_ligue_one',
+    'soccer_uefa_champs_league',
+    'soccer_uefa_europa_league',
+  ],
+  basketball: ['basketball_nba', 'basketball_ncaab', 'basketball_euroleague'],
+  americanfootball: ['americanfootball_nfl', 'americanfootball_ncaaf'],
+  baseball: ['baseball_mlb'],
+  icehockey: ['icehockey_nhl'],
+  cricket: ['cricket_test_match', 'cricket_odi', 'cricket_t20'],
+  mma: ['mma_mixed_martial_arts'],
+};
+
+// Generate deterministic match ID
+export function generateMatchId(
+  sportKey: string,
+  homeTeam: string,
+  awayTeam: string,
+  commenceTime: string
+): string {
+  const key = `${sportKey}::${homeTeam.trim().toLowerCase()}::${awayTeam.trim().toLowerCase()}::${commenceTime}`;
+  return crypto.createHash('md5').update(key).digest('hex');
+}
+
+// Normalize team name for logo lookups
+export function normalizeTeamName(name: string): string {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Extract league ID from The Odds API event data
+export function extractLeagueId(event: any): string {
+  // The Odds API doesn't always provide league_id, so we use sport_title + region
+  return event.league_id || 
+         `${event.sport_key}_${event.sport_title?.replace(/\s+/g, '_').toLowerCase() || 'unknown'}`;
+}
+
+// Extract league name from event
+export function extractLeagueName(event: any): string {
+  return event.sport_title || event.league_name || 'Unknown League';
+}
+
+// Convert The Odds API event to our match format
+export interface NormalizedMatch {
+  match_id: string;
+  sport_key: string;
+  league_id: string;
+  league_name: string;
+  home_team: string;
+  away_team: string;
+  commence_time: string;
+  home_team_logo?: string;
+  away_team_logo?: string;
+  bookmakers: any[];
+  markets: string[];
+  status: 'upcoming' | 'live' | 'completed';
+  scores?: {
+    home: number;
+    away: number;
+  };
+}
+
+export function normalizeOddsEvent(event: any, sportKey: string): NormalizedMatch {
+  const leagueId = extractLeagueId(event);
+  const leagueName = extractLeagueName(event);
+  const matchId = generateMatchId(
+    sportKey,
+    event.home_team,
+    event.away_team,
+    event.commence_time
+  );
+
+  // Extract available markets
+  const markets = event.bookmakers?.[0]?.markets?.map((m: any) => m.key) || [];
+
+  return {
+    match_id: matchId,
+    sport_key: sportKey,
+    league_id: leagueId,
+    league_name: leagueName,
+    home_team: event.home_team,
+    away_team: event.away_team,
+    commence_time: event.commence_time,
+    bookmakers: event.bookmakers || [],
+    markets,
+    status: event.completed ? 'completed' : (event.scores ? 'live' : 'upcoming'),
+    scores: event.scores ? {
+      home: event.scores.find((s: any) => s.name === event.home_team)?.score || 0,
+      away: event.scores.find((s: any) => s.name === event.away_team)?.score || 0,
+    } : undefined,
+  };
+}
+
+// Group matches by league
+export interface LeagueGroup {
+  league_id: string;
+  league_name: string;
+  matches: NormalizedMatch[];
+  match_count: number;
+}
+
+export function groupMatchesByLeague(matches: NormalizedMatch[]): LeagueGroup[] {
+  const leagueMap = new Map<string, NormalizedMatch[]>();
+
+  matches.forEach(match => {
+    const existing = leagueMap.get(match.league_id) || [];
+    existing.push(match);
+    leagueMap.set(match.league_id, existing);
+  });
+
+  return Array.from(leagueMap.entries()).map(([leagueId, matches]) => ({
+    league_id: leagueId,
+    league_name: matches[0].league_name,
+    matches,
+    match_count: matches.length,
+  }));
+}
+
+// Normalize markets for UI consumption
+export interface NormalizedMarket {
+  market_key: string;
+  label: string;
+  selections: Array<{
+    name: string;
+    price: number;
+    point?: number;
+  }>;
+  last_update?: string;
+}
+
+export function normalizeMarkets(bookmakers: any[]): NormalizedMarket[] {
+  if (!bookmakers || bookmakers.length === 0) return [];
+
+  // Use the first bookmaker with the most markets
+  const bestBookmaker = bookmakers.reduce((best, current) => {
+    const bestMarkets = best.markets?.length || 0;
+    const currentMarkets = current.markets?.length || 0;
+    return currentMarkets > bestMarkets ? current : best;
+  }, bookmakers[0]);
+
+  const marketLabels: Record<string, string> = {
+    h2h: 'Match Winner',
+    spreads: 'Handicap',
+    totals: 'Over/Under',
+    outrights: 'Outrights',
+    h2h_lay: 'Match Winner (Lay)',
+    btts: 'Both Teams to Score',
+  };
+
+  return (bestBookmaker.markets || []).map((market: any) => {
+    const selections = market.outcomes?.map((outcome: any) => ({
+      name: outcome.name,
+      price: outcome.price,
+      point: outcome.point,
+    })) || [];
+
+    return {
+      market_key: market.key,
+      label: marketLabels[market.key] || market.key.replace(/_/g, ' ').toUpperCase(),
+      selections,
+      last_update: bestBookmaker.last_update,
+    };
+  });
+}
+
+// Calculate best odds across bookmakers
+export function getBestOdds(bookmakers: any[], marketKey: string): any {
+  const allOdds: any[] = [];
+
+  bookmakers.forEach(bookmaker => {
+    const market = bookmaker.markets?.find((m: any) => m.key === marketKey);
+    if (market?.outcomes) {
+      market.outcomes.forEach((outcome: any) => {
+        allOdds.push({
+          ...outcome,
+          bookmaker: bookmaker.title,
+        });
+      });
+    }
+  });
+
+  // Group by outcome name and find best price
+  const bestOddsByOutcome = new Map<string, any>();
+  
+  allOdds.forEach(odd => {
+    const existing = bestOddsByOutcome.get(odd.name);
+    if (!existing || odd.price > existing.price) {
+      bestOddsByOutcome.set(odd.name, odd);
+    }
+  });
+
+  return Array.from(bestOddsByOutcome.values());
+}
+
+// Sport icon mapping
+export function getSportIcon(sportKey: string): string {
+  const icons: Record<string, string> = {
+    football: '⚽',
+    basketball: '🏀',
+    americanfootball: '🏈',
+    baseball: '⚾',
+    icehockey: '🏒',
+    cricket: '🏏',
+    mma: '🥊',
+  };
+
+  return icons[sportKey] || '🏆';
+}
+
+// Check if match is starting soon (within 1 hour)
+export function isMatchStartingSoon(commenceTime: string): boolean {
+  const matchTime = new Date(commenceTime).getTime();
+  const now = Date.now();
+  const oneHour = 60 * 60 * 1000;
+
+  return matchTime - now <= oneHour && matchTime > now;
+}
+
+// Get refresh interval based on match status and sport
+export function getRefreshInterval(
+  status: 'upcoming' | 'live' | 'completed',
+  sportKey: string,
+  isStartingSoon: boolean = false
+): number {
+  if (status === 'completed') return 0; // No need to refresh
+  
+  if (status === 'live') {
+    // Live match refresh intervals (in seconds)
+    const liveIntervals: Record<string, number> = {
+      football: 15,
+      basketball: 30,
+      americanfootball: 30,
+      baseball: 45,
+      icehockey: 30,
+      cricket: 60,
+      mma: 30,
+    };
+    return liveIntervals[sportKey] || 30;
+  }
+
+  // Upcoming matches
+  if (isStartingSoon) {
+    return 60; // 1 minute for matches starting soon
+  }
+
+  const upcomingIntervals: Record<string, number> = {
+    football: 300, // 5 minutes
+    basketball: 600,
+    americanfootball: 900,
+    baseball: 900,
+    icehockey: 600,
+    cricket: 1200,
+    mma: 900,
+  };
+
+  return upcomingIntervals[sportKey] || 600;
+}
