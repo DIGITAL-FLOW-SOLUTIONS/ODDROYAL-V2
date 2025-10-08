@@ -764,32 +764,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // If ID is numeric, fetch from SportMonks API (existing logic)
-      // First check if fixture exists in upcoming fixtures
-      const upcomingFixtures = await getUpcomingFixtures(100); // Get more to ensure we find it
-      const fixture = upcomingFixtures.find((f: SportMonksFixture) => f.id.toString() === fixtureId);
-      
-      if (!fixture) {
-        // If not in upcoming, check live fixtures
-        const { getLiveFootballFixtures } = await import("./sportmonks");
-        const liveFixtures = await getLiveFootballFixtures();
-        const liveFixture = liveFixtures.find((f: SportMonksFixture) => f.id.toString() === fixtureId);
-        
-        if (!liveFixture) {
-          return res.status(404).json({ 
-            success: false, 
-            error: 'Match not found' 
-          });
-        }
-        
-        // Transform live fixture data
-        const transformedLiveFixture = transformLiveFixture(liveFixture);
-        return res.json({ success: true, data: transformedLiveFixture });
-      }
-      
-      // Transform upcoming fixture data
-      const transformedFixture = transformFixture(fixture);
-      res.json({ success: true, data: transformedFixture });
+      // If ID is numeric, this is a legacy SportMonks fixture ID
+      // For now, return 404 as we use Redis cache for all match data
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Match not found - please use UUID-based match IDs from the current API' 
+      });
       
     } catch (error) {
       console.error('Error fetching fixture details:', error);

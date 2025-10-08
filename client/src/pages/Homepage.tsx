@@ -23,33 +23,25 @@ interface HomepageProps {
 }
 
 export default function Homepage({ onAddToBetSlip }: HomepageProps) {
-  // Fetch upcoming matches with instant loading from cache
-  const { data: upcomingMatchesData, isRefetching: upcomingRefetching } = useQuery({
-    queryKey: ['/api/fixtures/upcoming'],
+  // Use menu data to get featured matches
+  const { data: menuData } = useQuery({
+    queryKey: ['/api/menu', 'prematch'],
     queryFn: async () => {
-      const response = await fetch('/api/fixtures/upcoming?limit=6');
-      if (!response.ok) throw new Error('Failed to fetch upcoming matches');
-      return response.json();
+      const response = await fetch('/api/menu?mode=prematch');
+      if (!response.ok) throw new Error('Failed to fetch menu');
+      const result = await response.json();
+      return result.data;
     },
-    staleTime: 3 * 60 * 1000, // 3 minutes
-    refetchInterval: 30000, // Refresh every 30 seconds in background
+    staleTime: 3 * 60 * 1000,
+    refetchInterval: 30000,
     placeholderData: (previousData: any) => previousData,
   });
 
-  // Fetch live matches count with instant loading
-  const { data: liveMatchesData } = useQuery({
-    queryKey: ['/api/fixtures/live'],
-    queryFn: async () => {
-      const response = await fetch('/api/fixtures/live');
-      if (!response.ok) throw new Error('Failed to fetch live matches');
-      return response.json();
-    },
-    staleTime: 30 * 1000, // 30 seconds
-    refetchInterval: 10000, // Refresh every 10 seconds in background
-    placeholderData: (previousData: any) => previousData,
-  });
+  const liveMatchCount = menuData?.sports?.reduce((total: number, sport: any) => {
+    return total + (sport.total_matches || 0);
+  }, 0) || 0;
 
-  const featuredMatches = upcomingMatchesData?.data?.slice(0, 2) || [];
+  const featuredMatches: any[] = [];
 
   const topLeagues = [
     { id: "1", name: "Premier League", country: "England", matches: 89, logo: "⚽" },
@@ -192,7 +184,7 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
                 <div className="flex justify-between items-center py-2 border-b border-border">
                   <span className="text-sm">Active Matches</span>
                   <Badge variant="destructive" className="text-xs">
-                    {liveMatchesData?.count || 0}
+                    {liveMatchCount}
                   </Badge>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-border">
