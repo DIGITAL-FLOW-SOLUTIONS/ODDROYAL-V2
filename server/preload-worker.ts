@@ -2,13 +2,15 @@ import { oddsApiClient } from './odds-api-client';
 import { apiFootballClient } from './api-football-client';
 import { redisCache } from './redis-cache';
 import {
-  PRIORITY_SPORTS,
-  ODDS_API_SPORT_KEYS,
+  groupSportsByCategory,
+  getSportKeysForCategory,
   normalizeOddsEvent,
   groupMatchesByLeague,
   normalizeMarkets,
   generateMatchId,
   isMatchStartingSoon,
+  ApiSport,
+  GroupedSport,
 } from './match-utils';
 import pLimit from 'p-limit';
 
@@ -52,20 +54,24 @@ export class PreloadWorker {
     failures: [],
     creditsUsed: {},
   };
+  
+  private groupedSports: GroupedSport[] = [];
 
   async preloadAll(): Promise<PreloadReport> {
-    console.log('🚀 Starting full preload of all sports data...');
+    console.log('🚀 Starting full preload of all sports data (dynamic)...');
     
     try {
       // Connect to Redis
       await redisCache.connect();
       
-      // Fetch and cache sports list
-      await this.preloadSportsList();
+      // Fetch all available sports from The Odds API and group them
+      await this.fetchAndGroupSports();
 
-      // Preload each priority sport
-      const sportPromises = PRIORITY_SPORTS.map(sport =>
-        limit(() => this.preloadSport(sport.key, sport.ourKey))
+      // Preload all grouped sports
+      const sportPromises = this.groupedSports.flatMap(sportGroup =>
+        sportGroup.leagues.map(league =>
+          limit(() => this.preloadSport(league.key, sportGroup.ourKey))
+        )
       );
 
       await Promise.all(sportPromises);
@@ -83,6 +89,7 @@ export class PreloadWorker {
       await redisCache.setCacheReport(this.report);
 
       console.log('✅ Preload completed successfully');
+      console.log(`📊 Total sports categories: ${this.groupedSports.length}`);
       console.log(`📊 Total leagues: ${this.report.totalLeagues}`);
       console.log(`📊 Total matches: ${this.report.totalMatches}`);
       console.log(`⏱️  Duration: ${(this.report.duration / 1000).toFixed(2)}s`);
@@ -95,20 +102,35 @@ export class PreloadWorker {
     }
   }
 
-  private async preloadSportsList(): Promise<void> {
+  private async fetchAndGroupSports(): Promise<void> {
     try {
-      const sports = await oddsApiClient.getSports();
+      console.log('📡 Fetching all available sports from The Odds API...');
       
-      // Filter to only priority sports
-      const prioritySports = sports.filter(sport =>
-        PRIORITY_SPORTS.some(ps => ps.key === sport.key)
-      );
+      // Fetch all sports from The Odds API (this is free, no quota cost)
+      const allSports = await oddsApiClient.getSports();
+      console.log(`📥 Retrieved ${allSports.length} total sports from API`);
+      
+      // Group sports by category
+      this.groupedSports = groupSportsByCategory(allSports as ApiSport[]);
+      
+      console.log(`✅ Grouped into ${this.groupedSports.length} sport categories:`);
+      this.groupedSports.forEach(group => {
+        console.log(`  - ${group.title}: ${group.leagues.length} leagues`);
+      });
 
-      await redisCache.setSportsList(prioritySports, 3600); // 1 hour TTL
-      console.log(`✅ Cached ${prioritySports.length} sports`);
+      // Cache the grouped sports list for frontend
+      const sportsForCache = this.groupedSports.map(group => ({
+        key: group.ourKey,
+        title: group.title,
+        priority: group.priority,
+        league_count: group.leagues.length,
+      }));
+
+      await redisCache.setSportsList(sportsForCache, 3600); // 1 hour TTL
     } catch (error) {
-      console.error('Failed to preload sports list:', error);
-      this.report.failures.push(`Sports list: ${(error as Error).message}`);
+      console.error('Failed to fetch and group sports:', error);
+      this.report.failures.push(`Sports grouping: ${(error as Error).message}`);
+      throw error;
     }
   }
 
@@ -314,24 +336,24 @@ export class PreloadWorker {
   async validateCache(): Promise<void> {
     console.log('🔍 Validating cache...');
 
-    for (const sport of PRIORITY_SPORTS) {
-      const prematchLeagues = await redisCache.getPrematchLeagues(sport.ourKey);
-      const liveLeagues = await redisCache.getLiveLeagues(sport.ourKey);
+    for (const sportGroup of this.groupedSports) {
+      const prematchLeagues = await redisCache.getPrematchLeagues(sportGroup.ourKey);
+      const liveLeagues = await redisCache.getLiveLeagues(sportGroup.ourKey);
 
       if (prematchLeagues) {
         for (const league of prematchLeagues) {
-          const matches = await redisCache.getPrematchMatches(sport.ourKey, league.league_id);
+          const matches = await redisCache.getPrematchMatches(sportGroup.ourKey, league.league_id);
           if (!matches || matches.length === 0) {
-            this.report.emptyLeagues.push(`${sport.ourKey}:prematch:${league.league_id}`);
+            this.report.emptyLeagues.push(`${sportGroup.ourKey}:prematch:${league.league_id}`);
           }
         }
       }
 
       if (liveLeagues) {
         for (const league of liveLeagues) {
-          const matches = await redisCache.getLiveMatches(sport.ourKey, league.league_id);
+          const matches = await redisCache.getLiveMatches(sportGroup.ourKey, league.league_id);
           if (!matches || matches.length === 0) {
-            this.report.emptyLeagues.push(`${sport.ourKey}:live:${league.league_id}`);
+            this.report.emptyLeagues.push(`${sportGroup.ourKey}:live:${league.league_id}`);
           }
         }
       }

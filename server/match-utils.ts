@@ -1,34 +1,108 @@
 import crypto from 'crypto';
 
-// Sport key mappings between The Odds API and our system
-export const PRIORITY_SPORTS = [
-  { key: 'soccer_epl', title: 'Football', ourKey: 'football', priority: 1 },
-  { key: 'basketball_nba', title: 'Basketball', ourKey: 'basketball', priority: 2 },
-  { key: 'americanfootball_nfl', title: 'American Football', ourKey: 'americanfootball', priority: 3 },
-  { key: 'baseball_mlb', title: 'Baseball', ourKey: 'baseball', priority: 4 },
-  { key: 'icehockey_nhl', title: 'Ice Hockey', ourKey: 'icehockey', priority: 5 },
-  { key: 'cricket_test_match', title: 'Cricket', ourKey: 'cricket', priority: 6 },
-  { key: 'mma_mixed_martial_arts', title: 'MMA', ourKey: 'mma', priority: 7 },
-];
-
-// Extended sport keys for The Odds API
-export const ODDS_API_SPORT_KEYS: Record<string, string[]> = {
-  football: [
-    'soccer_epl',
-    'soccer_spain_la_liga',
-    'soccer_italy_serie_a',
-    'soccer_germany_bundesliga',
-    'soccer_france_ligue_one',
-    'soccer_uefa_champs_league',
-    'soccer_uefa_europa_league',
-  ],
-  basketball: ['basketball_nba', 'basketball_ncaab', 'basketball_euroleague'],
-  americanfootball: ['americanfootball_nfl', 'americanfootball_ncaaf'],
-  baseball: ['baseball_mlb'],
-  icehockey: ['icehockey_nhl'],
-  cricket: ['cricket_test_match', 'cricket_odi', 'cricket_t20'],
-  mma: ['mma_mixed_martial_arts'],
+// Sport category mapping - determines how API sport groups map to our internal categories
+export const SPORT_CATEGORY_MAP: Record<string, { ourKey: string; title: string; priority: number }> = {
+  'Soccer': { ourKey: 'football', title: 'Football', priority: 1 },
+  'Basketball': { ourKey: 'basketball', title: 'Basketball', priority: 2 },
+  'American Football': { ourKey: 'americanfootball', title: 'American Football', priority: 3 },
+  'Baseball': { ourKey: 'baseball', title: 'Baseball', priority: 4 },
+  'Ice Hockey': { ourKey: 'icehockey', title: 'Ice Hockey', priority: 5 },
+  'Cricket': { ourKey: 'cricket', title: 'Cricket', priority: 6 },
+  'Mixed Martial Arts': { ourKey: 'mma', title: 'MMA', priority: 7 },
 };
+
+// League priority order within Football category
+export const FOOTBALL_LEAGUE_PRIORITY: Record<string, number> = {
+  'soccer_epl': 1,
+  'soccer_spain_la_liga': 2,
+  'soccer_uefa_champs_league': 3,
+  'soccer_germany_bundesliga': 4,
+  'soccer_italy_serie_a': 5,
+  'soccer_france_ligue_one': 6,
+  'soccer_uefa_europa_league': 7,
+  'soccer_efl_champ': 8,
+  'soccer_england_league1': 9,
+  'soccer_england_league2': 10,
+  'soccer_germany_bundesliga2': 11,
+  'soccer_germany_liga3': 12,
+  'soccer_italy_serieb': 13,
+  'soccer_spain_segunda_division': 14,
+  'soccer_greece_super_league': 15,
+  'soccer_brazil_campeonato': 16,
+  'soccer_brazil_serie_b': 17,
+  'soccer_argentina_primera_division': 18,
+  'soccer_mexico_ligamx': 19,
+  'soccer_usa_mls': 20,
+  'soccer_japan_j_league': 21,
+};
+
+// Interface for API sport response
+export interface ApiSport {
+  key: string;
+  group: string;
+  title: string;
+  description: string;
+  active: boolean;
+  has_outrights: boolean;
+}
+
+// Interface for grouped sport
+export interface GroupedSport {
+  ourKey: string;
+  title: string;
+  priority: number;
+  leagues: ApiSport[];
+}
+
+// Group sports by category and filter for supported sports
+export function groupSportsByCategory(apiSports: ApiSport[]): GroupedSport[] {
+  const grouped = new Map<string, GroupedSport>();
+
+  // Initialize supported categories
+  Object.entries(SPORT_CATEGORY_MAP).forEach(([apiGroup, config]) => {
+    grouped.set(config.ourKey, {
+      ourKey: config.ourKey,
+      title: config.title,
+      priority: config.priority,
+      leagues: [],
+    });
+  });
+
+  // Group API sports by category
+  apiSports.forEach(sport => {
+    const categoryConfig = SPORT_CATEGORY_MAP[sport.group];
+    if (categoryConfig) {
+      const group = grouped.get(categoryConfig.ourKey);
+      if (group) {
+        group.leagues.push(sport);
+      }
+    }
+  });
+
+  // Filter out categories with no leagues and sort
+  const result = Array.from(grouped.values())
+    .filter(group => group.leagues.length > 0)
+    .sort((a, b) => a.priority - b.priority);
+
+  // Sort football leagues by priority
+  result.forEach(group => {
+    if (group.ourKey === 'football') {
+      group.leagues.sort((a, b) => {
+        const priorityA = FOOTBALL_LEAGUE_PRIORITY[a.key] || 999;
+        const priorityB = FOOTBALL_LEAGUE_PRIORITY[b.key] || 999;
+        return priorityA - priorityB;
+      });
+    }
+  });
+
+  return result;
+}
+
+// Get all sport keys for a category
+export function getSportKeysForCategory(groupedSports: GroupedSport[], categoryKey: string): string[] {
+  const category = groupedSports.find(g => g.ourKey === categoryKey);
+  return category ? category.leagues.map(l => l.key) : [];
+}
 
 // Generate deterministic match ID
 export function generateMatchId(
