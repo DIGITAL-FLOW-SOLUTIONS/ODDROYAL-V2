@@ -106,17 +106,15 @@ export default function TopLeagues() {
               <Button
                 asChild
                 variant={isActive ? "default" : "outline"}
-                className={`flex flex-col items-center gap-2 h-auto p-4 w-24 hover-elevate ${isActive ? "odds-button" : ""}`}
+                className={`flex flex-col items-center gap-3 h-auto p-6 w-52 hover-elevate ${isActive ? "odds-button" : ""}`}
                 style={isActive ? {} : { backgroundColor: 'hsl(var(--surface-3))', borderColor: 'hsl(var(--surface-4))' }}
                 data-testid={`button-league-${league.league_id}`}
               >
-                <Link href={`/league/football/${league.league_id}`}>
-                  <Crown className="h-6 w-6" />
-                  <div className="text-center">
-                    <div className="text-xs font-medium truncate w-full">{league.league_name}</div>
-                    {league.match_count > 0 && (
-                      <div className="text-xs text-primary font-semibold">{league.match_count}</div>
-                    )}
+                <Link href={`/league/football/${league.league_id}`} className="flex flex-col items-center gap-3 w-full">
+                  <Crown className="h-12 w-12" />
+                  <div className="text-center w-full">
+                    <div className="text-sm font-semibold mb-1">{league.league_name}</div>
+                    <div className="text-xs text-muted-foreground">Football</div>
                   </div>
                 </Link>
               </Button>
