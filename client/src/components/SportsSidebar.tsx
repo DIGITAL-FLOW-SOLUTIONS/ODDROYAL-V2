@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMode } from "@/contexts/ModeContext";
 import {
   Sidebar,
@@ -32,9 +32,11 @@ import {
 export default function SportsSidebar() {
   const [location] = useLocation();
   const { mode } = useMode();
+  const queryClient = useQueryClient();
   const [expandedSports, setExpandedSports] = useState<string[]>(['football']);
 
-  const { data: menuData, isLoading } = useQuery({
+  // Menu data with optimistic loading - shows cached data instantly
+  const { data: menuData } = useQuery({
     queryKey: ['/api/menu', mode],
     queryFn: async () => {
       const response = await fetch(`/api/menu?mode=${mode}`);
@@ -42,13 +44,29 @@ export default function SportsSidebar() {
       const result = await response.json();
       return result.data;
     },
+    staleTime: mode === 'live' ? 60 * 1000 : 5 * 60 * 1000,
     refetchInterval: mode === 'live' ? 15000 : 30000,
+    placeholderData: (previousData: any) => previousData, // Show old data while refetching
   });
 
   const sports = menuData?.sports || [];
   const footballSport = sports.find((s: any) => s.sport_key === 'football');
   const footballLeagues = footballSport?.leagues?.slice(0, 8) || [];
   const otherSports = sports.filter((s: any) => s.sport_key !== 'football');
+
+  // Prefetch league matches on hover for instant navigation
+  const handleLeagueHover = (sport: string, leagueId: string) => {
+    queryClient.prefetchQuery({
+      queryKey: ['/api/line', sport, leagueId, mode],
+      queryFn: async () => {
+        const response = await fetch(`/api/line/${sport}/${leagueId}?mode=${mode}`);
+        if (!response.ok) throw new Error('Failed to fetch league matches');
+        const result = await response.json();
+        return result.data;
+      },
+      staleTime: mode === 'live' ? 30 * 1000 : 3 * 60 * 1000,
+    });
+  };
 
   const toggleSport = (sportKey: string) => {
     setExpandedSports(prev => 
@@ -123,6 +141,7 @@ export default function SportsSidebar() {
                         asChild
                         data-testid={`link-league-${league.league_id}`}
                         className={`${location.includes(`/league/football/${league.league_id}`) ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-4"} border-0 rounded-md`}
+                        onMouseEnter={() => handleLeagueHover('football', league.league_id)}
                       >
                         <Link href={`/league/football/${league.league_id}`}>
                           <Crown className="h-4 w-4" />
@@ -147,13 +166,7 @@ export default function SportsSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
-              {isLoading ? (
-                <>
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-9 bg-surface-4 animate-pulse rounded-md" />
-                  ))}
-                </>
-              ) : sports.length === 0 ? (
+              {sports.length === 0 ? (
                 <div className="text-sm text-muted-foreground text-center py-4">
                   No {mode} matches available
                 </div>
@@ -202,6 +215,7 @@ export default function SportsSidebar() {
                                     asChild
                                     data-testid={`link-league-${sport.sport_key}-${league.league_id}`}
                                     className={`${location.includes(`/league/${sport.sport_key}/${league.league_id}`) ? "bg-brand-surface-2 text-primary-foreground" : "bg-surface-4"} border-0 rounded-md`}
+                                    onMouseEnter={() => handleLeagueHover(sport.sport_key, league.league_id)}
                                   >
                                     <Link href={`/league/${sport.sport_key}/${league.league_id}`}>
                                       <span className="flex-1 text-xs">{league.league_name}</span>
