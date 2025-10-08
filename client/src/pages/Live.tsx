@@ -1,88 +1,19 @@
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useMode } from "@/contexts/ModeContext";
 import bannerImage from "@assets/banner-live_1757761750950.jpg";
-import { 
-  ChevronDown,
-  ChevronUp,
-  Zap,
-  Circle,
-  Star,
-  // Sport icons from lucide-react
-  Gamepad2,
-  Zap as Hockey,
-  Target,
-  Volleyball as VolleyballIcon,
-  Disc3 as Rugby
-} from "lucide-react";
-
-// Sports icons using proper lucide-react icons
-const SPORTS_ICONS = {
-  Football: Gamepad2,
-  Hockey: Hockey,
-  Tennis: Target,
-  Basketball: Circle, // Using Circle for Basketball
-  Baseball: Target,
-  Volleyball: VolleyballIcon,
-  Rugby: Rugby
-} as const;
+import SportsMatches from "@/components/SportsMatches";
+import { Zap, Circle } from "lucide-react";
 
 interface LiveProps {
   onAddToBetSlip?: (selection: any) => void;
 }
 
-interface LiveMatch {
-  id: string;
-  homeTeam: string;
-  awayTeam: string;
-  league: string;
-  homeScore: number;
-  awayScore: number;
-  minute: number;
-  status: string;
-  odds: {
-    "1x2": {
-      home: number;
-      draw: number;
-      away: number;
-    };
-    totalgoals?: {
-      over35?: number;
-      under35?: number;
-    };
-    nextgoal?: {
-      home?: number;
-      away?: number;
-      none?: number;
-    };
-  };
-}
-
-
-interface LeagueGroup {
-  leagueName: string;
-  matches: LiveMatch[];
-}
-
 export default function Live({ onAddToBetSlip }: LiveProps) {
-  const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set());
-  const [expandedMatches, setExpandedMatches] = useState<Set<string>>(new Set());
-  const [currentTime, setCurrentTime] = useState(new Date());
   const { mode } = useMode();
 
-  // Update current time every second for live matches
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Fetch live matches from cache
-  const { data: liveMatchesData, isLoading: liveLoading } = useQuery({
+  // Fetch live matches from cache grouped by sport
+  const { data: sportGroupsData, isLoading: liveLoading } = useQuery({
     queryKey: ['/api/live/matches'],
     queryFn: async () => {
       // Fetch menu to get sports and leagues with live matches
@@ -90,99 +21,89 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
       if (!menuResponse.ok) throw new Error('Failed to fetch menu');
       const menuResult = await menuResponse.json();
       
-      const allMatches: LiveMatch[] = [];
+      const sportGroups: any[] = [];
       
       if (menuResult.success && menuResult.data.sports) {
-        // Fetch matches for each league
+        // Fetch matches for each sport and league
         for (const sport of menuResult.data.sports) {
+          const sportLeagues: any[] = [];
+          
           for (const league of sport.leagues) {
             const lineResponse = await fetch(`/api/line/${sport.sport_key}/${league.league_id}?mode=live`);
             if (lineResponse.ok) {
               const lineResult = await lineResponse.json();
               if (lineResult.success && lineResult.data.matches) {
-                lineResult.data.matches.forEach((match: any) => {
-                  // Extract odds from bookmakers
+                const leagueMatches = lineResult.data.matches.map((match: any) => {
                   const h2hMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "h2h");
-                  const totalsMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "totals");
                   
-                  allMatches.push({
+                  return {
                     id: match.match_id,
-                    homeTeam: match.home_team,
-                    awayTeam: match.away_team,
-                    league: league.league_name,
-                    homeScore: match.scores?.home || 0,
-                    awayScore: match.scores?.away || 0,
-                    minute: match.minute || 0,
-                    status: match.status || "live",
-                    odds: {
-                      "1x2": {
-                        home: h2hMarket?.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
-                        draw: h2hMarket?.outcomes?.find((o: any) => o.name === "Draw")?.price || 0,
-                        away: h2hMarket?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
-                      },
-                      totalgoals: totalsMarket ? {
-                        over35: totalsMarket.outcomes?.find((o: any) => o.name === "Over")?.price,
-                        under35: totalsMarket.outcomes?.find((o: any) => o.name === "Under")?.price,
-                      } : undefined,
+                    homeTeam: {
+                      name: match.home_team,
+                      logo: match.home_team_logo,
                     },
-                  });
+                    awayTeam: {
+                      name: match.away_team,
+                      logo: match.away_team_logo,
+                    },
+                    league: league.league_name,
+                    kickoffTime: match.commence_time,
+                    venue: match.venue,
+                    odds: h2hMarket ? {
+                      home: h2hMarket.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
+                      draw: h2hMarket.outcomes?.find((o: any) => o.name === "Draw")?.price || 0,
+                      away: h2hMarket.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
+                    } : null,
+                  };
+                });
+                
+                sportLeagues.push({
+                  id: league.league_id,
+                  name: league.league_name,
+                  matches: leagueMatches,
                 });
               }
             }
           }
+          
+          if (sportLeagues.length > 0) {
+            sportGroups.push({
+              id: sport.sport_key,
+              name: sport.sport_title,
+              icon: sport.sport_icon,
+              leagues: sportLeagues,
+            });
+          }
         }
       }
       
-      return { data: allMatches };
+      return { sportGroups };
     },
     refetchInterval: 15000, // Refresh every 15 seconds for live matches
   });
 
-  const liveMatches: LiveMatch[] = liveMatchesData?.data || [];
+  const sportGroups = sportGroupsData?.sportGroups || [];
 
-  // Group matches by league
-  const leagueGroups: LeagueGroup[] = liveMatches.reduce((groups, match) => {
-    const existingGroup = groups.find(g => g.leagueName === match.league);
-    if (existingGroup) {
-      existingGroup.matches.push(match);
-    } else {
-      groups.push({
-        leagueName: match.league,
-        matches: [match]
-      });
-    }
-    return groups;
-  }, [] as LeagueGroup[]);
+  // Handle odds selection for bet slip
+  const handleOddsClick = (
+    matchId: string,
+    market: string,
+    type: string,
+    odds: number,
+  ) => {
+    if (!onAddToBetSlip) return;
 
-  // Auto-expand all leagues to show live matches by default
-  useEffect(() => {
-    if (leagueGroups.length > 0 && expandedLeagues.size === 0) {
-      const allLeagueNames = new Set(leagueGroups.map(group => group.leagueName));
-      setExpandedLeagues(allLeagueNames);
-    }
-  }, [leagueGroups, expandedLeagues.size]);
+    // Find match to get team names
+    const match = sportGroups
+      .flatMap((sport: any) => sport.leagues)
+      .flatMap((league: any) => league.matches)
+      .find((m: any) => m.id === matchId);
+    
+    if (!match) return;
 
-  const handleLiveOddsClick = (matchId: string, market: string, type: string, odds: number, homeTeam: string, awayTeam: string) => {
-    // Create human-readable selection name
     const getSelectionName = (market: string, type: string) => {
       if (market === "1x2") {
         return type === "home" ? "1" : type === "draw" ? "X" : "2";
-      }
-      if (market === "totalgoals") {
-        // Map specific total goal keys to human readable names
-        if (type === "over35") return "Over 3.5";
-        if (type === "under35") return "Under 3.5";
-        // Fallback for other potential totals
-        if (type === "over25") return "Over 2.5";
-        if (type === "under25") return "Under 2.5";
-        if (type === "over15") return "Over 1.5";
-        if (type === "under15") return "Under 1.5";
-      }
-      if (market === "nextgoal") {
-        // Map specific next goal keys to human readable names
-        if (type === "nextgoal_home") return "Home";
-        if (type === "nextgoal_away") return "Away"; 
-        if (type === "nextgoal_none") return "No Goal";
       }
       return type.charAt(0).toUpperCase() + type.slice(1);
     };
@@ -190,43 +111,29 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
     const selection = {
       id: `${matchId}-${market}-${type}`,
       matchId,
-      fixtureId: matchId, // Add fixtureId for backend compatibility
-      market,
+      fixtureId: matchId,
+      market: market || "1x2",
       type,
       selection: getSelectionName(market, type),
       odds,
-      homeTeam,
-      awayTeam,
-      league: liveMatches.find(m => m.id === matchId)?.league || "Unknown",
-      isLive: true
+      homeTeam: match.homeTeam?.name || match.homeTeam,
+      awayTeam: match.awayTeam?.name || match.awayTeam,
+      league: match.league || "Unknown",
+      isLive: true,
     };
-    onAddToBetSlip?.(selection);
+
+    onAddToBetSlip(selection);
     console.log("Added live selection to bet slip:", selection);
   };
 
-  const toggleLeague = (leagueName: string) => {
-    const newExpanded = new Set(expandedLeagues);
-    if (newExpanded.has(leagueName)) {
-      newExpanded.delete(leagueName);
-    } else {
-      newExpanded.add(leagueName);
-    }
-    setExpandedLeagues(newExpanded);
-  };
-
-  const toggleMatchExpansion = (matchId: string) => {
-    const newExpanded = new Set(expandedMatches);
-    if (newExpanded.has(matchId)) {
-      newExpanded.delete(matchId);
-    } else {
-      newExpanded.add(matchId);
-    }
-    setExpandedMatches(newExpanded);
+  // Handle favorites
+  const handleAddToFavorites = (matchId: string) => {
+    console.log("Added to favorites:", matchId);
   };
 
 
   return (
-    <div className="flex-1 bg-surface-0 text-foreground">
+    <div className="w-full max-w-none overflow-hidden h-full">
       {/* Banner */}
       <div className="w-full">
         <img 
@@ -237,25 +144,25 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
         />
       </div>
 
-      {/* Live Football Header */}
+      {/* Live Header */}
       <div className="flex items-center gap-2 p-3 bg-surface-2 border-0">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-          <h2 className="text-lg font-semibold text-foreground">Live Football</h2>
+          <h2 className="text-lg font-semibold text-foreground">Live Matches</h2>
         </div>
       </div>
 
       {/* Live Matches Content */}
-      <div className="flex-1 overflow-auto scrollbar-hide">
+      <div className="p-4">
         {liveLoading ? (
-          <div className="flex items-center justify-center p-8">
+          <div className="flex items-center justify-center py-8">
             <div className="text-center">
               <Zap className="h-8 w-8 text-destructive animate-pulse mx-auto mb-2" />
               <p className="text-muted-foreground">Loading live matches...</p>
             </div>
           </div>
-        ) : leagueGroups.length === 0 ? (
-          <div className="flex items-center justify-center p-8">
+        ) : sportGroups.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
             <div className="text-center">
               <Circle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
               <p className="text-muted-foreground">No live matches available</p>
@@ -263,254 +170,18 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
             </div>
           </div>
         ) : (
-          <div className="space-y-1">
-            {leagueGroups.map((group) => {
-              const isExpanded = expandedLeagues.has(group.leagueName);
-              
-              return (
-                <div key={group.leagueName} className="rounded-md mb-2" style={{ backgroundColor: 'hsl(var(--surface-2))', borderColor: 'hsl(var(--surface-4))' }}>
-                  {/* League Header */}
-                  <div
-                    onClick={() => toggleLeague(group.leagueName)}
-                    className="grid grid-cols-[1fr_12rem_auto] items-center p-3 league-header-gradient cursor-pointer rounded-t-md"
-                    style={{ color: 'white' }}
-                    data-testid={`button-league-${group.leagueName.replace(/\s+/g, '-').toLowerCase()}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Gamepad2 className="h-5 w-5 text-white" />
-                      <span className="font-semibold text-white">{group.leagueName}</span>
-                    </div>
-                    {/* Odds Headers - aligned with columns below */}
-                    <div className="grid grid-cols-3 gap-2 text-sm font-medium text-white/90">
-                      <span className="text-center">1</span>
-                      <span className="text-center">X</span>
-                      <span className="text-center">2</span>
-                    </div>
-                    <div className="flex justify-end">
-                      {isExpanded ? (
-                        <ChevronUp className="h-4 w-4 text-white" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-white" />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* League Matches */}
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <div className="space-y-0" style={{ backgroundColor: 'white' }}>
-                          {group.matches.map((match) => {
-                            const isMatchExpanded = expandedMatches.has(match.id);
-                            
-                            return (
-                              <div key={match.id} className="border-0 mb-1 rounded-md last:mb-0">
-                                {/* Match Row */}
-                                <div
-                                  onClick={() => toggleMatchExpansion(match.id)}
-                                  className="grid grid-cols-[1fr_12rem_auto] items-center p-3 cursor-pointer rounded-md hover:bg-gray-50 border-b border-gray-200 last:border-b-0"
-                                  data-testid={`button-match-${match.id}`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    {/* Star icon - moved to front */}
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 hover:text-yellow-500"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        // Add to favorites functionality
-                                      }}
-                                      data-testid={`favorite-${match.id}`}
-                                    >
-                                      <Star className="h-4 w-4 text-gray-400" />
-                                    </Button>
-                                    
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <Badge variant="destructive" className="animate-pulse text-xs">
-                                          LIVE {match.minute}'
-                                        </Badge>
-                                        <span className="text-sm font-medium text-destructive">
-                                          {match.homeScore} - {match.awayScore}
-                                        </span>
-                                      </div>
-                                      <div className="mt-1 space-y-0.5">
-                                        <div className="text-sm font-medium text-black truncate" data-testid={`text-home-team-${match.id}`}>
-                                          {match.homeTeam}
-                                        </div>
-                                        <div className="text-sm text-black truncate" data-testid={`text-away-team-${match.id}`}>
-                                          {match.awayTeam}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Odds Buttons */}
-                                  <div className="grid grid-cols-3 gap-2 text-sm font-medium">
-                                    <Button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleLiveOddsClick(match.id, "1x2", "home", match.odds["1x2"].home, match.homeTeam, match.awayTeam);
-                                      }}
-                                      data-testid={`button-odds-home-${match.id}`}
-                                      className="font-semibold odds-button text-center"
-                                    >
-                                      {match.odds["1x2"].home.toFixed(2)}
-                                    </Button>
-                                    <Button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleLiveOddsClick(match.id, "1x2", "draw", match.odds["1x2"].draw, match.homeTeam, match.awayTeam);
-                                      }}
-                                      data-testid={`button-odds-draw-${match.id}`}
-                                      className="font-semibold odds-button text-center"
-                                    >
-                                      {match.odds["1x2"].draw.toFixed(2)}
-                                    </Button>
-                                    <Button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleLiveOddsClick(match.id, "1x2", "away", match.odds["1x2"].away, match.homeTeam, match.awayTeam);
-                                      }}
-                                      data-testid={`button-odds-away-${match.id}`}
-                                      className="font-semibold odds-button text-center"
-                                    >
-                                      {match.odds["1x2"].away.toFixed(2)}
-                                    </Button>
-                                  </div>
-                                  
-                                  <div className="flex justify-end">
-                                    {isMatchExpanded ? (
-                                      <ChevronUp className="h-3 w-3" />
-                                    ) : (
-                                      <ChevronDown className="h-3 w-3" />
-                                    )}
-                                  </div>
-                                </div>
-
-                              {/* Expandable Match Details */}
-                              <AnimatePresence>
-                                {isMatchExpanded && (
-                                  <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: "auto", opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                    style={{ backgroundColor: 'hsl(var(--surface-3))' }}
-                                  >
-                                    <div className="p-4 space-y-3 border-t border-border/30">
-                                      <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                                        Additional Markets
-                                      </div>
-                                      
-                                      {/* Over/Under Market - Only show if real odds available */}
-                                      {match.odds.totalgoals && (
-                                        <div>
-                                          <div className="text-sm font-medium mb-2">Total Goals (Over/Under 3.5)</div>
-                                          <div className="flex gap-2">
-                                            {match.odds.totalgoals?.over35 && (
-                                              <Button
-                                                size="default"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleLiveOddsClick(match.id, "totalgoals", "over35", match.odds.totalgoals!.over35!, match.homeTeam, match.awayTeam);
-                                                }}
-                                                data-testid={`button-over-${match.id}`}
-                                                className="flex flex-col gap-1 odds-button"
-                                              >
-                                                <span className="text-xs opacity-90">Over 3.5</span>
-                                                <span className="font-semibold">{match.odds.totalgoals!.over35!.toFixed(2)}</span>
-                                              </Button>
-                                            )}
-                                            {match.odds.totalgoals?.under35 && (
-                                              <Button
-                                                size="default"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleLiveOddsClick(match.id, "totalgoals", "under35", match.odds.totalgoals!.under35!, match.homeTeam, match.awayTeam);
-                                                }}
-                                                data-testid={`button-under-${match.id}`}
-                                                className="flex flex-col gap-1 odds-button"
-                                              >
-                                                <span className="text-xs opacity-90">Under 3.5</span>
-                                                <span className="font-semibold">{match.odds.totalgoals!.under35!.toFixed(2)}</span>
-                                              </Button>
-                                            )}
-                                          </div>
-                                        </div>
-                                      )}
-
-                                      {/* Next Goal Market - Only show if real odds available */}
-                                      {match.odds.nextgoal && (
-                                        <div>
-                                          <div className="text-sm font-medium mb-2">Next Goal</div>
-                                          <div className="flex gap-2">
-                                            {match.odds.nextgoal?.home && (
-                                              <Button
-                                                size="default"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleLiveOddsClick(match.id, "nextgoal", "nextgoal_home", match.odds.nextgoal!.home!, match.homeTeam, match.awayTeam);
-                                                }}
-                                                data-testid={`button-next-goal-home-${match.id}`}
-                                                className="flex flex-col gap-1 odds-button"
-                                              >
-                                                <span className="text-xs opacity-90">Home</span>
-                                                <span className="font-semibold">{match.odds.nextgoal!.home!.toFixed(2)}</span>
-                                              </Button>
-                                            )}
-                                            {match.odds.nextgoal?.away && (
-                                              <Button
-                                                size="default"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleLiveOddsClick(match.id, "nextgoal", "nextgoal_away", match.odds.nextgoal!.away!, match.homeTeam, match.awayTeam);
-                                                }}
-                                                data-testid={`button-next-goal-away-${match.id}`}
-                                                className="flex flex-col gap-1 odds-button"
-                                              >
-                                                <span className="text-xs opacity-90">Away</span>
-                                                <span className="font-semibold">{match.odds.nextgoal!.away!.toFixed(2)}</span>
-                                              </Button>
-                                            )}
-                                            {match.odds.nextgoal?.none && (
-                                              <Button
-                                                size="default"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleLiveOddsClick(match.id, "nextgoal", "nextgoal_none", match.odds.nextgoal!.none!, match.homeTeam, match.awayTeam);
-                                                }}
-                                                data-testid={`button-next-goal-none-${match.id}`}
-                                                className="flex flex-col gap-1 odds-button"
-                                              >
-                                                <span className="text-xs opacity-90">No Goal</span>
-                                                <span className="font-semibold">{match.odds.nextgoal!.none!.toFixed(2)}</span>
-                                              </Button>
-                                            )}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </div>
-                          );
-                        })}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              );
-            })}
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <SportsMatches
+              sports={sportGroups}
+              isLoading={liveLoading}
+              onOddsClick={handleOddsClick}
+              onAddToFavorites={handleAddToFavorites}
+            />
+          </motion.div>
         )}
       </div>
     </div>

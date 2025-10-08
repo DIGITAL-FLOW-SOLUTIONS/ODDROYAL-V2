@@ -7,7 +7,7 @@ import { useMode } from "@/contexts/ModeContext";
 import HeroBanner from "@/components/HeroBanner";
 import PopularEvents from "@/components/PopularEvents";
 import TopLeagues from "@/components/TopLeagues";
-import FootballMatches from "@/components/FootballMatches";
+import SportsMatches from "@/components/SportsMatches";
 import OtherSports from "@/components/OtherSports";
 
 interface LineProps {
@@ -18,8 +18,8 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const [selectedLeague, setSelectedLeague] = useState("all");
   const { mode } = useMode();
 
-  // Fetch prematch matches from cache
-  const { data: upcomingMatchesData, isLoading: matchesLoading } = useQuery({
+  // Fetch prematch matches from cache grouped by sport
+  const { data: sportGroupsData, isLoading: matchesLoading } = useQuery({
     queryKey: ["/api/prematch/matches"],
     queryFn: async () => {
       // Fetch menu to get sports and leagues with prematch matches
@@ -27,47 +27,74 @@ export default function Line({ onAddToBetSlip }: LineProps) {
       if (!menuResponse.ok) throw new Error("Failed to fetch menu");
       const menuResult = await menuResponse.json();
       
+      const sportGroups: any[] = [];
       const allMatches: any[] = [];
       
       if (menuResult.success && menuResult.data.sports) {
-        // Fetch matches for each league
+        // Fetch matches for each sport and league
         for (const sport of menuResult.data.sports) {
+          const sportLeagues: any[] = [];
+          
           for (const league of sport.leagues) {
             const lineResponse = await fetch(`/api/line/${sport.sport_key}/${league.league_id}?mode=prematch`);
             if (lineResponse.ok) {
               const lineResult = await lineResponse.json();
               if (lineResult.success && lineResult.data.matches) {
-                lineResult.data.matches.forEach((match: any) => {
-                  allMatches.push({
+                const leagueMatches = lineResult.data.matches.map((match: any) => {
+                  const matchData = {
                     id: match.match_id,
-                    homeTeam: match.home_team,
-                    awayTeam: match.away_team,
+                    homeTeam: {
+                      name: match.home_team,
+                      logo: match.home_team_logo,
+                    },
+                    awayTeam: {
+                      name: match.away_team,
+                      logo: match.away_team_logo,
+                    },
                     league: league.league_name,
                     kickoffTime: match.commence_time,
                     venue: match.venue,
                     odds: match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "h2h")
                       ? {
-                          home: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === match.home_team)?.price,
-                          draw: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === "Draw")?.price,
-                          away: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === match.away_team)?.price,
+                          home: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
+                          draw: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === "Draw")?.price || 0,
+                          away: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
                         }
                       : null,
                     homeTeamLogo: match.home_team_logo,
                     awayTeamLogo: match.away_team_logo,
-                  });
+                  };
+                  allMatches.push(matchData);
+                  return matchData;
+                });
+                
+                sportLeagues.push({
+                  id: league.league_id,
+                  name: league.league_name,
+                  matches: leagueMatches,
                 });
               }
             }
           }
+          
+          if (sportLeagues.length > 0) {
+            sportGroups.push({
+              id: sport.sport_key,
+              name: sport.sport_title,
+              icon: sport.sport_icon,
+              leagues: sportLeagues,
+            });
+          }
         }
       }
       
-      return { data: allMatches };
+      return { sportGroups, allMatches };
     },
     refetchInterval: 30000, // Refresh every 30 seconds for prematch
   });
 
-  const upcomingMatches = upcomingMatchesData?.data || [];
+  const sportGroups = sportGroupsData?.sportGroups || [];
+  const upcomingMatches = sportGroupsData?.allMatches || [];
 
   // Transform API data for Popular Events - only use real data, include logos
   const popularMatches = upcomingMatches.slice(0, 6).map((match: any) => ({
@@ -83,52 +110,13 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     kickoffTime: match.kickoffTime || match.kickoff,
     league: match.league,
     venue: match.venue,
-    odds: {
-      home: match.odds?.home || 0,
-      draw: match.odds?.draw || 0,
-      away: match.odds?.away || 0,
+    odds: match.odds || {
+      home: 0,
+      draw: 0,
+      away: 0,
     },
     additionalMarkets: match.additionalMarkets || 0,
   }));
-
-  // Group matches by league for Football section
-  const footballLeagues = (() => {
-    const leagueMap = new Map();
-
-    upcomingMatches.forEach((match: any) => {
-      const leagueName = match.league || "Other";
-      if (!leagueMap.has(leagueName)) {
-        leagueMap.set(leagueName, {
-          id: leagueName.toLowerCase().replace(/\s+/g, "-"),
-          name: leagueName,
-          logo: undefined, // Would be populated from API
-          matches: [],
-        });
-      }
-
-      leagueMap.get(leagueName).matches.push({
-        id: match.id,
-        homeTeam: {
-          name: match.homeTeam?.name || match.homeTeam,
-          logo: match.homeTeamLogo || match.homeTeam?.logo,
-        },
-        awayTeam: {
-          name: match.awayTeam?.name || match.awayTeam,
-          logo: match.awayTeamLogo || match.awayTeam?.logo,
-        },
-        kickoffTime: match.kickoffTime || match.kickoff,
-        venue: match.venue,
-        odds: {
-          home: match.odds?.home || 0,
-          draw: match.odds?.draw || 0,
-          away: match.odds?.away || 0,
-        },
-        additionalMarkets: match.additionalMarkets || 0,
-      });
-    });
-
-    return Array.from(leagueMap.values());
-  })();
 
   // Handle odds selection for bet slip
   const handleOddsClick = (
@@ -181,15 +169,17 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     // TODO: Implement favorites functionality
   };
 
-  // Filter football leagues based on selected league
-  const filteredFootballLeagues =
+  // Filter sport groups based on selected league
+  const filteredSportGroups =
     selectedLeague === "all"
-      ? footballLeagues
-      : footballLeagues.filter(
-          (league) =>
+      ? sportGroups
+      : sportGroups.map(sport => ({
+          ...sport,
+          leagues: sport.leagues.filter((league: any) =>
             league.id === selectedLeague ||
-            league.name.toLowerCase().includes(selectedLeague.toLowerCase()),
-        );
+            league.name.toLowerCase().includes(selectedLeague.toLowerCase())
+          ),
+        })).filter((sport: any) => sport.leagues.length > 0);
 
   return (
     <div className="w-full max-w-none overflow-hidden h-full">
@@ -229,14 +219,14 @@ export default function Line({ onAddToBetSlip }: LineProps) {
           />
         </motion.div>
 
-        {/* Football Matches - Table format grouped by league */}
+        {/* Sports Matches - Table format grouped by sport and league */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.6 }}
         >
-          <FootballMatches
-            leagues={filteredFootballLeagues}
+          <SportsMatches
+            sports={filteredSportGroups}
             isLoading={matchesLoading}
             onOddsClick={handleOddsClick}
             onAddToFavorites={handleAddToFavorites}
