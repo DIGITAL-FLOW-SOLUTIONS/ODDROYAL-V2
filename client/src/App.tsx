@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ModeProvider } from "@/contexts/ModeContext";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import Layout from "@/components/Layout";
 import SimpleLayout from "@/components/SimpleLayout";
@@ -86,10 +87,12 @@ function App() {
       <ThemeProvider defaultTheme="light" storageKey="oddroyal-theme">
         <TooltipProvider>
           <AuthProvider>
-            <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
-              <Router />
-              <Toaster />
-            </div>
+            <ModeProvider>
+              <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
+                <Router />
+                <Toaster />
+              </div>
+            </ModeProvider>
           </AuthProvider>
         </TooltipProvider>
       </ThemeProvider>
