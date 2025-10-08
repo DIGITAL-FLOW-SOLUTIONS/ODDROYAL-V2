@@ -12,7 +12,6 @@ import { Bell, User, Settings, ChevronDown, Sun, Moon, LogOut, Wallet, BarChart,
 import { motion } from "framer-motion";
 import { useTheme } from "@/components/ThemeProvider";
 import { useAuth } from "@/contexts/AuthContext";
-import { CacheStatus } from "@/components/CacheStatus";
 
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -35,20 +34,17 @@ export default function Header() {
       </div>
 
       {/* Center section - Navigation */}
-      <div className="flex items-center gap-4">
-        <nav className="hidden md:flex items-center gap-6">
-          <Button variant="ghost" size="sm" asChild data-testid="link-homepage" className="hover-elevate">
-            <Link href="/">Home</Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild data-testid="link-line" className="hover-elevate">
-            <Link href="/line">Pre-match</Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild data-testid="link-live" className="hover-elevate">
-            <Link href="/live">Live</Link>
-          </Button>
-        </nav>
-        <CacheStatus />
-      </div>
+      <nav className="hidden md:flex items-center gap-6">
+        <Button variant="ghost" size="sm" asChild data-testid="link-homepage" className="hover-elevate">
+          <Link href="/">Home</Link>
+        </Button>
+        <Button variant="ghost" size="sm" asChild data-testid="link-line" className="hover-elevate">
+          <Link href="/line">Pre-match</Link>
+        </Button>
+        <Button variant="ghost" size="sm" asChild data-testid="link-live" className="hover-elevate">
+          <Link href="/live">Live</Link>
+        </Button>
+      </nav>
 
       {/* Right section */}
       <div className="flex items-center gap-2">
