@@ -18,52 +18,53 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const [selectedLeague, setSelectedLeague] = useState("all");
   const { mode } = useMode();
 
-  // Fetch matches using new cache-only endpoints with mode
+  // Fetch prematch matches from cache
   const { data: upcomingMatchesData, isLoading: matchesLoading } = useQuery({
-    queryKey: ["/api/fixtures/upcoming", mode],
+    queryKey: ["/api/prematch/matches"],
     queryFn: async () => {
-      // Try new cache endpoint first, fallback to old endpoint
-      try {
-        const response = await fetch(`/api/menu?mode=${mode}`);
-        if (!response.ok) throw new Error("Cache endpoint failed");
-        const result = await response.json();
-        
-        // Transform menu data to match old format
-        const matches: any[] = [];
-        if (result.success && result.sports) {
-          result.sports.forEach((sport: any) => {
-            sport.leagues?.forEach((league: any) => {
-              league.matches?.forEach((match: any) => {
-                matches.push({
-                  id: match.id,
-                  homeTeam: match.home_team,
-                  awayTeam: match.away_team,
-                  league: league.name,
-                  kickoffTime: match.commence_time,
-                  venue: match.venue,
-                  odds: match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "h2h")
-                    ? {
-                        home: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === match.home_team)?.price,
-                        draw: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === "Draw")?.price,
-                        away: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === match.away_team)?.price,
-                      }
-                    : null,
-                  homeTeamLogo: match.home_team_logo,
-                  awayTeamLogo: match.away_team_logo,
+      // Fetch menu to get sports and leagues with prematch matches
+      const menuResponse = await fetch('/api/menu?mode=prematch');
+      if (!menuResponse.ok) throw new Error("Failed to fetch menu");
+      const menuResult = await menuResponse.json();
+      
+      const allMatches: any[] = [];
+      
+      if (menuResult.success && menuResult.data.sports) {
+        // Fetch matches for each league
+        for (const sport of menuResult.data.sports) {
+          for (const league of sport.leagues) {
+            const lineResponse = await fetch(`/api/line/${sport.sport_key}/${league.league_id}?mode=prematch`);
+            if (lineResponse.ok) {
+              const lineResult = await lineResponse.json();
+              if (lineResult.success && lineResult.data.matches) {
+                lineResult.data.matches.forEach((match: any) => {
+                  allMatches.push({
+                    id: match.match_id,
+                    homeTeam: match.home_team,
+                    awayTeam: match.away_team,
+                    league: league.league_name,
+                    kickoffTime: match.commence_time,
+                    venue: match.venue,
+                    odds: match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "h2h")
+                      ? {
+                          home: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === match.home_team)?.price,
+                          draw: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === "Draw")?.price,
+                          away: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === match.away_team)?.price,
+                        }
+                      : null,
+                    homeTeamLogo: match.home_team_logo,
+                    awayTeamLogo: match.away_team_logo,
+                  });
                 });
-              });
-            });
-          });
+              }
+            }
+          }
         }
-        return { data: matches };
-      } catch (err) {
-        // Fallback to old endpoint
-        const response = await fetch("/api/fixtures/upcoming?limit=50");
-        if (!response.ok) throw new Error("Failed to fetch upcoming matches");
-        return response.json();
       }
+      
+      return { data: allMatches };
     },
-    refetchInterval: mode === "live" ? 15000 : 30000, // Faster refresh for live
+    refetchInterval: 30000, // Refresh every 30 seconds for prematch
   });
 
   const upcomingMatches = upcomingMatchesData?.data || [];
