@@ -1,7 +1,11 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { registerOddsApiRoutes } from "./odds-api-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { settlementWorker } from "./settlement-worker";
+import { redisCache } from "./redis-cache";
+import { preloadWorker } from "./preload-worker";
+import { refreshWorker } from "./refresh-worker";
 // import { exposureEngine } from "./exposure-engine";
 // import { liveMatchSimulator } from "./live-match-simulator";
 import { storage } from "./storage";
@@ -83,6 +87,9 @@ async function withTimeout<T>(
 
 (async () => {
   const server = await registerRoutes(app);
+  
+  // Register new Odds API routes
+  registerOddsApiRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -202,6 +209,19 @@ async function withTimeout<T>(
         console.log("🔄 Starting background workers...");
         try {
           settlementWorker.start();
+          
+          // Initialize Redis cache and preload data
+          console.log("🔗 Connecting to Redis...");
+          await redisCache.connect();
+          
+          console.log("📥 Starting data preload...");
+          const preloadReport = await preloadWorker.preloadAll();
+          console.log("✅ Preload complete:", preloadReport);
+          
+          // Start refresh worker
+          console.log("🔄 Starting refresh worker...");
+          await refreshWorker.start();
+          
           workersReady = true;
           console.log("✅ Background workers started");
         } catch (err) {
