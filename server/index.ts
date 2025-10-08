@@ -219,21 +219,18 @@ async function withTimeout<T>(
               "Redis connection"
             );
             
-            if (redisCache.isConnected()) {
-              console.log("📥 Starting data preload...");
-              const preloadReport = await withTimeout(
-                preloadWorker.preloadAll(),
-                30000,
-                "Data preload"
-              );
-              console.log("✅ Preload complete:", preloadReport);
-              
-              // Start refresh worker
-              console.log("🔄 Starting refresh worker...");
-              await refreshWorker.start();
-            } else {
-              console.warn("⚠️  Redis not connected - running without cache");
-            }
+            // Always attempt preload after connection (don't check isConnected() - connection event is async)
+            console.log("📥 Starting data preload...");
+            const preloadReport = await withTimeout(
+              preloadWorker.preloadAll(),
+              30000,
+              "Data preload"
+            );
+            console.log("✅ Preload complete:", preloadReport);
+            
+            // Start refresh worker
+            console.log("🔄 Starting refresh worker...");
+            await refreshWorker.start();
           } catch (redisErr) {
             console.warn("⚠️  Redis/preload failed, continuing without cache:", redisErr);
             // Continue without Redis - app will use SportMonks API directly
