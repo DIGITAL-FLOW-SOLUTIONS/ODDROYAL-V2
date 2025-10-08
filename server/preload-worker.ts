@@ -67,19 +67,54 @@ export class PreloadWorker {
       // Fetch all available sports from The Odds API and group them
       await this.fetchAndGroupSports();
 
-      // Preload all grouped sports
-      const sportPromises = this.groupedSports.flatMap(sportGroup =>
-        sportGroup.leagues.map(league =>
-          limit(() => this.preloadSport(league.key, sportGroup.ourKey))
-        )
-      );
+      // PRIORITY PHASE: Preload only TOP Football leagues (major competitions)
+      const footballGroup = this.groupedSports.find(g => g.ourKey === 'football');
+      const topFootballLeagues = [
+        'soccer_epl',
+        'soccer_spain_la_liga',
+        'soccer_germany_bundesliga',
+        'soccer_italy_serie_a',
+        'soccer_france_ligue_one',
+        'soccer_uefa_champs_league',
+        'soccer_uefa_europa_league'
+      ];
+      
+      if (footballGroup) {
+        console.log('⚽ Preloading TOP Football leagues first (priority)...');
+        const priorityLeagues = footballGroup.leagues.filter(l => 
+          topFootballLeagues.includes(l.key)
+        );
+        const footballPromises = priorityLeagues.map(league =>
+          limit(() => this.preloadSport(league.key, footballGroup.ourKey))
+        );
+        await Promise.all(footballPromises);
+        console.log(`✅ ${priorityLeagues.length} priority Football leagues preloaded`);
+      }
 
-      await Promise.all(sportPromises);
-
-      // Set cache ready flag
+      // Set cache ready flag after priority sports are loaded
       await redisCache.setCacheReady(true);
+      console.log('✅ Cache ready - app can start serving requests');
 
-      // Finalize report
+      // BACKGROUND PHASE: Load remaining sports (non-blocking)
+      const otherSports = this.groupedSports.filter(g => g.ourKey !== 'football');
+      if (otherSports.length > 0) {
+        console.log(`📥 Loading ${otherSports.length} additional sport categories in background...`);
+        
+        // Load other sports without waiting (don't await)
+        Promise.all(
+          otherSports.flatMap(sportGroup =>
+            sportGroup.leagues.map(league =>
+              limit(() => this.preloadSport(league.key, sportGroup.ourKey))
+            )
+          )
+        ).then(() => {
+          console.log('✅ Background sports preload completed');
+        }).catch(err => {
+          console.error('⚠️  Background preload error:', err);
+        });
+      }
+
+      // Finalize report (for priority phase only)
       this.report.endTime = new Date().toISOString();
       this.report.duration = new Date(this.report.endTime).getTime() - 
                              new Date(this.report.startTime).getTime();
@@ -88,11 +123,11 @@ export class PreloadWorker {
       // Save report
       await redisCache.setCacheReport(this.report);
 
-      console.log('✅ Preload completed successfully');
+      console.log('✅ Priority preload completed');
       console.log(`📊 Total sports categories: ${this.groupedSports.length}`);
-      console.log(`📊 Total leagues: ${this.report.totalLeagues}`);
-      console.log(`📊 Total matches: ${this.report.totalMatches}`);
-      console.log(`⏱️  Duration: ${(this.report.duration / 1000).toFixed(2)}s`);
+      console.log(`📊 Priority leagues loaded: ${this.report.totalLeagues}`);
+      console.log(`📊 Priority matches loaded: ${this.report.totalMatches}`);
+      console.log(`⏱️  Priority phase duration: ${(this.report.duration / 1000).toFixed(2)}s`);
 
       return this.report;
     } catch (error) {
