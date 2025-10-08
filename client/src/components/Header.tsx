@@ -12,7 +12,6 @@ import { Bell, User, Settings, ChevronDown, Sun, Moon, LogOut, Wallet, BarChart,
 import { motion } from "framer-motion";
 import { useTheme } from "@/components/ThemeProvider";
 import { useAuth } from "@/contexts/AuthContext";
-import { ModeToggle } from "@/components/ModeToggle";
 import { CacheStatus } from "@/components/CacheStatus";
 
 export default function Header() {
@@ -35,7 +34,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Center section - Navigation & Mode Toggle */}
+      {/* Center section - Navigation */}
       <div className="flex items-center gap-4">
         <nav className="hidden md:flex items-center gap-6">
           <Button variant="ghost" size="sm" asChild data-testid="link-homepage" className="hover-elevate">
@@ -48,7 +47,6 @@ export default function Header() {
             <Link href="/live">Live</Link>
           </Button>
         </nav>
-        <ModeToggle />
         <CacheStatus />
       </div>
 
