@@ -186,10 +186,16 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
-      refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      // Betting site optimized settings
+      staleTime: 5 * 60 * 1000, // 5 minutes - data stays fresh
+      gcTime: 15 * 60 * 1000, // 15 minutes - keep in cache (formerly cacheTime)
+      refetchOnWindowFocus: true, // Refetch in background when tab regains focus
+      refetchOnMount: false, // Don't refetch if data is still fresh
+      refetchOnReconnect: true, // Refetch when network reconnects
+      retry: 1, // Retry once on failure
+      retryDelay: 1000, // Wait 1s before retry
+      // Show cached data immediately while refetching in background
+      placeholderData: (previousData) => previousData,
     },
     mutations: {
       retry: false,
