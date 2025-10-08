@@ -1,151 +1,161 @@
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
 import { useMode } from "@/contexts/ModeContext";
+import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
-import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import MatchCard from "@/components/MatchCard";
+import SportsMatches from "@/components/SportsMatches";
+import { useLocation } from "wouter";
 
 interface LeagueMatchesProps {
   onAddToBetSlip?: (selection: any) => void;
 }
 
 export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
-  const { sport, leagueId } = useParams<{ sport: string; leagueId: string }>();
+  const params = useParams<{ sport: string; leagueId: string }>();
   const { mode } = useMode();
+  const [, setLocation] = useLocation();
+  
+  const sport = params.sport;
+  const leagueId = params.leagueId;
 
-  const { data, isLoading } = useQuery({
+  // Fetch league matches
+  const { data: leagueData, isLoading } = useQuery({
     queryKey: ['/api/line', sport, leagueId, mode],
     queryFn: async () => {
       const response = await fetch(`/api/line/${sport}/${leagueId}?mode=${mode}`);
-      if (!response.ok) throw new Error('Failed to fetch matches');
+      if (!response.ok) throw new Error('Failed to fetch league matches');
       const result = await response.json();
-      return result;
+      return result.data;
     },
     refetchInterval: mode === 'live' ? 15000 : 30000,
   });
 
-  const matches = data?.data?.matches || [];
-  const leagueName = data?.data?.league_name || 'League';
+  // Format data for SportsMatches component
+  const formattedSportGroups = leagueData?.matches ? [{
+    id: sport || 'unknown',
+    name: leagueData.sport_title || sport?.toUpperCase() || 'Unknown Sport',
+    leagues: [{
+      id: leagueId || 'unknown',
+      name: leagueData.league_name || 'Unknown League',
+      matches: leagueData.matches.map((match: any) => {
+        const h2hMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "h2h");
+        
+        return {
+          id: match.match_id,
+          homeTeam: {
+            name: match.home_team,
+            logo: match.home_team_logo,
+          },
+          awayTeam: {
+            name: match.away_team,
+            logo: match.away_team_logo,
+          },
+          league: leagueData.league_name || 'Unknown League',
+          kickoffTime: match.commence_time,
+          venue: match.venue,
+          odds: h2hMarket ? {
+            home: h2hMarket.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
+            draw: h2hMarket.outcomes?.find((o: any) => o.name === "Draw")?.price || 0,
+            away: h2hMarket.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
+          } : null,
+        };
+      })
+    }]
+  }] : [];
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center gap-4 mb-6">
-            <Link href={mode === 'live' ? '/live' : '/line'}>
-              <Button variant="ghost" size="sm" data-testid="button-back">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-            <div className="h-8 w-48 bg-muted animate-pulse rounded" />
-          </div>
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
-            ))}
+  // Handle odds selection for bet slip
+  const handleOddsClick = (
+    matchId: string,
+    market: string,
+    type: string,
+    odds: number,
+  ) => {
+    if (!onAddToBetSlip) return;
+
+    const match = leagueData?.matches?.find((m: any) => m.match_id === matchId);
+    if (!match) return;
+
+    const getSelectionName = (market: string, type: string) => {
+      if (market === "1x2") {
+        return type === "home" ? "1" : type === "draw" ? "X" : "2";
+      }
+      return type.charAt(0).toUpperCase() + type.slice(1);
+    };
+
+    const selection = {
+      id: `${matchId}-${market}-${type}`,
+      matchId,
+      fixtureId: matchId,
+      market: market || "1x2",
+      type,
+      selection: getSelectionName(market, type),
+      odds,
+      homeTeam: match.home_team,
+      awayTeam: match.away_team,
+      league: leagueData?.league_name || "Unknown",
+      isLive: mode === 'live',
+    };
+
+    onAddToBetSlip(selection);
+  };
+
+  // Handle favorites
+  const handleAddToFavorites = (matchId: string) => {
+    console.log("Added to favorites:", matchId);
+  };
+
+  return (
+    <div className="w-full max-w-none overflow-hidden h-full">
+      {/* Header with back button */}
+      <div className="p-4 border-b border-surface-4">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setLocation(mode === 'live' ? '/live' : '/line')}
+            data-testid="button-back"
+            className="h-9 w-9"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground" data-testid="text-league-name">
+              {leagueData?.league_name || 'Loading...'}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {leagueData?.sport_title || sport?.toUpperCase() || ''}
+              {mode === 'live' && ' • Live Matches'}
+            </p>
           </div>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-4 mb-6"
-        >
-          <Link href={mode === 'live' ? '/live' : '/line'}>
-            <Button variant="ghost" size="sm" data-testid="button-back">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <h1 className="text-3xl font-bold" data-testid="text-league-name">
-            {leagueName}
-          </h1>
-          {mode === 'live' && (
-            <div className="flex items-center gap-2 text-destructive">
-              <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
-              <span className="text-sm font-medium">LIVE</span>
+      {/* Matches List */}
+      <div className="p-4">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-muted-foreground">Loading matches...</p>
             </div>
-          )}
-        </motion.div>
-
-        {matches.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-12"
-          >
+          </div>
+        ) : formattedSportGroups[0]?.leagues[0]?.matches?.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
             <p className="text-muted-foreground">No matches available</p>
-          </motion.div>
+          </div>
         ) : (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="space-y-4"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
           >
-            {matches.map((match: any, index: number) => {
-              const h2hMarket = match.bookmakers?.[0]?.markets?.find(
-                (m: any) => m.key === "h2h"
-              );
-              
-              const matchData = {
-                id: match.match_id,
-                homeTeam: {
-                  id: `${match.match_id}-home`,
-                  name: match.home_team,
-                  logo: match.home_team_logo,
-                },
-                awayTeam: {
-                  id: `${match.match_id}-away`,
-                  name: match.away_team,
-                  logo: match.away_team_logo,
-                },
-                league: leagueName,
-                kickoffTime: match.commence_time,
-                venue: match.venue,
-                status: (mode === 'live' ? 'live' : 'upcoming') as "upcoming" | "live" | "finished",
-                odds: h2hMarket
-                  ? {
-                      home: h2hMarket.outcomes?.find(
-                        (o: any) => o.name === match.home_team
-                      )?.price || 0,
-                      draw: h2hMarket.outcomes?.find(
-                        (o: any) => o.name === "Draw"
-                      )?.price || 0,
-                      away: h2hMarket.outcomes?.find(
-                        (o: any) => o.name === match.away_team
-                      )?.price || 0,
-                    }
-                  : {
-                      home: 0,
-                      draw: 0,
-                      away: 0,
-                    },
-              };
-
-              return (
-                <motion.div
-                  key={match.match_id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <MatchCard
-                    match={matchData}
-                    onAddToBetSlip={onAddToBetSlip}
-                  />
-                </motion.div>
-              );
-            })}
+            <SportsMatches
+              sports={formattedSportGroups}
+              isLoading={isLoading}
+              onOddsClick={handleOddsClick}
+              onAddToFavorites={handleAddToFavorites}
+            />
           </motion.div>
         )}
       </div>
