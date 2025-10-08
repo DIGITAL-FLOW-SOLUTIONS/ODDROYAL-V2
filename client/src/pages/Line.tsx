@@ -18,8 +18,8 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const [selectedLeague, setSelectedLeague] = useState("all");
   const { mode } = useMode();
 
-  // Fetch prematch matches from cache grouped by sport
-  const { data: sportGroupsData, isLoading: matchesLoading } = useQuery({
+  // Fetch prematch matches with instant loading from cache
+  const { data: sportGroupsData, isRefetching } = useQuery({
     queryKey: ["/api/prematch/matches"],
     queryFn: async () => {
       // Fetch menu to get sports and leagues with prematch matches
@@ -90,7 +90,9 @@ export default function Line({ onAddToBetSlip }: LineProps) {
       
       return { sportGroups, allMatches };
     },
-    refetchInterval: 30000, // Refresh every 30 seconds for prematch
+    staleTime: 3 * 60 * 1000, // 3 minutes for prematch
+    refetchInterval: 30000, // Refresh every 30 seconds in background
+    placeholderData: (previousData: any) => previousData, // Show cached data instantly
   });
 
   const sportGroups = sportGroupsData?.sportGroups || [];
@@ -201,7 +203,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         >
           <PopularEvents
             matches={popularMatches}
-            isLoading={matchesLoading}
+            isLoading={false}
             onOddsClick={handleOddsClick}
             onAddToFavorites={handleAddToFavorites}
           />
@@ -227,7 +229,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         >
           <SportsMatches
             sports={filteredSportGroups}
-            isLoading={matchesLoading}
+            isLoading={false}
             onOddsClick={handleOddsClick}
             onAddToFavorites={handleAddToFavorites}
           />

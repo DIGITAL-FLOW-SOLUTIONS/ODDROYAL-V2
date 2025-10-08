@@ -12,8 +12,8 @@ interface LiveProps {
 export default function Live({ onAddToBetSlip }: LiveProps) {
   const { mode } = useMode();
 
-  // Fetch live matches from cache grouped by sport
-  const { data: sportGroupsData, isLoading: liveLoading } = useQuery({
+  // Fetch live matches with instant loading from cache
+  const { data: sportGroupsData, isRefetching } = useQuery({
     queryKey: ['/api/live/matches'],
     queryFn: async () => {
       // Fetch menu to get sports and leagues with live matches
@@ -79,7 +79,9 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
       
       return { sportGroups };
     },
-    refetchInterval: 15000, // Refresh every 15 seconds for live matches
+    staleTime: 30 * 1000, // 30 seconds for live
+    refetchInterval: 15000, // Refresh every 15 seconds in background
+    placeholderData: (previousData: any) => previousData, // Show cached data instantly
   });
 
   const sportGroups = sportGroupsData?.sportGroups || [];
@@ -154,14 +156,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
 
       {/* Live Matches Content */}
       <div className="p-4">
-        {liveLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-center">
-              <Zap className="h-8 w-8 text-destructive animate-pulse mx-auto mb-2" />
-              <p className="text-muted-foreground">Loading live matches...</p>
-            </div>
-          </div>
-        ) : sportGroups.length === 0 ? (
+        {sportGroups.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
               <Circle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
@@ -177,7 +172,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
           >
             <SportsMatches
               sports={sportGroups}
-              isLoading={liveLoading}
+              isLoading={false}
               onOddsClick={handleOddsClick}
               onAddToFavorites={handleAddToFavorites}
             />

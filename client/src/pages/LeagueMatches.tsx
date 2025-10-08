@@ -19,8 +19,8 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
   const sport = params.sport;
   const leagueId = params.leagueId;
 
-  // Fetch league matches
-  const { data: leagueData, isLoading } = useQuery({
+  // Fetch league matches with instant loading from cache
+  const { data: leagueData, isRefetching } = useQuery({
     queryKey: ['/api/line', sport, leagueId, mode],
     queryFn: async () => {
       const response = await fetch(`/api/line/${sport}/${leagueId}?mode=${mode}`);
@@ -28,7 +28,9 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
       const result = await response.json();
       return result.data;
     },
+    staleTime: mode === 'live' ? 30 * 1000 : 3 * 60 * 1000,
     refetchInterval: mode === 'live' ? 15000 : 30000,
+    placeholderData: (previousData: any) => previousData, // Show cached data instantly
   });
 
   // Format data for SportsMatches component
@@ -133,14 +135,7 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
 
       {/* Matches List */}
       <div className="p-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-              <p className="text-muted-foreground">Loading matches...</p>
-            </div>
-          </div>
-        ) : formattedSportGroups[0]?.leagues[0]?.matches?.length === 0 ? (
+        {formattedSportGroups[0]?.leagues[0]?.matches?.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <p className="text-muted-foreground">No matches available</p>
           </div>
@@ -152,7 +147,7 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
           >
             <SportsMatches
               sports={formattedSportGroups}
-              isLoading={isLoading}
+              isLoading={false}
               onOddsClick={handleOddsClick}
               onAddToFavorites={handleAddToFavorites}
             />

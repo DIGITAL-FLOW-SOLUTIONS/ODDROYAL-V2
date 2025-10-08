@@ -23,18 +23,20 @@ interface HomepageProps {
 }
 
 export default function Homepage({ onAddToBetSlip }: HomepageProps) {
-  // Fetch upcoming matches from SportMonks API
-  const { data: upcomingMatchesData, isLoading: upcomingLoading } = useQuery({
+  // Fetch upcoming matches with instant loading from cache
+  const { data: upcomingMatchesData, isRefetching: upcomingRefetching } = useQuery({
     queryKey: ['/api/fixtures/upcoming'],
     queryFn: async () => {
       const response = await fetch('/api/fixtures/upcoming?limit=6');
       if (!response.ok) throw new Error('Failed to fetch upcoming matches');
       return response.json();
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 3 * 60 * 1000, // 3 minutes
+    refetchInterval: 30000, // Refresh every 30 seconds in background
+    placeholderData: (previousData: any) => previousData,
   });
 
-  // Fetch live matches count
+  // Fetch live matches count with instant loading
   const { data: liveMatchesData } = useQuery({
     queryKey: ['/api/fixtures/live'],
     queryFn: async () => {
@@ -42,7 +44,9 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
       if (!response.ok) throw new Error('Failed to fetch live matches');
       return response.json();
     },
-    refetchInterval: 10000, // Refresh every 10 seconds for live data
+    staleTime: 30 * 1000, // 30 seconds
+    refetchInterval: 10000, // Refresh every 10 seconds in background
+    placeholderData: (previousData: any) => previousData,
   });
 
   const featuredMatches = upcomingMatchesData?.data?.slice(0, 2) || [];
