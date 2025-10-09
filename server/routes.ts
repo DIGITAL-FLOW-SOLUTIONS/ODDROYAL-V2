@@ -6325,7 +6325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           return cleaned;
         }).refine((phone) => /^254[17]\d{8}$/.test(phone), "Invalid Kenyan mobile number"),
-        amount: z.number().min(2000, "Minimum amount is KES 2000"),
+        amount: z.number().min(1, "Amount must be greater than 0"),
         currency: z.literal("KES", { errorMap: () => ({ message: "Only KES currency is supported" }) }),
         description: z.string().optional(),
         depositId: z.string().regex(/^\d{6}$/, "Deposit ID must be 6 digits").optional()
