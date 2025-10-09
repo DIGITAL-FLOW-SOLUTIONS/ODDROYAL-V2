@@ -141,6 +141,16 @@ function Deposit() {
 
     // Handle M-PESA payment method differently
     if (selectedPaymentMethod === 'mpesa') {
+      // Validate minimum deposit for M-PESA (KES 2,000)
+      if (selectedCurrency === 'KES' && amount < 2000) {
+        toast({
+          title: "Minimum Deposit Amount",
+          description: "Minimum M-PESA deposit is KES 2,000.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // Store deposit details for M-PESA page
       localStorage.setItem('mpesa_amount', depositAmount);
       localStorage.setItem('mpesa_currency', selectedCurrency);

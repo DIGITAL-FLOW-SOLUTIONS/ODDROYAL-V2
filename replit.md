@@ -4,6 +4,21 @@ OddRoyal is a premium sports betting web application featuring real-time sports 
 
 # Recent Changes
 
+## October 9, 2025 - M-PESA Deposit System Improvements
+- **Deposit ID Consistency**: Fixed deposit ID to use frontend-generated 6-digit numeric ID as M-PESA account reference
+  - Frontend and backend now use the same 6-digit deposit ID format
+  - Deposit ID displayed in M-PESA notification matches frontend display
+  - Recent transactions show consistent 6-digit deposit IDs
+- **Minimum Deposit Validation**: Re-enabled KES 2,000 minimum deposit requirement
+  - Frontend validation at `/deposit` page for M-PESA payments
+  - Backend validation at `/api/mpesa/stk-push` endpoint
+- **First Deposit Bonus**: Implemented 100% welcome bonus for first-time depositors
+  - Automatically detects user's first completed deposit
+  - Doubles the deposit amount (100% bonus) added to user balance
+  - Creates separate bonus transaction record with metadata
+  - Updates deposit transaction description to indicate bonus applied
+  - Subsequent deposits receive no bonus (one-time offer only)
+
 ## October 9, 2025 - Professional Multi-Layer Caching System
 - **Multi-Layer Cache Architecture**: Implemented Pinnacle-style caching with Memory → Redis → API fallback chain
   - Layer 1: In-memory cache with LRU eviction (1000 entry max) for microsecond-level reads
