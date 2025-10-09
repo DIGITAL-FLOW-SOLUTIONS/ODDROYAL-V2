@@ -549,18 +549,3 @@ const transformOddsToMarkets = (oddsData: any[]): Market[] => {
 
   return Object.values(groupedByMarket);
 };
-
-const categorizeMarket = (marketName: string): string => {
-  const name = marketName.toLowerCase();
-  if (name.includes("winner") || name.includes("1x2") || name.includes("double chance")) 
-    return "main";
-  if (name.includes("goal") || name.includes("total") || name.includes("btts") || name.includes("score"))
-    return "goals";
-  if (name.includes("correct") && name.includes("score")) 
-    return "correct-score";
-  if (name.includes("handicap")) 
-    return "handicap";
-  if (name.includes("half") || name.includes("ht") || name.includes("ft")) 
-    return "halves";
-  return "specials";
-};
