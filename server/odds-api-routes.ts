@@ -1,5 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { redisCache } from './redis-cache';
+import { memoryCache } from './memory-cache';
 import { oddsApiClient, oddsApiMetrics } from './odds-api-client';
 import { getSportIcon } from './match-utils';
 
@@ -16,23 +17,40 @@ export function registerOddsApiRoutes(app: Express): void {
         });
       }
 
-      const sports = await redisCache.getSportsList() || [];
-      const menuData = [];
+      const cacheKey = `menu:${mode}`;
+      
+      // PROFESSIONAL MULTI-LAYER CACHING: Memory → Redis → Fallback
+      // Layer 1: Try memory cache (microsecond-level performance)
+      let menuData = memoryCache.get<any>(cacheKey);
+      let cacheSource = 'memory';
+      
+      if (!menuData) {
+        // Layer 2: Try Redis cache (millisecond-level performance)
+        const sports = await redisCache.getSportsList() || [];
+        menuData = [];
 
-      for (const sport of sports) {
-        const leagues = mode === 'live'
-          ? await redisCache.getLiveLeagues(sport.key)
-          : await redisCache.getPrematchLeagues(sport.key);
+        for (const sport of sports) {
+          const leagues = mode === 'live'
+            ? await redisCache.getLiveLeagues(sport.key)
+            : await redisCache.getPrematchLeagues(sport.key);
 
-        // Only include sports with leagues that have matches
-        if (leagues && leagues.length > 0) {
-          menuData.push({
-            sport_key: sport.key,
-            sport_title: sport.title,
-            sport_icon: getSportIcon(sport.key),
-            leagues: leagues.filter(l => l.match_count > 0),
-            total_matches: leagues.reduce((sum, l) => sum + l.match_count, 0),
-          });
+          // Only include sports with leagues that have matches
+          if (leagues && leagues.length > 0) {
+            menuData.push({
+              sport_key: sport.key,
+              sport_title: sport.title,
+              sport_icon: getSportIcon(sport.key),
+              leagues: leagues.filter(l => l.match_count > 0),
+              total_matches: leagues.reduce((sum, l) => sum + l.match_count, 0),
+            });
+          }
+        }
+        
+        cacheSource = 'redis';
+        
+        // Store in memory cache for next request (5 second TTL for menu)
+        if (menuData && menuData.length > 0) {
+          memoryCache.set(cacheKey, menuData, mode === 'live' ? 5 : 30);
         }
       }
 
@@ -43,6 +61,7 @@ export function registerOddsApiRoutes(app: Express): void {
           sports: menuData,
           total_sports: menuData.length,
           cache_ready: await redisCache.isCacheReady(),
+          cache_source: cacheSource, // Helps track cache efficiency
           timestamp: new Date().toISOString(),
         },
       });
@@ -69,46 +88,63 @@ export function registerOddsApiRoutes(app: Express): void {
         });
       }
 
-      const matches = mode === 'live'
-        ? await redisCache.getLiveMatches(sport, leagueId)
-        : await redisCache.getPrematchMatches(sport, leagueId);
+      const cacheKey = `line:${sport}:${leagueId}:${mode}`;
+      
+      // PROFESSIONAL MULTI-LAYER CACHING: Memory → Redis
+      // Layer 1: Try memory cache first
+      let enrichedMatches = memoryCache.get<any[]>(cacheKey);
+      let cacheSource = 'memory';
+      
+      if (!enrichedMatches) {
+        // Layer 2: Try Redis cache
+        const matches = mode === 'live'
+          ? await redisCache.getLiveMatches(sport, leagueId)
+          : await redisCache.getPrematchMatches(sport, leagueId);
 
-      if (!matches) {
-        return res.json({
-          success: true,
-          data: {
-            sport,
-            league_id: leagueId,
-            mode,
-            matches: [],
-            count: 0,
-          },
-        });
+        if (!matches || matches.length === 0) {
+          return res.json({
+            success: true,
+            data: {
+              sport,
+              league_id: leagueId,
+              mode,
+              matches: [],
+              count: 0,
+              cache_source: 'none',
+            },
+          });
+        }
+
+        // Enrich matches with logos
+        enrichedMatches = await Promise.all(
+          matches.map(async (match) => {
+            const homeLogo = await redisCache.getTeamLogo(sport, match.home_team);
+            const awayLogo = await redisCache.getTeamLogo(sport, match.away_team);
+
+            return {
+              ...match,
+              home_team_logo: homeLogo?.logo || null,
+              away_team_logo: awayLogo?.logo || null,
+            };
+          })
+        );
+        
+        cacheSource = 'redis';
+        
+        // Store in memory cache (3 seconds for live, 15 seconds for prematch)
+        memoryCache.set(cacheKey, enrichedMatches, mode === 'live' ? 3 : 15);
       }
-
-      // Enrich matches with logos
-      const enrichedMatches = await Promise.all(
-        matches.map(async (match) => {
-          const homeLogo = await redisCache.getTeamLogo(sport, match.home_team);
-          const awayLogo = await redisCache.getTeamLogo(sport, match.away_team);
-
-          return {
-            ...match,
-            home_team_logo: homeLogo?.logo || null,
-            away_team_logo: awayLogo?.logo || null,
-          };
-        })
-      );
 
       res.json({
         success: true,
         data: {
           sport,
           league_id: leagueId,
-          league_name: matches[0]?.league_name || 'Unknown League',
+          league_name: enrichedMatches[0]?.league_name || 'Unknown League',
           mode,
           matches: enrichedMatches,
           count: enrichedMatches.length,
+          cache_source: cacheSource,
           timestamp: new Date().toISOString(),
         },
       });
@@ -126,19 +162,35 @@ export function registerOddsApiRoutes(app: Express): void {
   app.get('/api/match/:matchId/markets', async (req: Request, res: Response) => {
     try {
       const { matchId } = req.params;
-
-      const markets = await redisCache.getMatchMarkets(matchId);
-
+      const cacheKey = `markets:${matchId}`;
+      
+      // PROFESSIONAL MULTI-LAYER CACHING: Memory → Redis
+      // Layer 1: Try memory cache first
+      let markets = memoryCache.get<any>(cacheKey);
+      let cacheSource = 'memory';
+      
       if (!markets) {
-        return res.status(404).json({
-          success: false,
-          error: 'Markets not found for this match',
-        });
+        // Layer 2: Try Redis cache
+        markets = await redisCache.getMatchMarkets(matchId);
+        cacheSource = 'redis';
+        
+        if (!markets) {
+          return res.status(404).json({
+            success: false,
+            error: 'Markets not found for this match',
+          });
+        }
+        
+        // Store in memory cache (2 seconds for fast re-access)
+        memoryCache.set(cacheKey, markets, 2);
       }
 
       res.json({
         success: true,
-        data: markets,
+        data: {
+          ...markets,
+          cache_source: cacheSource,
+        },
       });
     } catch (error) {
       console.error('Error fetching match markets:', error);
@@ -212,12 +264,13 @@ export function registerOddsApiRoutes(app: Express): void {
     }
   });
 
-  // Cache status endpoint
+  // Cache status endpoint - includes multi-layer cache statistics
   app.get('/api/status/cache', async (req: Request, res: Response) => {
     try {
       const cacheReady = await redisCache.isCacheReady();
       const report = await redisCache.getLatestCacheReport();
       const redisStats = await redisCache.getStats();
+      const memoryStats = memoryCache.getStats();
       const apiMetrics = oddsApiMetrics.getStats();
 
       res.json({
@@ -225,7 +278,17 @@ export function registerOddsApiRoutes(app: Express): void {
         data: {
           ready: cacheReady,
           last_report: report,
-          redis_stats: redisStats,
+          // Multi-layer cache stats
+          cache_layers: {
+            memory: {
+              ...memoryStats,
+              description: 'In-memory cache for ultra-fast reads (microsecond-level)',
+            },
+            redis: {
+              ...redisStats,
+              description: 'Redis cache for shared state (millisecond-level)',
+            },
+          },
           api_metrics: apiMetrics,
           timestamp: new Date().toISOString(),
         },
