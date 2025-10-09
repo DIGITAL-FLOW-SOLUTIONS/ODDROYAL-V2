@@ -316,7 +316,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             username: profile.username,
             firstName: profile.first_name,
             lastName: profile.last_name,
-            balance: (profile.balance / 100).toFixed(2) // Convert cents to pounds
+            balance: profile.balance.toFixed(2)
           },
           sessionToken: authData.session?.access_token || '',
           refreshToken: authData.session?.refresh_token || ''
@@ -395,7 +395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           username: profile.username,
           firstName: profile.first_name,
           lastName: profile.last_name,
-          balance: (profile.balance / 100).toFixed(2), // Convert cents to KES
+          balance: profile.balance.toFixed(2),
           isActive: profile.is_active,
           createdAt: profile.created_at,
           updatedAt: profile.updated_at
@@ -2585,7 +2585,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        const newBalance = user.balance + Math.round(amount * 100); // Convert to cents
+        const adjustment = Math.round(amount * 100); // Convert to cents
+        const newBalance = user.balance + adjustment;
         if (newBalance < 0) {
           return res.status(400).json({
             success: false,
@@ -2593,7 +2594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        const updatedUser = await storage.updateUserBalance(id, newBalance);
+        const updatedUser = await storage.updateUserBalance(id, adjustment);
         
         // Create transaction record
         await storage.createTransaction({
@@ -5457,7 +5458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Update user balance
-        await storage.updateUserBalance(userId, newBalanceCents);
+        await storage.updateUserBalance(userId, adjustment);
 
         // Create transaction record
         await storage.createTransaction({
@@ -5763,7 +5764,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const user = await storage.getUser(bet.userId);
           if (user) {
             const newBalance = user.balance + actualWinnings;
-            await storage.updateUserBalance(bet.userId, newBalance);
+            await storage.updateUserBalance(bet.userId, actualWinnings);
             
             // Record transaction
             await storage.createTransaction({
@@ -6334,14 +6335,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = stkPushSchema.parse(req.body);
       const { phoneNumber, amount, currency, description, depositId: clientDepositId } = validatedData;
 
-      // Check for duplicate recent transactions (idempotency)
+      // Check for duplicate recent transactions (idempotency) - only check for exact duplicates within 30 seconds
       const recentTransactions = await storage.getUserTransactions(req.user.id);
       const recentDuplicate = recentTransactions.find(t => {
         const timeDiff = Date.now() - new Date(t.createdAt).getTime();
         return t.type === 'deposit' && 
                t.amount === amount.toString() && 
                t.status === 'pending' &&
-               timeDiff < 60000; // 1 minute
+               timeDiff < 30000; // 30 seconds only (reduced from 1 minute)
       });
 
       if (recentDuplicate) {

@@ -38,7 +38,7 @@ export interface IStorage {
   ): Promise<User | undefined>;
   updateUserBalance(
     userId: string,
-    newBalanceCents: number,
+    amountToAdd: number,
   ): Promise<User | undefined>;
 
   // Bet operations - removed old implementation, using new service
@@ -800,18 +800,20 @@ export class MemStorage implements IStorage {
 
   async updateUserBalance(
     userId: string,
-    newBalanceCents: number,
+    amountToAdd: number,
   ): Promise<User | undefined> {
     const user = this.users.get(userId);
     if (!user) return undefined;
 
-    if (newBalanceCents < 0) {
-      throw new Error("Balance cannot be negative");
+    const newBalance = user.balance + amountToAdd;
+
+    if (newBalance < 0) {
+      throw new Error("Insufficient balance");
     }
 
     const updatedUser = {
       ...user,
-      balance: newBalanceCents,
+      balance: newBalance,
       updatedAt: new Date(),
     };
     this.users.set(userId, updatedUser);

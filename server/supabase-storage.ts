@@ -137,12 +137,31 @@ export class SupabaseStorage implements IStorage {
 
   async updateUserBalance(
     userId: string,
-    newBalanceCents: number,
+    amountToAdd: number,
   ): Promise<User | undefined> {
+    // First get the current balance
+    const { data: userData, error: fetchError } = await this.client
+      .from('users')
+      .select('balance')
+      .eq('id', userId)
+      .single();
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch user balance: ${fetchError.message}`);
+    }
+
+    const currentBalance = userData.balance || 0;
+    const newBalance = currentBalance + amountToAdd;
+
+    if (newBalance < 0) {
+      throw new Error("Insufficient balance");
+    }
+
+    // Update with the new balance
     const { data, error } = await this.client
       .from('users')
       .update({ 
-        balance: newBalanceCents,
+        balance: newBalance,
         updated_at: new Date().toISOString()
       })
       .eq('id', userId)

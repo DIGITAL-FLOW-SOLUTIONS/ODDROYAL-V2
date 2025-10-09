@@ -515,7 +515,7 @@ export class BetSettlementWorker {
       const newBalanceCents = user.balance + winningsCents;
       
       // Update user balance
-      await storage.updateUserBalance(userId, newBalanceCents);
+      await storage.updateUserBalance(userId, winningsCents);
 
       // Create transaction record
       await storage.createTransaction({
