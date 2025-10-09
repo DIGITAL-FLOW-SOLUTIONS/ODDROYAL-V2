@@ -13,13 +13,17 @@ interface CacheEntry<T> {
   data: T;
   timestamp: number;
   ttl: number;
+  lastAccessed: number; // For LRU tracking
 }
 
 export class MemoryCacheManager {
   private cache: Map<string, CacheEntry<any>> = new Map();
   private cleanupInterval: NodeJS.Timeout | null = null;
+  private maxEntries: number;
 
-  constructor() {
+  constructor(maxEntries: number = 1000) {
+    this.maxEntries = maxEntries;
+    
     // Clean up expired entries every 30 seconds
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
@@ -27,19 +31,47 @@ export class MemoryCacheManager {
   }
 
   /**
-   * Set data in memory cache with TTL
+   * Set data in memory cache with TTL and LRU eviction
    */
   set<T>(key: string, value: T, ttlSeconds: number): void {
+    // LRU EVICTION: If at capacity, remove least recently used entry
+    if (this.cache.size >= this.maxEntries && !this.cache.has(key)) {
+      this.evictLRU();
+    }
+
+    const now = Date.now();
     this.cache.set(key, {
       data: value,
-      timestamp: Date.now(),
+      timestamp: now,
       ttl: ttlSeconds * 1000, // Convert to milliseconds
+      lastAccessed: now,
     });
+  }
+
+  /**
+   * Evict least recently used entry
+   */
+  private evictLRU(): void {
+    let oldestKey: string | null = null;
+    let oldestTime = Infinity;
+
+    for (const [key, entry] of this.cache.entries()) {
+      if (entry.lastAccessed < oldestTime) {
+        oldestTime = entry.lastAccessed;
+        oldestKey = key;
+      }
+    }
+
+    if (oldestKey) {
+      this.cache.delete(oldestKey);
+      console.log(`🗑️  LRU eviction: removed ${oldestKey}`);
+    }
   }
 
   /**
    * Get data from memory cache
    * Returns null if not found or expired
+   * Updates lastAccessed for LRU tracking
    */
   get<T>(key: string): T | null {
     const entry = this.cache.get(key);
@@ -55,6 +87,10 @@ export class MemoryCacheManager {
       this.cache.delete(key);
       return null;
     }
+
+    // Update last accessed time for LRU
+    entry.lastAccessed = Date.now();
+    this.cache.set(key, entry);
 
     return entry.data as T;
   }
@@ -162,6 +198,8 @@ export class MemoryCacheManager {
       expiredEntries,
       staleEntries,
       freshEntries: totalEntries - expiredEntries - staleEntries,
+      maxEntries: this.maxEntries,
+      utilizationPercent: ((totalEntries / this.maxEntries) * 100).toFixed(2) + '%',
     };
   }
 

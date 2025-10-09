@@ -29,7 +29,33 @@ export function registerOddsApiRoutes(app: Express): void {
         cacheMonitor.recordMiss('memory');
         
         // Layer 2: Try Redis cache (millisecond-level performance)
-        const sports = await redisCache.getSportsList() || [];
+        let sports = await redisCache.getSportsList() || [];
+        
+        // Layer 3: API fallback if Redis is empty (cache miss or not ready)
+        if (sports.length === 0) {
+          cacheMonitor.recordMiss('redis');
+          console.log('📡 Redis cache empty, falling back to API for sports list');
+          
+          try {
+            sports = await oddsApiClient.getSports();
+            cacheMonitor.recordHit('api');
+            cacheSource = 'api';
+            
+            // Store sports in Redis for future requests
+            if (sports.length > 0) {
+              await redisCache.setSportsList(sports, 3600); // 1 hour TTL
+            }
+          } catch (apiError) {
+            cacheMonitor.recordError('api');
+            console.error('Failed to fetch sports from API:', apiError);
+            // Return empty if API also fails
+            sports = [];
+          }
+        } else {
+          cacheMonitor.recordHit('redis');
+          cacheSource = 'redis';
+        }
+        
         menuData = [];
 
         for (const sport of sports) {
@@ -48,9 +74,6 @@ export function registerOddsApiRoutes(app: Express): void {
             });
           }
         }
-        
-        cacheSource = 'redis';
-        cacheMonitor.recordHit('redis');
         
         // Store in memory cache for next request (5 second TTL for menu)
         if (menuData && menuData.length > 0) {
@@ -105,12 +128,53 @@ export function registerOddsApiRoutes(app: Express): void {
         cacheMonitor.recordMiss('memory');
         
         // Layer 2: Try Redis cache
-        const matches = mode === 'live'
+        let matches = mode === 'live'
           ? await redisCache.getLiveMatches(sport, leagueId)
           : await redisCache.getPrematchMatches(sport, leagueId);
 
+        // Layer 3: API fallback if Redis miss
         if (!matches || matches.length === 0) {
           cacheMonitor.recordMiss('redis');
+          console.log(`📡 Redis cache miss for ${sport}/${leagueId}, falling back to API`);
+          
+          try {
+            // Call API to get fresh odds for this sport
+            const apiEvents = await oddsApiClient.getOdds(leagueId, {
+              regions: 'uk,eu,us',
+              markets: 'h2h,spreads,totals',
+              oddsFormat: 'decimal',
+              dateFormat: 'iso',
+              ...(mode === 'live' ? { status: 'live' } : {}),
+            });
+            
+            cacheMonitor.recordHit('api');
+            cacheSource = 'api';
+            
+            if (apiEvents.length > 0) {
+              // Normalize and store in Redis
+              const { normalizeOddsEvent, groupMatchesByLeague } = await import('./match-utils');
+              matches = apiEvents.map(event => normalizeOddsEvent(event, sport));
+              
+              // Store in Redis for future requests
+              if (mode === 'live') {
+                await redisCache.setLiveMatches(sport, leagueId, matches, 60);
+              } else {
+                await redisCache.setPrematchMatches(sport, leagueId, matches, 600);
+              }
+            } else {
+              matches = [];
+            }
+          } catch (apiError) {
+            cacheMonitor.recordError('api');
+            console.error(`Failed to fetch ${leagueId} from API:`, apiError);
+            matches = [];
+          }
+        } else {
+          cacheMonitor.recordHit('redis');
+          cacheSource = 'redis';
+        }
+
+        if (!matches || matches.length === 0) {
           return res.json({
             success: true,
             data: {
@@ -119,7 +183,7 @@ export function registerOddsApiRoutes(app: Express): void {
               mode,
               matches: [],
               count: 0,
-              cache_source: 'none',
+              cache_source: cacheSource || 'none',
             },
           });
         }
@@ -137,9 +201,6 @@ export function registerOddsApiRoutes(app: Express): void {
             };
           })
         );
-        
-        cacheSource = 'redis';
-        cacheMonitor.recordHit('redis');
         
         // Store in memory cache (3 seconds for live, 15 seconds for prematch)
         memoryCache.set(cacheKey, enrichedMatches, mode === 'live' ? 3 : 15);
