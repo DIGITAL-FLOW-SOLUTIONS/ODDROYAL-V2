@@ -6,6 +6,115 @@ import { oddsApiClient, oddsApiMetrics } from './odds-api-client';
 import { getSportIcon } from './match-utils';
 
 export function registerOddsApiRoutes(app: Express): void {
+  // NEW: Aggregated live matches endpoint - all live matches in one call
+  app.get('/api/live/matches', async (req: Request, res: Response) => {
+    try {
+      const cacheKey = 'aggregated:live:all';
+      
+      // PROFESSIONAL MULTI-LAYER CACHING: Memory → Redis computation
+      // Layer 1: Try memory cache first (ultra-fast)
+      let aggregatedData = memoryCache.get<any>(cacheKey);
+      let cacheSource = 'memory';
+      
+      if (!aggregatedData) {
+        cacheMonitor.recordMiss('memory');
+        
+        // Layer 2: Compute from Redis cache
+        const allLiveMatches = await redisCache.getAllLiveMatchesEnriched();
+        cacheMonitor.recordHit('redis');
+        cacheSource = 'redis';
+        
+        // Group by sport and league
+        const sportGroups: any[] = [];
+        const sportMap = new Map<string, any>();
+        
+        for (const match of allLiveMatches) {
+          // Ensure we only show truly live matches
+          if (match.status !== 'live') continue;
+          
+          // Get or create sport group
+          let sportGroup = sportMap.get(match.sport_key);
+          if (!sportGroup) {
+            sportGroup = {
+              sport_key: match.sport_key,
+              sport_title: match.sport_key.charAt(0).toUpperCase() + match.sport_key.slice(1),
+              sport_icon: match.sport_icon,
+              leagues: new Map<string, any>(),
+            };
+            sportMap.set(match.sport_key, sportGroup);
+          }
+          
+          // Get or create league within sport
+          let league = sportGroup.leagues.get(match.league_id);
+          if (!league) {
+            league = {
+              league_id: match.league_id,
+              league_name: match.league_name,
+              matches: [],
+            };
+            sportGroup.leagues.set(match.league_id, league);
+          }
+          
+          // Add match to league
+          league.matches.push(match);
+        }
+        
+        // Convert maps to arrays
+        sportMap.forEach(sportGroup => {
+          const leagues = Array.from(sportGroup.leagues.values());
+          sportGroups.push({
+            sport_key: sportGroup.sport_key,
+            sport_title: sportGroup.sport_title,
+            sport_icon: sportGroup.sport_icon,
+            leagues,
+            total_matches: leagues.reduce((sum, l: any) => sum + l.matches.length, 0),
+          });
+        });
+        
+        // Sort by priority
+        sportGroups.sort((a, b) => {
+          const priorityMap: Record<string, number> = {
+            football: 1,
+            basketball: 2,
+            americanfootball: 3,
+            baseball: 4,
+            icehockey: 5,
+            cricket: 6,
+            mma: 7,
+          };
+          return (priorityMap[a.sport_key] || 99) - (priorityMap[b.sport_key] || 99);
+        });
+        
+        aggregatedData = {
+          sports: sportGroups,
+          total_sports: sportGroups.length,
+          total_matches: sportGroups.reduce((sum, s) => sum + s.total_matches, 0),
+        };
+        
+        // Store in memory cache (5 second TTL for live data)
+        if (aggregatedData.total_matches > 0) {
+          memoryCache.set(cacheKey, aggregatedData, 5);
+        }
+      } else {
+        cacheMonitor.recordHit('memory');
+      }
+
+      res.json({
+        success: true,
+        data: aggregatedData,
+        cache_source: cacheSource,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error('Error fetching aggregated live matches:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch live matches',
+        details: (error as Error).message,
+      });
+    }
+  });
+
   // Get menu (sports + leagues) based on mode
   app.get('/api/menu', async (req: Request, res: Response) => {
     try {

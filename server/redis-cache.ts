@@ -414,6 +414,153 @@ class RedisCacheManager {
     // Last resort fallback: refresh if less than threshold of a reasonable default
     return currentTtl < 60; // Less than 1 minute
   }
+
+  // ODDS HISTORY TRACKING - For detecting odds changes
+  
+  // Store odds snapshot for a match
+  async setOddsSnapshot(
+    matchId: string,
+    marketKey: string,
+    odds: Record<string, number>,
+    ttlSeconds: number = 300
+  ): Promise<void> {
+    const key = `odds:snapshot:${matchId}:${marketKey}`;
+    const snapshot = {
+      odds,
+      timestamp: Date.now(),
+    };
+    await this.set(key, snapshot, ttlSeconds);
+  }
+
+  // Get previous odds snapshot
+  async getOddsSnapshot(
+    matchId: string,
+    marketKey: string
+  ): Promise<{ odds: Record<string, number>; timestamp: number } | null> {
+    const key = `odds:snapshot:${matchId}:${marketKey}`;
+    return await this.get<{ odds: Record<string, number>; timestamp: number }>(key);
+  }
+
+  // Calculate and store odds delta
+  async calculateOddsDelta(
+    matchId: string,
+    marketKey: string,
+    currentOdds: Record<string, number>
+  ): Promise<Record<string, 'up' | 'down' | 'unchanged' | 'locked'>> {
+    const previous = await this.getOddsSnapshot(matchId, marketKey);
+    const deltas: Record<string, 'up' | 'down' | 'unchanged' | 'locked'> = {};
+
+    if (!previous) {
+      // First time seeing these odds - mark as unchanged
+      Object.keys(currentOdds).forEach(key => {
+        deltas[key] = 'unchanged';
+      });
+    } else {
+      Object.keys(currentOdds).forEach(key => {
+        const current = currentOdds[key];
+        const prev = previous.odds[key];
+
+        if (current === 0 || current === null || current === undefined) {
+          deltas[key] = 'locked';
+        } else if (!prev) {
+          deltas[key] = 'unchanged';
+        } else if (current > prev) {
+          deltas[key] = 'up';
+        } else if (current < prev) {
+          deltas[key] = 'down';
+        } else {
+          deltas[key] = 'unchanged';
+        }
+      });
+    }
+
+    // Store current odds as new snapshot for next comparison
+    await this.setOddsSnapshot(matchId, marketKey, currentOdds, 300);
+
+    return deltas;
+  }
+
+  // Store market status for a match
+  async setMarketStatus(
+    matchId: string,
+    marketKey: string,
+    status: 'open' | 'suspended' | 'closed',
+    ttlSeconds: number = 300
+  ): Promise<void> {
+    const key = `market:status:${matchId}:${marketKey}`;
+    await this.set(key, { status, timestamp: Date.now() }, ttlSeconds);
+  }
+
+  // Get market status
+  async getMarketStatus(
+    matchId: string,
+    marketKey: string
+  ): Promise<'open' | 'suspended' | 'closed' | null> {
+    const key = `market:status:${matchId}:${marketKey}`;
+    const result = await this.get<{ status: 'open' | 'suspended' | 'closed'; timestamp: number }>(key);
+    return result?.status || null;
+  }
+
+  // Get all live matches with enriched data (for aggregator endpoint)
+  async getAllLiveMatchesEnriched(): Promise<any[]> {
+    const sports = await this.getSportsList() || [];
+    const allMatches: any[] = [];
+
+    for (const sport of sports) {
+      const leagues = await this.getLiveLeagues(sport.key) || [];
+      
+      for (const league of leagues) {
+        const matches = await this.getLiveMatches(sport.key, league.league_id) || [];
+        
+        // Enrich each match with logos and market status
+        for (const match of matches) {
+          const homeLogo = await this.getTeamLogo(sport.key, match.home_team);
+          const awayLogo = await this.getTeamLogo(sport.key, match.away_team);
+          
+          // Get h2h market status and deltas
+          const h2hMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h');
+          let oddsDeltas: any = {};
+          let marketStatus = 'open';
+
+          if (h2hMarket) {
+            const currentOdds: Record<string, number> = {};
+            h2hMarket.outcomes?.forEach((outcome: any) => {
+              currentOdds[outcome.name] = outcome.price || 0;
+            });
+
+            oddsDeltas = await this.calculateOddsDelta(match.match_id, 'h2h', currentOdds);
+            const status = await this.getMarketStatus(match.match_id, 'h2h');
+            marketStatus = status || 'open';
+          }
+
+          allMatches.push({
+            ...match,
+            home_team_logo: homeLogo?.logo || null,
+            away_team_logo: awayLogo?.logo || null,
+            odds_deltas: oddsDeltas,
+            market_status: marketStatus,
+            league_name: league.league_name,
+            sport_icon: this.getSportIconForKey(sport.key),
+          });
+        }
+      }
+    }
+
+    return allMatches;
+  }
+
+  private getSportIconForKey(sportKey: string): string {
+    const icons: Record<string, string> = {
+      football: '⚽',
+      basketball: '🏀',
+      americanfootball: '🏈',
+      baseball: '⚾',
+      icehockey: '🏒',
+      cricket: '🏏',
+      mma: '🥊',
+    };
+    return icons[sportKey] || '🏆';
+  }
 }
 
 export const redisCache = new RedisCacheManager();

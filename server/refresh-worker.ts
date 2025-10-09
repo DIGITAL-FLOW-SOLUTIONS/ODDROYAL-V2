@@ -167,9 +167,27 @@ export class RefreshWorker {
         for (const league of nonEmptyLeagues) {
           await redisCache.setLiveMatches(ourSportKey, league.league_id, league.matches, 60);
 
-          // Update markets for each match
+          // Update markets for each match with odds delta tracking
           for (const match of league.matches) {
             const markets = normalizeMarkets(match.bookmakers || []);
+            
+            // Track odds changes for h2h market
+            const h2hMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h');
+            if (h2hMarket?.outcomes) {
+              const currentOdds: Record<string, number> = {};
+              h2hMarket.outcomes.forEach((outcome: any) => {
+                currentOdds[outcome.name] = outcome.price || 0;
+              });
+              
+              // Calculate deltas (this also stores the snapshot)
+              await redisCache.calculateOddsDelta(match.match_id, 'h2h', currentOdds);
+              
+              // Determine market status based on odds availability
+              const hasValidOdds = h2hMarket.outcomes.some((o: any) => o.price > 0);
+              const marketStatus = hasValidOdds ? 'open' : 'suspended';
+              await redisCache.setMarketStatus(match.match_id, 'h2h', marketStatus, 120);
+            }
+            
             await redisCache.setMatchMarkets(match.match_id, {
               match_id: match.match_id,
               markets,
