@@ -3,7 +3,7 @@ import { redisCache } from './redis-cache';
 import { memoryCache } from './memory-cache';
 import { cacheMonitor } from './cache-monitor';
 import { oddsApiClient, oddsApiMetrics } from './odds-api-client';
-import { getSportIcon } from './match-utils';
+import { getSportIcon, FOOTBALL_LEAGUE_PRIORITY } from './match-utils';
 
 export function registerOddsApiRoutes(app: Express): void {
   // NEW: Aggregated live matches endpoint - all live matches in one call
@@ -163,11 +163,23 @@ export function registerOddsApiRoutes(app: Express): void {
 
           // Only include sports with leagues that have matches
           if (leagues && leagues.length > 0) {
+            // Filter leagues with matches
+            let filteredLeagues = leagues.filter(l => l.match_count > 0);
+            
+            // Sort football leagues by priority to ensure EPL and top leagues appear first
+            if (sport.key === 'football') {
+              filteredLeagues.sort((a, b) => {
+                const priorityA = FOOTBALL_LEAGUE_PRIORITY[a.league_id] || 999;
+                const priorityB = FOOTBALL_LEAGUE_PRIORITY[b.league_id] || 999;
+                return priorityA - priorityB;
+              });
+            }
+            
             menuData.push({
               sport_key: sport.key,
               sport_title: sport.title,
               sport_icon: getSportIcon(sport.key),
-              leagues: leagues.filter(l => l.match_count > 0),
+              leagues: filteredLeagues,
               total_matches: leagues.reduce((sum, l) => sum + l.match_count, 0),
             });
           }
@@ -569,13 +581,25 @@ export function registerOddsApiRoutes(app: Express): void {
         ? await redisCache.getLiveLeagues(sport) || []
         : await redisCache.getPrematchLeagues(sport) || [];
 
+      // Filter leagues with matches
+      let filteredLeagues = leagues.filter(l => l.match_count > 0);
+      
+      // Sort football leagues by priority to ensure EPL and top leagues appear first
+      if (sport === 'football') {
+        filteredLeagues.sort((a, b) => {
+          const priorityA = FOOTBALL_LEAGUE_PRIORITY[a.league_id] || 999;
+          const priorityB = FOOTBALL_LEAGUE_PRIORITY[b.league_id] || 999;
+          return priorityA - priorityB;
+        });
+      }
+
       res.json({
         success: true,
         data: {
           sport,
           mode,
-          leagues: leagues.filter(l => l.match_count > 0),
-          count: leagues.length,
+          leagues: filteredLeagues,
+          count: filteredLeagues.length,
         },
       });
     } catch (error) {
