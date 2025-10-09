@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,7 @@ export default function PopularEvents({
   onOddsClick, 
   onAddToFavorites 
 }: PopularEventsProps) {
+  const [, setLocation] = useLocation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -79,11 +81,16 @@ export default function PopularEvents({
     });
   };
 
-  const handleOddsClick = (match: PopularMatch, type: string) => {
+  const handleOddsClick = (match: PopularMatch, type: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click from firing
     if (onOddsClick && match.odds) {
       const odds = type === 'home' ? match.odds.home : type === 'draw' ? match.odds.draw : match.odds.away;
       onOddsClick(match.id, '1x2', type, odds);
     }
+  };
+
+  const handleCardClick = (matchId: string) => {
+    setLocation(`/match/${matchId}`);
   };
 
   const renderContent = () => {
@@ -125,7 +132,12 @@ export default function PopularEvents({
         transition={{ delay: index * 0.1 }}
         className="flex-shrink-0"
       >
-        <Card className="w-80 hover-elevate cursor-pointer" style={{ backgroundColor: 'hsl(var(--surface-3))', borderColor: 'hsl(var(--surface-4))' }}>
+        <Card 
+          className="w-80 hover-elevate cursor-pointer" 
+          style={{ backgroundColor: 'hsl(var(--surface-3))', borderColor: 'hsl(var(--surface-4))' }}
+          onClick={() => handleCardClick(match.id)}
+          data-testid={`card-match-${match.id}`}
+        >
           <CardContent className="p-4">
             {/* Match header */}
             <div className="flex items-center justify-between mb-3">
@@ -139,7 +151,10 @@ export default function PopularEvents({
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 hover-elevate"
-                onClick={() => onAddToFavorites?.(match.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToFavorites?.(match.id);
+                }}
                 data-testid={`button-favorite-${match.id}`}
               >
                 <Star className="h-3 w-3" />
@@ -185,7 +200,7 @@ export default function PopularEvents({
                 <div className="grid grid-cols-3 gap-2 mt-4">
                   <Button
                     size="sm"
-                    onClick={() => handleOddsClick(match, 'home')}
+                    onClick={(e) => handleOddsClick(match, 'home', e)}
                     className="flex flex-col gap-1 h-auto py-2 odds-button"
                     data-testid={`button-odds-home-${match.id}`}
                   >
@@ -194,7 +209,7 @@ export default function PopularEvents({
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => handleOddsClick(match, 'draw')}
+                    onClick={(e) => handleOddsClick(match, 'draw', e)}
                     className="flex flex-col gap-1 h-auto py-2 odds-button"
                     data-testid={`button-odds-draw-${match.id}`}
                   >
@@ -203,7 +218,7 @@ export default function PopularEvents({
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => handleOddsClick(match, 'away')}
+                    onClick={(e) => handleOddsClick(match, 'away', e)}
                     className="flex flex-col gap-1 h-auto py-2 odds-button"
                     data-testid={`button-odds-away-${match.id}`}
                   >

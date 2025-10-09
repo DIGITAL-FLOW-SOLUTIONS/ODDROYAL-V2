@@ -834,20 +834,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // If ID is numeric, fetch from SportMonks API (existing logic)
-      const fixtureId = parseInt(fixtureIdParam);
-      if (isNaN(fixtureId)) {
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Invalid fixture ID' 
-        });
-      }
-
-      const odds = await getFixtureOdds(fixtureId);
-      
-      res.json({ 
-        success: true, 
-        data: odds 
+      // If ID is numeric, this is a legacy SportMonks fixture ID
+      // For now, return 404 as we use UUID-based match IDs from the current API
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Match odds not found - please use UUID-based match IDs from the current API' 
       });
     } catch (error) {
       console.error('Error fetching fixture odds:', error);
