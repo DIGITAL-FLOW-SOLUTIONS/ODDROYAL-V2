@@ -44,7 +44,14 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
     };
     
     const max = maxMinutes[match.sport_key] || 90;
-    return Math.min(Math.max(0, elapsedMin), max).toString();
+    const result = Math.min(Math.max(0, elapsedMin), max).toString();
+    
+    // Debug logging for first match only
+    if (match.match_id.includes('poland')) {
+      console.log(`⏱️ Match ${match.home_team} vs ${match.away_team}: ${result}' (elapsed: ${elapsedMin}, status: ${match.status})`);
+    }
+    
+    return result;
   };
 
   const minute = getMatchMinute();
@@ -70,7 +77,19 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
 
   const handleOddsClick = (type: 'home' | 'draw' | 'away', odds: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (isMarketLocked || odds === 0) return;
+    console.log('🎯 OddsCell clicked:', { type, odds, isLocked: isMarketLocked, matchId: match.match_id });
+    
+    if (isMarketLocked || odds === 0) {
+      console.log('❌ Click blocked - market locked or invalid odds');
+      return;
+    }
+    
+    if (!onOddsClick) {
+      console.log('❌ No onOddsClick handler provided');
+      return;
+    }
+    
+    console.log('✅ Calling onOddsClick handler');
     onOddsClick?.(match.match_id, '1x2', type, odds);
   };
 
