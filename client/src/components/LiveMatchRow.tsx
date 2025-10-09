@@ -16,35 +16,38 @@ import { type CachedMatch } from '@/lib/liveMatchesCache';
 interface LiveMatchRowProps {
   match: CachedMatch;
   onOddsClick?: (matchId: string, market: string, type: string, odds: number) => void;
+  selectedOdds?: Set<string>; // Set of selected odds IDs (matchId-market-type)
 }
 
-export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick }: LiveMatchRowProps) {
+export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, selectedOdds }: LiveMatchRowProps) {
   const [isFavorite, setIsFavorite] = useState(false);
   const [, setLocation] = useLocation();
 
-  // Calculate match minute (if available)
+  // Calculate match minute based on elapsed time from commence_time
   const getMatchMinute = () => {
-    if (!match.scores) return '0';
+    if (match.status !== 'live') return '0';
     
     const startTime = new Date(match.commence_time).getTime();
     const now = Date.now();
     const elapsedMs = now - startTime;
     const elapsedMin = Math.floor(elapsedMs / 60000);
     
-    // Cap at reasonable values (90' for football, 48' for basketball, etc.)
+    // Cap at reasonable values per sport
     const maxMinutes: Record<string, number> = {
       football: 90,
       basketball: 48,
       americanfootball: 60,
-      baseball: 0, // Use innings instead
+      baseball: 180, // 9 innings * 20 min average
       icehockey: 60,
+      cricket: 300, // T20/ODI can be long
+      mma: 25, // 5 rounds * 5 min
     };
     
     const max = maxMinutes[match.sport_key] || 90;
     return Math.min(Math.max(0, elapsedMin), max).toString();
   };
 
-  const minute = match.status === 'live' ? getMatchMinute() : '0';
+  const minute = getMatchMinute();
 
   // Extract odds
   const h2hMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h');
@@ -164,6 +167,7 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick }: L
             odds={homeOdds}
             delta={homeDelta}
             locked={isMarketLocked}
+            selected={selectedOdds?.has(`${match.match_id}-1x2-home`) || false}
             onClick={(e) => handleOddsClick('home', homeOdds, e)}
             testId={`odds-home-${match.match_id}`}
           />
@@ -172,6 +176,7 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick }: L
             odds={drawOdds}
             delta={drawDelta}
             locked={isMarketLocked}
+            selected={selectedOdds?.has(`${match.match_id}-1x2-draw`) || false}
             onClick={(e) => handleOddsClick('draw', drawOdds, e)}
             testId={`odds-draw-${match.match_id}`}
           />
@@ -180,6 +185,7 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick }: L
             odds={awayOdds}
             delta={awayDelta}
             locked={isMarketLocked}
+            selected={selectedOdds?.has(`${match.match_id}-1x2-away`) || false}
             onClick={(e) => handleOddsClick('away', awayOdds, e)}
             testId={`odds-away-${match.match_id}`}
           />
@@ -209,11 +215,12 @@ interface OddsCellProps {
   odds: number;
   delta: 'up' | 'down' | 'unchanged' | 'locked';
   locked: boolean;
+  selected: boolean;
   onClick: (e: React.MouseEvent) => void;
   testId: string;
 }
 
-const OddsCell = memo(function OddsCell({ label, odds, delta, locked, onClick, testId }: OddsCellProps) {
+const OddsCell = memo(function OddsCell({ label, odds, delta, locked, selected, onClick, testId }: OddsCellProps) {
   const isLocked = locked || odds === 0;
 
   // Determine border classes based on odds change
@@ -226,7 +233,8 @@ const OddsCell = memo(function OddsCell({ label, odds, delta, locked, onClick, t
 
   const getBackgroundClass = () => {
     if (isLocked) return 'bg-surface-4 text-muted-foreground';
-    return 'bg-surface-6 text-foreground';
+    if (selected) return 'odds-button-selected';
+    return 'odds-button';
   };
 
   return (
@@ -238,7 +246,7 @@ const OddsCell = memo(function OddsCell({ label, odds, delta, locked, onClick, t
         flex flex-col gap-0.5 h-auto py-1.5 px-3 min-w-[60px] rounded-md
         ${getBackgroundClass()}
         ${getBorderClass()}
-        ${isLocked ? 'cursor-not-allowed opacity-60' : 'hover-elevate active-elevate-2'}
+        ${isLocked ? 'cursor-not-allowed opacity-60' : ''}
       `}
       data-testid={testId}
     >

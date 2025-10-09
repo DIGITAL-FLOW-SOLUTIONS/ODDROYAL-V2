@@ -10,9 +10,10 @@ import { useState, useRef, useEffect } from "react";
 
 interface LiveProps {
   onAddToBetSlip?: (selection: any) => void;
+  betSlipSelections?: any[];
 }
 
-export default function Live({ onAddToBetSlip }: LiveProps) {
+export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LiveProps) {
   const { mode } = useMode();
 
   // NEW: Use the custom hook with localStorage caching
@@ -20,6 +21,9 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
   
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
+  
+  // Create Set of selected odds IDs for quick lookup
+  const selectedOddsSet = new Set(betSlipSelections.map(s => s.id));
   
   // Scroll functionality for sports carousel
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -243,6 +247,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
                               key={match.match_id}
                               match={match}
                               onOddsClick={handleOddsClick}
+                              selectedOdds={selectedOddsSet}
                             />
                           ))}
                         </CollapsibleContent>

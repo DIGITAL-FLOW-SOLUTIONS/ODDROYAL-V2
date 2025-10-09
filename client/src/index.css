@@ -347,11 +347,25 @@
     color: hsl(var(--odds-button-text));
     border: 1px solid hsl(var(--odds-button-base));
     font-weight: 600;
+    transition: all 0.2s ease;
   }
 
   .odds-button:hover {
-    background-color: hsl(var(--odds-button-hover));
-    border-color: hsl(var(--odds-button-hover));
+    background: linear-gradient(135deg, #F1C40F, #F39C12);
+    border-color: #F1C40F;
+    color: hsl(0 0% 10%);
+  }
+
+  .odds-button-selected {
+    background: linear-gradient(135deg, #F1C40F, #F39C12) !important;
+    border: 1px solid #F1C40F !important;
+    color: hsl(0 0% 10%) !important;
+    font-weight: 700;
+  }
+
+  .odds-button-selected:hover {
+    background: linear-gradient(135deg, #F39C12, #E67E22) !important;
+    border-color: #E67E22 !important;
   }
 
   /* League header gradient style - green, red, yellow */
