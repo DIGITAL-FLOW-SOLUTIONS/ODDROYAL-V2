@@ -64,31 +64,18 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  // Also fetch from markets endpoint for redundancy
-  const { data: marketsData } = useQuery({
+  // Fetch markets separately (background refresh)
+  useQuery({
     queryKey: ["/api/match", matchId, "markets"],
     queryFn: async () => {
-      const response = await fetch(`/api/match/${matchId}/markets`);
-      if (!response.ok) throw new Error("Failed to fetch match markets");
-      const data = await response.json();
+      if (!matchId) return null;
       
-      // Update localStorage cache with fresh data
-      if (matchId && matchDetailsData?.data && data?.data?.markets) {
+      const response = await fetch(`/api/match/${matchId}/markets`);
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      if (data?.data?.markets) {
         const markets = transformMarketsToMarketFormat(data.data.markets);
-        const match = matchDetailsData.data;
-        
-        marketsCache.setMarket(matchId, {
-          matchId,
-          homeTeam: match.home_team,
-          awayTeam: match.away_team,
-          league: match.league_name || 'Unknown League',
-          sport: match.sport_key || 'football',
-          status: match.commence_time ? 'scheduled' : 'live',
-          kickoffTime: match.commence_time || new Date().toISOString(),
-          markets,
-          lastUpdate: new Date().toISOString(),
-        });
-        
         setCachedMarkets(markets);
       }
       
@@ -352,19 +339,27 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
 }
 
 // Transform markets data from new API format
-const transformMarketsToMarketFormat = (marketsData: any[]): Market[] => {
-  if (!marketsData || marketsData.length === 0) {
+const transformMarketsToMarketFormat = (marketsData: any): Market[] => {
+  // Handle null, undefined, or non-array inputs
+  if (!marketsData) {
+    return [];
+  }
+  
+  // If it's not an array, try to extract markets array
+  const markets = Array.isArray(marketsData) ? marketsData : marketsData.markets || [];
+  
+  if (markets.length === 0) {
     return [];
   }
 
-  return marketsData.map((market: any) => ({
-    id: market.market_key || market.key || market.id,
-    name: market.market_name || market.name || market.market_key,
-    category: categorizeMarket(market.market_key || market.key || market.id),
-    outcomes: (market.outcomes || []).map((outcome: any) => ({
-      id: outcome.name?.toLowerCase().replace(/\s+/g, '-') || outcome.id,
-      name: outcome.name || outcome.label,
-      odds: outcome.price || outcome.odds || outcome.value || 0,
+  return markets.filter((market: any) => market && market.outcomes).map((market: any) => ({
+    id: market.market_key || market.key || market.id || 'unknown',
+    name: market.market_name || market.name || market.market_key || 'Unknown Market',
+    category: categorizeMarket(market.market_key || market.key || market.id || ''),
+    outcomes: (Array.isArray(market.outcomes) ? market.outcomes : []).map((outcome: any) => ({
+      id: outcome?.name?.toLowerCase().replace(/\s+/g, '-') || outcome?.id || Math.random().toString(),
+      name: outcome?.name || outcome?.label || 'Unknown',
+      odds: parseFloat(outcome?.price || outcome?.odds || outcome?.value || 0),
     })),
   }));
 };
