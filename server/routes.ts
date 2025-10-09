@@ -6367,8 +6367,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const host = req.headers['x-forwarded-host'] || req.get('host');
       const callbackUrl = process.env.MPESA_CALLBACK_BASE_URL || `${protocol}://${host}/api/mpesa/callback`;
       
-      // Generate robust account reference for M-PESA using timestamp for uniqueness
-      const accountReference = `DEP${Date.now()}${req.user.id.substring(0, 4)}`;
+      // Use client-provided depositId or generate a 6-digit numeric ID
+      const displayId = clientDepositId || (() => {
+        return (100000 + ((Date.now() + Math.floor(Math.random() * 1000)) % 900000)).toString();
+      })();
+      
+      // Use the 6-digit deposit ID as the M-PESA account reference
+      const accountReference = displayId;
       
       const stkPushResult = await mpesaService.stkPush({
         phoneNumber,
@@ -6377,12 +6382,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transactionDesc: description || `Deposit to ${req.user.username}`,
         callbackUrl
       });
-
-      // Use client-provided depositId or generate a 6-digit display ID
-      const displayId = clientDepositId || (() => {
-        const hash = crypto.createHash('sha256').update(stkPushResult.CheckoutRequestID).digest('hex');
-        return (parseInt(hash.substring(0, 8), 16) % 900000 + 100000).toString();
-      })();
 
       // Get user's current balance for transaction record
       const user = await storage.getUser(req.user.id);
