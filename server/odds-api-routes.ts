@@ -140,26 +140,15 @@ export function registerOddsApiRoutes(app: Express): void {
         // Layer 2: Try Redis cache (millisecond-level performance)
         let sports = await redisCache.getSportsList() || [];
         
-        // Layer 3: API fallback if Redis is empty (cache miss or not ready)
+        // Layer 3: Wait for preload if Redis is empty
         if (sports.length === 0) {
           cacheMonitor.recordMiss('redis');
-          console.log('📡 Redis cache empty, falling back to API for sports list');
+          console.log('📡 Redis cache empty - waiting for preload to complete');
           
-          try {
-            sports = await oddsApiClient.getSports();
-            cacheMonitor.recordHit('api');
-            cacheSource = 'api';
-            
-            // Store sports in Redis for future requests
-            if (sports.length > 0) {
-              await redisCache.setSportsList(sports, 3600); // 1 hour TTL
-            }
-          } catch (apiError) {
-            cacheMonitor.recordError('api');
-            console.error('Failed to fetch sports from API:', apiError);
-            // Return empty if API also fails
-            sports = [];
-          }
+          // Don't overwrite the sports list - let preload worker handle it
+          // Just return empty for now, preload will populate it soon
+          sports = [];
+          cacheSource = 'preload-pending';
         } else {
           cacheMonitor.recordHit('redis');
           cacheSource = 'redis';
