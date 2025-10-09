@@ -52,38 +52,39 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
   const [cachedMarkets, setCachedMarkets] = useState<Market[]>([]);
   const [isLoadingCache, setIsLoadingCache] = useState(true);
 
-  // Fetch match info
-  const { data: matchData, isLoading: matchLoading } = useQuery({
-    queryKey: ["/api/fixtures", matchId],
+  // Fetch match details and markets from Redis cache
+  const { data: matchDetailsData, isLoading: matchLoading } = useQuery({
+    queryKey: ["/api/match", matchId, "details"],
     queryFn: async () => {
-      const response = await fetch(`/api/fixtures/${matchId}`);
+      const response = await fetch(`/api/match/${matchId}/details`);
       if (!response.ok) throw new Error("Failed to fetch match details");
       return response.json();
     },
     enabled: !!matchId,
+    refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  // Fetch fresh odds in background
-  const { data: oddsData } = useQuery({
-    queryKey: ["/api/fixtures", matchId, "odds"],
+  // Also fetch from markets endpoint for redundancy
+  const { data: marketsData } = useQuery({
+    queryKey: ["/api/match", matchId, "markets"],
     queryFn: async () => {
-      const response = await fetch(`/api/fixtures/${matchId}/odds`);
-      if (!response.ok) throw new Error("Failed to fetch match odds");
+      const response = await fetch(`/api/match/${matchId}/markets`);
+      if (!response.ok) throw new Error("Failed to fetch match markets");
       const data = await response.json();
       
-      // Update cache with fresh data
-      if (matchId && matchData?.data && data?.data) {
-        const markets = transformOddsToMarkets(data.data);
-        const match = matchData.data;
+      // Update localStorage cache with fresh data
+      if (matchId && matchDetailsData?.data && data?.data?.markets) {
+        const markets = transformMarketsToMarketFormat(data.data.markets);
+        const match = matchDetailsData.data;
         
         marketsCache.setMarket(matchId, {
           matchId,
-          homeTeam: match.homeTeam.name,
-          awayTeam: match.awayTeam.name,
-          league: match.league,
-          sport: 'football',
-          status: match.status,
-          kickoffTime: match.kickoffTime,
+          homeTeam: match.home_team,
+          awayTeam: match.away_team,
+          league: match.league_name || 'Unknown League',
+          sport: match.sport_key || 'football',
+          status: match.commence_time ? 'scheduled' : 'live',
+          kickoffTime: match.commence_time || new Date().toISOString(),
           markets,
           lastUpdate: new Date().toISOString(),
         });
@@ -93,8 +94,8 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
       
       return data;
     },
-    enabled: !!matchId,
-    refetchInterval: matchData?.data?.status === 'LIVE' ? 5000 : 30000,
+    enabled: !!matchId && !!matchDetailsData?.data,
+    refetchInterval: matchDetailsData?.data?.status === 'live' ? 5000 : 30000,
   });
 
   // Load from cache immediately
@@ -129,7 +130,7 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     );
   }
 
-  if (!matchData?.success || !matchData?.data) {
+  if (!matchDetailsData?.success || !matchDetailsData?.data) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -142,8 +143,29 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     );
   }
 
-  const match: MatchInfo = matchData.data;
-  const markets = cachedMarkets.length > 0 ? cachedMarkets : transformOddsToMarkets(oddsData?.data || []);
+  // Transform match data to expected format
+  const matchData = matchDetailsData.data;
+  const match: MatchInfo = {
+    id: matchData.match_id || matchId || '',
+    homeTeam: { 
+      name: matchData.home_team, 
+      logo: matchData.home_team_logo 
+    },
+    awayTeam: { 
+      name: matchData.away_team, 
+      logo: matchData.away_team_logo 
+    },
+    league: matchData.league_name || 'Unknown League',
+    kickoffTime: matchData.commence_time || new Date().toISOString(),
+    status: matchData.status || 'scheduled',
+    homeScore: matchData.home_score,
+    awayScore: matchData.away_score,
+    minute: matchData.minute,
+  };
+
+  // Use markets from cache first, then from API response
+  const apiMarkets = matchData.markets ? transformMarketsToMarketFormat(matchData.markets) : [];
+  const markets = cachedMarkets.length > 0 ? cachedMarkets : apiMarkets;
 
   const marketsByCategory = markets.reduce(
     (acc, market) => {
@@ -328,6 +350,37 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     </div>
   );
 }
+
+// Transform markets data from new API format
+const transformMarketsToMarketFormat = (marketsData: any[]): Market[] => {
+  if (!marketsData || marketsData.length === 0) {
+    return [];
+  }
+
+  return marketsData.map((market: any) => ({
+    id: market.market_key || market.key || market.id,
+    name: market.market_name || market.name || market.market_key,
+    category: categorizeMarket(market.market_key || market.key || market.id),
+    outcomes: (market.outcomes || []).map((outcome: any) => ({
+      id: outcome.name?.toLowerCase().replace(/\s+/g, '-') || outcome.id,
+      name: outcome.name || outcome.label,
+      odds: outcome.price || outcome.odds || outcome.value || 0,
+    })),
+  }));
+};
+
+// Categorize market based on key
+const categorizeMarket = (marketKey: string): string => {
+  if (!marketKey) return 'specials';
+  
+  const key = marketKey.toLowerCase();
+  if (key.includes('h2h') || key.includes('winner') || key.includes('moneyline')) return 'main';
+  if (key.includes('spread') || key.includes('handicap')) return 'handicap';
+  if (key.includes('total') || key.includes('over') || key.includes('under') || key.includes('goals')) return 'goals';
+  if (key.includes('half') || key.includes('quarter') || key.includes('period')) return 'halves';
+  if (key.includes('score')) return 'correct-score';
+  return 'specials';
+};
 
 // Transform odds data to markets format
 const transformOddsToMarkets = (oddsData: any[]): Market[] => {
