@@ -729,13 +729,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Helper function to detect if ID is UUID vs numeric
-      const isUUID = (id: string) => {
-        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      // Helper function to detect if ID is UUID/hash vs numeric
+      const isValidMatchId = (id: string) => {
+        // Accept both UUID format (with dashes) and MD5 hash format (32 hex chars)
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) || /^[0-9a-f]{32}$/i.test(id);
       };
 
-      // If ID is a UUID, fetch manual match from storage
-      if (isUUID(fixtureId)) {
+      // If ID is a valid match ID (UUID or hash), fetch match from storage or cache
+      if (isValidMatchId(fixtureId)) {
         try {
           const match = await storage.getMatch(fixtureId);
           
@@ -785,13 +786,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const fixtureIdParam = req.params.id;
       
-      // Helper function to detect if ID is UUID vs numeric
-      const isUUID = (id: string) => {
-        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      // Helper function to detect if ID is UUID/hash vs numeric
+      const isValidMatchId = (id: string) => {
+        // Accept both UUID format (with dashes) and MD5 hash format (32 hex chars)
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) || /^[0-9a-f]{32}$/i.test(id);
       };
 
-      // If ID is a UUID, fetch manual match markets from storage
-      if (isUUID(fixtureIdParam)) {
+      // If ID is a valid match ID (UUID or hash), fetch match markets from storage or cache
+      if (isValidMatchId(fixtureIdParam)) {
         try {
           const markets = await storage.getMatchMarkets(fixtureIdParam);
           
