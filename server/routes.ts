@@ -5,6 +5,8 @@ import { randomUUID } from "crypto";
 import crypto from "crypto";
 import { storage } from "./storage";
 import { supabaseAdmin } from "./supabase";
+import { redisCache } from "./redis-cache";
+import { memoryCache } from "./memory-cache";
 import { pdfReportService } from "./pdf-service";
 import { emailReportService } from "./email-service";
 import XLSX from 'xlsx';
@@ -52,6 +54,44 @@ import speakeasy from "speakeasy";
 import qrcode from "qrcode";
 import { z } from "zod";
 import { mpesaService } from "./mpesa";
+
+// Helper function to find a match by ID in cache
+async function findMatchInCache(matchId: string): Promise<any | null> {
+  try {
+    // Get all sports from memory cache
+    const sports = memoryCache.get<any[]>('sports:list') || await redisCache.getSportsList() || [];
+    
+    // Search through prematch and live matches for each sport
+    for (const sport of sports) {
+      const sportKey = typeof sport === 'string' ? sport : sport.key;
+      
+      // Get leagues for this sport
+      const prematchLeagues = await redisCache.getPrematchLeagues(sportKey) || [];
+      const liveLeagues = await redisCache.getLiveLeagues(sportKey) || [];
+      
+      // Search prematch matches
+      for (const league of prematchLeagues) {
+        const leagueId = typeof league === 'string' ? league : league.league_id;
+        const matches = await redisCache.getPrematchMatches(sportKey, leagueId) || [];
+        const found = matches.find((m: any) => m.match_id === matchId);
+        if (found) return found;
+      }
+      
+      // Search live matches
+      for (const league of liveLeagues) {
+        const leagueId = typeof league === 'string' ? league : league.league_id;
+        const matches = await redisCache.getLiveMatches(sportKey, leagueId) || [];
+        const found = matches.find((m: any) => m.match_id === matchId);
+        if (found) return found;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error searching for match in cache:', error);
+    return null;
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Note: Primary health check is registered early in index.ts for immediate availability
@@ -738,24 +778,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If ID is a valid match ID (UUID or hash), fetch match from storage or cache
       if (isValidMatchId(fixtureId)) {
         try {
-          const match = await storage.getMatch(fixtureId);
+          // First, try to get from database
+          const dbMatch = await storage.getMatch(fixtureId);
           
-          if (!match) {
-            return res.status(404).json({ 
-              success: false, 
-              error: 'Match not found' 
-            });
+          if (dbMatch) {
+            // Transform based on match status
+            let transformedMatch;
+            if (dbMatch.status === 'live') {
+              transformedMatch = transformManualLiveFixture(dbMatch);
+            } else {
+              transformedMatch = transformManualFixture(dbMatch);
+            }
+            
+            return res.json({ success: true, data: transformedMatch });
           }
 
-          // Transform based on match status
-          let transformedMatch;
-          if (match.status === 'live') {
-            transformedMatch = transformManualLiveFixture(match);
-          } else {
-            transformedMatch = transformManualFixture(match);
+          // If not in database, search through cached matches
+          const cachedMatch = await findMatchInCache(fixtureId);
+          
+          if (cachedMatch) {
+            // Transform cached match to fixture format
+            const transformedMatch = {
+              id: cachedMatch.match_id,
+              homeTeam: {
+                name: cachedMatch.home_team,
+                logo: cachedMatch.home_team_logo
+              },
+              awayTeam: {
+                name: cachedMatch.away_team,
+                logo: cachedMatch.away_team_logo
+              },
+              league: cachedMatch.league_name,
+              kickoffTime: cachedMatch.commence_time,
+              venue: '',
+              status: cachedMatch.status === 'live' ? 'LIVE' : 'SCHEDULED',
+              homeScore: cachedMatch.scores?.home,
+              awayScore: cachedMatch.scores?.away
+            };
+            
+            return res.json({ success: true, data: transformedMatch });
           }
           
-          return res.json({ success: true, data: transformedMatch });
+          return res.status(404).json({ 
+            success: false, 
+            error: 'Match not found' 
+          });
         } catch (error) {
           console.error('Error fetching manual match:', error);
           return res.status(500).json({ 
