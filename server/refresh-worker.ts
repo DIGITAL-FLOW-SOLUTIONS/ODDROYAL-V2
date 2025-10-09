@@ -83,25 +83,38 @@ export class RefreshWorker {
   }
 
   private startSportRefresh(sportKey: string, ourSportKey: string, priority: number): void {
-    // Determine base refresh intervals based on sport priority
-    const liveInterval = ourSportKey === 'football' ? 15000 : 30000; // 15s for football, 30s others
-    const prematchInterval = ourSportKey === 'football' ? 180000 : 600000; // 3min for football, 10min others
+    // PRE-EXPIRATION REFRESH STRATEGY
+    // Refresh at 80% of TTL instead of fixed intervals
+    // This ensures data is always fresh before expiration
+    
+    // Live: TTL is 90s, so refresh at ~70s (80% of 90)
+    const liveInterval = ourSportKey === 'football' ? 15000 : 30000; // Keep aggressive for live
+    // Prematch: TTL is 900s (15min), so refresh at ~720s (12min) = 80% of TTL
+    const prematchInterval = ourSportKey === 'football' ? 720000 : 720000; // 12min for all (80% of 15min)
 
-    // Live matches refresh
+    // Live matches refresh with TTL-aware logic
     const liveKey = `live:${ourSportKey}`;
     const liveRefresh = setInterval(async () => {
-      await this.refreshLive(sportKey, ourSportKey);
+      // Check if refresh is needed based on TTL (20% threshold, expected TTL: 90s)
+      const needsRefresh = await redisCache.needsRefresh(`live:leagues:${ourSportKey}`, 0.2, 90);
+      if (needsRefresh) {
+        await this.refreshLive(sportKey, ourSportKey);
+      }
     }, liveInterval);
     this.intervals.set(liveKey, liveRefresh);
 
-    // Prematch refresh
+    // Prematch refresh with TTL-aware logic
     const prematchKey = `prematch:${ourSportKey}`;
     const prematchRefresh = setInterval(async () => {
-      await this.refreshPrematch(sportKey, ourSportKey);
+      // Check if refresh is needed based on TTL (20% threshold, expected TTL: 900s)
+      const needsRefresh = await redisCache.needsRefresh(`prematch:leagues:${ourSportKey}`, 0.2, 900);
+      if (needsRefresh) {
+        await this.refreshPrematch(sportKey, ourSportKey);
+      }
     }, prematchInterval);
     this.intervals.set(prematchKey, prematchRefresh);
 
-    console.log(`  📡 Started refresh for ${ourSportKey} (live: ${liveInterval}ms, prematch: ${prematchInterval}ms)`);
+    console.log(`  📡 Started smart refresh for ${ourSportKey} (live: ${liveInterval}ms, prematch: ${prematchInterval}ms with 80% TTL trigger)`);
   }
 
   private async refreshLive(sportKey: string, ourSportKey: string): Promise<void> {
@@ -114,10 +127,24 @@ export class RefreshWorker {
         status: 'live',
       });
 
+      // PROFESSIONAL STRATEGY: Never clear cache on empty responses
+      // Keep existing data until fresh data arrives (stale-while-revalidate)
       if (events.length === 0) {
-        // Clear live cache if no matches
-        await redisCache.setLiveLeagues(ourSportKey, [], 90);
-        console.log(`  🔄 Refreshed live ${ourSportKey}: 0 leagues, 0 matches (no live matches currently)`);
+        const existingLeagues = await redisCache.getLiveLeagues(ourSportKey);
+        
+        if (existingLeagues && existingLeagues.length > 0) {
+          // Extend TTL of existing data to prevent expiration
+          const currentTtl = await redisCache.ttl(`live:leagues:${ourSportKey}`);
+          if (currentTtl > 0 && currentTtl < 60) {
+            // If TTL is low, extend it to keep data visible
+            await redisCache.expire(`live:leagues:${ourSportKey}`, 90);
+            console.log(`  ⏰ No fresh live matches for ${ourSportKey}, keeping existing ${existingLeagues.length} leagues (TTL extended)`);
+          } else {
+            console.log(`  ⏰ No fresh live matches for ${ourSportKey}, keeping existing ${existingLeagues.length} leagues`);
+          }
+        } else {
+          console.log(`  🔄 No live matches for ${ourSportKey} (and no existing cache)`);
+        }
         return;
       }
 
@@ -125,33 +152,48 @@ export class RefreshWorker {
       const leagueGroups = groupMatchesByLeague(normalizedMatches);
       const nonEmptyLeagues = leagueGroups.filter(lg => lg.match_count > 0);
 
-      // Update leagues
-      const leaguesForCache = nonEmptyLeagues.map(lg => ({
-        league_id: lg.league_id,
-        league_name: lg.league_name,
-        match_count: lg.match_count,
-      }));
+      // Only update cache if we have actual data
+      if (nonEmptyLeagues.length > 0) {
+        // Update leagues
+        const leaguesForCache = nonEmptyLeagues.map(lg => ({
+          league_id: lg.league_id,
+          league_name: lg.league_name,
+          match_count: lg.match_count,
+        }));
 
-      await redisCache.setLiveLeagues(ourSportKey, leaguesForCache, 90);
+        await redisCache.setLiveLeagues(ourSportKey, leaguesForCache, 90);
 
-      // Update matches and markets
-      for (const league of nonEmptyLeagues) {
-        await redisCache.setLiveMatches(ourSportKey, league.league_id, league.matches, 60);
+        // Update matches and markets
+        for (const league of nonEmptyLeagues) {
+          await redisCache.setLiveMatches(ourSportKey, league.league_id, league.matches, 60);
 
-        // Update markets for each match
-        for (const match of league.matches) {
-          const markets = normalizeMarkets(match.bookmakers || []);
-          await redisCache.setMatchMarkets(match.match_id, {
-            match_id: match.match_id,
-            markets,
-            last_update: new Date().toISOString(),
-          }, 120); // 2 min TTL for live
+          // Update markets for each match
+          for (const match of league.matches) {
+            const markets = normalizeMarkets(match.bookmakers || []);
+            await redisCache.setMatchMarkets(match.match_id, {
+              match_id: match.match_id,
+              markets,
+              last_update: new Date().toISOString(),
+            }, 120); // 2 min TTL for live
+          }
         }
-      }
 
-      console.log(`  🔄 Refreshed live ${ourSportKey}: ${nonEmptyLeagues.length} leagues, ${normalizedMatches.length} matches`);
+        console.log(`  ✅ Refreshed live ${ourSportKey}: ${nonEmptyLeagues.length} leagues, ${normalizedMatches.length} matches`);
+      }
     } catch (error) {
-      console.error(`Failed to refresh live ${ourSportKey}:`, error);
+      // GRACEFUL DEGRADATION: On API failure, keep existing cache
+      console.error(`❌ Failed to refresh live ${ourSportKey}:`, error);
+      
+      // Extend TTL of existing data to prevent expiration during API issues
+      try {
+        const existingLeagues = await redisCache.getLiveLeagues(ourSportKey);
+        if (existingLeagues && existingLeagues.length > 0) {
+          await redisCache.expire(`live:leagues:${ourSportKey}`, 90);
+          console.log(`  ⚠️  API error for ${ourSportKey}, extended TTL for ${existingLeagues.length} existing leagues`);
+        }
+      } catch (cacheError) {
+        console.error(`  ❌ Could not extend TTL during API failure:`, cacheError);
+      }
     }
   }
 
@@ -164,40 +206,75 @@ export class RefreshWorker {
         dateFormat: 'iso',
       });
 
+      // PROFESSIONAL STRATEGY: Only update if we have fresh data
+      if (events.length === 0) {
+        const existingLeagues = await redisCache.getPrematchLeagues(ourSportKey);
+        
+        if (existingLeagues && existingLeagues.length > 0) {
+          // Extend TTL of existing data to prevent expiration
+          const currentTtl = await redisCache.ttl(`prematch:leagues:${ourSportKey}`);
+          if (currentTtl > 0 && currentTtl < 300) {
+            // If TTL is low (< 5 min), extend it
+            await redisCache.expire(`prematch:leagues:${ourSportKey}`, 900);
+            console.log(`  ⏰ No fresh prematch data for ${ourSportKey}, keeping existing ${existingLeagues.length} leagues (TTL extended)`);
+          } else {
+            console.log(`  ⏰ No fresh prematch data for ${ourSportKey}, keeping existing ${existingLeagues.length} leagues`);
+          }
+        } else {
+          console.log(`  🔄 No prematch matches for ${ourSportKey} (and no existing cache)`);
+        }
+        return;
+      }
+
       const normalizedMatches = events.map(event => normalizeOddsEvent(event, ourSportKey));
       const leagueGroups = groupMatchesByLeague(normalizedMatches);
       const nonEmptyLeagues = leagueGroups.filter(lg => lg.match_count > 0);
 
-      // Update leagues
-      const leaguesForCache = nonEmptyLeagues.map(lg => ({
-        league_id: lg.league_id,
-        league_name: lg.league_name,
-        match_count: lg.match_count,
-      }));
+      // Only update cache if we have actual data
+      if (nonEmptyLeagues.length > 0) {
+        // Update leagues
+        const leaguesForCache = nonEmptyLeagues.map(lg => ({
+          league_id: lg.league_id,
+          league_name: lg.league_name,
+          match_count: lg.match_count,
+        }));
 
-      await redisCache.setPrematchLeagues(ourSportKey, leaguesForCache, 900);
+        await redisCache.setPrematchLeagues(ourSportKey, leaguesForCache, 900);
 
-      // Update matches and markets
-      for (const league of nonEmptyLeagues) {
-        await redisCache.setPrematchMatches(ourSportKey, league.league_id, league.matches, 600);
+        // Update matches and markets
+        for (const league of nonEmptyLeagues) {
+          await redisCache.setPrematchMatches(ourSportKey, league.league_id, league.matches, 600);
 
-        // Update markets with dynamic TTL based on start time
-        for (const match of league.matches) {
-          const startingSoon = isMatchStartingSoon(match.commence_time);
-          const markets = normalizeMarkets(match.bookmakers || []);
-          const ttl = startingSoon ? 120 : 300; // 2 min if starting soon, 5 min otherwise
+          // Update markets with dynamic TTL based on start time
+          for (const match of league.matches) {
+            const startingSoon = isMatchStartingSoon(match.commence_time);
+            const markets = normalizeMarkets(match.bookmakers || []);
+            const ttl = startingSoon ? 120 : 300; // 2 min if starting soon, 5 min otherwise
 
-          await redisCache.setMatchMarkets(match.match_id, {
-            match_id: match.match_id,
-            markets,
-            last_update: new Date().toISOString(),
-          }, ttl);
+            await redisCache.setMatchMarkets(match.match_id, {
+              match_id: match.match_id,
+              markets,
+              last_update: new Date().toISOString(),
+            }, ttl);
+          }
         }
-      }
 
-      console.log(`  🔄 Refreshed prematch ${ourSportKey}: ${nonEmptyLeagues.length} leagues, ${normalizedMatches.length} matches`);
+        console.log(`  ✅ Refreshed prematch ${ourSportKey}: ${nonEmptyLeagues.length} leagues, ${normalizedMatches.length} matches`);
+      }
     } catch (error) {
-      console.error(`Failed to refresh prematch ${ourSportKey}:`, error);
+      // GRACEFUL DEGRADATION: On API failure, keep existing cache
+      console.error(`❌ Failed to refresh prematch ${ourSportKey}:`, error);
+      
+      // Extend TTL of existing data to prevent expiration during API issues
+      try {
+        const existingLeagues = await redisCache.getPrematchLeagues(ourSportKey);
+        if (existingLeagues && existingLeagues.length > 0) {
+          await redisCache.expire(`prematch:leagues:${ourSportKey}`, 900);
+          console.log(`  ⚠️  API error for ${ourSportKey}, extended TTL for ${existingLeagues.length} existing leagues`);
+        }
+      } catch (cacheError) {
+        console.error(`  ❌ Could not extend TTL during API failure:`, cacheError);
+      }
     }
   }
 

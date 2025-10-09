@@ -111,17 +111,20 @@ class RedisCacheManager {
     return await this.get<any[]>("sports:list");
   }
 
-  // Prematch operations
+  // Prematch operations with metadata for TTL tracking
   async setPrematchLeagues(
     sportKey: string,
     leagues: any[],
     ttlSeconds: number = 900,
   ): Promise<void> {
-    await this.set(`prematch:leagues:${sportKey}`, leagues, ttlSeconds);
+    await this.setWithMetadata(`prematch:leagues:${sportKey}`, leagues, ttlSeconds, {
+      source: 'prematch'
+    });
   }
 
   async getPrematchLeagues(sportKey: string): Promise<any[] | null> {
-    return await this.get<any[]>(`prematch:leagues:${sportKey}`);
+    const result = await this.getWithMetadata<any[]>(`prematch:leagues:${sportKey}`);
+    return result.data;
   }
 
   async setPrematchMatches(
@@ -130,10 +133,11 @@ class RedisCacheManager {
     matches: any[],
     ttlSeconds: number = 600,
   ): Promise<void> {
-    await this.set(
+    await this.setWithMetadata(
       `prematch:matches:${sportKey}:${leagueId}`,
       matches,
       ttlSeconds,
+      { source: 'prematch' }
     );
   }
 
@@ -141,20 +145,24 @@ class RedisCacheManager {
     sportKey: string,
     leagueId: string,
   ): Promise<any[] | null> {
-    return await this.get<any[]>(`prematch:matches:${sportKey}:${leagueId}`);
+    const result = await this.getWithMetadata<any[]>(`prematch:matches:${sportKey}:${leagueId}`);
+    return result.data;
   }
 
-  // Live operations
+  // Live operations with metadata for TTL tracking
   async setLiveLeagues(
     sportKey: string,
     leagues: any[],
     ttlSeconds: number = 90,
   ): Promise<void> {
-    await this.set(`live:leagues:${sportKey}`, leagues, ttlSeconds);
+    await this.setWithMetadata(`live:leagues:${sportKey}`, leagues, ttlSeconds, {
+      source: 'live'
+    });
   }
 
   async getLiveLeagues(sportKey: string): Promise<any[] | null> {
-    return await this.get<any[]>(`live:leagues:${sportKey}`);
+    const result = await this.getWithMetadata<any[]>(`live:leagues:${sportKey}`);
+    return result.data;
   }
 
   async setLiveMatches(
@@ -163,27 +171,33 @@ class RedisCacheManager {
     matches: any[],
     ttlSeconds: number = 60,
   ): Promise<void> {
-    await this.set(`live:matches:${sportKey}:${leagueId}`, matches, ttlSeconds);
+    await this.setWithMetadata(`live:matches:${sportKey}:${leagueId}`, matches, ttlSeconds, {
+      source: 'live'
+    });
   }
 
   async getLiveMatches(
     sportKey: string,
     leagueId: string,
   ): Promise<any[] | null> {
-    return await this.get<any[]>(`live:matches:${sportKey}:${leagueId}`);
+    const result = await this.getWithMetadata<any[]>(`live:matches:${sportKey}:${leagueId}`);
+    return result.data;
   }
 
-  // Match markets
+  // Match markets with metadata
   async setMatchMarkets(
     matchId: string,
     markets: any,
     ttlSeconds: number = 300,
   ): Promise<void> {
-    await this.set(`match:markets:${matchId}`, markets, ttlSeconds);
+    await this.setWithMetadata(`match:markets:${matchId}`, markets, ttlSeconds, {
+      source: 'markets'
+    });
   }
 
   async getMatchMarkets(matchId: string): Promise<any | null> {
-    return await this.get<any>(`match:markets:${matchId}`);
+    const result = await this.getWithMetadata<any>(`match:markets:${matchId}`);
+    return result.data;
   }
 
   // Team logos
@@ -265,6 +279,140 @@ class RedisCacheManager {
         return acc;
       }, {}),
     };
+  }
+
+  // PROFESSIONAL CACHING ENHANCEMENTS
+
+  // Set with metadata (last updated, version)
+  async setWithMetadata(
+    key: string, 
+    value: any, 
+    ttlSeconds?: number,
+    metadata?: { source?: string; version?: number }
+  ): Promise<void> {
+    const dataWithMeta = {
+      data: value,
+      metadata: {
+        lastUpdated: new Date().toISOString(),
+        ttl: ttlSeconds,
+        ...metadata
+      }
+    };
+    await this.set(key, dataWithMeta, ttlSeconds);
+  }
+
+  // Get with metadata
+  async getWithMetadata<T>(key: string): Promise<{
+    data: T | null;
+    metadata: {
+      lastUpdated?: string;
+      ttl?: number;
+      remainingTtl?: number;
+      isStale?: boolean;
+    };
+  }> {
+    const result = await this.get<any>(key);
+    
+    if (!result) {
+      return { data: null, metadata: {} };
+    }
+
+    // If data has metadata structure, extract it
+    if (result.metadata && result.data !== undefined) {
+      const remainingTtl = await this.ttl(key);
+      const isStale = remainingTtl > 0 && remainingTtl < (result.metadata.ttl || 0) * 0.2; // Stale if < 20% TTL remaining
+      
+      return {
+        data: result.data,
+        metadata: {
+          ...result.metadata,
+          remainingTtl,
+          isStale
+        }
+      };
+    }
+
+    // Fallback for data without metadata
+    return { data: result, metadata: {} };
+  }
+
+  // Conditional update - only update if TTL is low or data is significantly different
+  async updateIfStale(
+    key: string,
+    newValue: any,
+    ttlSeconds: number,
+    forceUpdate: boolean = false
+  ): Promise<boolean> {
+    if (forceUpdate) {
+      await this.set(key, newValue, ttlSeconds);
+      return true;
+    }
+
+    const currentTtl = await this.ttl(key);
+    const threshold = ttlSeconds * 0.3; // Update if < 30% TTL remaining
+
+    if (currentTtl < 0 || currentTtl < threshold) {
+      await this.set(key, newValue, ttlSeconds);
+      return true;
+    }
+
+    return false;
+  }
+
+  // Extend TTL if low (prevents expiration during API issues)
+  async extendTtlIfLow(key: string, targetTtl: number, threshold: number = 0.3): Promise<boolean> {
+    const currentTtl = await this.ttl(key);
+    
+    if (currentTtl > 0 && currentTtl < targetTtl * threshold) {
+      await this.expire(key, targetTtl);
+      return true;
+    }
+
+    return false;
+  }
+
+  // Get multiple keys in parallel
+  async getMulti<T>(keys: string[]): Promise<Map<string, T | null>> {
+    const results = new Map<string, T | null>();
+    
+    const values = await Promise.all(
+      keys.map(key => this.get<T>(key))
+    );
+
+    keys.forEach((key, index) => {
+      results.set(key, values[index]);
+    });
+
+    return results;
+  }
+
+  // Check if data needs refresh based on TTL percentage
+  async needsRefresh(
+    key: string, 
+    refreshThreshold: number = 0.2,
+    expectedTtl?: number
+  ): Promise<boolean> {
+    const exists = await this.exists(key);
+    if (!exists) return true;
+
+    const currentTtl = await this.ttl(key);
+    if (currentTtl < 0) return false; // No expiration set
+
+    // Get the original TTL from metadata if available
+    const data = await this.get<any>(key);
+    if (data?.metadata?.ttl) {
+      const threshold = data.metadata.ttl * refreshThreshold;
+      return currentTtl < threshold;
+    }
+
+    // Fallback: use explicit expected TTL if provided
+    if (expectedTtl) {
+      const threshold = expectedTtl * refreshThreshold;
+      return currentTtl < threshold;
+    }
+
+    // Last resort fallback: refresh if less than threshold of a reasonable default
+    return currentTtl < 60; // Less than 1 minute
   }
 }
 
