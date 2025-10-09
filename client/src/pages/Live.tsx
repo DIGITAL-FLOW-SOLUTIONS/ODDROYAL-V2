@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
 import { useMode } from "@/contexts/ModeContext";
-import bannerImage from "@assets/banner-live_1757761750950.jpg";
-import { Circle, ChevronDown, ChevronUp } from "lucide-react";
+import { Circle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { LiveMatchRow } from "@/components/LiveMatchRow";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useState, useRef, useEffect } from "react";
 
 interface LiveProps {
   onAddToBetSlip?: (selection: any) => void;
@@ -18,8 +19,46 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
   const { data: liveMatchesData, isRefetching, isLoading } = useLiveMatches();
   
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
+  const [selectedSport, setSelectedSport] = useState<string | null>(null);
+  
+  // Scroll functionality for sports carousel
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
 
   const sportGroups = liveMatchesData?.sports || [];
+  
+  // Filter sport groups based on selected sport
+  const filteredSportGroups = selectedSport 
+    ? sportGroups.filter((sport: any) => sport.sport_key === selectedSport)
+    : sportGroups;
+
+  const checkScrollPosition = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  const scrollLeft = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: -280, behavior: 'smooth' });
+      setTimeout(checkScrollPosition, 100);
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: 280, behavior: 'smooth' });
+      setTimeout(checkScrollPosition, 100);
+    }
+  };
+
+  // Initialize carousel arrow state on mount
+  useEffect(() => {
+    checkScrollPosition();
+  }, [sportGroups]);
 
   // Handle odds selection for bet slip
   const handleOddsClick = (
@@ -74,21 +113,101 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
 
   return (
     <div className="w-full max-w-none overflow-hidden h-full">
-      {/* Banner */}
-      <div className="w-full">
-        <img 
-          src={bannerImage} 
-          alt="Prime Stake Super Bonus - Quick Payouts, Best Odds, High Bonuses, No Fee Payments"
-          className="w-full h-auto object-cover max-h-16 sm:max-h-20 md:max-h-24 lg:max-h-28"
-          data-testid="banner-live"
-        />
-      </div>
+      {/* Sports Card Carousel */}
+      <div className="w-full bg-surface-2 border-b">
+        <div className="relative px-4 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+            <h2 className="text-lg font-semibold text-foreground">Live Sports</h2>
+          </div>
+          
+          <div className="relative">
+            {/* Navigation Arrows */}
+            {canScrollLeft && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={scrollLeft}
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 hover-elevate"
+                data-testid="button-sports-scroll-left"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            )}
+            
+            {canScrollRight && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={scrollRight}
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 hover-elevate"
+                data-testid="button-sports-scroll-right"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
 
-      {/* Live Header */}
-      <div className="flex items-center gap-2 p-3 bg-surface-2 border-0">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-          <h2 className="text-lg font-semibold text-foreground">Live Matches</h2>
+            {/* Sports Cards Scroll Container */}
+            <div
+              ref={scrollRef}
+              className="flex gap-3 overflow-x-auto scrollbar-hide pb-2"
+              onScroll={checkScrollPosition}
+              data-testid="sports-carousel"
+            >
+              {/* All Sports Card */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2 }}
+                className="flex-shrink-0"
+              >
+                <button
+                  onClick={() => setSelectedSport(null)}
+                  className={`flex flex-col items-center justify-center gap-2 w-28 h-24 rounded-md transition-all hover-elevate active-elevate-2 ${
+                    selectedSport === null
+                      ? 'bg-primary text-primary-foreground border-2 border-primary'
+                      : 'bg-surface-3 text-foreground'
+                  }`}
+                  data-testid="button-sport-all"
+                >
+                  <Circle className="h-8 w-8" />
+                  <span className="text-sm font-semibold">All Sports</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {sportGroups.reduce((sum: number, s: any) => sum + s.total_matches, 0)}
+                  </Badge>
+                </button>
+              </motion.div>
+
+              {/* Individual Sport Cards */}
+              {sportGroups.map((sport: any, index: number) => (
+                <motion.div
+                  key={sport.sport_key}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.2, delay: index * 0.05 }}
+                  className="flex-shrink-0"
+                >
+                  <button
+                    onClick={() => setSelectedSport(sport.sport_key)}
+                    className={`flex flex-col items-center justify-center gap-2 w-28 h-24 rounded-md transition-all hover-elevate active-elevate-2 ${
+                      selectedSport === sport.sport_key
+                        ? 'bg-primary text-primary-foreground border-2 border-primary'
+                        : 'bg-surface-3 text-foreground'
+                    }`}
+                    data-testid={`button-sport-${sport.sport_key}`}
+                  >
+                    <span className="text-3xl">{sport.sport_icon}</span>
+                    <span className="text-sm font-semibold text-center leading-tight px-2">
+                      {sport.sport_title}
+                    </span>
+                    <Badge variant="secondary" className="text-xs">
+                      {sport.total_matches}
+                    </Badge>
+                  </button>
+                </motion.div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -101,7 +220,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
               <p className="text-muted-foreground">Loading live matches...</p>
             </div>
           </div>
-        ) : sportGroups.length === 0 ? (
+        ) : filteredSportGroups.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
               <Circle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
@@ -116,7 +235,7 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
             transition={{ duration: 0.3 }}
             className="space-y-4"
           >
-            {sportGroups.map((sport: any) => (
+            {filteredSportGroups.map((sport: any) => (
               <div key={sport.sport_key} className="space-y-2">
                 {/* Sport Header */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-surface-2 rounded-md">
