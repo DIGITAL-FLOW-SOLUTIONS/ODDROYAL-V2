@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -9,6 +10,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ModeProvider } from "@/contexts/ModeContext";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
+import { marketsCache } from "@/lib/marketsCache";
 import Layout from "@/components/Layout";
 import SimpleLayout from "@/components/SimpleLayout";
 import Homepage from "@/pages/Homepage";
@@ -92,6 +94,33 @@ function Router() {
 }
 
 function App() {
+  // Initialize markets cache on app start
+  useEffect(() => {
+    // Clear old markets first
+    marketsCache.clearOldMarkets();
+    
+    // Preload all markets in background
+    marketsCache.preloadAllMarkets().then(() => {
+      const stats = marketsCache.getStats();
+      console.log('📊 Markets cache initialized:', stats);
+    });
+    
+    // Set up interval to update live markets every 10 seconds
+    const liveUpdateInterval = setInterval(() => {
+      marketsCache.updateLiveMarkets();
+    }, 10000); // 10 seconds
+    
+    // Set up interval to refresh all markets every 5 minutes
+    const refreshInterval = setInterval(() => {
+      marketsCache.preloadAllMarkets();
+    }, 5 * 60 * 1000); // 5 minutes
+    
+    return () => {
+      clearInterval(liveUpdateInterval);
+      clearInterval(refreshInterval);
+    };
+  }, []);
+
   return (
     <PersistQueryClientProvider
       client={queryClient}

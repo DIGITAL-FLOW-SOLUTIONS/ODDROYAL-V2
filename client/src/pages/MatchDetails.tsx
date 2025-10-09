@@ -163,7 +163,7 @@ const transformOddsToMarkets = (oddsData: SportMonksOdds[]): Market[] => {
     ];
   }
 
-  // Transform real SportMonks data if available
+  // Transform real data if available
   const groupedByMarket = oddsData.reduce(
     (acc, odd) => {
       const marketName = odd.market.name;

@@ -454,6 +454,65 @@ export function registerOddsApiRoutes(app: Express): void {
     }
   });
 
+  // Get all markets for localStorage caching
+  app.get('/api/markets/all', async (req: Request, res: Response) => {
+    try {
+      const allMarkets: any[] = [];
+      
+      // Get all sports
+      const sports = await redisCache.getSportsList() || [];
+      
+      for (const sport of sports) {
+        // Get both prematch and live leagues
+        const prematchLeagues = await redisCache.getPrematchLeagues(sport.key) || [];
+        const liveLeagues = await redisCache.getLiveLeagues(sport.key) || [];
+        
+        for (const league of [...prematchLeagues, ...liveLeagues]) {
+          // Get matches from both prematch and live
+          const prematchMatches = await redisCache.getPrematchMatches(sport.key, league.league_id) || [];
+          const liveMatches = await redisCache.getLiveMatches(sport.key, league.league_id) || [];
+          
+          const allLeagueMatches = [...prematchMatches, ...liveMatches];
+          
+          for (const match of allLeagueMatches) {
+            // Get markets for this match
+            const marketsData = await redisCache.getMatchMarkets(match.match_id);
+            
+            if (marketsData && marketsData.markets && marketsData.markets.length > 0) {
+              allMarkets.push({
+                matchId: match.match_id,
+                homeTeam: match.home_team,
+                awayTeam: match.away_team,
+                league: match.league_name,
+                sport: match.sport_key,
+                status: match.status,
+                kickoffTime: match.commence_time,
+                markets: marketsData.markets,
+                lastUpdate: marketsData.last_update || new Date().toISOString(),
+              });
+            }
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          markets: allMarkets,
+          count: allMarkets.length,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching all markets:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch all markets',
+        details: (error as Error).message,
+      });
+    }
+  });
+
   // Cache status endpoint - includes multi-layer cache statistics
   app.get('/api/status/cache', async (req: Request, res: Response) => {
     try {
