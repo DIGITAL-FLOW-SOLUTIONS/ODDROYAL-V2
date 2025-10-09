@@ -6627,9 +6627,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // If payment was successful, update user balance (idempotent)
         if (status === 'completed') {
-          const amount = transaction.amount;
-          await storage.updateUserBalance(userId, amount);
-          console.log(`✅ User ${userId} balance updated by ${amount} for transaction ${transaction.id}`);
+          const depositAmount = transaction.amount;
+          
+          // Check if this is user's first completed deposit for 100% welcome bonus
+          const userTransactions = await storage.getUserTransactions(userId);
+          const completedDeposits = userTransactions.filter(t => 
+            t.type === 'deposit' && 
+            t.status === 'completed' && 
+            t.id !== transaction.id
+          );
+          
+          const isFirstDeposit = completedDeposits.length === 0;
+          
+          if (isFirstDeposit) {
+            // First deposit - apply 100% welcome bonus
+            const bonusAmount = depositAmount;
+            const totalAmount = depositAmount + bonusAmount;
+            
+            // Update user balance with deposit + bonus
+            await storage.updateUserBalance(userId, totalAmount);
+            
+            // Get updated user balance for bonus transaction record
+            const updatedUser = await storage.getUser(userId);
+            if (updatedUser) {
+              // Create bonus transaction record
+              await storage.createTransaction({
+                userId: userId,
+                type: 'bonus',
+                amount: bonusAmount,
+                balanceBefore: updatedUser.balance - bonusAmount,
+                balanceAfter: updatedUser.balance,
+                status: 'completed',
+                reference: `BONUS-${transaction.id}`,
+                description: `100% Welcome Bonus on first deposit of KES ${depositAmount.toLocaleString()}`,
+                metadata: JSON.stringify({
+                  relatedDepositId: transaction.id,
+                  bonusType: 'first_deposit',
+                  bonusPercentage: 100
+                })
+              });
+            }
+            
+            // Update deposit transaction to indicate bonus was applied
+            await storage.updateTransaction(transaction.id, {
+              description: `${transaction.description} - 100% Welcome Bonus Applied (+KES ${bonusAmount.toLocaleString()})`
+            });
+            
+            console.log(`✅ First deposit! User ${userId} balance updated by ${totalAmount} (${depositAmount} deposit + ${bonusAmount} bonus) for transaction ${transaction.id}`);
+          } else {
+            // Regular deposit without bonus
+            await storage.updateUserBalance(userId, depositAmount);
+            console.log(`✅ User ${userId} balance updated by ${depositAmount} for transaction ${transaction.id}`);
+          }
         } else {
           console.log(`❌ Transaction ${transaction.id} failed: ${userMessage} (Code: ${resultCode})`);
         }
