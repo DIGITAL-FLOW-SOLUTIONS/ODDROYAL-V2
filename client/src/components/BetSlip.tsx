@@ -111,7 +111,7 @@ export default function BetSlip({
     let error = "";
     if (value && numValue > 0) {
       if (!stakeValidation.isValidSingleStake(stakeCents)) {
-        error = stakeValidation.formatStakeError(stakeCents, true);
+        error = stakeValidation.formatStakeError(stakeCents, 'single');
       }
     }
     
@@ -125,8 +125,8 @@ export default function BetSlip({
     
     let error = "";
     if (value && numValue > 0) {
-      if (!stakeValidation.isValidStake(stakeCents)) {
-        error = stakeValidation.formatStakeError(stakeCents, false);
+      if (!stakeValidation.isValidExpressStake(stakeCents)) {
+        error = stakeValidation.formatStakeError(stakeCents, 'express');
       }
     }
     
@@ -140,8 +140,8 @@ export default function BetSlip({
     
     let error = "";
     if (value && numValue > 0) {
-      if (!stakeValidation.isValidStake(stakeCents)) {
-        error = stakeValidation.formatStakeError(stakeCents, false);
+      if (!stakeValidation.isValidSystemStake(stakeCents)) {
+        error = stakeValidation.formatStakeError(stakeCents, 'system');
       }
     }
     

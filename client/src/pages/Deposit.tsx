@@ -37,7 +37,7 @@ interface Transaction {
 function Deposit() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [depositAmount, setDepositAmount] = useState("2000");
+  const [depositAmount, setDepositAmount] = useState("");
   const [selectedCurrency, setSelectedCurrency] = useState("KES");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -69,7 +69,7 @@ function Deposit() {
       const amountInCents = currencyUtils.poundsToCents(
         parseFloat(depositAmount),
       );
-      setDepositAmount("2000");
+      setDepositAmount("");
       setSelectedPaymentMethod("");
       toast({
         title: "Deposit Successful",
@@ -130,10 +130,10 @@ function Deposit() {
     }
 
     const amount = parseFloat(depositAmount);
-    if (amount < 2000) {
+    if (!amount || amount <= 0) {
       toast({
-        title: "Minimum Deposit",
-        description: "Minimum deposit amount is 2000.",
+        title: "Invalid Amount",
+        description: "Please enter a valid deposit amount.",
         variant: "destructive",
       });
       return;
@@ -220,10 +220,11 @@ function Deposit() {
                   <Input
                     id="amount"
                     type="number"
-                    placeholder="Min: 2000"
+                    placeholder="Enter amount"
                     value={depositAmount}
                     onChange={(e) => setDepositAmount(e.target.value)}
-                    min="2000"
+                    min="1"
+                    step="0.01"
                     className="text-lg h-12"
                     data-testid="input-deposit-amount"
                   />
@@ -315,7 +316,7 @@ function Deposit() {
                 onClick={handleDeposit}
                 disabled={
                   !depositAmount ||
-                  parseFloat(depositAmount) < 2000 ||
+                  parseFloat(depositAmount) <= 0 ||
                   !selectedPaymentMethod ||
                   depositMutation.isPending
                 }

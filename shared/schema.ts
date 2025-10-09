@@ -387,10 +387,14 @@ export function hasPermission(role: AdminRole, permission: string): boolean {
 
 // Betting limits constants
 export const BETTING_LIMITS = {
-  MIN_STAKE_CENTS: 10, // KES 0.10
-  MAX_STAKE_CENTS: 10000000, // KES 100,000
-  MIN_SINGLE_STAKE_CENTS: 10, // KES 0.10
-  MAX_SINGLE_STAKE_CENTS: 1000000, // KES 10,000 per single bet
+  MIN_STAKE_CENTS: 150000, // KES 1,500 (for ordinary/express bets)
+  MAX_STAKE_CENTS: 50000000, // KES 500,000
+  MIN_SINGLE_STAKE_CENTS: 150000, // KES 1,500 per single bet
+  MAX_SINGLE_STAKE_CENTS: 50000000, // KES 500,000 per single bet
+  MIN_EXPRESS_STAKE_CENTS: 150000, // KES 1,500 for express bets
+  MAX_EXPRESS_STAKE_CENTS: 50000000, // KES 500,000 for express bets
+  MIN_SYSTEM_STAKE_CENTS: 350000, // KES 3,500 for system bets
+  MAX_SYSTEM_STAKE_CENTS: 50000000, // KES 500,000 for system bets
   MIN_EXPRESS_SELECTIONS: 2,
   MIN_SYSTEM_SELECTIONS: 3,
   MAX_SELECTIONS: 20,
@@ -400,9 +404,7 @@ export const BETTING_LIMITS = {
 
 export const betPlacementSchema = z.object({
   betType: z.enum(["single", "express", "system"]),
-  totalStakeCents: z.number().int()
-    .min(BETTING_LIMITS.MIN_STAKE_CENTS, "Minimum stake is KES 0.10")
-    .max(BETTING_LIMITS.MAX_STAKE_CENTS, "Maximum stake is KES 100,000"),
+  totalStakeCents: z.number().int(),
   totalOdds: z.string().refine((val) => {
     const oddsValue = parseFloat(val);
     return oddsValue >= BETTING_LIMITS.MIN_ODDS && oddsValue <= BETTING_LIMITS.MAX_ODDS;
@@ -423,6 +425,44 @@ export const betPlacementSchema = z.object({
       message: `Odds must be between ${BETTING_LIMITS.MIN_ODDS} and ${BETTING_LIMITS.MAX_ODDS}`
     }),
   })).min(1, "At least 1 selection required").max(BETTING_LIMITS.MAX_SELECTIONS, `Maximum ${BETTING_LIMITS.MAX_SELECTIONS} selections allowed`),
+}).superRefine((data, ctx) => {
+  // Validate stake based on bet type
+  let minStake: number;
+  let maxStake: number;
+  
+  switch (data.betType) {
+    case "single":
+      minStake = BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS;
+      maxStake = BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS;
+      break;
+    case "express":
+      minStake = BETTING_LIMITS.MIN_EXPRESS_STAKE_CENTS;
+      maxStake = BETTING_LIMITS.MAX_EXPRESS_STAKE_CENTS;
+      break;
+    case "system":
+      minStake = BETTING_LIMITS.MIN_SYSTEM_STAKE_CENTS;
+      maxStake = BETTING_LIMITS.MAX_SYSTEM_STAKE_CENTS;
+      break;
+    default:
+      minStake = BETTING_LIMITS.MIN_STAKE_CENTS;
+      maxStake = BETTING_LIMITS.MAX_STAKE_CENTS;
+  }
+  
+  if (data.totalStakeCents < minStake) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Minimum stake for ${data.betType} bet is ${currencyUtils.formatCurrency(minStake)}`,
+      path: ["totalStakeCents"],
+    });
+  }
+  
+  if (data.totalStakeCents > maxStake) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `Maximum stake for ${data.betType} bet is ${currencyUtils.formatCurrency(maxStake)}`,
+      path: ["totalStakeCents"],
+    });
+  }
 });
 
 // ===================== CURRENCY UTILITIES =====================
@@ -435,10 +475,28 @@ export const stakeValidation = {
   isValidSingleStake: (stakeCents: number): boolean => {
     return stakeCents >= BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS && stakeCents <= BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS;
   },
-  formatStakeError: (stakeCents: number, isSingle: boolean = false): string => {
-    const limits = isSingle ? 
-      { min: BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS, max: BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS } :
-      { min: BETTING_LIMITS.MIN_STAKE_CENTS, max: BETTING_LIMITS.MAX_STAKE_CENTS };
+  isValidExpressStake: (stakeCents: number): boolean => {
+    return stakeCents >= BETTING_LIMITS.MIN_EXPRESS_STAKE_CENTS && stakeCents <= BETTING_LIMITS.MAX_EXPRESS_STAKE_CENTS;
+  },
+  isValidSystemStake: (stakeCents: number): boolean => {
+    return stakeCents >= BETTING_LIMITS.MIN_SYSTEM_STAKE_CENTS && stakeCents <= BETTING_LIMITS.MAX_SYSTEM_STAKE_CENTS;
+  },
+  formatStakeError: (stakeCents: number, betType: 'single' | 'express' | 'system' = 'single'): string => {
+    let limits: { min: number; max: number };
+    
+    switch (betType) {
+      case 'single':
+        limits = { min: BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS, max: BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS };
+        break;
+      case 'express':
+        limits = { min: BETTING_LIMITS.MIN_EXPRESS_STAKE_CENTS, max: BETTING_LIMITS.MAX_EXPRESS_STAKE_CENTS };
+        break;
+      case 'system':
+        limits = { min: BETTING_LIMITS.MIN_SYSTEM_STAKE_CENTS, max: BETTING_LIMITS.MAX_SYSTEM_STAKE_CENTS };
+        break;
+      default:
+        limits = { min: BETTING_LIMITS.MIN_STAKE_CENTS, max: BETTING_LIMITS.MAX_STAKE_CENTS };
+    }
     
     if (stakeCents < limits.min) {
       return `Minimum stake is ${currencyUtils.formatCurrency(limits.min)}`;
