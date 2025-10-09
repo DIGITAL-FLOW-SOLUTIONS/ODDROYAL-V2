@@ -392,16 +392,10 @@ function Deposit() {
                       </div>
                       <div className="text-right">
                         <p className="font-medium text-green-600">
-                          +
-                          {currencyUtils.formatCurrency(
-                            parseInt(transaction.amount),
-                          )}
+                          +KES {parseInt(transaction.amount).toLocaleString()}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Balance:{" "}
-                          {currencyUtils.formatCurrency(
-                            parseInt(transaction.balanceAfter),
-                          )}
+                          Balance: KES {parseInt(transaction.balanceAfter).toLocaleString()}
                         </p>
                       </div>
                     </motion.div>
