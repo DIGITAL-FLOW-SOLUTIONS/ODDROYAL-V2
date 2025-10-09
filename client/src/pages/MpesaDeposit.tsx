@@ -511,17 +511,14 @@ function MpesaDeposit() {
                   <CardContent>
                     <div className="space-y-3">
                       {depositTransactions.map((transaction, index) => {
-                        let metadata: { depositId?: string } = {};
+                        let metadata;
                         try {
                           metadata = transaction.metadata
                             ? JSON.parse(transaction.metadata)
                             : {};
-                        } catch (e) {
-                          console.error('Failed to parse transaction metadata:', e);
+                        } catch {
                           metadata = {};
                         }
-
-                        const displayId = metadata?.depositId || transaction.id.substring(0, 6);
 
                         return (
                           <motion.div
@@ -545,7 +542,9 @@ function MpesaDeposit() {
                                   className="text-sm font-medium"
                                   data-testid={`text-transaction-desc-${transaction.id}`}
                                 >
-                                  Deposit #{displayId}
+                                  Deposit #
+                                  {metadata.depositId ||
+                                    transaction.id.substring(0, 6)}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   {new Date(
