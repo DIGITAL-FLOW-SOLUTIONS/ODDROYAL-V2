@@ -13,6 +13,7 @@ import {
   MapPin,
   Star,
 } from "lucide-react";
+import { marketsCache } from "@/lib/marketsCache";
 
 interface MatchDetailsProps {
   onAddToBetSlip?: (selection: any) => void;
@@ -245,6 +246,7 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     main: true,
     goals: true,
   });
+  const [cachedMarkets, setCachedMarkets] = useState<Market[]>([]);
 
   const { data: matchData, isLoading: matchLoading } = useQuery({
     queryKey: ["/api/fixtures", matchId],
@@ -266,6 +268,16 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     enabled: !!matchId,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  // Fetch markets from localStorage cache
+  useEffect(() => {
+    if (matchId) {
+      const cached = marketsCache.getMarket(matchId);
+      if (cached && cached.markets) {
+        setCachedMarkets(cached.markets);
+      }
+    }
+  }, [matchId]);
 
   // Call countdown hook before any early returns to maintain hooks order
   const countdown = useCountdown(
@@ -297,7 +309,11 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
   }
 
   const match: MatchDetails = matchData.data;
-  const markets = transformOddsToMarkets(oddsData?.data || []);
+  
+  // Use cached markets if available, otherwise use API data or fallback to mock
+  const markets = cachedMarkets.length > 0 
+    ? cachedMarkets 
+    : transformOddsToMarkets(oddsData?.data || []);
 
   const marketsByCategory = markets.reduce(
     (acc, market) => {
@@ -589,8 +605,7 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
                                   {market.outcomes.map((outcome) => (
                                     <Button
                                       key={outcome.id}
-                                      variant="outline"
-                                      className="h-12 flex flex-col justify-center text-center hover:bg-primary hover:text-primary-foreground transition-colors"
+                                      className="h-12 flex flex-col justify-center text-center odds-button"
                                       onClick={() =>
                                         onAddToBetSlip?.({
                                           id: `${match.id}-${market.id}-${outcome.id}`,
