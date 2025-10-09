@@ -117,6 +117,7 @@ export class RefreshWorker {
       if (events.length === 0) {
         // Clear live cache if no matches
         await redisCache.setLiveLeagues(ourSportKey, [], 90);
+        console.log(`  🔄 Refreshed live ${ourSportKey}: 0 leagues, 0 matches (no live matches currently)`);
         return;
       }
 
