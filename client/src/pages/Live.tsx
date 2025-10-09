@@ -114,100 +114,64 @@ export default function Live({ onAddToBetSlip }: LiveProps) {
   return (
     <div className="w-full max-w-none overflow-hidden h-full">
       {/* Sports Card Carousel */}
-      <div className="w-full bg-surface-2 border-b">
-        <div className="relative px-4 py-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-            <h2 className="text-lg font-semibold text-foreground">Live Sports</h2>
-          </div>
-          
-          <div className="relative">
-            {/* Navigation Arrows */}
-            {canScrollLeft && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={scrollLeft}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 hover-elevate"
-                data-testid="button-sports-scroll-left"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-            )}
-            
-            {canScrollRight && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={scrollRight}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 hover-elevate"
-                data-testid="button-sports-scroll-right"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            )}
+      <div className="relative w-full py-4">
+        {/* Navigation Arrows */}
+        {canScrollLeft && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={scrollLeft}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 hover-elevate"
+            data-testid="button-sports-scroll-left"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
+        
+        {canScrollRight && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={scrollRight}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 h-8 w-8 hover-elevate"
+            data-testid="button-sports-scroll-right"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        )}
 
-            {/* Sports Cards Scroll Container */}
-            <div
-              ref={scrollRef}
-              className="flex gap-3 overflow-x-auto scrollbar-hide pb-2"
-              onScroll={checkScrollPosition}
-              data-testid="sports-carousel"
+        {/* Sports Cards Scroll Container */}
+        <div
+          ref={scrollRef}
+          className="flex gap-3 overflow-x-auto scrollbar-hide px-4"
+          onScroll={checkScrollPosition}
+          data-testid="sports-carousel"
+        >
+          {/* Individual Sport Cards */}
+          {sportGroups.map((sport: any, index: number) => (
+            <motion.div
+              key={sport.sport_key}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2, delay: index * 0.05 }}
+              className="flex-shrink-0"
             >
-              {/* All Sports Card */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.2 }}
-                className="flex-shrink-0"
+              <button
+                onClick={() => setSelectedSport(sport.sport_key)}
+                className={`flex flex-col items-center justify-center gap-2 w-28 h-24 rounded-md transition-all hover-elevate active-elevate-2 ${
+                  selectedSport === sport.sport_key
+                    ? 'bg-primary text-primary-foreground border-2 border-primary'
+                    : 'bg-surface-3 text-foreground'
+                }`}
+                data-testid={`button-sport-${sport.sport_key}`}
               >
-                <button
-                  onClick={() => setSelectedSport(null)}
-                  className={`flex flex-col items-center justify-center gap-2 w-28 h-24 rounded-md transition-all hover-elevate active-elevate-2 ${
-                    selectedSport === null
-                      ? 'bg-primary text-primary-foreground border-2 border-primary'
-                      : 'bg-surface-3 text-foreground'
-                  }`}
-                  data-testid="button-sport-all"
-                >
-                  <Circle className="h-8 w-8" />
-                  <span className="text-sm font-semibold">All Sports</span>
-                  <Badge variant="secondary" className="text-xs">
-                    {sportGroups.reduce((sum: number, s: any) => sum + s.total_matches, 0)}
-                  </Badge>
-                </button>
-              </motion.div>
-
-              {/* Individual Sport Cards */}
-              {sportGroups.map((sport: any, index: number) => (
-                <motion.div
-                  key={sport.sport_key}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.2, delay: index * 0.05 }}
-                  className="flex-shrink-0"
-                >
-                  <button
-                    onClick={() => setSelectedSport(sport.sport_key)}
-                    className={`flex flex-col items-center justify-center gap-2 w-28 h-24 rounded-md transition-all hover-elevate active-elevate-2 ${
-                      selectedSport === sport.sport_key
-                        ? 'bg-primary text-primary-foreground border-2 border-primary'
-                        : 'bg-surface-3 text-foreground'
-                    }`}
-                    data-testid={`button-sport-${sport.sport_key}`}
-                  >
-                    <span className="text-3xl">{sport.sport_icon}</span>
-                    <span className="text-sm font-semibold text-center leading-tight px-2">
-                      {sport.sport_title}
-                    </span>
-                    <Badge variant="secondary" className="text-xs">
-                      {sport.total_matches}
-                    </Badge>
-                  </button>
-                </motion.div>
-              ))}
-            </div>
-          </div>
+                <span className="text-3xl">{sport.sport_icon}</span>
+                <span className="text-sm font-semibold text-center leading-tight px-2">
+                  {sport.sport_title}
+                </span>
+              </button>
+            </motion.div>
+          ))}
         </div>
       </div>
 
