@@ -20,7 +20,7 @@ import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import argon2 from "argon2";
 import speakeasy from "speakeasy";
-import { supabaseAdmin } from "./supabase";
+import { supabaseAdmin, isSupabaseConfigured } from "./supabase";
 
 // modify the interface with any CRUD methods
 // you might need
@@ -2674,8 +2674,16 @@ export class MemStorage implements IStorage {
 
 import { SupabaseStorage } from "./supabase-storage";
 
-// Create SupabaseStorage for persistent data storage
-const supabaseStorage = new SupabaseStorage();
+// Create storage based on Supabase availability
+// If Supabase credentials are not configured, use in-memory storage as fallback
+// This allows betting odds functionality to work without authentication
+const memStorage = new MemStorage();
+const supabaseStorage = isSupabaseConfigured ? new SupabaseStorage() : null;
 
-// Export production storage - exclusively use Supabase
-export const storage = supabaseStorage;
+// Export storage - use Supabase if configured, otherwise fallback to memory storage
+export const storage: IStorage = supabaseStorage || memStorage;
+
+if (!isSupabaseConfigured) {
+  console.warn('⚠️  Using in-memory storage as fallback. Data will not persist between restarts.');
+  console.warn('   Configure Supabase credentials for persistent storage and user authentication.');
+}
