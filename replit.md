@@ -4,6 +4,17 @@ OddRoyal is a premium sports betting web application featuring real-time sports 
 
 # Recent Changes
 
+## October 9, 2025 - Professional Multi-Layer Caching System
+- **Multi-Layer Cache Architecture**: Implemented Pinnacle-style caching with Memory → Redis → API fallback chain
+  - Layer 1: In-memory cache with LRU eviction (1000 entry max) for microsecond-level reads
+  - Layer 2: Redis persistent cache for millisecond-level reads across server instances
+  - Layer 3: API fallback when cache layers miss, with automatic cache persistence
+- **LRU Eviction**: Memory cache now has bounded capacity (1000 entries) with least-recently-used eviction to prevent memory exhaustion
+- **Graceful Degradation**: System maintains cached data even during API failures, extending TTL of existing data
+- **Cache Monitoring**: Comprehensive metrics tracking hits/misses/errors across all three cache layers
+- **API Fallback Logic**: Menu and line endpoints now properly fall back to API when cache is empty, normalizing and persisting results
+- **Production Ready**: Complete fallback chain ensures data is always available, performance optimized for betting platform loads
+
 ## October 1, 2025 - Admin Panel Production Fixes
 - **Storage Layer**: Implemented missing SupabaseStorage methods (`getAllUsers`, `getAllBets`, `getAllMatches`, `getActiveAdminSessions`) to replace MemStorage for production use
 - **API Endpoints**: Fixed `/api/admin/customers` to use `storage.getAllUsers()` instead of accessing internal MemStorage Maps
@@ -32,6 +43,11 @@ Preferred communication style: Simple, everyday language.
 - **API Structure**: RESTful endpoints for fixtures, odds, and health checks
 - **Data Storage**: SupabaseStorage (PostgreSQL) used in production for all CRUD operations
 - **Admin System**: Full-featured admin panel at `/prime-admin` with authentication, RBAC, and comprehensive management tools
+- **Caching System**: Professional multi-layer caching (Memory → Redis → API)
+  - In-memory cache with LRU eviction (max 1000 entries) for ultra-fast reads
+  - Redis persistent cache for cross-instance data sharing
+  - Automatic API fallback with cache persistence on miss
+  - Cache monitoring for performance metrics and optimization
 
 ## Database Design
 - **ORM**: Drizzle with PostgreSQL dialect
