@@ -211,6 +211,7 @@ async function withTimeout<T>(
           settlementWorker.start();
           
           // Initialize Redis cache and preload data (optional - graceful fallback)
+          let redisConnected = false;
           try {
             console.log("🔗 Connecting to Redis...");
             await withTimeout(
@@ -218,6 +219,7 @@ async function withTimeout<T>(
               5000,
               "Redis connection"
             );
+            redisConnected = true;
             
             // Always attempt preload after connection (don't check isConnected() - connection event is async)
             console.log("📥 Starting data preload...");
@@ -227,13 +229,20 @@ async function withTimeout<T>(
               "Data preload"
             );
             console.log("✅ Preload complete:", preloadReport);
-            
-            // Start refresh worker
-            console.log("🔄 Starting refresh worker...");
-            await refreshWorker.start();
           } catch (redisErr) {
             console.warn("⚠️  Redis/preload failed, continuing without cache:", redisErr);
             // Continue without Redis - app will use SportMonks API directly
+          }
+          
+          // Start refresh worker if Redis connected (even if preload timed out)
+          if (redisConnected) {
+            try {
+              console.log("🔄 Starting refresh worker...");
+              await refreshWorker.start();
+              console.log("✅ Refresh worker started");
+            } catch (refreshErr) {
+              console.warn("⚠️  Refresh worker failed to start:", refreshErr);
+            }
           }
           
           workersReady = true;
