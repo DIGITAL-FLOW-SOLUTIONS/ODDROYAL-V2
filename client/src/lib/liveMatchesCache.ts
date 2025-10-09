@@ -199,6 +199,14 @@ export function getCachedMatches(): CachedMatch[] {
 export function getCachedMatchesGrouped(): any {
   const matches = getCachedMatches();
   
+  // Debug: log match statuses
+  const statuses = matches.map(m => m.status);
+  const statusCounts = statuses.reduce((acc, s) => {
+    acc[s || 'undefined'] = (acc[s || 'undefined'] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  console.log('🔍 Match status breakdown:', statusCounts);
+  
   const sportGroups = new Map<string, any>();
   
   for (const match of matches) {
