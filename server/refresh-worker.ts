@@ -148,7 +148,7 @@ export class RefreshWorker {
         return;
       }
 
-      const normalizedMatches = events.map(event => normalizeOddsEvent(event, ourSportKey));
+      const normalizedMatches = events.map(event => normalizeOddsEvent(event, ourSportKey, true));
       const leagueGroups = groupMatchesByLeague(normalizedMatches);
       const nonEmptyLeagues = leagueGroups.filter(lg => lg.match_count > 0);
 

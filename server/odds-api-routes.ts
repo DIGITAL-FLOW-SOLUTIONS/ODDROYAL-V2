@@ -251,10 +251,11 @@ export function registerOddsApiRoutes(app: Express): void {
             if (apiEvents.length > 0) {
               // Normalize and store in Redis
               const { normalizeOddsEvent, groupMatchesByLeague } = await import('./match-utils');
-              matches = apiEvents.map(event => normalizeOddsEvent(event, sport));
+              const isLive = mode === 'live';
+              matches = apiEvents.map(event => normalizeOddsEvent(event, sport, isLive));
               
               // Store in Redis for future requests
-              if (mode === 'live') {
+              if (isLive) {
                 await redisCache.setLiveMatches(sport, leagueId, matches, 60);
               } else {
                 await redisCache.setPrematchMatches(sport, leagueId, matches, 600);

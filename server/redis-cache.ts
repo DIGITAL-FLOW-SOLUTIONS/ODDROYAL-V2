@@ -504,13 +504,16 @@ class RedisCacheManager {
   // Get all live matches with enriched data (for aggregator endpoint)
   async getAllLiveMatchesEnriched(): Promise<any[]> {
     const sports = await this.getSportsList() || [];
+    console.log(`📊 getAllLiveMatchesEnriched - Found ${sports.length} sports:`, sports.map(s => s.key));
     const allMatches: any[] = [];
 
     for (const sport of sports) {
       const leagues = await this.getLiveLeagues(sport.key) || [];
+      console.log(`  📊 Sport ${sport.key}: ${leagues.length} live leagues`);
       
       for (const league of leagues) {
         const matches = await this.getLiveMatches(sport.key, league.league_id) || [];
+        console.log(`    📊 League ${league.league_id}: ${matches.length} matches`);
         
         // Enrich each match with logos and market status
         for (const match of matches) {

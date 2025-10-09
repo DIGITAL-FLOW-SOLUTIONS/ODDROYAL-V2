@@ -152,7 +152,7 @@ export interface NormalizedMatch {
   };
 }
 
-export function normalizeOddsEvent(event: any, sportKey: string): NormalizedMatch {
+export function normalizeOddsEvent(event: any, sportKey: string, isLiveRequest: boolean = false): NormalizedMatch {
   const leagueId = extractLeagueId(event);
   const leagueName = extractLeagueName(event);
   const matchId = generateMatchId(
@@ -165,6 +165,14 @@ export function normalizeOddsEvent(event: any, sportKey: string): NormalizedMatc
   // Extract available markets
   const markets = event.bookmakers?.[0]?.markets?.map((m: any) => m.key) || [];
 
+  // Determine status: if this is from a live API request, trust it's live
+  // Otherwise, use the old logic with scores as indicator
+  const status = event.completed 
+    ? 'completed' 
+    : (isLiveRequest || event.scores) 
+      ? 'live' 
+      : 'upcoming';
+
   return {
     match_id: matchId,
     sport_key: sportKey,
@@ -175,7 +183,7 @@ export function normalizeOddsEvent(event: any, sportKey: string): NormalizedMatc
     commence_time: event.commence_time,
     bookmakers: event.bookmakers || [],
     markets,
-    status: event.completed ? 'completed' : (event.scores ? 'live' : 'upcoming'),
+    status,
     scores: event.scores ? {
       home: event.scores.find((s: any) => s.name === event.home_team)?.score || 0,
       away: event.scores.find((s: any) => s.name === event.away_team)?.score || 0,
