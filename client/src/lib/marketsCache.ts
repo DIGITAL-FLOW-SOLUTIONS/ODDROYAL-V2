@@ -233,9 +233,12 @@ class MarketsCache {
   async updateLiveMarkets(): Promise<void> {
     try {
       const cachedMarkets = this.getAllMarkets();
-      const liveMatches = cachedMarkets.filter(m => m.status === 'live');
+      const liveMatches = cachedMarkets.filter(m => m.status.toLowerCase() === 'live');
       
-      if (liveMatches.length === 0) return;
+      if (liveMatches.length === 0) {
+        console.log('⏭️ No live markets to update');
+        return;
+      }
       
       console.log(`🔄 Updating ${liveMatches.length} live markets...`);
       
@@ -257,6 +260,8 @@ class MarketsCache {
           console.error(`Error updating live market ${match.matchId}:`, error);
         }
       }
+      
+      console.log(`✅ Updated ${liveMatches.length} live markets`);
     } catch (error) {
       console.error('Error updating live markets:', error);
     }
