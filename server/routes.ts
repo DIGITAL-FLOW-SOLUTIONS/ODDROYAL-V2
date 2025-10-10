@@ -2993,7 +2993,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     authenticateAdmin,
     ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
     requirePermission('matches:delete'), 
-    require2FA,
     auditAction('match_delete', (req) => ({ 
       targetType: 'match', 
       targetId: req.params.id 
