@@ -10,7 +10,7 @@ import { refreshWorker } from "./refresh-worker";
 // import { exposureEngine } from "./exposure-engine";
 // import { liveMatchSimulator } from "./live-match-simulator";
 import { storage } from "./storage";
-import { initializeDatabaseSchema, createDemoData, createSuperAdminUser } from "./init-database";
+import { initializeDatabaseSchema, createSuperAdminUser } from "./init-database";
 // import { AdminSeeder } from "./admin-seeder";
 
 // Demo mode disabled for production security
@@ -150,33 +150,8 @@ async function withTimeout<T>(
           throw new Error("Essential: Database schema initialization failed");
         }
         
-        // Only create demo data in development/demo mode - NOT ESSENTIAL
-        const isDemoMode = process.env.DEMO_MODE === 'true' || process.env.NODE_ENV === 'development';
-        
-        if (isDemoMode) {
-          // Demo data creation with timeout (3 seconds) - NOT ESSENTIAL
-          console.log("👤 Creating demo data...");
-          await withTimeout(
-            createDemoData(),
-            3000,
-            "Demo data creation"
-          ).catch(err => {
-            console.warn("⚠️ Demo data creation timeout:", err.message);
-          });
-          
-          // Demo account initialization with timeout (2 seconds) - NOT ESSENTIAL
-          try {
-            await withTimeout(
-              storage.initializeDemoAccount(),
-              2000,
-              "Demo account initialization"
-            );
-          } catch (error) {
-            console.warn("⚠️ Demo account initialization failed:", error);
-          }
-        } else {
-          console.log("ℹ️ Demo mode disabled - skipping demo data creation");
-        }
+        // Demo mode removed for production readiness
+        console.log("ℹ️ Production mode - demo accounts disabled");
         
         // Super admin creation (only if credentials are provided via env vars) - NOT ESSENTIAL
         // In production, use proper secrets management

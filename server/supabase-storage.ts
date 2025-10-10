@@ -600,26 +600,6 @@ export class SupabaseStorage implements IStorage {
     }
   }
 
-  // Initialize demo account - create a demo user if it doesn't exist
-  async initializeDemoAccount(): Promise<void> {
-    try {
-      const demoUser = await this.getUserByUsername('demo');
-      if (!demoUser) {
-        await this.createUser({
-          email: 'demo@example.com',
-          username: 'demo',
-          firstName: 'Demo',
-          lastName: 'User',
-          balanceCents: 0, // No initial balance for production
-          isActive: true,
-          isVerified: true,
-        });
-        console.log("✅ Demo user account created");
-      }
-    } catch (error: any) {
-      console.warn("⚠️ Failed to initialize demo account:", error.message);
-    }
-  }
 
   // ===================== STUB METHODS =====================
   // These methods need to be implemented for full IStorage compatibility

@@ -298,47 +298,6 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
   }
 }
 
-export async function createDemoData(): Promise<void> {
-  try {
-    console.log('👤 Creating demo user data...');
-    
-    // Check if demo profile already exists
-    const { data: existingProfile, error: checkError } = await supabaseAdmin
-      .from('users')
-      .select('*')
-      .eq('username', 'demo')
-      .single();
-
-    if (existingProfile) {
-      console.log('✅ Demo user already exists');
-      return;
-    }
-
-    // Create demo user profile
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('users')
-      .insert({
-        email: 'demo@example.com',
-        username: 'demo',
-        first_name: 'Demo',
-        last_name: 'User',
-        balance: 0, // No initial balance for production
-        is_verified: true,
-        is_active: true,
-      })
-      .select()
-      .single();
-
-    if (profileError) {
-      console.warn('Could not create demo user:', profileError.message);
-    } else {
-      console.log('✅ Demo user created successfully');
-    }
-
-  } catch (error: any) {
-    console.warn('Demo data creation failed:', error.message);
-  }
-}
 
 export async function createSuperAdminUser(): Promise<void> {
   try {
