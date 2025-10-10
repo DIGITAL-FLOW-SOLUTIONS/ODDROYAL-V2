@@ -4,9 +4,10 @@ import { memoryCache } from './memory-cache';
 import { cacheMonitor } from './cache-monitor';
 import { oddsApiClient, oddsApiMetrics } from './odds-api-client';
 import { getSportIcon, FOOTBALL_LEAGUE_PRIORITY } from './match-utils';
+import { unifiedMatchService } from './unified-match-service';
 
 export function registerOddsApiRoutes(app: Express): void {
-  // NEW: Aggregated live matches endpoint - all live matches in one call
+  // NEW: Aggregated live matches endpoint - all live matches in one call (UNIFIED: API + Manual)
   app.get('/api/live/matches', async (req: Request, res: Response) => {
     try {
       const cacheKey = 'aggregated:live:all';
@@ -19,10 +20,10 @@ export function registerOddsApiRoutes(app: Express): void {
       if (!aggregatedData) {
         cacheMonitor.recordMiss('memory');
         
-        // Layer 2: Compute from Redis cache
-        const allLiveMatches = await redisCache.getAllLiveMatchesEnriched();
-        cacheMonitor.recordHit('redis');
-        cacheSource = 'redis';
+        // Layer 2: Get unified matches (API + Manual) from unified service
+        const allLiveMatches = await unifiedMatchService.getAllLiveMatches();
+        cacheMonitor.recordHit('unified');
+        cacheSource = 'unified';
         
         // Group by sport and league
         const sportGroups: any[] = [];
@@ -342,13 +343,13 @@ export function registerOddsApiRoutes(app: Express): void {
     }
   });
 
-  // Get match markets
+  // Get match markets (UNIFIED: supports both API and manual matches)
   app.get('/api/match/:matchId/markets', async (req: Request, res: Response) => {
     try {
       const { matchId } = req.params;
       const cacheKey = `markets:${matchId}`;
       
-      // PROFESSIONAL MULTI-LAYER CACHING: Memory → Redis
+      // PROFESSIONAL MULTI-LAYER CACHING: Memory → Unified Service
       // Layer 1: Try memory cache first
       let markets = memoryCache.get<any>(cacheKey);
       let cacheSource = 'memory';
@@ -356,19 +357,25 @@ export function registerOddsApiRoutes(app: Express): void {
       if (!markets) {
         cacheMonitor.recordMiss('memory');
         
-        // Layer 2: Try Redis cache
-        markets = await redisCache.getMatchMarkets(matchId);
-        cacheSource = 'redis';
+        // Layer 2: Use unified match service (handles both API and manual matches)
+        const marketsArray = await unifiedMatchService.getMatchMarkets(matchId);
+        cacheSource = 'unified';
         
-        if (!markets) {
-          cacheMonitor.recordMiss('redis');
+        if (!marketsArray || marketsArray.length === 0) {
+          cacheMonitor.recordMiss('unified');
           return res.status(404).json({
             success: false,
             error: 'Markets not found for this match',
           });
         }
         
-        cacheMonitor.recordHit('redis');
+        // Format markets response
+        markets = {
+          markets: marketsArray,
+          last_update: new Date().toISOString()
+        };
+        
+        cacheMonitor.recordHit('unified');
         // Store in memory cache (2 seconds for fast re-access)
         memoryCache.set(cacheKey, markets, 2);
       } else {
@@ -392,33 +399,13 @@ export function registerOddsApiRoutes(app: Express): void {
     }
   });
 
-  // Get match details
+  // Get match details (UNIFIED: supports both API and manual matches)
   app.get('/api/match/:matchId/details', async (req: Request, res: Response) => {
     try {
       const { matchId } = req.params;
 
-      // Find the match in cache
-      let matchData = null;
-      
-      const sports = await redisCache.getSportsList() || [];
-      for (const sport of sports) {
-        const prematchLeagues = await redisCache.getPrematchLeagues(sport.key) || [];
-        const liveLeagues = await redisCache.getLiveLeagues(sport.key) || [];
-
-        for (const league of [...prematchLeagues, ...liveLeagues]) {
-          const matches = await redisCache.getPrematchMatches(sport.key, league.league_id) ||
-                         await redisCache.getLiveMatches(sport.key, league.league_id) ||
-                         [];
-          
-          const match = matches.find(m => m.match_id === matchId);
-          if (match) {
-            matchData = match;
-            break;
-          }
-        }
-
-        if (matchData) break;
-      }
+      // Use unified match service to get match (works for both API and manual matches)
+      const matchData = await unifiedMatchService.getMatchById(matchId);
 
       if (!matchData) {
         return res.status(404).json({
@@ -427,21 +414,28 @@ export function registerOddsApiRoutes(app: Express): void {
         });
       }
 
-      // Get logos
-      const homeLogo = await redisCache.getTeamLogo(matchData.sport_key, matchData.home_team);
-      const awayLogo = await redisCache.getTeamLogo(matchData.sport_key, matchData.away_team);
+      // Get logos (only for API matches, manual matches don't have logos yet)
+      let homeLogo = null;
+      let awayLogo = null;
+      
+      if (matchData.source === 'api') {
+        const homeLogoData = await redisCache.getTeamLogo(matchData.sport_key, matchData.home_team);
+        const awayLogoData = await redisCache.getTeamLogo(matchData.sport_key, matchData.away_team);
+        homeLogo = homeLogoData?.logo || null;
+        awayLogo = awayLogoData?.logo || null;
+      }
 
-      // Get markets
-      const markets = await redisCache.getMatchMarkets(matchId);
+      // Get markets using unified service
+      const marketsArray = await unifiedMatchService.getMatchMarkets(matchId);
 
       res.json({
         success: true,
         data: {
           ...matchData,
-          home_team_logo: homeLogo?.logo || null,
-          away_team_logo: awayLogo?.logo || null,
-          markets: markets?.markets || [],
-          last_update: markets?.last_update || new Date().toISOString(),
+          home_team_logo: homeLogo,
+          away_team_logo: awayLogo,
+          markets: marketsArray || [],
+          last_update: new Date().toISOString(),
         },
       });
     } catch (error) {
