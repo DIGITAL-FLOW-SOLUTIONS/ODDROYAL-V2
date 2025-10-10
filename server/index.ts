@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { registerOddsApiRoutes } from "./odds-api-routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { settlementWorker } from "./settlement-worker";
+import { manualMatchSimulator } from "./manual-match-simulator";
 import { redisCache } from "./redis-cache";
 import { preloadWorker } from "./preload-worker";
 import { refreshWorker } from "./refresh-worker";
@@ -209,6 +210,7 @@ async function withTimeout<T>(
         console.log("🔄 Starting background workers...");
         try {
           settlementWorker.start();
+          manualMatchSimulator.start();
           
           // Initialize Redis cache and preload data (optional - graceful fallback)
           let redisConnected = false;
