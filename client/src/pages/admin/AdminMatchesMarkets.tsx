@@ -697,7 +697,7 @@ export default function AdminMatchesMarkets() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  const availableSports = sportsResponse?.data || sportsData;
+  const availableSports = Array.isArray(sportsResponse) ? sportsResponse : sportsData;
 
   // Fetch matches with React Query
   const { data: matchesResponse, isLoading, error, refetch } = useQuery({
