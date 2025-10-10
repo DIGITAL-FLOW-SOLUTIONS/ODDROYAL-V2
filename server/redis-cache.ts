@@ -1,16 +1,18 @@
 import Redis from "ioredis";
 import msgpack from "msgpack-lite";
 
-const REDIS_URL =
-  process.env.REDIS_URL ||
-  "rediss://default:ARteAAImcDI1YzdiM2M1NzBhZjk0YjMxODU4NDhhNWZhODRhMTlmN3AyNzAwNg@welcome-polecat-7006.upstash.io:6379";
+const REDIS_URL = process.env.REDIS_URL;
+
+if (!REDIS_URL) {
+  throw new Error("REDIS_URL environment variable is required");
+}
 
 class RedisCacheManager {
   private client: Redis;
   private connected: boolean = false;
 
   constructor() {
-    this.client = new Redis(REDIS_URL, {
+    this.client = new Redis(REDIS_URL as string, {
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
       lazyConnect: true,
