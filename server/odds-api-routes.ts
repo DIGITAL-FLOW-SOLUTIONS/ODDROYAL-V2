@@ -335,33 +335,53 @@ export function registerOddsApiRoutes(app: Express): void {
           (m: any) => m.sport === sport && m.leagueId === leagueId
         );
 
-        // Transform manual matches to match API format
-        const transformedManual = manualMatchesForLeague.map((match: any) => ({
-          match_id: match.id,
-          sport_key: sport,
-          sport_title: sport.charAt(0).toUpperCase() + sport.slice(1),
-          commence_time: match.kickoffTime,
-          home_team: match.homeTeamName,
-          away_team: match.awayTeamName,
-          league_id: match.leagueId,
-          league_name: match.leagueName,
-          status: match.status,
-          home_score: match.homeScore || 0,
-          away_score: match.awayScore || 0,
-          bookmakers: match.markets?.map((market: any) => ({
-            key: 'manual',
-            title: 'Manual',
-            markets: [{
-              key: market.key,
-              outcomes: market.outcomes?.map((outcome: any) => ({
-                name: outcome.label,
-                price: parseFloat(outcome.odds) || 1.01
-              })) || []
-            }]
-          })) || [],
-          is_manual: true,
-          source: 'manual'
-        }));
+        // Transform manual matches to match API format with properly loaded markets
+        const transformedManual = await Promise.all(
+          manualMatchesForLeague.map(async (match: any) => {
+            // Fetch markets for this manual match (includes outcomes)
+            const markets = await storage.getMatchMarkets(match.id);
+            
+            // Build bookmakers array with markets and outcomes
+            const bookmakers: any[] = [];
+            
+            if (markets && markets.length > 0) {
+              // Group all markets under a single bookmaker for consistency
+              // getMatchMarkets already includes outcomes, so we don't need to fetch them separately
+              const marketsList = markets.map((market: any) => {
+                return {
+                  key: market.key || market.type,
+                  outcomes: (market.outcomes || []).map((outcome: any) => ({
+                    name: outcome.label,
+                    price: parseFloat(outcome.odds) || 1.01
+                  }))
+                };
+              });
+              
+              bookmakers.push({
+                key: 'manual',
+                title: 'Manual',
+                markets: marketsList
+              });
+            }
+            
+            return {
+              match_id: match.id,
+              sport_key: sport,
+              sport_title: sport.charAt(0).toUpperCase() + sport.slice(1),
+              commence_time: match.kickoffTime,
+              home_team: match.homeTeamName,
+              away_team: match.awayTeamName,
+              league_id: match.leagueId,
+              league_name: match.leagueName,
+              status: match.status,
+              home_score: match.homeScore || 0,
+              away_score: match.awayScore || 0,
+              bookmakers,
+              is_manual: true,
+              source: 'manual'
+            };
+          })
+        );
 
         // Merge API and manual matches
         matches = [...(matches || []), ...transformedManual];
