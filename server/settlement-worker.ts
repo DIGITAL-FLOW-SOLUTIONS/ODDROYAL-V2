@@ -214,13 +214,43 @@ export class BetSettlementWorker {
   }
 
   /**
-   * Fetch individual fixture result using The Odds API scores endpoint
+   * Fetch individual fixture result (UNIFIED: handles both API and manual matches)
    */
   private async fetchFixtureResult(matchId: string): Promise<MatchResult | null> {
     try {
       console.log(`Fetching result for match ${matchId}`);
       
-      // First, try to get from Redis cache (match details should be cached)
+      // Check if it's a manual match (UUIDs are longer than API match IDs)
+      const isManualMatch = matchId.length > 30;
+      
+      if (isManualMatch) {
+        // Get manual match from database
+        const match = await storage.getMatch(matchId);
+        
+        if (match && match.status === 'finished') {
+          const homeScore = match.home_score || match.homeScore || 0;
+          const awayScore = match.away_score || match.awayScore || 0;
+          
+          console.log(`Manual match ${matchId} finished: ${homeScore}-${awayScore}`);
+          
+          return {
+            fixtureId: matchId,
+            homeScore,
+            awayScore,
+            totalGoals: homeScore + awayScore,
+            status: 'finished',
+            winner: homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw',
+            matchDate: match.kickoff_time || match.kickoffTime || new Date().toISOString(),
+            homeTeam: match.home_team_name || match.homeTeamName || '',
+            awayTeam: match.away_team_name || match.awayTeamName || ''
+          };
+        }
+        
+        console.log(`Manual match ${matchId} not finished yet`);
+        return null;
+      }
+      
+      // For API matches: First, try to get from Redis cache
       const cachedMatch = await redisCache.get<any>(`match:details:${matchId}`);
       
       if (cachedMatch && cachedMatch.completed) {
