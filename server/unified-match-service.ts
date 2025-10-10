@@ -43,6 +43,12 @@ export class UnifiedMatchService {
    */
   async getAllLiveMatches(): Promise<UnifiedMatch[]> {
     try {
+      // Try to get from cache first
+      const cached = await redisCache.get<UnifiedMatch[]>('unified:matches:live');
+      if (cached && cached.length > 0) {
+        return cached;
+      }
+      
       // Get API matches from Redis
       const apiMatches = await redisCache.getAllLiveMatchesEnriched();
       
@@ -73,8 +79,27 @@ export class UnifiedMatchService {
    */
   async getAllUpcomingMatches(limit: number = 100): Promise<UnifiedMatch[]> {
     try {
-      // Get API matches from Redis
-      const apiMatches = await redisCache.getAllUpcomingMatches(limit);
+      // Try to get from cache first
+      const cached = await redisCache.get<UnifiedMatch[]>('unified:matches:upcoming');
+      if (cached && cached.length > 0) {
+        return cached.slice(0, limit);
+      }
+      
+      // Get API matches from Redis (get from all sports and leagues, but respect limit)
+      const apiMatches: UnifiedMatch[] = [];
+      const sports = await redisCache.getSportsList() || [];
+      
+      for (const sport of sports) {
+        if (apiMatches.length >= limit * 2) break; // Get 2x limit to allow for mixing with manual
+        
+        const leagues = await redisCache.getPrematchLeagues(sport.key) || [];
+        for (const league of leagues) {
+          if (apiMatches.length >= limit * 2) break;
+          
+          const matches = await redisCache.getPrematchMatches(sport.key, league.league_id) || [];
+          apiMatches.push(...matches);
+        }
+      }
       
       // Get manual matches from Supabase
       const manualMatches = await storage.getUpcomingManualMatches(limit);
@@ -132,10 +157,25 @@ export class UnifiedMatchService {
   /**
    * Get matches by league (both API and manual)
    */
-  async getMatchesByLeague(leagueId: string, status?: string): Promise<UnifiedMatch[]> {
+  async getMatchesByLeague(leagueId: string, sportKey?: string, status?: string): Promise<UnifiedMatch[]> {
     try {
-      // Get API matches from Redis
-      const apiMatches = await redisCache.getMatchesByLeague(leagueId);
+      // Get API matches from Redis (need to search through sports to find the league)
+      let apiMatches: any[] = [];
+      
+      if (sportKey) {
+        // If we have sport key, get matches directly
+        const prematchMatches = await redisCache.getPrematchMatches(sportKey, leagueId) || [];
+        const liveMatches = await redisCache.getLiveMatches(sportKey, leagueId) || [];
+        apiMatches = [...prematchMatches, ...liveMatches];
+      } else {
+        // Search through all sports to find the league
+        const sports = await redisCache.getSportsList() || [];
+        for (const sport of sports) {
+          const prematchMatches = await redisCache.getPrematchMatches(sport.key, leagueId) || [];
+          const liveMatches = await redisCache.getLiveMatches(sport.key, leagueId) || [];
+          apiMatches.push(...prematchMatches, ...liveMatches);
+        }
+      }
       
       // Get manual matches from Supabase
       const manualMatches = await storage.getAllMatches({

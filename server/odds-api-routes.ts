@@ -22,7 +22,7 @@ export function registerOddsApiRoutes(app: Express): void {
         
         // Layer 2: Get unified matches (API + Manual) from unified service
         const allLiveMatches = await unifiedMatchService.getAllLiveMatches();
-        cacheMonitor.recordHit('unified');
+        cacheMonitor.recordHit('redis');
         cacheSource = 'unified';
         
         // Group by sport and league
@@ -362,7 +362,7 @@ export function registerOddsApiRoutes(app: Express): void {
         cacheSource = 'unified';
         
         if (!marketsArray || marketsArray.length === 0) {
-          cacheMonitor.recordMiss('unified');
+          cacheMonitor.recordMiss('redis');
           return res.status(404).json({
             success: false,
             error: 'Markets not found for this match',
@@ -375,7 +375,7 @@ export function registerOddsApiRoutes(app: Express): void {
           last_update: new Date().toISOString()
         };
         
-        cacheMonitor.recordHit('unified');
+        cacheMonitor.recordHit('redis');
         // Store in memory cache (2 seconds for fast re-access)
         memoryCache.set(cacheKey, markets, 2);
       } else {
