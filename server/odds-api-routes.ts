@@ -5,6 +5,7 @@ import { cacheMonitor } from './cache-monitor';
 import { oddsApiClient, oddsApiMetrics } from './odds-api-client';
 import { getSportIcon, FOOTBALL_LEAGUE_PRIORITY } from './match-utils';
 import { unifiedMatchService } from './unified-match-service';
+import { storage } from './storage';
 
 export function registerOddsApiRoutes(app: Express): void {
   // NEW: Aggregated live matches endpoint - all live matches in one call (UNIFIED: API + Manual)
@@ -157,6 +158,12 @@ export function registerOddsApiRoutes(app: Express): void {
         
         menuData = [];
 
+        // Get manual matches to include in menu
+        const manualMatches = mode === 'live' 
+          ? await storage.getLiveManualMatches()
+          : await storage.getUpcomingManualMatches();
+
+        // Build menu from API sports/leagues
         for (const sport of sports) {
           const leagues = mode === 'live'
             ? await redisCache.getLiveLeagues(sport.key)
@@ -184,6 +191,39 @@ export function registerOddsApiRoutes(app: Express): void {
               total_matches: leagues.reduce((sum, l) => sum + l.match_count, 0),
             });
           }
+        }
+
+        // Add manual matches to menu
+        for (const match of manualMatches) {
+          const sportKey = match.sport || 'football';
+          
+          // Find or create sport in menu
+          let sportGroup = menuData.find((s: any) => s.sport_key === sportKey);
+          if (!sportGroup) {
+            sportGroup = {
+              sport_key: sportKey,
+              sport_title: sportKey.charAt(0).toUpperCase() + sportKey.slice(1),
+              sport_icon: getSportIcon(sportKey),
+              leagues: [],
+              total_matches: 0,
+            };
+            menuData.push(sportGroup);
+          }
+          
+          // Find or create league in sport
+          let league = sportGroup.leagues.find((l: any) => l.league_id === match.leagueId);
+          if (!league) {
+            league = {
+              league_id: match.leagueId,
+              league_name: match.leagueName,
+              match_count: 0,
+            };
+            sportGroup.leagues.push(league);
+          }
+          
+          // Increment match count
+          league.match_count += 1;
+          sportGroup.total_matches += 1;
         }
         
         // Store in memory cache for next request (5 second TTL for menu)
@@ -285,6 +325,46 @@ export function registerOddsApiRoutes(app: Express): void {
           cacheMonitor.recordHit('redis');
           cacheSource = 'redis';
         }
+
+        // Get manual matches for this sport/league
+        const allManualMatches = mode === 'live'
+          ? await storage.getLiveManualMatches()
+          : await storage.getUpcomingManualMatches();
+        
+        const manualMatchesForLeague = allManualMatches.filter(
+          (m: any) => m.sport === sport && m.leagueId === leagueId
+        );
+
+        // Transform manual matches to match API format
+        const transformedManual = manualMatchesForLeague.map((match: any) => ({
+          match_id: match.id,
+          sport_key: sport,
+          sport_title: sport.charAt(0).toUpperCase() + sport.slice(1),
+          commence_time: match.kickoffTime,
+          home_team: match.homeTeamName,
+          away_team: match.awayTeamName,
+          league_id: match.leagueId,
+          league_name: match.leagueName,
+          status: match.status,
+          home_score: match.homeScore || 0,
+          away_score: match.awayScore || 0,
+          bookmakers: match.markets?.map((market: any) => ({
+            key: 'manual',
+            title: 'Manual',
+            markets: [{
+              key: market.key,
+              outcomes: market.outcomes?.map((outcome: any) => ({
+                name: outcome.label,
+                price: parseFloat(outcome.odds) || 1.01
+              })) || []
+            }]
+          })) || [],
+          is_manual: true,
+          source: 'manual'
+        }));
+
+        // Merge API and manual matches
+        matches = [...(matches || []), ...transformedManual];
 
         if (!matches || matches.length === 0) {
           return res.json({
