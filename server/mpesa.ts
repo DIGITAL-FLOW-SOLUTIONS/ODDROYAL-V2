@@ -1,5 +1,6 @@
 import axios from 'axios';
 import crypto from 'crypto';
+import { logger } from "./logger";
 
 interface MpesaConfig {
   consumerKey: string;
@@ -45,7 +46,7 @@ export class MpesaService {
     // Validate required environment variables
     if (!this.config.consumerKey || !this.config.consumerSecret || 
         !this.config.passkey || !this.config.shortcode) {
-      console.error('Missing required M-PESA environment variables');
+      logger.error('Missing required M-PESA environment variables');
       // Don't throw here to prevent server startup failure
     }
   }
@@ -66,7 +67,7 @@ export class MpesaService {
 
       return response.data.access_token;
     } catch (error: any) {
-      console.error('M-PESA OAuth error:', error.response?.data || error.message);
+      logger.error('M-PESA OAuth error:', error.response?.data || error.message);
       throw new Error('Failed to get M-PESA access token');
     }
   }
@@ -142,7 +143,7 @@ export class MpesaService {
         TransactionDesc: request.transactionDesc
       };
 
-      console.log('STK Push payload:', { 
+      logger.info('STK Push payload:', { 
         BusinessShortCode: payload.BusinessShortCode, 
         TransactionType: payload.TransactionType,
         Amount: payload.Amount,
@@ -162,10 +163,10 @@ export class MpesaService {
         }
       );
 
-      console.log('STK Push response:', response.data);
+      logger.info('STK Push response:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('STK Push error:', error.response?.data || error.message);
+      logger.error('STK Push error:', error.response?.data || error.message);
       throw new Error(error.response?.data?.errorMessage || 'STK Push failed');
     }
   }
@@ -199,7 +200,7 @@ export class MpesaService {
 
       return response.data;
     } catch (error: any) {
-      console.error('STK Push query error:', error.response?.data || error.message);
+      logger.error('STK Push query error:', error.response?.data || error.message);
       throw new Error('Failed to query transaction status');
     }
   }
@@ -247,7 +248,7 @@ export class MpesaService {
 
       return result;
     } catch (error) {
-      console.error('Callback processing error:', error);
+      logger.error('Callback processing error:', error);
       throw new Error('Failed to process M-PESA callback');
     }
   }

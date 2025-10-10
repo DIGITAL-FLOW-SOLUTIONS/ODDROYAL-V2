@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
 import { hasPermission, type AdminRole } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { logger } from "./logger";
 
 // Extend Express Request type to include admin user
 declare global {
@@ -72,7 +73,7 @@ export async function authenticateAdmin(req: Request, res: Response, next: NextF
       await storage.updateAdminSession(session.id, {
         expiresAt: newExpiresAt.toISOString()
       });
-      console.log(`Auto-extended session for admin ${session.adminId} until ${newExpiresAt}`);
+      logger.info(`Auto-extended session for admin ${session.adminId} until ${newExpiresAt}`);
     }
     
     // Get admin user
@@ -112,7 +113,7 @@ export async function authenticateAdmin(req: Request, res: Response, next: NextF
     next();
     
   } catch (error) {
-    console.error('Admin authentication error:', error);
+    logger.error('Admin authentication error:', error);
     res.status(500).json({
       success: false,
       error: 'Internal server error'
@@ -264,7 +265,7 @@ export function auditAction(
         
         // Skip audit logging for unauthenticated requests during initial setup
         if (!req.adminUser?.id) {
-          console.log(`Skipping audit log for unauthenticated ${actionType} action`);
+          logger.debug(`Skipping audit log for unauthenticated ${actionType} action`);
           return;
         }
         
@@ -285,7 +286,7 @@ export function auditAction(
           errorMessage: isSuccess ? null : (safeResponseData?.error || 'Authentication failed')
         });
       } catch (error) {
-        console.error('Failed to log admin action:', error);
+        logger.error('Failed to log admin action:', error);
       }
     });
   };
@@ -378,7 +379,7 @@ export async function adminRateLimit(req: Request, res: Response, next: NextFunc
         // If admin user doesn't exist, still continue to login handler
         // The login handler will return 'Invalid credentials' - preventing enumeration
       } catch (error) {
-        console.error('Error checking admin user for rate limiting:', error);
+        logger.error('Error checking admin user for rate limiting:', error);
         // Continue to login handler even if user lookup fails
       }
     }
@@ -386,7 +387,7 @@ export async function adminRateLimit(req: Request, res: Response, next: NextFunc
     next();
     
   } catch (error) {
-    console.error('Admin rate limiting error:', error);
+    logger.error('Admin rate limiting error:', error);
     next(); // Continue even if rate limiting fails
   }
 }

@@ -7,6 +7,7 @@ import DOMPurify from "isomorphic-dompurify";
 import csrf from "csrf";
 import { randomUUID } from "crypto";
 import { storage } from "./storage";
+import { logger } from "./logger";
 
 /**
  * HTTP Security Headers Middleware using Helmet
@@ -205,7 +206,7 @@ export class RequestValidationManager {
 
         next();
       } catch (error) {
-        console.error('Request validation error:', error);
+        logger.error('Request validation error:', error);
         res.status(400).json({
           success: false,
           error: 'Invalid request data',
@@ -376,7 +377,7 @@ export class SecurityMonitoringManager {
           }
 
         } catch (error) {
-          console.error('Security monitoring error:', error);
+          logger.error('Security monitoring error:', error);
         }
       });
     };
@@ -459,7 +460,7 @@ export class SecurityMonitoringManager {
     try {
       // Skip audit logging for unauthenticated requests during initial setup
       if (event.adminId === 'unauthenticated') {
-        console.log(`Skipping security audit log for unauthenticated ${event.eventType} event`);
+        logger.debug(`Skipping security audit log for unauthenticated ${event.eventType} event`);
         return;
       }
       
@@ -486,7 +487,7 @@ export class SecurityMonitoringManager {
         errorMessage: event.success ? null : 'Security event detected',
       });
     } catch (error) {
-      console.error('Failed to log security event:', error);
+      logger.error('Failed to log security event:', error);
     }
   }
 
@@ -504,7 +505,7 @@ export class SecurityMonitoringManager {
       const alertLevel = concerns.includes('potential_injection') || 
                        concerns.includes('authentication_failure') ? 'HIGH' : 'MEDIUM';
 
-      console.warn(`[SECURITY ALERT - ${alertLevel}] ${eventType}:`, {
+      logger.warn(`[SECURITY ALERT - ${alertLevel}] ${eventType}:`, {
         concerns,
         context,
         timestamp: new Date().toISOString(),
@@ -516,7 +517,7 @@ export class SecurityMonitoringManager {
       // - Automated response systems (temporary IP blocking, etc.)
 
     } catch (error) {
-      console.error('Failed to handle security alert:', error);
+      logger.error('Failed to handle security alert:', error);
     }
   }
 }
@@ -546,7 +547,7 @@ export class CSRFProtectionManager {
 
       return token;
     } catch (error) {
-      console.error('CSRF token generation error:', error);
+      logger.error('CSRF token generation error:', error);
       throw new Error('Failed to generate CSRF token');
     }
   }
@@ -571,7 +572,7 @@ export class CSRFProtectionManager {
       // Verify the token
       return CSRFProtectionManager.csrfInstance.verify(storedTokenData.token, token);
     } catch (error) {
-      console.error('CSRF token verification error:', error);
+      logger.error('CSRF token verification error:', error);
       return false;
     }
   }
@@ -626,7 +627,7 @@ export class CSRFProtectionManager {
 
         next();
       } catch (error) {
-        console.error('CSRF token provision error:', error);
+        logger.error('CSRF token provision error:', error);
         // Don't fail the request if CSRF token generation fails
         next();
       }

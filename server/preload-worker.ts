@@ -13,6 +13,7 @@ import {
   GroupedSport,
 } from './match-utils';
 import pLimit from 'p-limit';
+import { logger } from './logger';
 
 const CONCURRENCY_LIMIT = parseInt(process.env.CONCURRENCY_LIMIT || '6');
 const limit = pLimit(CONCURRENCY_LIMIT);
@@ -58,7 +59,7 @@ export class PreloadWorker {
   private groupedSports: GroupedSport[] = [];
 
   async preloadAll(): Promise<PreloadReport> {
-    console.log('🚀 Starting full preload of all sports data (dynamic)...');
+    logger.info('🚀 Starting full preload of all sports data (dynamic)...');
     
     try {
       // Connect to Redis
@@ -80,18 +81,18 @@ export class PreloadWorker {
       ];
       
       if (footballGroup) {
-        console.log('⚽ Preloading TOP Football leagues first (priority)...');
+        logger.info('⚽ Preloading TOP Football leagues first (priority)...');
         const priorityLeagues = footballGroup.leagues.filter(l => 
           topFootballLeagues.includes(l.key)
         );
         // Aggregate all priority football leagues together
         await this.preloadSportGroup(footballGroup.ourKey, priorityLeagues);
-        console.log(`✅ ${priorityLeagues.length} priority Football leagues preloaded`);
+        logger.success(`✅ ${priorityLeagues.length} priority Football leagues preloaded`);
       }
 
       // Set cache ready flag after priority sports are loaded
       await redisCache.setCacheReady(true);
-      console.log('✅ Cache ready - app can start serving requests');
+      logger.success('✅ Cache ready - app can start serving requests');
 
       // BACKGROUND PHASE: Load remaining sports (non-blocking)
       const backgroundTasks = [];
@@ -102,7 +103,7 @@ export class PreloadWorker {
           !topFootballLeagues.includes(l.key)
         );
         if (remainingFootballLeagues.length > 0) {
-          console.log(`📥 Loading ${remainingFootballLeagues.length} additional Football leagues in background...`);
+          logger.info(`📥 Loading ${remainingFootballLeagues.length} additional Football leagues in background...`);
           backgroundTasks.push(
             this.preloadSportGroup(footballGroup.ourKey, remainingFootballLeagues, true)
           );
@@ -118,12 +119,12 @@ export class PreloadWorker {
       }
       
       if (backgroundTasks.length > 0) {
-        console.log(`📥 Loading ${otherSports.length} additional sport categories in background...`);
+        logger.info(`📥 Loading ${otherSports.length} additional sport categories in background...`);
         // Load without waiting (don't await)
         Promise.all(backgroundTasks).then(() => {
-          console.log('✅ Background sports preload completed');
+          logger.success('✅ Background sports preload completed');
         }).catch(err => {
-          console.error('⚠️  Background preload error:', err);
+          logger.error('⚠️  Background preload error:', err);
         });
       }
 
@@ -136,15 +137,15 @@ export class PreloadWorker {
       // Save report
       await redisCache.setCacheReport(this.report);
 
-      console.log('✅ Priority preload completed');
-      console.log(`📊 Total sports categories: ${this.groupedSports.length}`);
-      console.log(`📊 Priority leagues loaded: ${this.report.totalLeagues}`);
-      console.log(`📊 Priority matches loaded: ${this.report.totalMatches}`);
-      console.log(`⏱️  Priority phase duration: ${(this.report.duration / 1000).toFixed(2)}s`);
+      logger.success('✅ Priority preload completed');
+      logger.info(`📊 Total sports categories: ${this.groupedSports.length}`);
+      logger.info(`📊 Priority leagues loaded: ${this.report.totalLeagues}`);
+      logger.info(`📊 Priority matches loaded: ${this.report.totalMatches}`);
+      logger.info(`⏱️  Priority phase duration: ${(this.report.duration / 1000).toFixed(2)}s`);
 
       return this.report;
     } catch (error) {
-      console.error('❌ Preload failed:', error);
+      logger.error('❌ Preload failed:', error);
       this.report.failures.push(`Global error: ${(error as Error).message}`);
       throw error;
     }
@@ -152,18 +153,18 @@ export class PreloadWorker {
 
   private async fetchAndGroupSports(): Promise<void> {
     try {
-      console.log('📡 Fetching all available sports from The Odds API...');
+      logger.info('📡 Fetching all available sports from The Odds API...');
       
       // Fetch all sports from The Odds API (this is free, no quota cost)
       const allSports = await oddsApiClient.getSports();
-      console.log(`📥 Retrieved ${allSports.length} total sports from API`);
+      logger.info(`📥 Retrieved ${allSports.length} total sports from API`);
       
       // Group sports by category
       this.groupedSports = groupSportsByCategory(allSports as ApiSport[]);
       
-      console.log(`✅ Grouped into ${this.groupedSports.length} sport categories:`);
+      logger.success(`✅ Grouped into ${this.groupedSports.length} sport categories:`);
       this.groupedSports.forEach(group => {
-        console.log(`  - ${group.title}: ${group.leagues.length} leagues`);
+        logger.info(`  - ${group.title}: ${group.leagues.length} leagues`);
       });
 
       // Cache the grouped sports list for frontend
@@ -176,7 +177,7 @@ export class PreloadWorker {
 
       await redisCache.setSportsList(sportsForCache, 3600); // 1 hour TTL
     } catch (error) {
-      console.error('Failed to fetch and group sports:', error);
+      logger.error('Failed to fetch and group sports:', error);
       this.report.failures.push(`Sports grouping: ${(error as Error).message}`);
       throw error;
     }
@@ -248,9 +249,9 @@ export class PreloadWorker {
         this.report.totalMatches += totalPrematchMatches;
       }
 
-      console.log(`  ✅ ${ourSportKey}: ${allPrematchLeagues.length} prematch leagues, ${allLiveLeagues.length} live leagues`);
+      logger.success(`  ✅ ${ourSportKey}: ${allPrematchLeagues.length} prematch leagues, ${allLiveLeagues.length} live leagues`);
     } catch (error) {
-      console.error(`  ❌ Failed to preload ${ourSportKey}:`, error);
+      logger.error(`  ❌ Failed to preload ${ourSportKey}:`, error);
       if (!isBackground) {
         this.report.failures.push(`${ourSportKey}: ${(error as Error).message}`);
       }
@@ -258,7 +259,7 @@ export class PreloadWorker {
   }
 
   private async preloadSport(sportKey: string, ourSportKey: string): Promise<void> {
-    console.log(`📥 Preloading ${ourSportKey} (${sportKey})...`);
+    logger.info(`📥 Preloading ${ourSportKey} (${sportKey})...`);
 
     this.report.sports[ourSportKey] = {
       prematch: { leagues: 0, matches: 0, success: false },
@@ -293,7 +294,7 @@ export class PreloadWorker {
         matches: normalizedMatches
       };
     } catch (error) {
-      console.error(`  ⚠️  Prematch failed for ${sportKey}:`, (error as Error).message);
+      logger.error(`  ⚠️  Prematch failed for ${sportKey}:`, (error as Error).message);
       return null;
     }
   }
@@ -320,7 +321,7 @@ export class PreloadWorker {
         matches: normalizedMatches
       };
     } catch (error) {
-      console.error(`  ⚠️  Live failed for ${sportKey}:`, (error as Error).message);
+      logger.error(`  ⚠️  Live failed for ${sportKey}:`, (error as Error).message);
       return null;
     }
   }
@@ -450,10 +451,10 @@ export class PreloadWorker {
       this.report.totalLeagues += nonEmptyLeagues.length;
       this.report.totalMatches += normalizedMatches.length;
 
-      console.log(`  ✅ Prematch: ${nonEmptyLeagues.length} leagues, ${normalizedMatches.length} matches`);
+      logger.success(`  ✅ Prematch: ${nonEmptyLeagues.length} leagues, ${normalizedMatches.length} matches`);
     } catch (error) {
       const errorMsg = (error as Error).message;
-      console.error(`  ❌ Prematch failed for ${ourSportKey}:`, errorMsg);
+      logger.error(`  ❌ Prematch failed for ${ourSportKey}:`, errorMsg);
       this.report.sports[ourSportKey].prematch = {
         leagues: 0,
         matches: 0,
@@ -475,7 +476,7 @@ export class PreloadWorker {
       });
 
       if (events.length === 0) {
-        console.log(`  ℹ️  No live matches for ${ourSportKey}`);
+        logger.info(`  ℹ️  No live matches for ${ourSportKey}`);
         this.report.sports[ourSportKey].live = {
           leagues: 0,
           matches: 0,
@@ -522,10 +523,10 @@ export class PreloadWorker {
       this.report.totalLeagues += nonEmptyLeagues.length;
       this.report.totalMatches += normalizedMatches.length;
 
-      console.log(`  ✅ Live: ${nonEmptyLeagues.length} leagues, ${normalizedMatches.length} matches`);
+      logger.success(`  ✅ Live: ${nonEmptyLeagues.length} leagues, ${normalizedMatches.length} matches`);
     } catch (error) {
       const errorMsg = (error as Error).message;
-      console.error(`  ❌ Live failed for ${ourSportKey}:`, errorMsg);
+      logger.error(`  ❌ Live failed for ${ourSportKey}:`, errorMsg);
       this.report.sports[ourSportKey].live = {
         leagues: 0,
         matches: 0,
@@ -547,7 +548,7 @@ export class PreloadWorker {
         last_update: new Date().toISOString(),
       }, ttl);
     } catch (error) {
-      console.warn(`Failed to prefetch markets for match ${match.match_id}:`, error);
+      logger.warn(`Failed to prefetch markets for match ${match.match_id}:`, error);
     }
   }
 
@@ -573,7 +574,7 @@ export class PreloadWorker {
             await redisCache.setTeamLogo('football', teamName, logo, 604800); // 7 days
           }
         } catch (error) {
-          console.warn(`Failed to fetch logo for ${teamName}:`, error);
+          logger.warn(`Failed to fetch logo for ${teamName}:`, error);
         }
       })
     );
@@ -582,7 +583,7 @@ export class PreloadWorker {
   }
 
   async validateCache(): Promise<void> {
-    console.log('🔍 Validating cache...');
+    logger.info('🔍 Validating cache...');
 
     for (const sportGroup of this.groupedSports) {
       const prematchLeagues = await redisCache.getPrematchLeagues(sportGroup.ourKey);
@@ -608,9 +609,9 @@ export class PreloadWorker {
     }
 
     if (this.report.emptyLeagues.length > 0) {
-      console.warn(`⚠️  Found ${this.report.emptyLeagues.length} empty leagues`);
+      logger.warn(`⚠️  Found ${this.report.emptyLeagues.length} empty leagues`);
     } else {
-      console.log('✅ Cache validation passed - no empty leagues');
+      logger.success('✅ Cache validation passed - no empty leagues');
     }
   }
 }

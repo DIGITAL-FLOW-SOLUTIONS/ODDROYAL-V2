@@ -12,6 +12,7 @@ import {
   GroupedSport,
 } from './match-utils';
 import pLimit from 'p-limit';
+import { logger } from './logger';
 
 const CONCURRENCY_LIMIT = parseInt(process.env.CONCURRENCY_LIMIT || '6');
 const limit = pLimit(CONCURRENCY_LIMIT);
@@ -23,23 +24,23 @@ export class RefreshWorker {
 
   async start(): Promise<void> {
     if (this.running) {
-      console.log('Refresh worker already running');
+      logger.info('Refresh worker already running');
       return;
     }
 
-    console.log('🔄 Starting refresh worker...');
+    logger.info('🔄 Starting refresh worker...');
     this.running = true;
 
     // Wait for cache to be ready
     let attempts = 0;
     while (!(await redisCache.isCacheReady()) && attempts < 30) {
-      console.log('Waiting for cache to be ready...');
+      logger.info('Waiting for cache to be ready...');
       await new Promise(resolve => setTimeout(resolve, 2000));
       attempts++;
     }
 
     if (!await redisCache.isCacheReady()) {
-      console.error('Cache not ready after 60 seconds, starting refresh anyway');
+      logger.error('Cache not ready after 60 seconds, starting refresh anyway');
     }
 
     // Fetch and group sports dynamically
@@ -55,31 +56,31 @@ export class RefreshWorker {
     // Start global housekeeping tasks
     this.startHousekeeping();
 
-    console.log('✅ Refresh worker started');
+    logger.success('✅ Refresh worker started');
   }
 
   private async fetchAndGroupSports(): Promise<void> {
     try {
       const allSports = await oddsApiClient.getSports();
       this.groupedSports = groupSportsByCategory(allSports as ApiSport[]);
-      console.log(`📡 Refresh worker loaded ${this.groupedSports.length} sport categories`);
+      logger.info(`📡 Refresh worker loaded ${this.groupedSports.length} sport categories`);
     } catch (error) {
-      console.error('Failed to fetch sports for refresh worker:', error);
+      logger.error('Failed to fetch sports for refresh worker:', error);
       this.groupedSports = [];
     }
   }
 
   async stop(): Promise<void> {
-    console.log('🛑 Stopping refresh worker...');
+    logger.info('🛑 Stopping refresh worker...');
     this.running = false;
 
     this.intervals.forEach((interval, key) => {
       clearInterval(interval);
-      console.log(`Stopped refresh for ${key}`);
+      logger.info(`Stopped refresh for ${key}`);
     });
 
     this.intervals.clear();
-    console.log('✅ Refresh worker stopped');
+    logger.success('✅ Refresh worker stopped');
   }
 
   private startSportRefresh(sportKey: string, ourSportKey: string, priority: number): void {
@@ -114,7 +115,7 @@ export class RefreshWorker {
     }, prematchInterval);
     this.intervals.set(prematchKey, prematchRefresh);
 
-    console.log(`  📡 Started smart refresh for ${ourSportKey} (live: ${liveInterval}ms, prematch: ${prematchInterval}ms with 80% TTL trigger)`);
+    logger.info(`  📡 Started smart refresh for ${ourSportKey} (live: ${liveInterval}ms, prematch: ${prematchInterval}ms with 80% TTL trigger)`);
   }
 
   private async refreshLive(sportKey: string, ourSportKey: string): Promise<void> {
@@ -138,12 +139,12 @@ export class RefreshWorker {
           if (currentTtl > 0 && currentTtl < 60) {
             // If TTL is low, extend it to keep data visible
             await redisCache.expire(`live:leagues:${ourSportKey}`, 90);
-            console.log(`  ⏰ No fresh live matches for ${ourSportKey}, keeping existing ${existingLeagues.length} leagues (TTL extended)`);
+            logger.info(`  ⏰ No fresh live matches for ${ourSportKey}, keeping existing ${existingLeagues.length} leagues (TTL extended)`);
           } else {
-            console.log(`  ⏰ No fresh live matches for ${ourSportKey}, keeping existing ${existingLeagues.length} leagues`);
+            logger.info(`  ⏰ No fresh live matches for ${ourSportKey}, keeping existing ${existingLeagues.length} leagues`);
           }
         } else {
-          console.log(`  🔄 No live matches for ${ourSportKey} (and no existing cache)`);
+          logger.info(`  🔄 No live matches for ${ourSportKey} (and no existing cache)`);
         }
         return;
       }
@@ -196,21 +197,21 @@ export class RefreshWorker {
           }
         }
 
-        console.log(`  ✅ Refreshed live ${ourSportKey}: ${nonEmptyLeagues.length} leagues, ${normalizedMatches.length} matches`);
+        logger.success(`  ✅ Refreshed live ${ourSportKey}: ${nonEmptyLeagues.length} leagues, ${normalizedMatches.length} matches`);
       }
     } catch (error) {
       // GRACEFUL DEGRADATION: On API failure, keep existing cache
-      console.error(`❌ Failed to refresh live ${ourSportKey}:`, error);
+      logger.error(`❌ Failed to refresh live ${ourSportKey}:`, error);
       
       // Extend TTL of existing data to prevent expiration during API issues
       try {
         const existingLeagues = await redisCache.getLiveLeagues(ourSportKey);
         if (existingLeagues && existingLeagues.length > 0) {
           await redisCache.expire(`live:leagues:${ourSportKey}`, 90);
-          console.log(`  ⚠️  API error for ${ourSportKey}, extended TTL for ${existingLeagues.length} existing leagues`);
+          logger.info(`  ⚠️  API error for ${ourSportKey}, extended TTL for ${existingLeagues.length} existing leagues`);
         }
       } catch (cacheError) {
-        console.error(`  ❌ Could not extend TTL during API failure:`, cacheError);
+        logger.error(`  ❌ Could not extend TTL during API failure:`, cacheError);
       }
     }
   }
@@ -234,12 +235,12 @@ export class RefreshWorker {
           if (currentTtl > 0 && currentTtl < 300) {
             // If TTL is low (< 5 min), extend it
             await redisCache.expire(`prematch:leagues:${ourSportKey}`, 900);
-            console.log(`  ⏰ No fresh prematch data for ${ourSportKey}, keeping existing ${existingLeagues.length} leagues (TTL extended)`);
+            logger.info(`  ⏰ No fresh prematch data for ${ourSportKey}, keeping existing ${existingLeagues.length} leagues (TTL extended)`);
           } else {
-            console.log(`  ⏰ No fresh prematch data for ${ourSportKey}, keeping existing ${existingLeagues.length} leagues`);
+            logger.info(`  ⏰ No fresh prematch data for ${ourSportKey}, keeping existing ${existingLeagues.length} leagues`);
           }
         } else {
-          console.log(`  🔄 No prematch matches for ${ourSportKey} (and no existing cache)`);
+          logger.info(`  🔄 No prematch matches for ${ourSportKey} (and no existing cache)`);
         }
         return;
       }
@@ -277,21 +278,21 @@ export class RefreshWorker {
           }
         }
 
-        console.log(`  ✅ Refreshed prematch ${ourSportKey}: ${nonEmptyLeagues.length} leagues, ${normalizedMatches.length} matches`);
+        logger.success(`  ✅ Refreshed prematch ${ourSportKey}: ${nonEmptyLeagues.length} leagues, ${normalizedMatches.length} matches`);
       }
     } catch (error) {
       // GRACEFUL DEGRADATION: On API failure, keep existing cache
-      console.error(`❌ Failed to refresh prematch ${ourSportKey}:`, error);
+      logger.error(`❌ Failed to refresh prematch ${ourSportKey}:`, error);
       
       // Extend TTL of existing data to prevent expiration during API issues
       try {
         const existingLeagues = await redisCache.getPrematchLeagues(ourSportKey);
         if (existingLeagues && existingLeagues.length > 0) {
           await redisCache.expire(`prematch:leagues:${ourSportKey}`, 900);
-          console.log(`  ⚠️  API error for ${ourSportKey}, extended TTL for ${existingLeagues.length} existing leagues`);
+          logger.info(`  ⚠️  API error for ${ourSportKey}, extended TTL for ${existingLeagues.length} existing leagues`);
         }
       } catch (cacheError) {
-        console.error(`  ❌ Could not extend TTL during API failure:`, cacheError);
+        logger.error(`  ❌ Could not extend TTL during API failure:`, cacheError);
       }
     }
   }
@@ -309,7 +310,7 @@ export class RefreshWorker {
     }, 86400000); // 24 hours
     this.intervals.set('housekeeping:logos', logoInterval);
 
-    console.log('  🏠 Started housekeeping tasks');
+    logger.info('  🏠 Started housekeeping tasks');
   }
 
   private async checkResults(): Promise<void> {
@@ -323,18 +324,18 @@ export class RefreshWorker {
             if (event.completed) {
               const normalizedMatch = normalizeOddsEvent(event, sportGroup.ourKey);
               // Could trigger settlement here or update match status
-              console.log(`Match completed: ${normalizedMatch.home_team} vs ${normalizedMatch.away_team}`);
+              logger.info(`Match completed: ${normalizedMatch.home_team} vs ${normalizedMatch.away_team}`);
             }
           }
         }
       }
     } catch (error) {
-      console.error('Failed to check results:', error);
+      logger.error('Failed to check results:', error);
     }
   }
 
   private async refreshLogos(): Promise<void> {
-    console.log('🖼️  Refreshing team logos...');
+    logger.info('🖼️  Refreshing team logos...');
     
     try {
       // Get all football matches from cache
@@ -358,15 +359,15 @@ export class RefreshWorker {
               await redisCache.setTeamLogo('football', teamName, logo, 604800);
             }
           } catch (error) {
-            console.warn(`Failed to refresh logo for ${teamName}`);
+            logger.warn(`Failed to refresh logo for ${teamName}`);
           }
         })
       );
 
       await Promise.all(logoPromises);
-      console.log(`✅ Refreshed logos for ${teams.size} teams`);
+      logger.success(`✅ Refreshed logos for ${teams.size} teams`);
     } catch (error) {
-      console.error('Failed to refresh logos:', error);
+      logger.error('Failed to refresh logos:', error);
     }
   }
 }

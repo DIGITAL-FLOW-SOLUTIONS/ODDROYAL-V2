@@ -1,5 +1,6 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { createServer } from 'http';
+import { logger } from "./logger";
 
 interface PriceUpdate {
   fixtureId: string;
@@ -64,7 +65,7 @@ export function initializeWebSocket(server: any) {
   });
   
   wss.on('connection', (ws: WebSocket, req: any) => {
-    console.log('New WebSocket connection established');
+    logger.info('New WebSocket connection established');
     connectedClients.add(ws);
     
     // Send welcome message with connection info
@@ -77,7 +78,7 @@ export function initializeWebSocket(server: any) {
     ws.on('message', (data: Buffer) => {
       try {
         const message = JSON.parse(data.toString());
-        console.log('Received WebSocket message:', message);
+        logger.debug('Received WebSocket message:', message);
         
         // Handle different message types
         switch (message.type) {
@@ -98,25 +99,25 @@ export function initializeWebSocket(server: any) {
             break;
             
           default:
-            console.log('Unknown message type:', message.type);
+            logger.debug('Unknown message type:', message.type);
         }
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+        logger.error('Error parsing WebSocket message:', error);
       }
     });
     
     ws.on('close', () => {
-      console.log('WebSocket connection closed');
+      logger.info('WebSocket connection closed');
       connectedClients.delete(ws);
     });
     
     ws.on('error', (error) => {
-      console.error('WebSocket error:', error);
+      logger.error('WebSocket error:', error);
       connectedClients.delete(ws);
     });
   });
   
-  console.log('WebSocket server initialized');
+  logger.success('WebSocket server initialized');
   return wss;
 }
 
@@ -133,7 +134,7 @@ export function broadcastPriceUpdate(update: PriceUpdate) {
       try {
         ws.send(message);
       } catch (error) {
-        console.error('Error sending price update:', error);
+        logger.error('Error sending price update:', error);
         connectedClients.delete(ws);
       }
     }
@@ -153,7 +154,7 @@ export function broadcastBetUpdate(update: BetUpdate) {
       try {
         ws.send(message);
       } catch (error) {
-        console.error('Error sending bet update:', error);
+        logger.error('Error sending bet update:', error);
         connectedClients.delete(ws);
       }
     }
@@ -173,7 +174,7 @@ export function broadcastMatchUpdate(update: MatchUpdate) {
       try {
         ws.send(message);
       } catch (error) {
-        console.error('Error sending match update:', error);
+        logger.error('Error sending match update:', error);
         connectedClients.delete(ws);
       }
     }
@@ -193,7 +194,7 @@ export function broadcastEventUpdate(update: EventUpdate) {
       try {
         ws.send(message);
       } catch (error) {
-        console.error('Error sending event update:', error);
+        logger.error('Error sending event update:', error);
         connectedClients.delete(ws);
       }
     }
@@ -213,7 +214,7 @@ export function broadcastMarketUpdate(update: MarketUpdate) {
       try {
         ws.send(message);
       } catch (error) {
-        console.error('Error sending market update:', error);
+        logger.error('Error sending market update:', error);
         connectedClients.delete(ws);
       }
     }

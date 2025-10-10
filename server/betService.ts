@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./supabase.js";
 import { randomUUID } from "crypto";
 import { currencyUtils } from "@shared/schema.js";
+import { logger } from "./logger";
 
 export interface BetPlacementRequest {
   betType: "single" | "express" | "system";
@@ -75,7 +76,7 @@ export class BetService {
         .single();
 
       if (betError) {
-        console.error('Error creating bet:', betError);
+        logger.error('Error creating bet:', betError);
         return { success: false, error: "Failed to create bet: " + betError.message };
       }
 
@@ -105,7 +106,7 @@ export class BetService {
           .single();
 
         if (selectionError) {
-          console.error('Error creating bet selection:', selectionError);
+          logger.error('Error creating bet selection:', selectionError);
           // Rollback: Delete the bet we just created
           await supabaseAdmin.from('bets').delete().eq('id', betId);
           return { success: false, error: "Failed to create bet selection: " + selectionError.message };
@@ -121,7 +122,7 @@ export class BetService {
         .eq('id', userId);
 
       if (balanceError) {
-        console.error('Error updating balance:', balanceError);
+        logger.error('Error updating balance:', balanceError);
         // Rollback: Delete bet and selections
         await supabaseAdmin.from('bets').delete().eq('id', betId);
         return { success: false, error: "Failed to update balance: " + balanceError.message };
@@ -145,7 +146,7 @@ export class BetService {
         .single();
 
       if (transactionError) {
-        console.error('Error creating transaction:', transactionError);
+        logger.error('Error creating transaction:', transactionError);
         // Note: We don't rollback here as balance update succeeded, but log the error
       }
 
@@ -158,7 +159,7 @@ export class BetService {
       };
 
     } catch (error) {
-      console.error('Bet placement error:', error);
+      logger.error('Bet placement error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error"
@@ -193,7 +194,7 @@ export class BetService {
           .order('created_at', { ascending: true });
 
         if (selectionsError) {
-          console.error('Error fetching selections for bet', bet.id, selectionsError);
+          logger.error('Error fetching selections for bet', bet.id, selectionsError);
           continue;
         }
 
@@ -231,7 +232,7 @@ export class BetService {
 
       return { success: true, data: betsWithSelections };
     } catch (error) {
-      console.error('Error fetching user bets:', error);
+      logger.error('Error fetching user bets:', error);
       return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
   }

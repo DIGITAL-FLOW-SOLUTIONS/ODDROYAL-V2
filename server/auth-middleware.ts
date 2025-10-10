@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { supabaseAdmin } from './supabase';
+import { logger } from "./logger";
 
 // Extend Request type to include user
 declare global {
@@ -60,7 +61,7 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
       });
       userPayload = payload;
     } catch (jwksError) {
-      console.log('JWKS verification failed, trying direct Supabase verification:', jwksError.message);
+      logger.debug('JWKS verification failed, trying direct Supabase verification:', jwksError.message);
       
       // Fallback to direct Supabase verification
       try {
@@ -71,7 +72,7 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
           aud: userData.aud || 'authenticated'
         };
       } catch (fallbackError) {
-        console.error('Both JWKS and Supabase verification failed:', fallbackError);
+        logger.error('Both JWKS and Supabase verification failed:', fallbackError);
         return res.status(401).json({ error: 'Invalid or expired token' });
       }
     }
@@ -104,7 +105,7 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
 
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
+    logger.error('Authentication error:', error);
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
@@ -127,7 +128,7 @@ export async function authenticateAdmin(req: Request, res: Response, next: NextF
       });
       userPayload = payload;
     } catch (jwksError) {
-      console.log('Admin JWKS verification failed, trying direct Supabase verification:', jwksError.message);
+      logger.debug('Admin JWKS verification failed, trying direct Supabase verification:', jwksError.message);
       
       // Fallback to direct Supabase verification
       try {
@@ -138,7 +139,7 @@ export async function authenticateAdmin(req: Request, res: Response, next: NextF
           aud: userData.aud || 'authenticated'
         };
       } catch (fallbackError) {
-        console.error('Both JWKS and Supabase verification failed for admin:', fallbackError);
+        logger.error('Both JWKS and Supabase verification failed for admin:', fallbackError);
         return res.status(401).json({ error: 'Invalid or expired token' });
       }
     }
@@ -172,7 +173,7 @@ export async function authenticateAdmin(req: Request, res: Response, next: NextF
 
     next();
   } catch (error) {
-    console.error('Admin authentication error:', error);
+    logger.error('Admin authentication error:', error);
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }

@@ -1,20 +1,21 @@
 import { supabaseAdmin } from './supabase';
+import { logger } from './logger';
 
 export async function initializeDatabaseSchema(): Promise<boolean> {
   try {
-    console.log('🏗️  Initializing database schema...');
+    logger.info('🏗️  Initializing database schema...');
     
     // Quick health check - just verify database connection
     try {
       const { error } = await supabaseAdmin.from('admin_users').select('id').limit(1);
       // If we get here, database is accessible
-      console.log('✅ Database connection verified');
-      console.log('✅ Database schema ready (tables created via manual SQL)');
+      logger.success('✅ Database connection verified');
+      logger.success('✅ Database schema ready (tables created via manual SQL)');
       return true;
     } catch (checkError) {
-      console.warn('⚠️ Database check warning:', checkError);
+      logger.warn('⚠️ Database check warning:', checkError);
       // Continue anyway - tables might exist but RLS is blocking
-      console.log('✅ Assuming database schema exists');
+      logger.success('✅ Assuming database schema exists');
       return true;
     }
 
@@ -251,23 +252,23 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
     `;
 
     // Execute the schema creation using direct table creation approach
-    console.log('Creating database tables directly...');
+    logger.info('Creating database tables directly...');
     
     try {
       // Check users table
       const { error: usersError } = await supabaseAdmin.from('users').select('id').limit(1);
       if (usersError && usersError.code === 'PGRST116') {
         // Table doesn't exist, create it manually via SQL
-        console.log('Creating users table...');
+        logger.info('Creating users table...');
         
         // Use PostgreSQL connection approach
-        console.warn('⚠️  Tables need to be created manually in Supabase dashboard');
-        console.log('Please execute the following SQL in your Supabase SQL editor:');
-        console.log('\n--- COPY THIS SQL TO SUPABASE DASHBOARD ---');
-        console.log(schemaSQL);
-        console.log('--- END SQL ---\n');
+        logger.warn('⚠️  Tables need to be created manually in Supabase dashboard');
+        logger.info('Please execute the following SQL in your Supabase SQL editor:');
+        logger.info('\n--- COPY THIS SQL TO SUPABASE DASHBOARD ---');
+        logger.info(schemaSQL);
+        logger.info('--- END SQL ---\n');
       } else {
-        console.log('✅ Users table exists');
+        logger.success('✅ Users table exists');
       }
       
       // Check other essential tables
@@ -275,24 +276,24 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
       for (const table of tablesToCheck) {
         const { error } = await supabaseAdmin.from(table).select('*').limit(1);
         if (error && error.code === 'PGRST116') {
-          console.warn(`⚠️  Table '${table}' does not exist`);
+          logger.warn(`⚠️  Table '${table}' does not exist`);
         } else {
-          console.log(`✅ Table '${table}' exists`);
+          logger.success(`✅ Table '${table}' exists`);
         }
       }
       
-      console.log('✅ Database schema check completed');
+      logger.success('✅ Database schema check completed');
       return true;
     } catch (err: any) {
-      console.warn('Schema validation completed with warnings:', err.message);
+      logger.warn('Schema validation completed with warnings:', err.message);
       return true;
     }
 
   } catch (error: any) {
-    console.error('❌ Failed to initialize database schema:', error);
-    console.log('\n🚨 CRITICAL: Database tables are missing!');
-    console.log('Please create the tables manually in your Supabase dashboard by executing the SQL above.');
-    console.log('Once tables are created, restart the application.');
+    logger.error('❌ Failed to initialize database schema:', error);
+    logger.info('\n🚨 CRITICAL: Database tables are missing!');
+    logger.info('Please create the tables manually in your Supabase dashboard by executing the SQL above.');
+    logger.info('Once tables are created, restart the application.');
     // Return true to allow the application to continue
     return true;
   }
@@ -301,7 +302,7 @@ export async function initializeDatabaseSchema(): Promise<boolean> {
 
 export async function createSuperAdminUser(): Promise<void> {
   try {
-    console.log('🔐 Creating super admin user...');
+    logger.info('🔐 Creating super admin user...');
     
     // Check if super admin already exists
     const { data: existingAdmin, error: checkError } = await supabaseAdmin
@@ -311,7 +312,7 @@ export async function createSuperAdminUser(): Promise<void> {
       .single();
 
     if (existingAdmin) {
-      console.log('✅ Super admin user already exists');
+      logger.success('✅ Super admin user already exists');
       return;
     }
 
@@ -333,14 +334,14 @@ export async function createSuperAdminUser(): Promise<void> {
       .single();
 
     if (adminError) {
-      console.warn('Could not create super admin user:', adminError.message);
+      logger.warn('Could not create super admin user:', adminError.message);
     } else {
-      console.log('✅ Super admin user created successfully');
-      console.log('   Username: superadmin');
-      console.log('   Email: digitalflwsolutions@gmail.com');
+      logger.success('✅ Super admin user created successfully');
+      logger.info('   Username: superadmin');
+      logger.info('   Email: digitalflwsolutions@gmail.com');
     }
 
   } catch (error: any) {
-    console.warn('Super admin creation failed:', error.message);
+    logger.warn('Super admin creation failed:', error.message);
   }
 }

@@ -2,6 +2,7 @@ import { storage } from './storage';
 import { oddsApiClient } from './odds-api-client';
 import { redisCache } from './redis-cache';
 import type { Bet, BetSelection } from '@shared/schema';
+import { logger } from './logger';
 
 interface MatchResult {
   fixtureId: string;
@@ -70,18 +71,18 @@ export class BetSettlementWorker {
    */
   start(): void {
     if (this.intervalId) {
-      console.log('Settlement worker already running');
+      logger.info('Settlement worker already running');
       return;
     }
 
-    console.log(`Starting bet settlement worker (runs every ${this.intervalMinutes} minutes)`);
+    logger.info(`Starting bet settlement worker (runs every ${this.intervalMinutes} minutes)`);
     
     // Run immediately on start
-    this.processPendingBets().catch(console.error);
+    this.processPendingBets().catch((err) => logger.error(err));
     
     // Set up interval
     this.intervalId = setInterval(() => {
-      this.processPendingBets().catch(console.error);
+      this.processPendingBets().catch((err) => logger.error(err));
     }, this.intervalMinutes * 60 * 1000);
   }
 
@@ -92,7 +93,7 @@ export class BetSettlementWorker {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('Settlement worker stopped');
+      logger.info('Settlement worker stopped');
     }
   }
 
@@ -101,18 +102,18 @@ export class BetSettlementWorker {
    */
   private async processPendingBets(): Promise<void> {
     if (this.isRunning) {
-      console.log('Settlement process already running, skipping this cycle');
+      logger.info('Settlement process already running, skipping this cycle');
       return;
     }
 
     this.isRunning = true;
     this.lastRun = new Date();
-    console.log('Processing pending bet settlements...');
+    logger.info('Processing pending bet settlements...');
 
     try {
       // Get all pending bets
       const pendingBets = await this.getPendingBets();
-      console.log(`Found ${pendingBets.length} pending bets`);
+      logger.info(`Found ${pendingBets.length} pending bets`);
 
       if (pendingBets.length === 0) {
         return;
@@ -120,14 +121,14 @@ export class BetSettlementWorker {
 
       // Get unique fixture IDs from all pending selections
       const fixtureIds = await this.getUniqueFixtureIds(pendingBets);
-      console.log(`Checking results for ${fixtureIds.length} fixtures`);
+      logger.info(`Checking results for ${fixtureIds.length} fixtures`);
 
       // Fetch completed match results
       const matchResults = await this.fetchCompletedMatches(fixtureIds);
-      console.log(`Found ${matchResults.length} completed matches`);
+      logger.info(`Found ${matchResults.length} completed matches`);
 
       if (matchResults.length === 0) {
-        console.log('No completed matches found');
+        logger.info('No completed matches found');
         return;
       }
 
@@ -141,15 +142,15 @@ export class BetSettlementWorker {
             this.processedBets++;
           }
         } catch (error) {
-          console.error(`Failed to settle bet ${bet.id}:`, error);
+          logger.error(`Failed to settle bet ${bet.id}:`, error);
           this.errors++;
         }
       }
 
-      console.log(`Successfully settled ${settledBetsCount} bets`);
+      logger.success(`Successfully settled ${settledBetsCount} bets`);
       
     } catch (error) {
-      console.error('Error processing pending bets:', error);
+      logger.error('Error processing pending bets:', error);
       this.errors++;
     } finally {
       this.isRunning = false;
@@ -163,10 +164,10 @@ export class BetSettlementWorker {
     try {
       // Use the storage interface method to get pending bets
       const pendingBets = await storage.getPendingBets();
-      console.log(`Found ${pendingBets.length} pending bets across all users`);
+      logger.info(`Found ${pendingBets.length} pending bets across all users`);
       return pendingBets;
     } catch (error) {
-      console.error('Error getting pending bets:', error);
+      logger.error('Error getting pending bets:', error);
       return [];
     }
   }
@@ -184,11 +185,11 @@ export class BetSettlementWorker {
         const selections = await storage.getBetSelections(bet.id);
         selections.forEach(selection => fixtureIds.add(selection.fixtureId));
       } catch (error) {
-        console.error(`Error getting selections for bet ${bet.id}:`, error);
+        logger.error(`Error getting selections for bet ${bet.id}:`, error);
       }
     }
     
-    console.log(`Extracted ${fixtureIds.size} unique fixture IDs`);
+    logger.info(`Extracted ${fixtureIds.size} unique fixture IDs`);
     return Array.from(fixtureIds);
   }
 
@@ -206,7 +207,7 @@ export class BetSettlementWorker {
           results.push(fixtureResult);
         }
       } catch (error) {
-        console.error(`Failed to fetch result for fixture ${fixtureId}:`, error);
+        logger.error(`Failed to fetch result for fixture ${fixtureId}:`, error);
       }
     }
     
@@ -218,7 +219,7 @@ export class BetSettlementWorker {
    */
   private async fetchFixtureResult(matchId: string): Promise<MatchResult | null> {
     try {
-      console.log(`Fetching result for match ${matchId}`);
+      logger.info(`Fetching result for match ${matchId}`);
       
       // Check if it's a manual match (UUIDs are longer than API match IDs)
       const isManualMatch = matchId.length > 30;
@@ -231,7 +232,7 @@ export class BetSettlementWorker {
           const homeScore = match.home_score || match.homeScore || 0;
           const awayScore = match.away_score || match.awayScore || 0;
           
-          console.log(`Manual match ${matchId} finished: ${homeScore}-${awayScore}`);
+          logger.info(`Manual match ${matchId} finished: ${homeScore}-${awayScore}`);
           
           return {
             fixtureId: matchId,
@@ -246,7 +247,7 @@ export class BetSettlementWorker {
           };
         }
         
-        console.log(`Manual match ${matchId} not finished yet`);
+        logger.info(`Manual match ${matchId} not finished yet`);
         return null;
       }
       
@@ -304,14 +305,14 @@ export class BetSettlementWorker {
           }
         }
       } catch (scoresError) {
-        console.warn(`Could not fetch scores from The Odds API:`, scoresError);
+        logger.warn(`Could not fetch scores from The Odds API:`, scoresError);
       }
       
-      console.log(`No result data available for match ${matchId}`);
+      logger.info(`No result data available for match ${matchId}`);
       return null;
       
     } catch (error) {
-      console.error(`Error fetching match ${matchId}:`, error);
+      logger.error(`Error fetching match ${matchId}:`, error);
       return null;
     }
   }
@@ -324,7 +325,7 @@ export class BetSettlementWorker {
       // Get bet selections
       const selections = await storage.getBetSelections(bet.id);
       if (selections.length === 0) {
-        console.warn(`No selections found for bet ${bet.id}`);
+        logger.warn(`No selections found for bet ${bet.id}`);
         return false;
       }
 
@@ -333,7 +334,7 @@ export class BetSettlementWorker {
       
       // Check if we have results for all selections
       if (selectionOutcomes.length !== selections.length) {
-        console.log(`Bet ${bet.id}: Not all selections have results yet`);
+        logger.info(`Bet ${bet.id}: Not all selections have results yet`);
         return false;
       }
 
@@ -353,11 +354,11 @@ export class BetSettlementWorker {
         await this.processPayout(bet.userId, betOutcome.actualWinnings, bet.id);
       }
 
-      console.log(`Settled bet ${bet.id}: ${betOutcome.finalStatus} - winnings: ${betOutcome.actualWinnings}`);
+      logger.info(`Settled bet ${bet.id}: ${betOutcome.finalStatus} - winnings: ${betOutcome.actualWinnings}`);
       return true;
       
     } catch (error) {
-      console.error(`Error settling bet ${bet.id}:`, error);
+      logger.error(`Error settling bet ${bet.id}:`, error);
       return false;
     }
   }
@@ -433,7 +434,7 @@ export class BetSettlementWorker {
         };
 
       default:
-        console.warn(`Unknown market type: ${market}`);
+        logger.warn(`Unknown market type: ${market}`);
         return {
           selectionId: selection.id,
           status: 'void',
@@ -558,10 +559,10 @@ export class BetSettlementWorker {
         description: `Winnings from bet ${betId.slice(0, 8)}...`
       });
 
-      console.log(`Processed payout: ${winningsCents} cents to user ${userId}`);
+      logger.info(`Processed payout: ${winningsCents} cents to user ${userId}`);
       
     } catch (error) {
-      console.error(`Failed to process payout for user ${userId}:`, error);
+      logger.error(`Failed to process payout for user ${userId}:`, error);
       throw error;
     }
   }

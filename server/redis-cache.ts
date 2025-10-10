@@ -1,5 +1,6 @@
 import Redis from "ioredis";
 import msgpack from "msgpack-lite";
+import { logger } from "./logger";
 
 const REDIS_URL = process.env.REDIS_URL;
 
@@ -19,17 +20,17 @@ class RedisCacheManager {
     });
 
     this.client.on("connect", () => {
-      console.log("✅ Redis connected");
+      logger.success("Redis connected");
       this.connected = true;
     });
 
     this.client.on("error", (err) => {
-      console.error("❌ Redis connection error:", err);
+      logger.error("Redis connection error:", err);
       this.connected = false;
     });
 
     this.client.on("close", () => {
-      console.log("Redis connection closed");
+      logger.info("Redis connection closed");
       this.connected = false;
     });
   }
@@ -58,7 +59,7 @@ class RedisCacheManager {
         await this.client.set(key, compressed);
       }
     } catch (error) {
-      console.error(`Failed to set cache key ${key}:`, error);
+      logger.error(`Failed to set cache key ${key}:`, error);
       throw error;
     }
   }
@@ -71,7 +72,7 @@ class RedisCacheManager {
 
       return msgpack.decode(compressed) as T;
     } catch (error) {
-      console.error(`Failed to get cache key ${key}:`, error);
+      logger.error(`Failed to get cache key ${key}:`, error);
       return null;
     }
   }

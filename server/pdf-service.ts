@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer';
 import DOMPurify from 'isomorphic-dompurify';
+import { logger } from './logger';
 
 interface PDFOptions {
   title: string;
@@ -21,7 +22,7 @@ interface PDFOptions {
 export class PDFReportService {
   constructor() {
     // Chart generation disabled for system compatibility
-    console.log('PDF Report Service initialized - server-side charts disabled for compatibility');
+    logger.info('PDF Report Service initialized - server-side charts disabled for compatibility');
   }
   
   /**
@@ -86,7 +87,7 @@ export class PDFReportService {
     
     // Server-side chart generation disabled for system compatibility
     let chartImages = '';
-    console.log('Chart generation skipped - charts available in admin dashboard');
+    logger.info('Chart generation skipped - charts available in admin dashboard');
     
     const tableContent = this.generateTableContent(reportType, data);
     const summaryContent = this.generateSummaryContent(reportType, data);
@@ -212,7 +213,7 @@ export class PDFReportService {
           break;
       }
     } catch (error) {
-      console.warn('Failed to generate chart:', error);
+      logger.warn('Failed to generate chart:', error);
       // Continue without charts if generation fails
     }
     

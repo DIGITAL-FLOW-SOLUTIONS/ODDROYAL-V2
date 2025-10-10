@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { pdfReportService } from './pdf-service';
 import XLSX from 'xlsx';
+import { logger } from './logger';
 
 interface EmailConfig {
   host?: string;
@@ -58,13 +59,13 @@ export class EmailReportService {
       // Only create transporter if we have valid SMTP configuration
       if (emailConfig.auth?.user && emailConfig.auth?.pass) {
         this.transporter = nodemailer.createTransporter(emailConfig);
-        console.log('Email service initialized successfully');
+        logger.success('Email service initialized successfully');
       } else {
-        console.warn('Email service not configured - SMTP credentials missing');
-        console.log('To enable email reports, set SMTP_USER and SMTP_PASS environment variables');
+        logger.warn('Email service not configured - SMTP credentials missing');
+        logger.info('To enable email reports, set SMTP_USER and SMTP_PASS environment variables');
       }
     } catch (error) {
-      console.error('Failed to initialize email service:', error);
+      logger.error('Failed to initialize email service:', error);
     }
   }
   
@@ -111,9 +112,9 @@ export class EmailReportService {
           });
           
           deliveredTo.push(recipient);
-          console.log(`Report ${scheduledReport.id} delivered to ${recipient}`);
+          logger.success(`Report ${scheduledReport.id} delivered to ${recipient}`);
         } catch (emailError) {
-          console.error(`Failed to send report to ${recipient}:`, emailError);
+          logger.error(`Failed to send report to ${recipient}:`, emailError);
           failedRecipients.push(recipient);
         }
       }
@@ -126,7 +127,7 @@ export class EmailReportService {
         error: failedRecipients.length > 0 ? `Failed to deliver to ${failedRecipients.length} recipients` : undefined
       };
     } catch (error) {
-      console.error('Failed to send scheduled report:', error);
+      logger.error('Failed to send scheduled report:', error);
       return {
         success: false,
         reportId: scheduledReport.id,
@@ -192,7 +193,7 @@ export class EmailReportService {
           return null;
       }
     } catch (error) {
-      console.error('Failed to generate report attachment:', error);
+      logger.error('Failed to generate report attachment:', error);
       return null;
     }
   }

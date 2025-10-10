@@ -76,7 +76,7 @@ MAINTENANCE_MODE=false
 
 # Monitoring (Optional)
 SENTRY_DSN=https://your-sentry-dsn
-LOG_LEVEL=info
+LOG_LEVEL=error  # Options: error, warn, info, debug (default: error)
 ```
 
 ### 4. Database Setup
@@ -419,15 +419,31 @@ npm run admin:reset-2fa -- username
 docker stats oddroyal-app
 ```
 
-### Debug Mode
+### Debug Mode & Logging Levels
+
+The application uses a centralized logging system with configurable verbosity:
 
 ```bash
-# Enable debug logging
-LOG_LEVEL=debug npm run dev
+# Only show critical errors (default - minimal console noise)
+LOG_LEVEL=error npm run dev
 
-# Enable all debug output
-DEBUG=* npm run dev
+# Show errors and warnings
+LOG_LEVEL=warn npm run dev
+
+# Show errors, warnings, and important info messages
+LOG_LEVEL=info npm run dev
+
+# Show all logs including debug information (verbose)
+LOG_LEVEL=debug npm run dev
 ```
+
+**Log Levels Explained:**
+- `error` - Only critical errors (default, cleanest console)
+- `warn` - Errors + warnings
+- `info` - Errors + warnings + important operational messages
+- `debug` - All logs including detailed debugging information
+
+**Recommendation:** Use `error` level in production to reduce console noise and only show critical issues.
 
 ### Performance Optimization
 

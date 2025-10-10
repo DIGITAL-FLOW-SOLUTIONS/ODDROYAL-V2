@@ -11,6 +11,7 @@ import { refreshWorker } from "./refresh-worker";
 // import { liveMatchSimulator } from "./live-match-simulator";
 import { storage } from "./storage";
 import { initializeDatabaseSchema, createSuperAdminUser } from "./init-database";
+import { logger } from "./logger";
 // import { AdminSeeder } from "./admin-seeder";
 
 // Demo mode disabled for production security
@@ -98,9 +99,9 @@ async function withTimeout<T>(
 
     res.status(status).json({ message });
     // Log the error but don't throw - throwing after responding crashes the process
-    log(`Error: ${err.message || err}`);
+    logger.error(`Error: ${err.message || err}`);
     if (err.stack) {
-      log(err.stack);
+      logger.error(err.stack);
     }
   });
 
@@ -125,7 +126,7 @@ async function withTimeout<T>(
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`Server is ready and listening on port ${port}`);
+    logger.success(`Server is ready and listening on port ${port}`);
     
     // Initialize database and services AFTER server is listening
     // This prevents blocking the server startup and failing Cloud Run health checks
@@ -136,7 +137,7 @@ async function withTimeout<T>(
       
       try {
         // Database initialization with timeout (5 seconds) - ESSENTIAL
-        console.log("🔐 Initializing database schema...");
+        logger.info("Initializing database schema...");
         try {
           await withTimeout(
             initializeDatabaseSchema(),
@@ -144,45 +145,45 @@ async function withTimeout<T>(
             "Database schema initialization"
           );
           dbSchemaReady = true;
-          console.log("✅ Database schema ready");
+          logger.success("Database schema ready");
         } catch (err: any) {
-          console.error("❌ Database schema initialization failed:", err.message);
+          logger.error("Database schema initialization failed:", err.message);
           throw new Error("Essential: Database schema initialization failed");
         }
         
         // Demo mode removed for production readiness
-        console.log("ℹ️ Production mode - demo accounts disabled");
+        logger.info("Production mode - demo accounts disabled");
         
         // Super admin creation (only if credentials are provided via env vars) - NOT ESSENTIAL
         // In production, use proper secrets management
         if (process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD) {
-          console.log("🔑 Creating admin user from environment...");
+          logger.info("Creating admin user from environment...");
           await withTimeout(
             createSuperAdminUser(),
             3000,
             "Admin user creation"
           ).catch(err => {
-            console.warn("⚠️ Admin user creation timeout:", err.message);
+            logger.warn("Admin user creation timeout:", err.message);
           });
         } else if (false && isDemoMode) {
           // COMMENTED OUT: In demo/dev mode, create default admin
           // Disabled to allow testing first-time admin registration
-          console.log("🔑 Creating default super admin user (demo mode)...");
+          logger.info("Creating default super admin user (demo mode)...");
           await withTimeout(
             createSuperAdminUser(),
             3000,
             "Super admin creation"
           ).catch(err => {
-            console.warn("⚠️ Super admin creation timeout:", err.message);
+            logger.warn("Super admin creation timeout:", err.message);
           });
         } else {
-          console.log("ℹ️ No admin credentials provided - skipping admin creation");
+          logger.info("No admin credentials provided - skipping admin creation");
         }
         
-        console.log("✅ Database initialization complete");
+        logger.success("Database initialization complete");
         
         // Start background workers after initialization - ESSENTIAL
-        console.log("🔄 Starting background workers...");
+        logger.info("Starting background workers...");
         try {
           settlementWorker.start();
           manualMatchSimulator.start();
@@ -190,7 +191,7 @@ async function withTimeout<T>(
           // Initialize Redis cache and preload data (optional - graceful fallback)
           let redisConnected = false;
           try {
-            console.log("🔗 Connecting to Redis...");
+            logger.info("Connecting to Redis...");
             await withTimeout(
               redisCache.connect(),
               5000,
@@ -199,33 +200,33 @@ async function withTimeout<T>(
             redisConnected = true;
             
             // Always attempt preload after connection (don't check isConnected() - connection event is async)
-            console.log("📥 Starting data preload...");
+            logger.info("Starting data preload...");
             const preloadReport = await withTimeout(
               preloadWorker.preloadAll(),
               30000,
               "Data preload"
             );
-            console.log("✅ Preload complete:", preloadReport);
+            logger.success("Preload complete:", preloadReport);
           } catch (redisErr) {
-            console.warn("⚠️  Redis/preload failed, continuing without cache:", redisErr);
+            logger.warn("Redis/preload failed, continuing without cache:", redisErr);
             // Continue without Redis - app will use SportMonks API directly
           }
           
           // Start refresh worker if Redis connected (even if preload timed out)
           if (redisConnected) {
             try {
-              console.log("🔄 Starting refresh worker...");
+              logger.info("Starting refresh worker...");
               await refreshWorker.start();
-              console.log("✅ Refresh worker started");
+              logger.success("Refresh worker started");
             } catch (refreshErr) {
-              console.warn("⚠️  Refresh worker failed to start:", refreshErr);
+              logger.warn("Refresh worker failed to start:", refreshErr);
             }
           }
           
           workersReady = true;
-          console.log("✅ Background workers started");
+          logger.success("Background workers started");
         } catch (err) {
-          console.error("❌ Failed to start background workers:", err);
+          logger.error("Failed to start background workers:", err);
           throw new Error("Essential: Background workers failed to start");
         }
         
@@ -233,21 +234,21 @@ async function withTimeout<T>(
         // exposureEngine.start(1); // Update exposure cache every minute
         
         // Start live match simulation engine
-        // console.log("🔴 Starting Live Match Simulation Engine...");
+        // logger.info("Starting Live Match Simulation Engine...");
         // liveMatchSimulator.start(30, 1); // Check every 30 seconds, real-time speed
         
         // Mark server as ready ONLY if all essential operations succeeded
         if (dbSchemaReady && workersReady) {
           isReady = true;
-          console.log("✅ All essential services initialized - server is READY");
+          logger.success("All essential services initialized - server is READY");
         } else {
-          console.error("❌ Essential services incomplete - server NOT ready");
+          logger.error("Essential services incomplete - server NOT ready");
         }
       } catch (error) {
-        console.error("❌ Critical initialization error:", error);
+        logger.error("Critical initialization error:", error);
         // Keep isReady = false on initialization failure
         // Cloud Run will not route traffic until initialization succeeds or instance is replaced
-        console.error("❌ Server NOT ready - readiness probe will return 503");
+        logger.error("Server NOT ready - readiness probe will return 503");
       }
     })();
   });
