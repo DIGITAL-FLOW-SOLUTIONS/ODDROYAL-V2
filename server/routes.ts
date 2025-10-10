@@ -3125,6 +3125,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
   
+  // Delete market
+  app.delete("/api/admin/markets/:id", 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
+    requirePermission('markets:delete'), 
+    auditAction('market_delete', (req) => ({ 
+      targetType: 'market', 
+      targetId: req.params.id 
+    })),
+    async (req: any, res) => {
+      try {
+        const { id } = req.params;
+        
+        // Check if market exists
+        const market = await storage.getMarket(id);
+        if (!market) {
+          return res.status(404).json({
+            success: false,
+            error: 'Market not found'
+          });
+        }
+        
+        // Check if market has active bets
+        const activeBets = await storage.getActiveBetsByMarket(id);
+        if (activeBets.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: 'Cannot delete market with active bets. Settle all bets first.'
+          });
+        }
+        
+        // Soft delete the market
+        await storage.softDeleteMarket(id, req.adminUser.id);
+        
+        res.json({
+          success: true,
+          message: 'Market deleted successfully'
+        });
+      } catch (error) {
+        console.error('Delete market error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to delete market'
+        });
+      }
+    }
+  );
+  
   // ===================== EXPOSURE CALCULATION ENDPOINT =====================
   
   // Get exposure data

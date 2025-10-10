@@ -1875,6 +1875,79 @@ export class SupabaseStorage implements IStorage {
     return this.updateMarket(marketId, { status });
   }
 
+  async getMarket(marketId: string): Promise<any> {
+    try {
+      const { data, error } = await this.client
+        .from('markets')
+        .select('*')
+        .eq('id', marketId)
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to get market: ${error.message}`);
+      }
+
+      if (!data) {
+        return null;
+      }
+
+      return {
+        id: data.id,
+        matchId: data.match_id,
+        key: data.key,
+        name: data.name,
+        type: data.type,
+        parameter: data.parameter,
+        status: data.status,
+        minStakeCents: data.min_stake_cents,
+        maxStakeCents: data.max_stake_cents,
+        isPublished: data.is_published,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+    } catch (error: any) {
+      console.error('Error getting market:', error);
+      throw error;
+    }
+  }
+
+  async softDeleteMarket(marketId: string, adminId: string): Promise<void> {
+    try {
+      await this.updateMarket(marketId, {
+        status: 'closed',
+        updatedBy: adminId
+      });
+    } catch (error: any) {
+      console.error('Error soft deleting market:', error);
+      throw error;
+    }
+  }
+
+  async getActiveBetsByMarket(marketId: string): Promise<Bet[]> {
+    try {
+      const { data, error } = await this.client
+        .from('bets')
+        .select(`
+          *,
+          bet_selections!inner(
+            *,
+            market_outcomes!inner(*)
+          )
+        `)
+        .eq('bet_selections.market_outcomes.market_id', marketId)
+        .in('status', ['pending', 'accepted']);
+
+      if (error) {
+        throw new Error(`Failed to get active bets by market: ${error.message}`);
+      }
+
+      return data?.map(mappers.toBet) || [];
+    } catch (error: any) {
+      console.error('Error getting active bets by market:', error);
+      return [];
+    }
+  }
+
   async updateOutcomeOdds(outcomeId: string, odds: string): Promise<any> {
     try {
       const { data, error } = await this.client
