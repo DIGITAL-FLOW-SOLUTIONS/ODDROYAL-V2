@@ -322,7 +322,7 @@ export async function createDemoData(): Promise<void> {
         username: 'demo',
         first_name: 'Demo',
         last_name: 'User',
-        balance: 100000, // $1000 in cents
+        balance: 0, // No initial balance for production
         is_verified: true,
         is_active: true,
       })

@@ -610,7 +610,7 @@ export class SupabaseStorage implements IStorage {
           username: 'demo',
           firstName: 'Demo',
           lastName: 'User',
-          balanceCents: 100000, // £1000
+          balanceCents: 0, // No initial balance for production
           isActive: true,
           isVerified: true,
         });

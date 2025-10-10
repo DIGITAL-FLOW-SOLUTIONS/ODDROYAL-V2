@@ -158,7 +158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: validatedData.email,
           first_name: validatedData.firstName || null,
           last_name: validatedData.lastName || null,
-          balance: 1000000, // Starting balance: $10,000 in cents for testing and betting
+          balance: 0, // No initial balance for production
           is_active: true
         });
         
