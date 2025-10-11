@@ -210,7 +210,7 @@ export class SupabaseStorage implements IStorage {
         bet_selections!inner(*)
       `)
       .eq('bet_selections.fixture_id', matchId)
-      .in('status', ['pending', 'accepted']);
+      .in('status', ['pending']);
 
     if (error) {
       throw new Error(`Failed to get active bets by match: ${error.message}`);
@@ -1859,7 +1859,7 @@ export class SupabaseStorage implements IStorage {
             marketId: market.id,
             key: outcomeData.key,
             label: outcomeData.label,
-            odds: outcomeData.odds,
+            odds: outcomeData.odds || outcomeData.defaultOdds,
             status: outcomeData.status || 'active',
             liabilityLimitCents: outcomeData.liabilityLimitCents || 50000000,
             displayOrder: outcomeData.displayOrder !== undefined ? outcomeData.displayOrder : i,
