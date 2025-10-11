@@ -1310,7 +1310,7 @@ export class SupabaseStorage implements IStorage {
     try {
       let query = this.client
         .from('matches')
-        .select('*, markets(id)', { count: 'exact' });
+        .select('*, markets(*, market_outcomes(*))', { count: 'exact' });
 
       if (params?.status) {
         query = query.eq('status', params.status);
@@ -1347,31 +1347,68 @@ export class SupabaseStorage implements IStorage {
         throw new Error(`Failed to get matches: ${error.message}`);
       }
 
-      const matches = data?.map((match: any) => ({
-        id: match.id,
-        externalId: match.external_id,
-        externalSource: match.external_source,
-        sport: match.sport,
-        sportId: match.sport_id,
-        sportName: match.sport_name,
-        leagueId: match.league_id,
-        leagueName: match.league_name,
-        homeTeamId: match.home_team_id,
-        homeTeamName: match.home_team_name,
-        awayTeamId: match.away_team_id,
-        awayTeamName: match.away_team_name,
-        kickoffTime: match.kickoff_time,
-        status: match.status,
-        homeScore: match.home_score,
-        awayScore: match.away_score,
-        isManual: match.is_manual,
-        createdBy: match.created_by,
-        updatedBy: match.updated_by,
-        createdAt: match.created_at,
-        updatedAt: match.updated_at,
-        marketsCount: match.markets?.length || 0,
-        totalExposure: 0
-      })) || [];
+      const matches = data?.map((match: any) => {
+        // Process markets and outcomes
+        const markets = match.markets?.map((market: any) => ({
+          id: market.id,
+          matchId: market.match_id,
+          key: market.key,
+          name: market.name,
+          type: market.type,
+          parameter: market.parameter,
+          status: market.status,
+          outcomes: market.market_outcomes?.map((outcome: any) => ({
+            id: outcome.id,
+            marketId: outcome.market_id,
+            key: outcome.key,
+            label: outcome.label,
+            odds: outcome.odds,
+            status: outcome.status,
+            displayOrder: outcome.display_order
+          })) || []
+        })) || [];
+
+        // Find the 1x2 market for quick access to main odds
+        const h2hMarket = markets.find(m => m.type === '1x2' || m.key === '1x2' || m.key.includes('h2h'));
+        let mainOdds = null;
+        
+        if (h2hMarket && h2hMarket.outcomes) {
+          const sortedOutcomes = [...h2hMarket.outcomes].sort((a, b) => a.displayOrder - b.displayOrder);
+          mainOdds = {
+            home: sortedOutcomes.find(o => o.key === '1' || o.key === 'home')?.odds || '0.00',
+            draw: sortedOutcomes.find(o => o.key === 'x' || o.key === 'draw')?.odds || '0.00',
+            away: sortedOutcomes.find(o => o.key === '2' || o.key === 'away')?.odds || '0.00'
+          };
+        }
+
+        return {
+          id: match.id,
+          externalId: match.external_id,
+          externalSource: match.external_source,
+          sport: match.sport,
+          sportId: match.sport_id,
+          sportName: match.sport_name,
+          leagueId: match.league_id,
+          leagueName: match.league_name,
+          homeTeamId: match.home_team_id,
+          homeTeamName: match.home_team_name,
+          awayTeamId: match.away_team_id,
+          awayTeamName: match.away_team_name,
+          kickoffTime: match.kickoff_time,
+          status: match.status,
+          homeScore: match.home_score,
+          awayScore: match.away_score,
+          isManual: match.is_manual,
+          createdBy: match.created_by,
+          updatedBy: match.updated_by,
+          createdAt: match.created_at,
+          updatedAt: match.updated_at,
+          marketsCount: markets.length,
+          totalExposure: 0,
+          markets: markets,
+          mainOdds: mainOdds
+        };
+      }) || [];
 
       return { matches, total: count || 0 };
     } catch (error: any) {
