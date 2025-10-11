@@ -1602,12 +1602,64 @@ export class SupabaseStorage implements IStorage {
 
   async softDeleteMatch(id: string, adminId: string): Promise<void> {
     try {
-      await this.updateMatch(id, { 
-        status: 'cancelled',
-        adminId 
-      });
+      // Note: This assumes database has CASCADE DELETE configured on foreign keys.
+      // If CASCADE is properly set up, deleting the match will automatically delete:
+      // - All markets (via match_id foreign key)
+      // - All market_outcomes (via market_id foreign key from markets)
+      // - All match_events (via match_id foreign key)
+      
+      // If CASCADE DELETE is NOT configured, we need to manually delete in order:
+      // First, get all markets to delete their outcomes
+      const { data: markets } = await this.client
+        .from('markets')
+        .select('id')
+        .eq('match_id', id);
+      
+      if (markets && markets.length > 0) {
+        // Delete all market outcomes for these markets
+        for (const market of markets) {
+          const { error: outcomesError } = await this.client
+            .from('market_outcomes')
+            .delete()
+            .eq('market_id', market.id);
+          
+          if (outcomesError) {
+            throw new Error(`Failed to delete outcomes for market ${market.id}: ${outcomesError.message}`);
+          }
+        }
+        
+        // Delete all markets for this match
+        const { error: marketsError } = await this.client
+          .from('markets')
+          .delete()
+          .eq('match_id', id);
+        
+        if (marketsError) {
+          throw new Error(`Failed to delete markets: ${marketsError.message}`);
+        }
+      }
+      
+      // Delete all match events for this match
+      const { error: eventsError } = await this.client
+        .from('match_events')
+        .delete()
+        .eq('match_id', id);
+      
+      if (eventsError) {
+        throw new Error(`Failed to delete match events: ${eventsError.message}`);
+      }
+      
+      // Finally, delete the match itself
+      const { error: matchError } = await this.client
+        .from('matches')
+        .delete()
+        .eq('id', id);
+      
+      if (matchError) {
+        throw new Error(`Failed to delete match: ${matchError.message}`);
+      }
     } catch (error: any) {
-      console.error('Error soft deleting match:', error);
+      console.error('Error deleting match:', error);
       throw error;
     }
   }
@@ -2097,6 +2149,17 @@ export class SupabaseStorage implements IStorage {
 
   async deleteMarket(marketId: string, adminId: string): Promise<void> {
     try {
+      // First delete all market outcomes
+      const { error: outcomesError } = await this.client
+        .from('market_outcomes')
+        .delete()
+        .eq('market_id', marketId);
+
+      if (outcomesError) {
+        throw new Error(`Failed to delete market outcomes: ${outcomesError.message}`);
+      }
+
+      // Then delete the market
       const { error } = await this.client
         .from('markets')
         .delete()

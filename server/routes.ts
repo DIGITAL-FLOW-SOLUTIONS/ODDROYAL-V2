@@ -3156,8 +3156,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        // Soft delete the market
-        await storage.softDeleteMarket(id, req.adminUser.id);
+        // Delete the market
+        await storage.deleteMarket(id, req.adminUser.id);
         
         res.json({
           success: true,
@@ -4741,7 +4741,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: any, res) => {
       try {
         const { id: matchId } = req.params;
-        const { key, name, type, outcomes } = req.body;
+        const { key, name, type, outcomes, parameter } = req.body;
         
         if (!key || !name || !type || !outcomes || !Array.isArray(outcomes)) {
           return res.status(400).json({
@@ -4774,6 +4774,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           key,
           name,
           type,
+          parameter,
           outcomes,
           createdBy: req.adminUser.id
         });
