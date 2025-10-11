@@ -14,6 +14,7 @@ import {
   Star,
 } from "lucide-react";
 import { marketsCache } from "@/lib/marketsCache";
+import { usePageLoading } from "@/contexts/PageLoadingContext";
 
 interface MatchDetailsProps {
   onAddToBetSlip?: (selection: any) => void;
@@ -247,6 +248,7 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     goals: true,
   });
   const [cachedMarkets, setCachedMarkets] = useState<Market[]>([]);
+  const { setPageLoading } = usePageLoading();
 
   const { data: matchData, isLoading: matchLoading } = useQuery({
     queryKey: ["/api/fixtures", matchId],
@@ -268,6 +270,10 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     enabled: !!matchId,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  useEffect(() => {
+    setPageLoading(matchLoading || oddsLoading);
+  }, [matchLoading, oddsLoading, setPageLoading]);
 
   // Fetch markets from localStorage cache
   useEffect(() => {

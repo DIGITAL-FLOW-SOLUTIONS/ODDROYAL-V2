@@ -6,6 +6,8 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SportsMatches from "@/components/SportsMatches";
 import { useLocation } from "wouter";
+import { useEffect } from "react";
+import { usePageLoading } from "@/contexts/PageLoadingContext";
 
 interface LeagueMatchesProps {
   onAddToBetSlip?: (selection: any) => void;
@@ -15,12 +17,13 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
   const params = useParams<{ sport: string; leagueId: string }>();
   const { mode } = useMode();
   const [, setLocation] = useLocation();
+  const { setPageLoading } = usePageLoading();
   
   const sport = params.sport;
   const leagueId = params.leagueId;
 
   // Fetch league matches with instant loading from cache
-  const { data: leagueData, isRefetching } = useQuery({
+  const { data: leagueData, isRefetching, isLoading } = useQuery({
     queryKey: ['/api/line', sport, leagueId, mode],
     queryFn: async () => {
       const response = await fetch(`/api/line/${sport}/${leagueId}?mode=${mode}`);
@@ -32,6 +35,10 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
     refetchInterval: mode === 'live' ? 15000 : 30000,
     placeholderData: (previousData: any) => previousData, // Show cached data instantly
   });
+
+  useEffect(() => {
+    setPageLoading(isLoading);
+  }, [isLoading, setPageLoading]);
 
   // Format data for SportsMatches component
   const formattedSportGroups = leagueData?.matches ? [{

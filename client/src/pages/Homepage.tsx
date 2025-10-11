@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,14 +17,17 @@ import {
   ArrowRight,
   Zap
 } from "lucide-react";
+import { usePageLoading } from "@/contexts/PageLoadingContext";
 
 interface HomepageProps {
   onAddToBetSlip?: (selection: any) => void;
 }
 
 export default function Homepage({ onAddToBetSlip }: HomepageProps) {
+  const { setPageLoading } = usePageLoading();
+
   // Use menu data to get featured matches
-  const { data: menuData } = useQuery({
+  const { data: menuData, isLoading } = useQuery({
     queryKey: ['/api/menu', 'prematch'],
     queryFn: async () => {
       const response = await fetch('/api/menu?mode=prematch');
@@ -36,6 +39,10 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
     refetchInterval: 30000,
     placeholderData: (previousData: any) => previousData,
   });
+
+  useEffect(() => {
+    setPageLoading(isLoading);
+  }, [isLoading, setPageLoading]);
 
   const liveMatchCount = menuData?.sports?.reduce((total: number, sport: any) => {
     return total + (sport.total_matches || 0);

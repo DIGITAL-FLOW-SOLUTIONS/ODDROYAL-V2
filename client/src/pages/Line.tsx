@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useMode } from "@/contexts/ModeContext";
+import { usePageLoading } from "@/contexts/PageLoadingContext";
 
 // Import all the new components
 import HeroBanner from "@/components/HeroBanner";
@@ -17,9 +18,10 @@ interface LineProps {
 export default function Line({ onAddToBetSlip }: LineProps) {
   const [selectedLeague, setSelectedLeague] = useState("all");
   const { mode } = useMode();
+  const { setPageLoading } = usePageLoading();
 
   // Fetch prematch matches with instant loading from cache
-  const { data: sportGroupsData, isRefetching } = useQuery({
+  const { data: sportGroupsData, isRefetching, isLoading } = useQuery({
     queryKey: ["/api/prematch/matches"],
     queryFn: async () => {
       // Fetch menu to get sports and leagues with prematch matches
@@ -94,6 +96,10 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     refetchInterval: 30000, // Refresh every 30 seconds in background
     placeholderData: (previousData: any) => previousData, // Show cached data instantly
   });
+
+  useEffect(() => {
+    setPageLoading(isLoading);
+  }, [isLoading, setPageLoading]);
 
   const sportGroups = sportGroupsData?.sportGroups || [];
   const upcomingMatches = sportGroupsData?.allMatches || [];

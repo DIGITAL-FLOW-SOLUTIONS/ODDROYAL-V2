@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState, useRef, useEffect } from "react";
+import { usePageLoading } from "@/contexts/PageLoadingContext";
 
 interface LiveProps {
   onAddToBetSlip?: (selection: any) => void;
@@ -15,9 +16,14 @@ interface LiveProps {
 
 export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LiveProps) {
   const { mode } = useMode();
+  const { setPageLoading } = usePageLoading();
 
   // NEW: Use the custom hook with localStorage caching
   const { data: liveMatchesData, isRefetching, isLoading } = useLiveMatches();
+
+  useEffect(() => {
+    setPageLoading(isLoading);
+  }, [isLoading, setPageLoading]);
   
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
   const [selectedSport, setSelectedSport] = useState<string | null>(null);

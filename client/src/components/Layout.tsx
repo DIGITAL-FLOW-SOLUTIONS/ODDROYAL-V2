@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
+import { usePageLoading } from "@/contexts/PageLoadingContext";
+import PageLoader from "@/components/PageLoader";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -25,6 +27,7 @@ export default function Layout({ children }: LayoutProps) {
   const queryClient = useQueryClient();
   const { isAuthenticated, logout } = useAuth();
   const [, setLocation] = useLocation();
+  const { isPageLoading } = usePageLoading();
   
   // Refs for scroll coordination
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -245,6 +248,7 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div ref={layoutContainerRef} className="bg-background">
+      {isPageLoading && <PageLoader />}
       <SidebarProvider style={style as React.CSSProperties}>
         {/* 3-column grid layout: sidebar | main-content | betslip */}
         <div className="sportsbook-layout">

@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ModeProvider } from "@/contexts/ModeContext";
+import { PageLoadingProvider } from "@/contexts/PageLoadingContext";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { marketsCache } from "@/lib/marketsCache";
 import Layout from "@/components/Layout";
@@ -144,10 +145,12 @@ function App() {
         <TooltipProvider>
           <AuthProvider>
             <ModeProvider>
-              <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
-                <Router />
-                <Toaster />
-              </div>
+              <PageLoadingProvider>
+                <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
+                  <Router />
+                  <Toaster />
+                </div>
+              </PageLoadingProvider>
             </ModeProvider>
           </AuthProvider>
         </TooltipProvider>

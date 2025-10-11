@@ -2,14 +2,19 @@ import React from "react";
 import { motion } from "framer-motion";
 import SimpleHeader from "@/components/SimpleHeader";
 import Footer from "@/components/Footer";
+import { usePageLoading } from "@/contexts/PageLoadingContext";
+import PageLoader from "@/components/PageLoader";
 
 interface SimpleLayoutProps {
   children: React.ReactNode;
 }
 
 export default function SimpleLayout({ children }: SimpleLayoutProps) {
+  const { isPageLoading } = usePageLoading();
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {isPageLoading && <PageLoader />}
       {/* Header */}
       <SimpleHeader />
       
