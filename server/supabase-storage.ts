@@ -1849,12 +1849,33 @@ export class SupabaseStorage implements IStorage {
 
   async createMarketWithOutcomes(marketData: any): Promise<any> {
     try {
+      console.log('🏗️ Creating market with data:', {
+        matchId: marketData.matchId,
+        key: marketData.key,
+        name: marketData.name,
+        type: marketData.type,
+        parameter: marketData.parameter,
+        outcomesCount: marketData.outcomes?.length
+      });
+      
       const market = await this.createMarket(marketData);
+      console.log('✅ Market created:', market.id);
       
       if (marketData.outcomes && marketData.outcomes.length > 0) {
         const outcomes = [];
+        console.log(`📊 Creating ${marketData.outcomes.length} outcomes...`);
+        
         for (let i = 0; i < marketData.outcomes.length; i++) {
           const outcomeData = marketData.outcomes[i];
+          
+          console.log(`  ➡️ Processing outcome ${i + 1}/${marketData.outcomes.length}:`, {
+            key: outcomeData.key,
+            label: outcomeData.label,
+            odds: outcomeData.odds,
+            defaultOdds: outcomeData.defaultOdds,
+            resolvedOdds: outcomeData.odds || outcomeData.defaultOdds
+          });
+          
           const outcome = await this.createMarketOutcome({
             marketId: market.id,
             key: outcomeData.key,
@@ -1865,14 +1886,28 @@ export class SupabaseStorage implements IStorage {
             displayOrder: outcomeData.displayOrder !== undefined ? outcomeData.displayOrder : i,
             updatedBy: marketData.createdBy || marketData.updatedBy
           });
+          
+          console.log(`  ✅ Outcome ${i + 1} created:`, outcome.id);
           outcomes.push(outcome);
         }
         market.outcomes = outcomes;
       }
 
+      console.log('🎉 Market with outcomes created successfully');
       return market;
     } catch (error: any) {
-      console.error('Error creating market with outcomes:', error);
+      console.error('❌ Error creating market with outcomes:', {
+        message: error.message,
+        stack: error.stack,
+        marketData: {
+          matchId: marketData.matchId,
+          key: marketData.key,
+          name: marketData.name,
+          type: marketData.type,
+          parameter: marketData.parameter,
+          outcomesCount: marketData.outcomes?.length
+        }
+      });
       throw error;
     }
   }
@@ -1890,6 +1925,8 @@ export class SupabaseStorage implements IStorage {
         updated_by: outcomeData.updatedBy
       };
 
+      console.log('💾 Inserting market outcome to database:', insertData);
+
       const { data, error } = await this.client
         .from('market_outcomes')
         .insert(insertData)
@@ -1897,8 +1934,17 @@ export class SupabaseStorage implements IStorage {
         .single();
 
       if (error) {
+        console.error('❌ Database error creating market outcome:', {
+          error: error,
+          errorMessage: error.message,
+          errorCode: error.code,
+          errorDetails: error.details,
+          insertData: insertData
+        });
         throw new Error(`Failed to create market outcome: ${error.message}`);
       }
+
+      console.log('✅ Market outcome inserted successfully:', data.id);
 
       return {
         id: data.id,
@@ -1917,7 +1963,11 @@ export class SupabaseStorage implements IStorage {
         updatedAt: data.updated_at
       };
     } catch (error: any) {
-      console.error('Error creating market outcome:', error);
+      console.error('❌ Error creating market outcome:', {
+        message: error.message,
+        stack: error.stack,
+        outcomeData: outcomeData
+      });
       throw error;
     }
   }

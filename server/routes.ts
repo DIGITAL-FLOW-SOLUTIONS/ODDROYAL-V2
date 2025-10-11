@@ -4743,7 +4743,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { id: matchId } = req.params;
         const { key, name, type, outcomes, parameter } = req.body;
         
+        // Log incoming request for debugging
+        console.log('📝 Create Market Request:', {
+          matchId,
+          marketKey: key,
+          marketName: name,
+          marketType: type,
+          parameter,
+          outcomesCount: outcomes?.length,
+          outcomes: outcomes
+        });
+        
         if (!key || !name || !type || !outcomes || !Array.isArray(outcomes)) {
+          console.log('❌ Validation failed - missing required fields:', {
+            hasKey: !!key,
+            hasName: !!name,
+            hasType: !!type,
+            hasOutcomes: !!outcomes,
+            isOutcomesArray: Array.isArray(outcomes)
+          });
           return res.status(400).json({
             success: false,
             error: 'Market key, name, type, and outcomes array are required'
@@ -4753,6 +4771,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Validate market type
         const validMarketTypes = ['1x2', 'totals', 'btts', 'handicap', 'correct_score', 'custom'];
         if (!validMarketTypes.includes(type)) {
+          console.log('❌ Invalid market type:', type, 'Valid types:', validMarketTypes);
           return res.status(400).json({
             success: false,
             error: `Invalid market type. Must be one of: ${validMarketTypes.join(', ')}`
@@ -4762,11 +4781,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Verify match exists
         const match = await storage.getMatch(matchId);
         if (!match) {
+          console.log('❌ Match not found:', matchId);
           return res.status(404).json({
             success: false,
             error: 'Match not found'
           });
         }
+        
+        console.log('✅ Match found, creating market...');
         
         // Create market with outcomes
         const market = await storage.createMarketWithOutcomes({
@@ -4779,16 +4801,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           createdBy: req.adminUser.id
         });
         
+        console.log('✅ Market created successfully:', market.id);
+        
         res.json({
           success: true,
           data: market,
           message: 'Market created successfully'
         });
-      } catch (error) {
-        console.error('Create market for match error:', error);
+      } catch (error: any) {
+        console.error('❌ Create market for match error:', {
+          message: error.message,
+          stack: error.stack,
+          requestBody: req.body,
+          matchId: req.params.id
+        });
         res.status(500).json({
           success: false,
-          error: 'Failed to create market'
+          error: error.message || 'Failed to create market'
         });
       }
     }
