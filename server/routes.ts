@@ -4769,7 +4769,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Validate market type
-        const validMarketTypes = ['1x2', 'totals', 'btts', 'handicap', 'correct_score', 'custom'];
+        const validMarketTypes = [
+          '1x2', 'double_chance', 'draw_no_bet',
+          'totals', 'btts', 'exact_goals', 'odd_even', 'both_halves',
+          'first_half_1x2', 'first_half_totals', 'second_half_1x2', 'second_half_totals', 'highest_scoring_half',
+          'team_to_score_first', 'team_to_score_last', 'clean_sheet', 'to_win_either_half', 'to_win_both_halves', 'to_score_both_halves',
+          'correct_score', 'ht_ft', 'winning_margin',
+          'handicap', 'asian_handicap',
+          'first_goal_interval', 'penalty_awarded', 'own_goal',
+          'custom'
+        ];
         if (!validMarketTypes.includes(type)) {
           console.log('❌ Invalid market type:', type, 'Valid types:', validMarketTypes);
           return res.status(400).json({
