@@ -250,7 +250,7 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
   const [cachedMarkets, setCachedMarkets] = useState<Market[]>([]);
   const { setPageLoading } = usePageLoading();
 
-  const { data: matchData, isLoading: matchLoading } = useQuery({
+  const { data: matchData, isLoading: matchLoading, isRefetching: matchRefetching, refetch: refetchMatch } = useQuery({
     queryKey: ["/api/fixtures", matchId],
     queryFn: async () => {
       const response = await fetch(`/api/fixtures/${matchId}`);
@@ -260,7 +260,7 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     enabled: !!matchId,
   });
 
-  const { data: oddsData, isLoading: oddsLoading } = useQuery({
+  const { data: oddsData, isLoading: oddsLoading, isRefetching: oddsRefetching, refetch: refetchOdds } = useQuery({
     queryKey: ["/api/fixtures", matchId, "odds"],
     queryFn: async () => {
       const response = await fetch(`/api/fixtures/${matchId}/odds`);
@@ -271,9 +271,45 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
+  // Track retry attempts for data availability
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const maxRetries = 3;
+
   useEffect(() => {
-    setPageLoading(matchLoading || oddsLoading);
-  }, [matchLoading, oddsLoading, setPageLoading]);
+    const isLoading = matchLoading || oddsLoading;
+    const isRefetching = matchRefetching || oddsRefetching;
+    const hasData = matchData?.data && oddsData?.data;
+    
+    // Reset retry count when we get data
+    if (hasData && retryCount > 0) {
+      setRetryCount(0);
+      setIsRetrying(false);
+    }
+
+    const shouldRetry = !isLoading && !isRefetching && !hasData && retryCount < maxRetries && !isRetrying && !!matchId;
+
+    if (isLoading || isRefetching || shouldRetry) {
+      setPageLoading(true);
+      
+      // If we should retry, trigger a refetch with delay
+      if (shouldRetry) {
+        setIsRetrying(true);
+        console.log(`📡 No match details available, retrying... (${retryCount + 1}/${maxRetries})`);
+        
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          Promise.all([refetchMatch(), refetchOdds()]).finally(() => setIsRetrying(false));
+        }, 1000); // 1 second delay between retries
+      }
+    } else {
+      // Either we have data or we've exceeded retries
+      setPageLoading(false);
+      if (!hasData && retryCount >= maxRetries) {
+        console.log('⚠️ Max retries reached for match details, showing empty state');
+      }
+    }
+  }, [matchLoading, oddsLoading, matchRefetching, oddsRefetching, matchData, oddsData, retryCount, isRetrying, matchId, refetchMatch, refetchOdds, setPageLoading]);
 
   // Fetch markets from localStorage cache
   useEffect(() => {
