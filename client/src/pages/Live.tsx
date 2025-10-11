@@ -25,6 +25,7 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const maxRetries = 3;
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const hasData = liveMatchesData?.sports && liveMatchesData.sports.length > 0;
@@ -45,9 +46,18 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
         setIsRetrying(true);
         console.log(`📡 No live data available, retrying... (${retryCount + 1}/${maxRetries})`);
         
-        setTimeout(() => {
+        // Clear any existing timeout before setting a new one
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+        
+        retryTimeoutRef.current = setTimeout(() => {
           setRetryCount(prev => prev + 1);
-          refetch().finally(() => setIsRetrying(false));
+          refetch().catch(err => {
+            console.error('Refetch error:', err);
+          }).finally(() => {
+            setIsRetrying(false);
+          });
         }, 1000); // 1 second delay between retries
       }
     } else {
@@ -57,7 +67,18 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
         console.log('⚠️ Max retries reached for live matches, showing empty state');
       }
     }
+
   }, [isLoading, isRefetching, liveMatchesData, retryCount, isRetrying, refetch, setPageLoading]);
+
+  // Cleanup timeout only on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
+  }, []);
   
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
   const [selectedSport, setSelectedSport] = useState<string | null>(null);

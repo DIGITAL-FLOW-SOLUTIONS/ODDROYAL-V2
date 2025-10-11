@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SportsMatches from "@/components/SportsMatches";
 import { useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
 
 interface LeagueMatchesProps {
@@ -40,6 +40,7 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const maxRetries = 3;
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const hasData = leagueData?.matches && leagueData.matches.length > 0;
@@ -60,9 +61,18 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
         setIsRetrying(true);
         console.log(`📡 No league matches available, retrying... (${retryCount + 1}/${maxRetries})`);
         
-        setTimeout(() => {
+        // Clear any existing timeout before setting a new one
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+        
+        retryTimeoutRef.current = setTimeout(() => {
           setRetryCount(prev => prev + 1);
-          refetch().finally(() => setIsRetrying(false));
+          refetch().catch(err => {
+            console.error('Refetch error:', err);
+          }).finally(() => {
+            setIsRetrying(false);
+          });
         }, 1000); // 1 second delay between retries
       }
     } else {
@@ -72,7 +82,18 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
         console.log('⚠️ Max retries reached for league matches, showing empty state');
       }
     }
+
   }, [isLoading, isRefetching, leagueData, retryCount, isRetrying, refetch, setPageLoading]);
+
+  // Cleanup timeout only on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   // Format data for SportsMatches component
   const formattedSportGroups = leagueData?.matches ? [{

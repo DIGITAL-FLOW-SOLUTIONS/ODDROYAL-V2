@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useMode } from "@/contexts/ModeContext";
@@ -101,6 +101,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const maxRetries = 3;
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const hasData = sportGroupsData?.sportGroups && sportGroupsData.sportGroups.length > 0;
@@ -121,9 +122,18 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         setIsRetrying(true);
         console.log(`📡 No prematch data available, retrying... (${retryCount + 1}/${maxRetries})`);
         
-        setTimeout(() => {
+        // Clear any existing timeout before setting a new one
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+        
+        retryTimeoutRef.current = setTimeout(() => {
           setRetryCount(prev => prev + 1);
-          refetch().finally(() => setIsRetrying(false));
+          refetch().catch(err => {
+            console.error('Refetch error:', err);
+          }).finally(() => {
+            setIsRetrying(false);
+          });
         }, 1000); // 1 second delay between retries
       }
     } else {
@@ -133,7 +143,18 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         console.log('⚠️ Max retries reached for line page, showing empty state');
       }
     }
+
   }, [isLoading, isRefetching, sportGroupsData, retryCount, isRetrying, refetch, setPageLoading]);
+
+  // Cleanup timeout only on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const sportGroups = sportGroupsData?.sportGroups || [];
   const upcomingMatches = sportGroupsData?.allMatches || [];

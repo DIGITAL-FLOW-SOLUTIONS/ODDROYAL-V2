@@ -275,6 +275,7 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const maxRetries = 3;
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const isLoading = matchLoading || oddsLoading;
@@ -297,9 +298,18 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
         setIsRetrying(true);
         console.log(`📡 No match details available, retrying... (${retryCount + 1}/${maxRetries})`);
         
-        setTimeout(() => {
+        // Clear any existing timeout before setting a new one
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+        
+        retryTimeoutRef.current = setTimeout(() => {
           setRetryCount(prev => prev + 1);
-          Promise.all([refetchMatch(), refetchOdds()]).finally(() => setIsRetrying(false));
+          Promise.all([refetchMatch(), refetchOdds()]).catch(err => {
+            console.error('Refetch error:', err);
+          }).finally(() => {
+            setIsRetrying(false);
+          });
         }, 1000); // 1 second delay between retries
       }
     } else {
@@ -309,7 +319,18 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
         console.log('⚠️ Max retries reached for match details, showing empty state');
       }
     }
+
   }, [matchLoading, oddsLoading, matchRefetching, oddsRefetching, matchData, oddsData, retryCount, isRetrying, matchId, refetchMatch, refetchOdds, setPageLoading]);
+
+  // Cleanup timeout only on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   // Fetch markets from localStorage cache
   useEffect(() => {

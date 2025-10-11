@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,7 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const maxRetries = 3;
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const hasData = menuData?.sports && menuData.sports.length > 0;
@@ -64,9 +65,18 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
         setIsRetrying(true);
         console.log(`📡 No menu data available, retrying... (${retryCount + 1}/${maxRetries})`);
         
-        setTimeout(() => {
+        // Clear any existing timeout before setting a new one
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+        
+        retryTimeoutRef.current = setTimeout(() => {
           setRetryCount(prev => prev + 1);
-          refetch().finally(() => setIsRetrying(false));
+          refetch().catch(err => {
+            console.error('Refetch error:', err);
+          }).finally(() => {
+            setIsRetrying(false);
+          });
         }, 1000); // 1 second delay between retries
       }
     } else {
@@ -77,6 +87,16 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
       }
     }
   }, [isLoading, isRefetching, menuData, retryCount, isRetrying, refetch, setPageLoading]);
+
+  // Cleanup timeout only on unmount
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const liveMatchCount = menuData?.sports?.reduce((total: number, sport: any) => {
     return total + (sport.total_matches || 0);
