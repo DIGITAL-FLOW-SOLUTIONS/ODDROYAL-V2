@@ -348,13 +348,32 @@ export function registerOddsApiRoutes(app: Express): void {
               // Group all markets under a single bookmaker for consistency
               // getMatchMarkets already includes outcomes, so we don't need to fetch them separately
               const marketsList = markets.map((market: any) => {
+                // For 1x2 markets, map to h2h format that the frontend expects
+                const isH2HMarket = market.type === '1x2' || market.key === '1x2' || market.key.includes('h2h');
+                const marketKey = isH2HMarket ? 'h2h' : market.key || market.type;
+                
                 return {
-                  key: market.key || market.type,
-                  outcomes: (market.outcomes || []).map((outcome: any) => ({
-                    name: outcome.label,
-                    key: outcome.key,
-                    price: parseFloat(outcome.odds) || 1.01
-                  }))
+                  key: marketKey,
+                  outcomes: (market.outcomes || []).map((outcome: any) => {
+                    let outcomeName = outcome.label;
+                    
+                    // For h2h/1x2 markets, map outcome names to team names for frontend compatibility
+                    if (isH2HMarket) {
+                      if (outcome.key === '1' || outcome.key === 'home' || outcome.label.toLowerCase().includes('home')) {
+                        outcomeName = match.homeTeamName;
+                      } else if (outcome.key === '2' || outcome.key === 'away' || outcome.label.toLowerCase().includes('away')) {
+                        outcomeName = match.awayTeamName;
+                      } else if (outcome.key === 'x' || outcome.key === 'draw' || outcome.label.toLowerCase().includes('draw')) {
+                        outcomeName = 'Draw';
+                      }
+                    }
+                    
+                    return {
+                      name: outcomeName,
+                      key: outcome.key,
+                      price: parseFloat(outcome.odds) || 1.01
+                    };
+                  })
                 };
               });
               

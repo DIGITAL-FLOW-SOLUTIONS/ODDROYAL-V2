@@ -81,6 +81,29 @@ interface Match {
   };
   createdAt: string;
   updatedAt: string;
+  markets?: Array<{
+    id: string;
+    matchId: string;
+    key: string;
+    name: string;
+    type: string;
+    parameter?: string;
+    status: string;
+    outcomes: Array<{
+      id: string;
+      marketId: string;
+      key: string;
+      label: string;
+      odds: string;
+      status: string;
+      displayOrder: number;
+    }>;
+  }>;
+  mainOdds?: {
+    home: string;
+    draw: string;
+    away: string;
+  } | null;
 }
 
 interface MatchEvent {
