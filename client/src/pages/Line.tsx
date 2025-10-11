@@ -21,7 +21,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const { setPageLoading } = usePageLoading();
 
   // Fetch prematch matches with instant loading from cache
-  const { data: sportGroupsData, isRefetching, isLoading } = useQuery({
+  const { data: sportGroupsData, isRefetching, isLoading, refetch } = useQuery({
     queryKey: ["/api/prematch/matches"],
     queryFn: async () => {
       // Fetch menu to get sports and leagues with prematch matches
@@ -97,9 +97,43 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     placeholderData: (previousData: any) => previousData, // Show cached data instantly
   });
 
+  // Track retry attempts for data availability
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const maxRetries = 3;
+
   useEffect(() => {
-    setPageLoading(isLoading);
-  }, [isLoading, setPageLoading]);
+    const hasData = sportGroupsData?.sportGroups && sportGroupsData.sportGroups.length > 0;
+    
+    // Reset retry count when we get data
+    if (hasData && retryCount > 0) {
+      setRetryCount(0);
+      setIsRetrying(false);
+    }
+
+    const shouldRetry = !isLoading && !isRefetching && !hasData && retryCount < maxRetries && !isRetrying;
+
+    if (isLoading || isRefetching || shouldRetry) {
+      setPageLoading(true);
+      
+      // If we should retry, trigger a refetch with delay
+      if (shouldRetry) {
+        setIsRetrying(true);
+        console.log(`📡 No prematch data available, retrying... (${retryCount + 1}/${maxRetries})`);
+        
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          refetch().finally(() => setIsRetrying(false));
+        }, 1000); // 1 second delay between retries
+      }
+    } else {
+      // Either we have data or we've exceeded retries
+      setPageLoading(false);
+      if (!hasData && retryCount >= maxRetries) {
+        console.log('⚠️ Max retries reached for line page, showing empty state');
+      }
+    }
+  }, [isLoading, isRefetching, sportGroupsData, retryCount, isRetrying, refetch, setPageLoading]);
 
   const sportGroups = sportGroupsData?.sportGroups || [];
   const upcomingMatches = sportGroupsData?.allMatches || [];
