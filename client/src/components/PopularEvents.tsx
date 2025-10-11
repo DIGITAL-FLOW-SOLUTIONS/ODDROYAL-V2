@@ -72,13 +72,22 @@ export default function PopularEvents({
   }, [matches]);
 
   const formatTime = (timeString: string) => {
-    return new Date(timeString).toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    // Extract literal date and time without timezone conversion
+    // Handles ISO 8601, RFC3339, and various timestamp formats with 1-2 digit hours
+    const dateMatch = timeString.match(/(\d{4})-(\d{2})-(\d{2})/);
+    const timeMatch = timeString.match(/(\d{1,2}):(\d{2})/);
+    
+    if (!dateMatch || !timeMatch) {
+      return timeString; // Fallback: show original string if parsing fails
+    }
+    
+    const [, year, month, day] = dateMatch;
+    const [, hours, minutes] = timeMatch;
+    
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthName = monthNames[parseInt(month) - 1];
+    
+    return `${monthName} ${parseInt(day)}, ${hours.padStart(2, '0')}:${minutes}`;
   };
 
   const handleOddsClick = (match: PopularMatch, type: string, e: React.MouseEvent) => {

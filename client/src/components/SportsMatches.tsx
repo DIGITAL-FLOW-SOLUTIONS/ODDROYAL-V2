@@ -125,12 +125,16 @@ export default function SportsMatches({
   };
 
   const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    // Extract literal time without timezone conversion using regex
+    // Handles ISO 8601, RFC3339, and various timestamp formats with 1-2 digit hours
+    const timeMatch = dateString.match(/(\d{1,2}):(\d{2})/);
+    
+    if (!timeMatch) {
+      return dateString; // Fallback: show original string if parsing fails
+    }
+    
+    const [, hours, minutes] = timeMatch;
+    return `${hours.padStart(2, '0')}:${minutes}`;
   };
 
   if (isLoading) {

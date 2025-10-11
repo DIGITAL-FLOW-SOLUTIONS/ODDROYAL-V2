@@ -244,6 +244,7 @@ export class UnifiedMatchService {
           key: market.key || market.type,
           outcomes: (market.outcomes || []).map((outcome: any) => ({
             name: outcome.label,
+            key: outcome.key,
             price: parseFloat(outcome.odds) || 1.01
           }))
         };

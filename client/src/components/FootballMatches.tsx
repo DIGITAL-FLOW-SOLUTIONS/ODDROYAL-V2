@@ -77,11 +77,16 @@ export default function FootballMatches({
   };
 
   const formatTime = (timeString: string) => {
-    return new Date(timeString).toLocaleString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
+    // Extract literal time without timezone conversion using regex
+    // Handles ISO 8601, RFC3339, and various timestamp formats with 1-2 digit hours
+    const timeMatch = timeString.match(/(\d{1,2}):(\d{2})/);
+    
+    if (!timeMatch) {
+      return timeString; // Fallback: show original string if parsing fails
+    }
+    
+    const [, hours, minutes] = timeMatch;
+    return `${hours.padStart(2, '0')}:${minutes}`;
   };
 
   const handleOddsClick = (match: Match, type: string) => {
