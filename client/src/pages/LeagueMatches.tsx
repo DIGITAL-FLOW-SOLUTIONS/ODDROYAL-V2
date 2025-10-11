@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SportsMatches from "@/components/SportsMatches";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
 
 interface LeagueMatchesProps {
@@ -23,7 +23,7 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
   const leagueId = params.leagueId;
 
   // Fetch league matches with instant loading from cache
-  const { data: leagueData, isRefetching, isLoading } = useQuery({
+  const { data: leagueData, isRefetching, isLoading, refetch } = useQuery({
     queryKey: ['/api/line', sport, leagueId, mode],
     queryFn: async () => {
       const response = await fetch(`/api/line/${sport}/${leagueId}?mode=${mode}`);
@@ -36,9 +36,43 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
     placeholderData: (previousData: any) => previousData, // Show cached data instantly
   });
 
+  // Track retry attempts for data availability
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const maxRetries = 3;
+
   useEffect(() => {
-    setPageLoading(isLoading);
-  }, [isLoading, setPageLoading]);
+    const hasData = leagueData?.matches && leagueData.matches.length > 0;
+    
+    // Reset retry count when we get data
+    if (hasData && retryCount > 0) {
+      setRetryCount(0);
+      setIsRetrying(false);
+    }
+
+    const shouldRetry = !isLoading && !isRefetching && !hasData && retryCount < maxRetries && !isRetrying;
+
+    if (isLoading || isRefetching || shouldRetry) {
+      setPageLoading(true);
+      
+      // If we should retry, trigger a refetch with delay
+      if (shouldRetry) {
+        setIsRetrying(true);
+        console.log(`📡 No league matches available, retrying... (${retryCount + 1}/${maxRetries})`);
+        
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          refetch().finally(() => setIsRetrying(false));
+        }, 1000); // 1 second delay between retries
+      }
+    } else {
+      // Either we have data or we've exceeded retries
+      setPageLoading(false);
+      if (!hasData && retryCount >= maxRetries) {
+        console.log('⚠️ Max retries reached for league matches, showing empty state');
+      }
+    }
+  }, [isLoading, isRefetching, leagueData, retryCount, isRetrying, refetch, setPageLoading]);
 
   // Format data for SportsMatches component
   const formattedSportGroups = leagueData?.matches ? [{
