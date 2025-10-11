@@ -4,6 +4,22 @@ OddRoyal is a premium sports betting web application featuring real-time sports 
 
 # Recent Changes
 
+## October 11, 2025 - Admin Panel Match & Market Management Fixes
+- **Delete Match Functionality**: Fixed cascade deletion to properly remove all related records
+  - Now deletes market_outcomes for all markets associated with the match
+  - Deletes all markets linked to the match via match_id foreign key
+  - Deletes all match_events for the match
+  - Finally deletes the match record itself
+  - All deletion steps throw errors to prevent partial deletions
+- **Delete Market Functionality**: Fixed route to call correct storage method
+  - Changed from non-existent `softDeleteMarket()` to `deleteMarket()`
+  - Updated `deleteMarket` to cascade delete all market_outcomes before deleting the market
+  - Proper error throwing ensures atomic operation
+- **Add Market Functionality**: Fixed parameter field handling for market creation
+  - Now properly extracts and passes `parameter` field from request body
+  - Enables correct creation of markets with parameters (e.g., Over/Under 2.5, Handicap +1.5)
+  - Maintains proper createdBy field assignment through the creation chain
+
 ## October 9, 2025 - M-PESA Deposit System Improvements
 - **Deposit ID Consistency**: Fixed deposit ID to use frontend-generated 6-digit numeric ID as M-PESA account reference
   - Frontend and backend now use the same 6-digit deposit ID format
