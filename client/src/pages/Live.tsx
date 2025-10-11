@@ -19,11 +19,45 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
   const { setPageLoading } = usePageLoading();
 
   // NEW: Use the custom hook with localStorage caching
-  const { data: liveMatchesData, isRefetching, isLoading } = useLiveMatches();
+  const { data: liveMatchesData, isRefetching, isLoading, refetch } = useLiveMatches();
+
+  // Track retry attempts for data availability
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const maxRetries = 3;
 
   useEffect(() => {
-    setPageLoading(isLoading);
-  }, [isLoading, setPageLoading]);
+    const hasData = liveMatchesData?.sports && liveMatchesData.sports.length > 0;
+    
+    // Reset retry count when we get data
+    if (hasData && retryCount > 0) {
+      setRetryCount(0);
+      setIsRetrying(false);
+    }
+
+    const shouldRetry = !isLoading && !isRefetching && !hasData && retryCount < maxRetries && !isRetrying;
+
+    if (isLoading || isRefetching || shouldRetry) {
+      setPageLoading(true);
+      
+      // If we should retry, trigger a refetch with delay
+      if (shouldRetry) {
+        setIsRetrying(true);
+        console.log(`📡 No live data available, retrying... (${retryCount + 1}/${maxRetries})`);
+        
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          refetch().finally(() => setIsRetrying(false));
+        }, 1000); // 1 second delay between retries
+      }
+    } else {
+      // Either we have data or we've exceeded retries
+      setPageLoading(false);
+      if (!hasData && retryCount >= maxRetries) {
+        console.log('⚠️ Max retries reached for live matches, showing empty state');
+      }
+    }
+  }, [isLoading, isRefetching, liveMatchesData, retryCount, isRetrying, refetch, setPageLoading]);
   
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
