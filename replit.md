@@ -4,7 +4,17 @@ OddRoyal is a premium sports betting web application featuring real-time sports 
 
 # Recent Changes
 
-## October 11, 2025 - Admin Panel Match & Market Management Fixes
+## October 11, 2025 - Critical Admin Panel Bug Fixes (Session 2)
+- **Delete Match Error Fix**: Resolved database enum constraint violation
+  - Fixed `getActiveBetsByMatch` query that was using invalid bet_status value 'accepted'
+  - Changed status filter from `['pending', 'accepted']` to `['pending']` to match database enum
+  - Valid bet_status values: 'pending', 'won', 'lost', 'cashout', 'cancelled'
+- **Add Market Error Fix**: Resolved null constraint violation for market outcome odds
+  - Fixed `createMarketWithOutcomes` to handle both 'odds' and 'defaultOdds' properties
+  - Frontend sends 'defaultOdds' from market templates, backend now falls back to it when 'odds' is missing
+  - Changed from `odds: outcomeData.odds` to `odds: outcomeData.odds || outcomeData.defaultOdds`
+
+## October 11, 2025 - Admin Panel Match & Market Management Fixes (Session 1)
 - **Delete Match Functionality**: Fixed cascade deletion to properly remove all related records
   - Now deletes market_outcomes for all markets associated with the match
   - Deletes all markets linked to the match via match_id foreign key
