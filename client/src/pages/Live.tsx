@@ -26,9 +26,15 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
   const [isRetrying, setIsRetrying] = useState(false);
   const maxRetries = 3;
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasLoadedOnce = useRef(false);
 
   useEffect(() => {
     const hasData = liveMatchesData?.sports && liveMatchesData.sports.length > 0;
+    
+    // Mark as successfully loaded once we have data
+    if (hasData) {
+      hasLoadedOnce.current = true;
+    }
     
     // Reset retry count when we get data
     if (hasData && retryCount > 0) {
@@ -38,7 +44,8 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
 
     const shouldRetry = !isLoading && !isRefetching && !hasData && retryCount < maxRetries && !isRetrying;
 
-    if (!hasData && (isLoading || isRefetching || shouldRetry)) {
+    // Only show loader if we've NEVER loaded data successfully
+    if (!hasLoadedOnce.current && (isLoading || isRefetching || shouldRetry)) {
       setPageLoading(true);
       
       // If we should retry, trigger a refetch with delay
