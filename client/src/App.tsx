@@ -12,6 +12,7 @@ import { ModeProvider } from "@/contexts/ModeContext";
 import { PageLoadingProvider } from "@/contexts/PageLoadingContext";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
 import { marketsCache } from "@/lib/marketsCache";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import Layout from "@/components/Layout";
 import SimpleLayout from "@/components/SimpleLayout";
 import Homepage from "@/pages/Homepage";
@@ -95,6 +96,9 @@ function Router() {
 }
 
 function App() {
+  // Initialize WebSocket streaming for real-time updates
+  useWebSocket();
+  
   // Initialize markets cache on app start
   useEffect(() => {
     // Clear old markets first

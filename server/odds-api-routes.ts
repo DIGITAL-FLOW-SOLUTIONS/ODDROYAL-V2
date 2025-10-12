@@ -10,6 +10,72 @@ import { authenticateAdmin } from './admin-middleware';
 import { requireAdminLevel } from './rbac-middleware';
 
 export function registerOddsApiRoutes(app: Express): void {
+  // Initial data preload endpoint - for WebSocket connection
+  app.get('/api/initial-data', async (req: Request, res: Response) => {
+    try {
+      // Get all sports
+      const sports = await redisCache.getSportsList() || [];
+      
+      // Get all live matches (API + Manual)
+      const liveMatches = await unifiedMatchService.getAllLiveMatches();
+      
+      // Get prematch matches (API + Manual) - limited to upcoming matches
+      const prematchMatches = await unifiedMatchService.getAllUpcomingMatches(100);
+      
+      // Combine all matches
+      const allMatches = [...liveMatches, ...prematchMatches];
+      
+      // Extract leagues organized by sport
+      const leaguesMap = new Map<string, any[]>();
+      
+      for (const match of allMatches) {
+        const sportLeagues = leaguesMap.get(match.sport_key) || [];
+        
+        // Check if league already exists
+        const existingLeague = sportLeagues.find(l => l.league_id === match.league_id);
+        
+        if (!existingLeague) {
+          sportLeagues.push({
+            league_id: match.league_id,
+            league_name: match.league_name,
+            sport_key: match.sport_key,
+            match_count: 1
+          });
+          leaguesMap.set(match.sport_key, sportLeagues);
+        } else {
+          existingLeague.match_count++;
+        }
+      }
+      
+      // Convert leagues map to array
+      const leagues: any[] = [];
+      leaguesMap.forEach((sportLeagues) => {
+        leagues.push(...sportLeagues);
+      });
+      
+      res.json({
+        success: true,
+        data: {
+          sports: sports.map(s => ({
+            sport_key: s.key,
+            sport_title: s.title,
+            sport_icon: getSportIcon(s.key)
+          })),
+          leagues,
+          matches: allMatches
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error fetching initial data:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch initial data',
+        details: (error as Error).message
+      });
+    }
+  });
+  
   // NEW: Aggregated live matches endpoint - all live matches in one call (UNIFIED: API + Manual)
   app.get('/api/live/matches', async (req: Request, res: Response) => {
     try {
