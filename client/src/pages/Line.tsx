@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useMode } from "@/contexts/ModeContext";
-import { usePageLoading } from "@/contexts/PageLoadingContext";
-import { usePrematchMatches } from "@/hooks/usePrematchMatches";
+import { useMatchStore } from "@/store/matchStore";
 
 // Import all the new components
 import HeroBanner from "@/components/HeroBanner";
@@ -18,100 +17,82 @@ interface LineProps {
 export default function Line({ onAddToBetSlip }: LineProps) {
   const [selectedLeague, setSelectedLeague] = useState("all");
   const { mode } = useMode();
-  const { setPageLoading } = usePageLoading();
 
-  // Use the new hook with localStorage cache for instant loading
-  const { data: sportGroupsData, isRefetching, isLoading, refetch } = usePrematchMatches();
+  // Subscribe to global store - instant access, no REST calls
+  const prematchMatches = useMatchStore(state => state.getPrematchMatches());
+  const sports = useMatchStore(state => state.sports);
+  const leagues = useMatchStore(state => state.leagues);
 
-  // Track retry attempts for data availability
-  const [retryCount, setRetryCount] = useState(0);
-  const [isRetrying, setIsRetrying] = useState(false);
-  const maxRetries = 3;
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hasLoadedOnce = useRef(false);
-
-  useEffect(() => {
-    const hasData = sportGroupsData?.sportGroups && sportGroupsData.sportGroups.length > 0;
+  // Group prematch matches by sport and league (similar to old REST response structure)
+  const sportGroups = useMemo(() => {
+    const groupsMap = new Map<string, any>();
     
-    // Mark as successfully loaded once we have data
-    if (hasData) {
-      hasLoadedOnce.current = true;
-    }
-    
-    // Reset retry count when we get data
-    if (hasData && retryCount > 0) {
-      setRetryCount(0);
-      setIsRetrying(false);
-    }
-
-    const shouldRetry = !isLoading && !isRefetching && !hasData && retryCount < maxRetries && !isRetrying;
-
-    // Only show loader if we've NEVER loaded data successfully
-    if (!hasLoadedOnce.current && (isLoading || isRefetching || shouldRetry)) {
-      setPageLoading(true);
+    for (const match of prematchMatches) {
+      const sport = sports.find(s => s.sport_key === match.sport_key);
+      if (!sport) continue;
       
-      // If we should retry, trigger a refetch with delay
-      if (shouldRetry) {
-        setIsRetrying(true);
-        console.log(`📡 No prematch data available, retrying... (${retryCount + 1}/${maxRetries})`);
-        
-        // Clear any existing timeout before setting a new one
-        if (retryTimeoutRef.current) {
-          clearTimeout(retryTimeoutRef.current);
-        }
-        
-        retryTimeoutRef.current = setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          refetch().catch(err => {
-            console.error('Refetch error:', err);
-          }).finally(() => {
-            setIsRetrying(false);
-          });
-        }, 1000); // 1 second delay between retries
+      // Get or create sport group
+      let sportGroup = groupsMap.get(match.sport_key);
+      if (!sportGroup) {
+        sportGroup = {
+          sport: match.sport_key,
+          sportTitle: sport.sport_title,
+          leagues: new Map<string, any>()
+        };
+        groupsMap.set(match.sport_key, sportGroup);
       }
-    } else {
-      // Either we have data or we've exceeded retries
-      setPageLoading(false);
-      if (!hasData && retryCount >= maxRetries) {
-        console.log('⚠️ Max retries reached for line page, showing empty state');
+      
+      // Get or create league within sport
+      let league = sportGroup.leagues.get(match.league_id);
+      if (!league) {
+        league = {
+          league_id: match.league_id,
+          league_name: match.league_name,
+          matches: []
+        };
+        sportGroup.leagues.set(match.league_id, league);
       }
+      
+      league.matches.push(match);
     }
+    
+    // Convert maps to arrays
+    const groups: any[] = [];
+    groupsMap.forEach(sportGroup => {
+      const leagues = Array.from(sportGroup.leagues.values());
+      groups.push({
+        sport: sportGroup.sport,
+        sportTitle: sportGroup.sportTitle,
+        leagues
+      });
+    });
+    
+    return groups;
+  }, [prematchMatches, sports]);
 
-  }, [isLoading, isRefetching, sportGroupsData, retryCount, isRetrying, refetch, setPageLoading]);
-
-  // Cleanup timeout only on unmount
-  useEffect(() => {
-    return () => {
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-        retryTimeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  const sportGroups = sportGroupsData?.sportGroups || [];
-  const upcomingMatches = sportGroupsData?.allMatches || [];
+  // All upcoming matches for popular events
+  const upcomingMatches = prematchMatches;
 
   // Transform API data for Popular Events - only use real data, include logos
   const popularMatches = upcomingMatches.slice(0, 6).map((match: any) => ({
-    id: match.id,
+    id: match.match_id,
     homeTeam: {
-      name: match.homeTeam?.name || match.homeTeam,
-      logo: match.homeTeamLogo || match.homeTeam?.logo,
+      name: match.home_team,
+      logo: match.home_team_logo,
     },
     awayTeam: {
-      name: match.awayTeam?.name || match.awayTeam,
-      logo: match.awayTeamLogo || match.awayTeam?.logo,
+      name: match.away_team,
+      logo: match.away_team_logo,
     },
-    kickoffTime: match.kickoffTime || match.kickoff,
-    league: match.league,
+    kickoffTime: match.commence_time,
+    league: match.league_name,
     venue: match.venue,
-    odds: match.odds || {
+    odds: {
       home: 0,
       draw: 0,
       away: 0,
     },
-    additionalMarkets: match.additionalMarkets || 0,
+    additionalMarkets: match.bookmakers?.[0]?.markets?.length || 0,
   }));
 
   // Handle odds selection for bet slip
@@ -123,7 +104,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   ) => {
     if (!onAddToBetSlip) return;
 
-    const match = upcomingMatches.find((m: any) => m.id === matchId);
+    const match = upcomingMatches.find((m: any) => m.match_id === matchId);
     if (!match) return;
 
     // Create human-readable selection name
@@ -142,9 +123,9 @@ export default function Line({ onAddToBetSlip }: LineProps) {
       type,
       selection: getSelectionName(market, type),
       odds,
-      homeTeam: match.homeTeam?.name || match.homeTeam,
-      awayTeam: match.awayTeam?.name || match.awayTeam,
-      league: match.league || "Unknown",
+      homeTeam: match.home_team,
+      awayTeam: match.away_team,
+      league: match.league_name || "Unknown",
       isLive: false,
     };
 
