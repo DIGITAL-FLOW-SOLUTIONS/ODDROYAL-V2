@@ -1,13 +1,12 @@
 import { motion } from "framer-motion";
 import { useMode } from "@/contexts/ModeContext";
 import { Circle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
-import { useLiveMatches } from "@/hooks/useLiveMatches";
 import { LiveMatchRow } from "@/components/LiveMatchRow";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useState, useRef, useEffect } from "react";
-import { usePageLoading } from "@/contexts/PageLoadingContext";
+import { useState, useRef, useMemo, useEffect } from "react";
+import { useMatchStore } from "@/store/matchStore";
 
 interface LiveProps {
   onAddToBetSlip?: (selection: any) => void;
@@ -16,76 +15,11 @@ interface LiveProps {
 
 export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LiveProps) {
   const { mode } = useMode();
-  const { setPageLoading } = usePageLoading();
-
-  // NEW: Use the custom hook with localStorage caching
-  const { data: liveMatchesData, isRefetching, isLoading, refetch } = useLiveMatches();
-
-  // Track retry attempts for data availability
-  const [retryCount, setRetryCount] = useState(0);
-  const [isRetrying, setIsRetrying] = useState(false);
-  const maxRetries = 3;
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hasLoadedOnce = useRef(false);
-
-  useEffect(() => {
-    const hasData = liveMatchesData?.sports && liveMatchesData.sports.length > 0;
-    
-    // Mark as successfully loaded once we have data
-    if (hasData) {
-      hasLoadedOnce.current = true;
-    }
-    
-    // Reset retry count when we get data
-    if (hasData && retryCount > 0) {
-      setRetryCount(0);
-      setIsRetrying(false);
-    }
-
-    const shouldRetry = !isLoading && !isRefetching && !hasData && retryCount < maxRetries && !isRetrying;
-
-    // Only show loader if we've NEVER loaded data successfully
-    if (!hasLoadedOnce.current && (isLoading || isRefetching || shouldRetry)) {
-      setPageLoading(true);
-      
-      // If we should retry, trigger a refetch with delay
-      if (shouldRetry) {
-        setIsRetrying(true);
-        console.log(`📡 No live data available, retrying... (${retryCount + 1}/${maxRetries})`);
-        
-        // Clear any existing timeout before setting a new one
-        if (retryTimeoutRef.current) {
-          clearTimeout(retryTimeoutRef.current);
-        }
-        
-        retryTimeoutRef.current = setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          refetch().catch(err => {
-            console.error('Refetch error:', err);
-          }).finally(() => {
-            setIsRetrying(false);
-          });
-        }, 1000); // 1 second delay between retries
-      }
-    } else {
-      // Either we have data or we've exceeded retries
-      setPageLoading(false);
-      if (!hasData && retryCount >= maxRetries) {
-        console.log('⚠️ Max retries reached for live matches, showing empty state');
-      }
-    }
-
-  }, [isLoading, isRefetching, liveMatchesData, retryCount, isRetrying, refetch, setPageLoading]);
-
-  // Cleanup timeout only on unmount
-  useEffect(() => {
-    return () => {
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-        retryTimeoutRef.current = null;
-      }
-    };
-  }, []);
+  
+  // Subscribe to global store - instant access, no REST calls
+  const liveMatches = useMatchStore(state => state.getLiveMatches());
+  const sports = useMatchStore(state => state.sports);
+  const leagues = useMatchStore(state => state.leagues);
   
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
@@ -98,7 +32,55 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
-  const sportGroups = liveMatchesData?.sports || [];
+  // Group live matches by sport and league (similar to old REST response structure)
+  const sportGroups = useMemo(() => {
+    const groupsMap = new Map<string, any>();
+    
+    for (const match of liveMatches) {
+      const sport = sports.find(s => s.sport_key === match.sport_key);
+      if (!sport) continue;
+      
+      // Get or create sport group
+      let sportGroup = groupsMap.get(match.sport_key);
+      if (!sportGroup) {
+        sportGroup = {
+          sport_key: match.sport_key,
+          sport_title: sport.sport_title,
+          sport_icon: sport.sport_icon,
+          leagues: new Map<string, any>()
+        };
+        groupsMap.set(match.sport_key, sportGroup);
+      }
+      
+      // Get or create league within sport
+      let league = sportGroup.leagues.get(match.league_id);
+      if (!league) {
+        league = {
+          league_id: match.league_id,
+          league_name: match.league_name,
+          matches: []
+        };
+        sportGroup.leagues.set(match.league_id, league);
+      }
+      
+      league.matches.push(match);
+    }
+    
+    // Convert maps to arrays and calculate totals
+    const groups: any[] = [];
+    groupsMap.forEach(sportGroup => {
+      const leagues = Array.from(sportGroup.leagues.values());
+      groups.push({
+        sport_key: sportGroup.sport_key,
+        sport_title: sportGroup.sport_title,
+        sport_icon: sportGroup.sport_icon,
+        leagues,
+        total_matches: leagues.reduce((sum, l: any) => sum + l.matches.length, 0)
+      });
+    });
+    
+    return groups;
+  }, [liveMatches, sports]);
   
   // Filter sport groups based on selected sport
   const filteredSportGroups = selectedSport 
@@ -249,14 +231,7 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
 
       {/* Live Matches Content */}
       <div className="p-4 space-y-4">
-        {isLoading && sportGroups.length === 0 ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-              <p className="text-muted-foreground">Loading live matches...</p>
-            </div>
-          </div>
-        ) : filteredSportGroups.length === 0 ? (
+        {filteredSportGroups.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
               <Circle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />

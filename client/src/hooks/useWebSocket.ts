@@ -11,7 +11,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useMatchStore } from '@/store/matchStore';
 
-const WS_URL = `ws://${window.location.host}/ws`;
+const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws`;
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT_ATTEMPTS = 10;
 

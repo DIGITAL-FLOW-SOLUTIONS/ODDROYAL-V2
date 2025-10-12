@@ -2926,14 +2926,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Publish new manual match to Redis Pub/Sub for real-time streaming
         const matchWithMarkets = await storage.getMatch(match.id);
-        const markets = await storage.getMatchMarkets(match.id);
+        const existingMarkets = await storage.getMatchMarkets(match.id);
         
         await redisPubSub.publishNewMatch({
           ...matchWithMarkets,
-          bookmakers: markets ? [{
+          bookmakers: existingMarkets ? [{
             key: 'manual',
             title: 'Manual',
-            markets
+            markets: existingMarkets
           }] : [],
           source: 'manual'
         });
