@@ -18,6 +18,7 @@ import {
   Zap
 } from "lucide-react";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
+import { useDataPrefetch } from "@/hooks/useDataPrefetch";
 
 interface HomepageProps {
   onAddToBetSlip?: (selection: any) => void;
@@ -25,6 +26,9 @@ interface HomepageProps {
 
 export default function Homepage({ onAddToBetSlip }: HomepageProps) {
   const { setPageLoading } = usePageLoading();
+  
+  // Prefetch Live and Line data when homepage loads
+  useDataPrefetch();
 
   // Use menu data to get featured matches
   const { data: menuData, isLoading, isRefetching, refetch } = useQuery({

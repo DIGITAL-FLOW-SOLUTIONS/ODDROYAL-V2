@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
 import { useMode } from "@/contexts/ModeContext";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
+import { usePrematchMatches } from "@/hooks/usePrematchMatches";
 
 // Import all the new components
 import HeroBanner from "@/components/HeroBanner";
@@ -20,82 +20,8 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const { mode } = useMode();
   const { setPageLoading } = usePageLoading();
 
-  // Fetch prematch matches with instant loading from cache
-  const { data: sportGroupsData, isRefetching, isLoading, refetch } = useQuery({
-    queryKey: ["/api/prematch/matches"],
-    queryFn: async () => {
-      // Fetch menu to get sports and leagues with prematch matches
-      const menuResponse = await fetch('/api/menu?mode=prematch');
-      if (!menuResponse.ok) throw new Error("Failed to fetch menu");
-      const menuResult = await menuResponse.json();
-      
-      const sportGroups: any[] = [];
-      const allMatches: any[] = [];
-      
-      if (menuResult.success && menuResult.data.sports) {
-        // Fetch matches for each sport and league
-        for (const sport of menuResult.data.sports) {
-          const sportLeagues: any[] = [];
-          
-          for (const league of sport.leagues) {
-            const lineResponse = await fetch(`/api/line/${sport.sport_key}/${league.league_id}?mode=prematch`);
-            if (lineResponse.ok) {
-              const lineResult = await lineResponse.json();
-              if (lineResult.success && lineResult.data.matches) {
-                const leagueMatches = lineResult.data.matches.map((match: any) => {
-                  const matchData = {
-                    id: match.match_id,
-                    homeTeam: {
-                      name: match.home_team,
-                      logo: match.home_team_logo,
-                    },
-                    awayTeam: {
-                      name: match.away_team,
-                      logo: match.away_team_logo,
-                    },
-                    league: league.league_name,
-                    kickoffTime: match.commence_time,
-                    venue: match.venue,
-                    odds: match.bookmakers?.[0]?.markets?.find((m: any) => m.key === "h2h")
-                      ? {
-                          home: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
-                          draw: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === "Draw")?.price || 0,
-                          away: match.bookmakers[0].markets.find((m: any) => m.key === "h2h")?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
-                        }
-                      : null,
-                    homeTeamLogo: match.home_team_logo,
-                    awayTeamLogo: match.away_team_logo,
-                  };
-                  allMatches.push(matchData);
-                  return matchData;
-                });
-                
-                sportLeagues.push({
-                  id: league.league_id,
-                  name: league.league_name,
-                  matches: leagueMatches,
-                });
-              }
-            }
-          }
-          
-          if (sportLeagues.length > 0) {
-            sportGroups.push({
-              id: sport.sport_key,
-              name: sport.sport_title,
-              icon: sport.sport_icon,
-              leagues: sportLeagues,
-            });
-          }
-        }
-      }
-      
-      return { sportGroups, allMatches };
-    },
-    staleTime: 3 * 60 * 1000, // 3 minutes for prematch
-    refetchInterval: 30000, // Refresh every 30 seconds in background
-    placeholderData: (previousData: any) => previousData, // Show cached data instantly
-  });
+  // Use the new hook with localStorage cache for instant loading
+  const { data: sportGroupsData, isRefetching, isLoading, refetch } = usePrematchMatches();
 
   // Track retry attempts for data availability
   const [retryCount, setRetryCount] = useState(0);
