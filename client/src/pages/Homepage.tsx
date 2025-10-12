@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MatchCard from "@/components/MatchCard";
 import BannerSlider from "@/components/BannerSlider";
-import { useQuery } from "@tanstack/react-query";
 import { 
   Trophy, 
   TrendingUp, 
@@ -18,7 +17,7 @@ import {
   Zap
 } from "lucide-react";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
-import { useDataPrefetch } from "@/hooks/useDataPrefetch";
+import { useMatchStore } from "@/store/matchStore";
 
 interface HomepageProps {
   onAddToBetSlip?: (selection: any) => void;
@@ -27,92 +26,28 @@ interface HomepageProps {
 export default function Homepage({ onAddToBetSlip }: HomepageProps) {
   const { setPageLoading } = usePageLoading();
   
-  // Prefetch Live and Line data when homepage loads
-  useDataPrefetch();
+  // Subscribe to global Zustand store - WebSocket provides all data
+  const liveMatches = useMatchStore(state => state.getLiveMatches());
+  const isConnected = useMatchStore(state => state.isConnected);
+  
+  // Calculate live match count from store
+  const liveMatchCount = liveMatches.length;
 
-  // Use menu data to get featured matches
-  const { data: menuData, isLoading, isRefetching, refetch } = useQuery({
-    queryKey: ['/api/menu', 'prematch'],
-    queryFn: async () => {
-      const response = await fetch('/api/menu?mode=prematch');
-      if (!response.ok) throw new Error('Failed to fetch menu');
-      const result = await response.json();
-      return result.data;
-    },
-    staleTime: Infinity,
-    placeholderData: (previousData: any) => previousData,
-  });
-
-  // Track retry attempts for data availability
-  const [retryCount, setRetryCount] = useState(0);
-  const [isRetrying, setIsRetrying] = useState(false);
-  const maxRetries = 3;
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hasLoadedOnce = useRef(false);
-
-  useEffect(() => {
-    const hasData = menuData?.sports && menuData.sports.length > 0;
-    
-    // Mark as successfully loaded once we have data
-    if (hasData) {
-      hasLoadedOnce.current = true;
-    }
-    
-    // Reset retry count when we get data
-    if (hasData && retryCount > 0) {
-      setRetryCount(0);
-      setIsRetrying(false);
-    }
-
-    const shouldRetry = !isLoading && !isRefetching && !hasData && retryCount < maxRetries && !isRetrying;
-
-    // Only show loader if we've NEVER loaded data successfully
-    if (!hasLoadedOnce.current && (isLoading || isRefetching || shouldRetry)) {
-      setPageLoading(true);
-      
-      // If we should retry, trigger a refetch with delay
-      if (shouldRetry) {
-        setIsRetrying(true);
-        console.log(`📡 No menu data available, retrying... (${retryCount + 1}/${maxRetries})`);
-        
-        // Clear any existing timeout before setting a new one
-        if (retryTimeoutRef.current) {
-          clearTimeout(retryTimeoutRef.current);
-        }
-        
-        retryTimeoutRef.current = setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          refetch().catch(err => {
-            console.error('Refetch error:', err);
-          }).finally(() => {
-            setIsRetrying(false);
-          });
-        }, 1000); // 1 second delay between retries
+  // Featured matches from live data
+  const featuredMatches: any[] = useMemo(() => {
+    return liveMatches.slice(0, 6).map((match: any) => ({
+      id: match.match_id,
+      homeTeam: { name: match.home_team, logo: match.home_team_logo },
+      awayTeam: { name: match.away_team, logo: match.away_team_logo },
+      kickoffTime: match.commence_time,
+      league: match.league_name,
+      odds: {
+        home: 0,
+        draw: 0,
+        away: 0
       }
-    } else {
-      // Either we have data or we've exceeded retries
-      setPageLoading(false);
-      if (!hasData && retryCount >= maxRetries) {
-        console.log('⚠️ Max retries reached for homepage menu, showing empty state');
-      }
-    }
-  }, [isLoading, isRefetching, menuData, retryCount, isRetrying, refetch, setPageLoading]);
-
-  // Cleanup timeout only on unmount
-  useEffect(() => {
-    return () => {
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-        retryTimeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  const liveMatchCount = menuData?.sports?.reduce((total: number, sport: any) => {
-    return total + (sport.total_matches || 0);
-  }, 0) || 0;
-
-  const featuredMatches: any[] = [];
+    }));
+  }, [liveMatches]);
 
   const topLeagues = [
     { id: "1", name: "Premier League", country: "England", matches: 89, logo: "⚽" },
