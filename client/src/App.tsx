@@ -11,7 +11,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ModeProvider } from "@/contexts/ModeContext";
 import { PageLoadingProvider } from "@/contexts/PageLoadingContext";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
-import { marketsCache } from "@/lib/marketsCache";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import Layout from "@/components/Layout";
 import SimpleLayout from "@/components/SimpleLayout";
@@ -98,33 +97,6 @@ function Router() {
 function App() {
   // Initialize WebSocket streaming for real-time updates
   useWebSocket();
-  
-  // Initialize markets cache on app start
-  useEffect(() => {
-    // Clear old markets first
-    marketsCache.clearOldMarkets();
-    
-    // Preload all markets in background
-    marketsCache.preloadAllMarkets().then(() => {
-      const stats = marketsCache.getStats();
-      console.log('📊 Markets cache initialized:', stats);
-    });
-    
-    // Set up interval to update live markets every 10 seconds
-    const liveUpdateInterval = setInterval(() => {
-      marketsCache.updateLiveMarkets();
-    }, 10000); // 10 seconds
-    
-    // Set up interval to refresh all markets every 5 minutes
-    const refreshInterval = setInterval(() => {
-      marketsCache.preloadAllMarkets();
-    }, 5 * 60 * 1000); // 5 minutes
-    
-    return () => {
-      clearInterval(liveUpdateInterval);
-      clearInterval(refreshInterval);
-    };
-  }, []);
 
   return (
     <PersistQueryClientProvider

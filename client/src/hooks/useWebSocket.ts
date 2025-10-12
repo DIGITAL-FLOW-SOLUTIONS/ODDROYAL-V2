@@ -29,6 +29,7 @@ export function useWebSocket() {
     batchUpdateMatches,
     removeMatch,
     setConnected,
+    setInitialData,
   } = useMatchStore();
 
   const connect = useCallback(() => {
@@ -54,7 +55,7 @@ export function useWebSocket() {
           const result = await response.json();
           
           if (result.success) {
-            const { setInitialData } = useMatchStore.getState();
+            // Use the imported function from the module instead of getState()
             setInitialData(result.data);
             console.log('📊 Initial data loaded into store');
           }
