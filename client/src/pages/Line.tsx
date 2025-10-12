@@ -19,9 +19,14 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const { mode } = useMode();
 
   // Subscribe to global store - instant access, no REST calls
-  const prematchMatches = useMatchStore(state => state.getPrematchMatches());
+  const matches = useMatchStore(state => state.matches);
   const sports = useMatchStore(state => state.sports);
   const leagues = useMatchStore(state => state.leagues);
+  
+  // Filter prematch matches with useMemo to avoid infinite loops
+  const prematchMatches = useMemo(() => {
+    return Array.from(matches.values()).filter(m => m.status === 'upcoming');
+  }, [matches]);
 
   // Group prematch matches by sport and league (similar to old REST response structure)
   const sportGroups = useMemo(() => {

@@ -17,9 +17,14 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
   const { mode } = useMode();
   
   // Subscribe to global store - instant access, no REST calls
-  const liveMatches = useMatchStore(state => state.getLiveMatches());
+  const matches = useMatchStore(state => state.matches);
   const sports = useMatchStore(state => state.sports);
   const leagues = useMatchStore(state => state.leagues);
+  
+  // Filter live matches with useMemo to avoid infinite loops
+  const liveMatches = useMemo(() => {
+    return Array.from(matches.values()).filter(m => m.status === 'live');
+  }, [matches]);
   
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
