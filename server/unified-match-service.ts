@@ -97,7 +97,9 @@ export class UnifiedMatchService {
           if (apiMatches.length >= limit * 2) break;
           
           const matches = await redisCache.getPrematchMatches(sport.key, league.league_id) || [];
-          apiMatches.push(...matches);
+          // Explicitly set status to 'upcoming' for all prematch matches
+          const upcomingMatches = matches.map(m => ({ ...m, status: 'upcoming' as const }));
+          apiMatches.push(...upcomingMatches);
         }
       }
       
