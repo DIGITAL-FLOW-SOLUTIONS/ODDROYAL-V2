@@ -168,8 +168,10 @@ export function usePrematchMatches() {
         throw error;
       }
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes for prematch
-    refetchInterval: 60000, // Refresh every 60 seconds in background
+    staleTime: Infinity, // WebSocket handles updates
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     // Use cache as placeholder data for instant loading
     placeholderData: () => {
       const cache = getPrematchCache();

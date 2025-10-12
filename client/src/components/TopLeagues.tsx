@@ -22,8 +22,7 @@ export default function TopLeagues() {
       const result = await response.json();
       return result.data;
     },
-    staleTime: mode === 'live' ? 60 * 1000 : 5 * 60 * 1000,
-    refetchInterval: mode === 'live' ? 15000 : 30000,
+    staleTime: Infinity,
     placeholderData: (previousData: any) => previousData,
   });
 

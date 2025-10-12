@@ -39,8 +39,7 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
       const result = await response.json();
       return result.data;
     },
-    staleTime: 3 * 60 * 1000,
-    refetchInterval: 30000,
+    staleTime: Infinity,
     placeholderData: (previousData: any) => previousData,
   });
 

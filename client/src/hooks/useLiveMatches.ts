@@ -139,14 +139,13 @@ export function useLiveMatches() {
       throw error;
     }
     },
-    // Aggressive refetch for live betting
-    refetchInterval: 10000, // Refetch every 10 seconds
-    staleTime: 5000, // Consider data stale after 5 seconds
+    // WebSocket handles live updates - no polling needed
+    staleTime: Infinity,
     gcTime: 60000, // Keep in memory for 1 minute
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-    retry: 2,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+    retry: 1,
     retryDelay: 2000,
     // CRITICAL: Use placeholder data from cache for instant load
     placeholderData: () => {
