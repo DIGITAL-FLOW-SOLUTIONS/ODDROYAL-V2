@@ -541,6 +541,7 @@ class RedisCacheManager {
 
           allMatches.push({
             ...match,
+            status: 'live', // Explicitly set status for live matches
             home_team_logo: homeLogo?.logo || null,
             away_team_logo: awayLogo?.logo || null,
             odds_deltas: oddsDeltas,
