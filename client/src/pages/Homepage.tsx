@@ -29,9 +29,21 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
   // Subscribe to global Zustand store - WebSocket provides all data
   const liveMatches = useMatchStore(state => state.getLiveMatches());
   const isConnected = useMatchStore(state => state.isConnected);
+  const hasInitialData = useRef(false);
   
   // Calculate live match count from store
   const liveMatchCount = liveMatches.length;
+
+  // Track if we've received initial data
+  useEffect(() => {
+    if (liveMatches.length > 0) {
+      hasInitialData.current = true;
+      setPageLoading(false);
+    } else if (!isConnected) {
+      // Show loading while disconnected and no data
+      setPageLoading(!hasInitialData.current);
+    }
+  }, [liveMatches.length, isConnected, setPageLoading]);
 
   // Featured matches from live data
   const featuredMatches: any[] = useMemo(() => {
