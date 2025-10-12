@@ -9,6 +9,7 @@ import {
   normalizeMarkets,
   generateMatchId,
   isMatchStartingSoon,
+  applyLeagueLimits,
   ApiSport,
   GroupedSport,
 } from './match-utils';
@@ -159,12 +160,13 @@ export class PreloadWorker {
       const allSports = await oddsApiClient.getSports();
       logger.info(`📥 Retrieved ${allSports.length} total sports from API`);
       
-      // Group sports by category
-      this.groupedSports = groupSportsByCategory(allSports as ApiSport[]);
+      // Group sports by category and apply league limits for API efficiency
+      const grouped = groupSportsByCategory(allSports as ApiSport[]);
+      this.groupedSports = applyLeagueLimits(grouped);
       
-      logger.success(`✅ Grouped into ${this.groupedSports.length} sport categories:`);
+      logger.success(`✅ Grouped into ${this.groupedSports.length} sport categories (with limits applied):`);
       this.groupedSports.forEach(group => {
-        logger.info(`  - ${group.title}: ${group.leagues.length} leagues`);
+        logger.info(`  - ${group.title}: ${group.leagues.length} leagues (limited)`);
       });
 
       // Cache the grouped sports list for frontend

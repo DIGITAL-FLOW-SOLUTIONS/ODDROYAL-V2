@@ -569,4 +569,4 @@ export class BetSettlementWorker {
 }
 
 // Export singleton instance
-export const settlementWorker = new BetSettlementWorker(2); // Run every 2 minutes
+export const settlementWorker = new BetSettlementWorker(5); // Run every 5 minutes (optimized for API quota)

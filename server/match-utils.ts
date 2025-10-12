@@ -104,6 +104,28 @@ export function getSportKeysForCategory(groupedSports: GroupedSport[], categoryK
   return category ? category.leagues.map(l => l.key) : [];
 }
 
+// League limits for API efficiency (Professional betting site strategy)
+export const LEAGUE_LIMITS = {
+  football: 35,  // Max 35 football leagues (7 top priority + 28 others)
+  default: 10,   // Max 10 leagues for other sports
+};
+
+// Apply league limits to grouped sports
+export function applyLeagueLimits(groupedSports: GroupedSport[]): GroupedSport[] {
+  return groupedSports.map(group => {
+    const limit = group.ourKey === 'football' ? LEAGUE_LIMITS.football : LEAGUE_LIMITS.default;
+    
+    // Leagues are already sorted by priority in groupSportsByCategory
+    // Just take the top N leagues
+    const limitedLeagues = group.leagues.slice(0, limit);
+    
+    return {
+      ...group,
+      leagues: limitedLeagues,
+    };
+  });
+}
+
 // Generate deterministic match ID
 export function generateMatchId(
   sportKey: string,

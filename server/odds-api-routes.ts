@@ -6,6 +6,8 @@ import { oddsApiClient, oddsApiMetrics } from './odds-api-client';
 import { getSportIcon, FOOTBALL_LEAGUE_PRIORITY } from './match-utils';
 import { unifiedMatchService } from './unified-match-service';
 import { storage } from './storage';
+import { authenticateAdmin } from './admin-middleware';
+import { requireAdminLevel } from './rbac-middleware';
 
 export function registerOddsApiRoutes(app: Express): void {
   // NEW: Aggregated live matches endpoint - all live matches in one call (UNIFIED: API + Manual)
@@ -278,49 +280,17 @@ export function registerOddsApiRoutes(app: Express): void {
       if (!enrichedMatches) {
         cacheMonitor.recordMiss('memory');
         
-        // Layer 2: Try Redis cache
+        // Layer 2: Get from Redis cache (CACHE-ONLY - no API fallback)
         let matches = mode === 'live'
           ? await redisCache.getLiveMatches(sport, leagueId)
           : await redisCache.getPrematchMatches(sport, leagueId);
 
-        // Layer 3: API fallback if Redis miss
         if (!matches || matches.length === 0) {
           cacheMonitor.recordMiss('redis');
-          console.log(`📡 Redis cache miss for ${sport}/${leagueId}, falling back to API`);
-          
-          try {
-            // Call API to get fresh odds for this sport
-            const apiEvents = await oddsApiClient.getOdds(leagueId, {
-              regions: 'uk,eu,us',
-              markets: 'h2h,spreads,totals',
-              oddsFormat: 'decimal',
-              dateFormat: 'iso',
-              ...(mode === 'live' ? { status: 'live' } : {}),
-            });
-            
-            cacheMonitor.recordHit('api');
-            cacheSource = 'api';
-            
-            if (apiEvents.length > 0) {
-              // Normalize and store in Redis
-              const { normalizeOddsEvent, groupMatchesByLeague } = await import('./match-utils');
-              const isLive = mode === 'live';
-              matches = apiEvents.map(event => normalizeOddsEvent(event, sport, isLive));
-              
-              // Store in Redis for future requests
-              if (isLive) {
-                await redisCache.setLiveMatches(sport, leagueId, matches, 60);
-              } else {
-                await redisCache.setPrematchMatches(sport, leagueId, matches, 600);
-              }
-            } else {
-              matches = [];
-            }
-          } catch (apiError) {
-            cacheMonitor.recordError('api');
-            console.error(`Failed to fetch ${leagueId} from API:`, apiError);
-            matches = [];
-          }
+          // Professional approach: Return empty instead of calling API
+          // Refresh worker will populate cache at scheduled intervals
+          matches = [];
+          cacheSource = 'none';
         } else {
           cacheMonitor.recordHit('redis');
           cacheSource = 'redis';
@@ -780,6 +750,39 @@ export function registerOddsApiRoutes(app: Express): void {
       res.status(500).json({
         success: false,
         error: 'Failed to fetch leagues',
+        details: (error as Error).message,
+      });
+    }
+  });
+
+  // Admin: Get API quota usage stats
+  app.get('/api/admin/quota', authenticateAdmin, requireAdminLevel(), async (req: Request, res: Response) => {
+    try {
+      const { apiQuotaTracker } = await import('./api-quota-tracker');
+      
+      const [stats, history, projection] = await Promise.all([
+        apiQuotaTracker.getUsageStats(),
+        apiQuotaTracker.getHistoricalData(),
+        apiQuotaTracker.getProjectedUsage(),
+      ]);
+
+      res.json({
+        success: true,
+        data: {
+          current: stats,
+          history,
+          projection,
+          limits: {
+            daily: Math.floor(2_500_000 / 30),
+            monthly: 2_500_000,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching quota stats:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch quota stats',
         details: (error as Error).message,
       });
     }

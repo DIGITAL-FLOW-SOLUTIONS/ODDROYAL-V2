@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import pLimit from 'p-limit';
+import { apiQuotaTracker } from './api-quota-tracker';
 
 const ODDS_API_BASE = process.env.ODDS_API_BASE || 'https://api.the-odds-api.com/v4';
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
@@ -188,6 +189,7 @@ class TheOddsApiClient {
 
           const response = await this.client.get(`/sports/${sportKey}/odds`, { params });
           metrics.incrementCredits(1);
+          await apiQuotaTracker.incrementRequest();
           return response.data;
         });
       });
@@ -248,6 +250,7 @@ class TheOddsApiClient {
             params: { daysFrom },
           });
           metrics.incrementCredits(1);
+          await apiQuotaTracker.incrementRequest();
           return response.data;
         });
       });
