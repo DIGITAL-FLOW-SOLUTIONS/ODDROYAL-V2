@@ -128,7 +128,7 @@ export default function SportsSidebar() {
               Top Leagues
             </SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu className="space-y-0.5">
+              <SidebarMenu>
                 {footballLeagues.map((league: any, index: number) => (
                   <motion.div
                     key={league.league_id}
@@ -196,7 +196,7 @@ export default function SportsSidebar() {
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
-                          <SidebarMenuSub className="space-y-0.5 mt-1">
+                          <SidebarMenuSub className="mt-1">
                             {sport.leagues?.map((league: any, leagueIndex: number) => (
                               <motion.div
                                 key={league.league_id}
