@@ -1,6 +1,7 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 import { logger } from "./logger";
+import { redisPubSub, CHANNELS } from "./redis-pubsub";
 
 interface PriceUpdate {
   fixtureId: string;
@@ -58,11 +59,26 @@ interface MarketUpdate {
 let wss: WebSocketServer | null = null;
 const connectedClients = new Set<WebSocket>();
 
-export function initializeWebSocket(server: any) {
+export async function initializeWebSocket(server: any) {
   wss = new WebSocketServer({ 
     server,
     path: '/ws' // Use a specific path to avoid conflicts with Vite's WebSocket
   });
+  
+  // Connect to Redis Pub/Sub and subscribe to all channels
+  try {
+    await redisPubSub.connect();
+    
+    // Subscribe to all streaming channels and broadcast to WebSocket clients
+    await redisPubSub.subscribeAll((message) => {
+      // Broadcast Redis Pub/Sub messages to all connected WebSocket clients
+      broadcastToAll(message);
+    });
+    
+    logger.success('✅ WebSocket subscribed to Redis Pub/Sub channels');
+  } catch (error) {
+    logger.error('❌ Failed to connect WebSocket to Redis Pub/Sub:', error);
+  }
   
   wss.on('connection', (ws: WebSocket, req: any) => {
     logger.info('New WebSocket connection established');
@@ -72,7 +88,8 @@ export function initializeWebSocket(server: any) {
     ws.send(JSON.stringify({
       type: 'connection',
       message: 'Connected to OddRoyal live updates',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      streaming: true
     }));
     
     ws.on('message', (data: Buffer) => {
@@ -97,6 +114,11 @@ export function initializeWebSocket(server: any) {
               timestamp: new Date().toISOString()
             }));
             break;
+          
+          case 'request_initial_data':
+            // Client requesting initial data preload
+            // Will be handled by the routes endpoint
+            break;
             
           default:
             logger.debug('Unknown message type:', message.type);
@@ -117,8 +139,35 @@ export function initializeWebSocket(server: any) {
     });
   });
   
-  logger.success('WebSocket server initialized');
+  logger.success('WebSocket server initialized with streaming');
   return wss;
+}
+
+// Broadcast message to all connected clients
+function broadcastToAll(message: any) {
+  if (!wss) return;
+  
+  const messageStr = JSON.stringify(message);
+  
+  let successCount = 0;
+  let failCount = 0;
+  
+  connectedClients.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(messageStr);
+        successCount++;
+      } catch (error) {
+        logger.error('Error broadcasting message:', error);
+        connectedClients.delete(ws);
+        failCount++;
+      }
+    }
+  });
+  
+  if (successCount > 0) {
+    logger.debug(`📡 Broadcasted ${message.type} to ${successCount} clients`);
+  }
 }
 
 export function broadcastPriceUpdate(update: PriceUpdate) {
