@@ -1,7 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useMatchStore } from "@/store/matchStore";
 import { useMode } from "@/contexts/ModeContext";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Trophy, Crown } from "lucide-react";
@@ -13,22 +13,14 @@ export default function TopLeagues() {
   const [location] = useLocation();
   const { mode } = useMode();
 
-  // Fetch menu data to get football leagues
-  const { data: menuData } = useQuery({
-    queryKey: ['/api/menu', mode],
-    queryFn: async () => {
-      const response = await fetch(`/api/menu?mode=${mode}`);
-      if (!response.ok) throw new Error('Failed to fetch menu');
-      const result = await response.json();
-      return result.data;
-    },
-    staleTime: Infinity,
-    placeholderData: (previousData: any) => previousData,
-  });
-
-  const sports = menuData?.sports || [];
-  const footballSport = sports.find((s: any) => s.sport_key === 'football');
-  const footballLeagues = footballSport?.leagues?.slice(0, 8) || [];
+  // Get football leagues from Zustand store
+  const leagues = useMatchStore(state => state.leagues);
+  const sports = useMatchStore(state => state.sports);
+  
+  const footballLeagues = useMemo(() => {
+    const footballLeagues = leagues.get('football') || [];
+    return footballLeagues.slice(0, 8);
+  }, [leagues]);
 
   const checkScrollPosition = () => {
     if (scrollRef.current) {
