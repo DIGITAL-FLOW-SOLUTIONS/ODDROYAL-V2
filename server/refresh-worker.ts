@@ -1,6 +1,7 @@
 import { oddsApiClient } from './odds-api-client';
 import { apiFootballClient } from './api-football-client';
 import { redisCache } from './redis-cache';
+import { redisPubSub } from './redis-pubsub';
 import {
   groupSportsByCategory,
   normalizeOddsEvent,
@@ -210,10 +211,37 @@ export class RefreshWorker {
         await redisCache.setLiveLeagues(sportKey, leaguesForCache, 90);
 
         for (const league of nonEmptyLeagues) {
+          // Get existing matches to compare for changes
+          const existingMatches = await redisCache.getLiveMatches(sportKey, league.league_id) || [];
+          const existingMatchMap = new Map(existingMatches.map(m => [m.match_id, m]));
+          
           await redisCache.setLiveMatches(sportKey, league.league_id, league.matches, 60);
 
           for (const match of league.matches) {
             const markets = normalizeMarkets(match.bookmakers || []);
+            const existingMatch = existingMatchMap.get(match.match_id);
+            
+            // Check if this is a new match
+            if (!existingMatch) {
+              await redisPubSub.publishNewMatch(match);
+            } else {
+              // Detect changes and publish diff updates
+              const updates: any = {};
+              if (existingMatch.scores?.home !== match.scores?.home || 
+                  existingMatch.scores?.away !== match.scores?.away) {
+                updates.scores = match.scores;
+              }
+              if (existingMatch.status !== match.status) {
+                updates.status = match.status;
+              }
+              
+              if (Object.keys(updates).length > 0) {
+                await redisPubSub.publishMatchUpdate({
+                  match_id: match.match_id,
+                  updates,
+                });
+              }
+            }
             
             const h2hMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h');
             if (h2hMarket?.outcomes) {
@@ -222,11 +250,42 @@ export class RefreshWorker {
                 currentOdds[outcome.name] = outcome.price || 0;
               });
               
-              await redisCache.calculateOddsDelta(match.match_id, 'h2h', currentOdds);
+              const oddsDeltas = await redisCache.calculateOddsDelta(match.match_id, 'h2h', currentOdds);
+              
+              // Check if odds changed
+              const oddsChanged = Object.values(oddsDeltas).some(d => d === 'up' || d === 'down');
+              if (oddsChanged) {
+                const homeOdds = h2hMarket.outcomes.find((o: any) => o.name === match.home_team);
+                const drawOdds = h2hMarket.outcomes.find((o: any) => o.name === 'Draw');
+                const awayOdds = h2hMarket.outcomes.find((o: any) => o.name === match.away_team);
+                
+                if (homeOdds && awayOdds) {
+                  await redisPubSub.publishOddsUpdate({
+                    match_id: match.match_id,
+                    odds: {
+                      home: homeOdds.price,
+                      draw: drawOdds?.price || 0,
+                      away: awayOdds.price,
+                    },
+                  });
+                }
+              }
               
               const hasValidOdds = h2hMarket.outcomes.some((o: any) => o.price > 0);
               const marketStatus = hasValidOdds ? 'open' : 'suspended';
+              const prevMarketStatus = await redisCache.getMarketStatus(match.match_id, 'h2h');
+              
               await redisCache.setMarketStatus(match.match_id, 'h2h', marketStatus, 120);
+              
+              // Publish market status change
+              if (prevMarketStatus && prevMarketStatus !== marketStatus) {
+                await redisPubSub.publishMarketUpdate({
+                  match_id: match.match_id,
+                  market_id: 'h2h',
+                  status: marketStatus,
+                  outcomes: h2hMarket.outcomes,
+                });
+              }
             }
             
             await redisCache.setMatchMarkets(match.match_id, {
@@ -310,9 +369,18 @@ export class RefreshWorker {
         await redisCache.setPrematchLeagues(sportKey, leaguesForCache, 900);
 
         for (const league of nonEmptyLeagues) {
+          // Get existing matches to detect new ones
+          const existingMatches = await redisCache.getPrematchMatches(sportKey, league.league_id) || [];
+          const existingMatchIds = new Set(existingMatches.map(m => m.match_id));
+          
           await redisCache.setPrematchMatches(sportKey, league.league_id, league.matches, 600);
 
           for (const match of league.matches) {
+            // Check if this is a new match
+            if (!existingMatchIds.has(match.match_id)) {
+              await redisPubSub.publishNewMatch(match);
+            }
+            
             const startingSoon = isMatchStartingSoon(match.commence_time);
             const markets = normalizeMarkets(match.bookmakers || []);
             const ttl = startingSoon ? 120 : 300;
