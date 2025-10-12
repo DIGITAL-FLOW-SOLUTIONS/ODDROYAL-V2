@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { storage } from "./storage";
 import { supabaseAdmin } from "./supabase";
 import { redisCache } from "./redis-cache";
+import { redisPubSub } from "./redis-pubsub";
 import { memoryCache } from "./memory-cache";
 import { pdfReportService } from "./pdf-service";
 import { emailReportService } from "./email-service";
@@ -2923,6 +2924,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
+        // Publish new manual match to Redis Pub/Sub for real-time streaming
+        const matchWithMarkets = await storage.getMatch(match.id);
+        const markets = await storage.getMatchMarkets(match.id);
+        
+        await redisPubSub.publishNewMatch({
+          ...matchWithMarkets,
+          bookmakers: markets ? [{
+            key: 'manual',
+            title: 'Manual',
+            markets
+          }] : [],
+          source: 'manual'
+        });
+        
         res.json({
           success: true,
           data: match,
@@ -2973,6 +2988,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updatedBy: req.adminUser.id
         });
         
+        // Publish manual match update to Redis Pub/Sub for real-time streaming
+        await redisPubSub.publishManualUpdate({
+          match_id: id,
+          updates: validatedData
+        });
+        
         res.json({
           success: true,
           data: updatedMatch,
@@ -3019,6 +3040,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         await storage.softDeleteMatch(id, req.adminUser.id);
+        
+        // Publish match removal to Redis Pub/Sub for real-time streaming
+        await redisPubSub.publishRemoveMatch(id);
         
         res.json({
           success: true,
