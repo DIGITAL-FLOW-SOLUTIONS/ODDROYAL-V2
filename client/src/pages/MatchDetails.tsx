@@ -290,7 +290,7 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
 
     const shouldRetry = !isLoading && !isRefetching && !hasData && retryCount < maxRetries && !isRetrying && !!matchId;
 
-    if (isLoading || isRefetching || shouldRetry) {
+    if (!hasData && (isLoading || isRefetching || shouldRetry)) {
       setPageLoading(true);
       
       // If we should retry, trigger a refetch with delay

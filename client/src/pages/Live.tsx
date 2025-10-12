@@ -38,7 +38,7 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
 
     const shouldRetry = !isLoading && !isRefetching && !hasData && retryCount < maxRetries && !isRetrying;
 
-    if (isLoading || isRefetching || shouldRetry) {
+    if (!hasData && (isLoading || isRefetching || shouldRetry)) {
       setPageLoading(true);
       
       // If we should retry, trigger a refetch with delay

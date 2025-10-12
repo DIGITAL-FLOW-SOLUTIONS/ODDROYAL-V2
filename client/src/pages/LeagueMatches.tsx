@@ -53,7 +53,7 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
 
     const shouldRetry = !isLoading && !isRefetching && !hasData && retryCount < maxRetries && !isRetrying;
 
-    if (isLoading || isRefetching || shouldRetry) {
+    if (!hasData && (isLoading || isRefetching || shouldRetry)) {
       setPageLoading(true);
       
       // If we should retry, trigger a refetch with delay
