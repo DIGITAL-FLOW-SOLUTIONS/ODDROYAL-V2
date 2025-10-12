@@ -128,7 +128,7 @@ export default function SportsSidebar() {
               Top Leagues
             </SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className="space-y-0.5">
                 {footballLeagues.map((league: any, index: number) => (
                   <motion.div
                     key={league.league_id}
@@ -140,7 +140,7 @@ export default function SportsSidebar() {
                       <SidebarMenuButton
                         asChild
                         data-testid={`link-league-${league.league_id}`}
-                        className={`${location.includes(`/league/football/${league.league_id}`) ? "text-primary" : ""} border-0 hover-elevate active-elevate-2`}
+                        className={`${location.includes(`/league/football/${league.league_id}`) ? "text-primary" : ""} border-0 hover-elevate active-elevate-2 py-1`}
                         onMouseEnter={() => handleLeagueHover('football', league.league_id)}
                       >
                         <Link href={`/league/football/${league.league_id}`}>
@@ -196,7 +196,7 @@ export default function SportsSidebar() {
                           </SidebarMenuButton>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
-                          <SidebarMenuSub className="mt-1">
+                          <SidebarMenuSub className="mt-1 space-y-0.5">
                             {sport.leagues?.map((league: any, leagueIndex: number) => (
                               <motion.div
                                 key={league.league_id}
@@ -208,7 +208,7 @@ export default function SportsSidebar() {
                                   <SidebarMenuSubButton
                                     asChild
                                     data-testid={`link-league-${sport.sport_key}-${league.league_id}`}
-                                    className={`${location.includes(`/league/${sport.sport_key}/${league.league_id}`) ? "text-primary" : ""} border-0 hover-elevate active-elevate-2`}
+                                    className={`${location.includes(`/league/${sport.sport_key}/${league.league_id}`) ? "text-primary" : ""} border-0 hover-elevate active-elevate-2 py-0.5`}
                                     onMouseEnter={() => handleLeagueHover(sport.sport_key, league.league_id)}
                                   >
                                     <Link href={`/league/${sport.sport_key}/${league.league_id}`}>
