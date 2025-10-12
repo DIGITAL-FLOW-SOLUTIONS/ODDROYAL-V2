@@ -21,6 +21,7 @@ export function useWebSocket() {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const isConnectingRef = useRef(false);
+  const hasInitializedRef = useRef(false);
 
   const {
     updateMatch,
@@ -49,18 +50,27 @@ export function useWebSocket() {
         reconnectAttemptsRef.current = 0;
         isConnectingRef.current = false;
         
-        // Fetch initial data to populate store
-        try {
-          const response = await fetch('/api/initial-data');
-          const result = await response.json();
-          
-          if (result.success) {
-            // Use the imported function from the module instead of getState()
-            setInitialData(result.data);
-            console.log('📊 Initial data loaded into store');
+        // Only fetch initial data if store is empty and we haven't initialized yet
+        // This prevents flickering from multiple reconnections (Vite HMR)
+        const storeIsEmpty = useMatchStore.getState().matches.size === 0;
+        const needsInitialization = !hasInitializedRef.current && storeIsEmpty;
+        
+        if (needsInitialization) {
+          try {
+            console.log('📡 Fetching initial data (store is empty)...');
+            const response = await fetch('/api/initial-data');
+            const result = await response.json();
+            
+            if (result.success) {
+              setInitialData(result.data);
+              hasInitializedRef.current = true;
+              console.log('📊 Initial data loaded into store');
+            }
+          } catch (error) {
+            console.error('Failed to fetch initial data:', error);
           }
-        } catch (error) {
-          console.error('Failed to fetch initial data:', error);
+        } else {
+          console.log('📊 Store already has data, skipping initial fetch');
         }
       };
 
