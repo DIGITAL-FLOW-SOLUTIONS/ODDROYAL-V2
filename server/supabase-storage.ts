@@ -2194,8 +2194,59 @@ export class SupabaseStorage implements IStorage {
   async getMonthlyFinancialReport(): Promise<any> { return null; }
   async getPlayerActivityReport(): Promise<any> { return null; }
   async exportFinancialData(): Promise<any> { return null; }
-  async getScheduledManualMatches(): Promise<any[]> { return []; }
-  async getMatchWithEvents(): Promise<any> { return { match: null, events: [] }; }
+  async getScheduledManualMatches(): Promise<any[]> {
+    try {
+      const { data, error } = await this.client
+        .from('matches')
+        .select('*')
+        .eq('is_manual', true)
+        .eq('status', 'scheduled')
+        .order('kickoff_time', { ascending: true });
+
+      if (error) {
+        console.error('Error getting scheduled manual matches:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error getting scheduled manual matches:', error);
+      return [];
+    }
+  }
+
+  async getMatchWithEvents(matchId: string): Promise<any> {
+    try {
+      // Get the match
+      const { data: match, error: matchError } = await this.client
+        .from('matches')
+        .select('*')
+        .eq('id', matchId)
+        .single();
+
+      if (matchError || !match) {
+        return { match: null, events: [] };
+      }
+
+      // Get match events
+      const { data: events, error: eventsError } = await this.client
+        .from('match_events')
+        .select('*')
+        .eq('match_id', matchId)
+        .order('minute', { ascending: true })
+        .order('second', { ascending: true });
+
+      if (eventsError) {
+        console.error('Error getting match events:', eventsError);
+        return { match, events: [] };
+      }
+
+      return { match, events: events || [] };
+    } catch (error: any) {
+      console.error('Error getting match with events:', error);
+      return { match: null, events: [] };
+    }
+  }
 
   async deleteMarket(marketId: string, adminId: string): Promise<void> {
     try {
@@ -2393,7 +2444,18 @@ export class SupabaseStorage implements IStorage {
   }
 
   async markEventAsExecuted(eventId: string): Promise<void> {
-    return;
+    try {
+      const { error } = await this.client
+        .from('match_events')
+        .update({ is_executed: true })
+        .eq('id', eventId);
+
+      if (error) {
+        console.error('Error marking event as executed:', error);
+      }
+    } catch (error: any) {
+      console.error('Error marking event as executed:', error);
+    }
   }
 
   async suspendAllMarkets(matchId: string): Promise<void> {
