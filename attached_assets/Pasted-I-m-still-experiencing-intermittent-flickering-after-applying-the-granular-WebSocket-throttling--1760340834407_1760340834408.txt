@@ -1,0 +1,134 @@
+I’m still experiencing intermittent flickering after applying the granular WebSocket + throttling + memoization logic.
+I want you to instrument the entire React + WebSocket flow with detailed console logging and performance tracking to identify exactly what’s causing re-renders or layout shifts.
+
+Follow these detailed instructions carefully:
+
+1. Add logging in the WebSocket message handler
+
+Inside the ws.onmessage handler, log:
+
+The number of updates received per second.
+
+The size of the payload (event.data.length).
+
+A timestamp using performance.now().
+
+console.log(`[WS] Message at ${performance.now().toFixed(2)}ms`, {
+  length: event.data.length,
+  message: event.data.slice(0, 100) // preview first 100 chars
+});
+
+2. Log inside the update function
+
+In updateMatches, before and after merging data, log:
+
+How many matches were updated or inserted.
+
+Whether any unchanged objects were replaced.
+
+console.time('[UPDATE] merge cycle');
+let updatedCount = 0;
+for (const updated of newData) {
+  const index = dataRef.current.findIndex(m => m.id === updated.id);
+  if (index !== -1) {
+    const old = dataRef.current[index];
+    const merged = { ...old, ...updated };
+    if (JSON.stringify(old) !== JSON.stringify(merged)) {
+      dataRef.current[index] = merged;
+      updatedCount++;
+    }
+  } else {
+    dataRef.current.push(updated);
+    updatedCount++;
+  }
+}
+console.timeEnd('[UPDATE] merge cycle');
+console.log(`[UPDATE] ${updatedCount} matches modified.`);
+
+3. Add logs in the throttled update loop
+
+Just before calling setMatches([...dataRef.current]):
+
+console.count('[UI] Throttled render triggered');
+console.log('[UI] Re-render batch started:', new Date().toISOString());
+
+4. Log React component renders
+
+In your main list and card components:
+
+console.count('Render: MatchesList');
+console.count(`Render: MatchCard ${match.id}`);
+
+
+Add this to check if every card re-renders or just the affected one.
+
+5. Detect forced layout shifts
+
+In the parent container (e.g., <main> or <div className=\"content\">), attach a ResizeObserver:
+
+useEffect(() => {
+  const observer = new ResizeObserver(entries => {
+    console.warn('[LAYOUT] Resize observed:', entries);
+  });
+  observer.observe(document.body);
+  return () => observer.disconnect();
+}, []);
+
+
+If you see [LAYOUT] spammed, it means some CSS or DOM manipulation is forcing relayouts → causing flicker.
+
+6. Log browser paint performance
+
+At the top of your main app component:
+
+useEffect(() => {
+  const logFPS = () => {
+    performance.mark('frame');
+    requestAnimationFrame(() => {
+      performance.measure('frame', 'frame');
+      const measures = performance.getEntriesByName('frame');
+      if (measures.length > 60) {
+        console.log('[FPS]', 1000 / measures[measures.length - 1].duration);
+        performance.clearMeasures('frame');
+      }
+    });
+  };
+  const loop = setInterval(logFPS, 1000);
+  return () => clearInterval(loop);
+}, []);
+
+
+If FPS drops drastically when data updates → rendering is too heavy.
+
+7. Add backend log correlation
+
+In your Express WebSocket server, log every broadcast:
+
+console.log(`[SERVER WS] Emitting ${eventType} with ${data.length} bytes at`, new Date().toISOString());
+
+
+This helps confirm if flicker aligns with server pushes.
+
+8. Output visualization
+
+Once implemented, run your app and observe:
+
+Is [UI] Throttled render triggered firing more than twice per second?
+
+Do you see many Render: MatchCard logs repeating for all matches?
+
+Are [LAYOUT] Resize observed logs continuous?
+
+Does FPS drop when flicker occurs?
+
+Does [WS] Message spam align with visible flicker?
+
+✅ Goal
+
+After this logging phase you’ll have a complete profile of where flicker originates:
+
+If all cards re-render, React memoization is failing.
+
+If layout resizes, CSS or container scroll management is off.
+
+If WebSocket messages flood, you need backend throttling or differential updates.
