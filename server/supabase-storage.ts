@@ -2196,12 +2196,18 @@ export class SupabaseStorage implements IStorage {
   async exportFinancialData(): Promise<any> { return null; }
   async getScheduledManualMatches(): Promise<any[]> {
     try {
+      // Only fetch matches that should be starting now or have already passed their kickoff time
+      // This optimizes performance by filtering at the database level
+      const now = new Date().toISOString();
+      
       const { data, error } = await this.client
         .from('matches')
         .select('*')
         .eq('is_manual', true)
         .eq('status', 'scheduled')
-        .order('kickoff_time', { ascending: true });
+        .lte('kickoff_time', now) // Only matches whose kickoff time has passed
+        .order('kickoff_time', { ascending: true })
+        .limit(50); // Limit to prevent overwhelming the system
 
       if (error) {
         console.error('Error getting scheduled manual matches:', error);
