@@ -82,6 +82,19 @@ export interface IStorage {
     status: 'won' | 'lost' | 'void',
     actualWinnings: number
   ): Promise<Bet | undefined>;
+  
+  // Atomic settlement - all operations in a single transaction
+  settleAtomically(params: {
+    betId: string;
+    userId: string;
+    finalStatus: 'won' | 'lost' | 'void';
+    actualWinnings: number;
+    selectionUpdates: Array<{
+      selectionId: string;
+      status: 'won' | 'lost' | 'void';
+      result: string;
+    }>;
+  }): Promise<{ success: boolean; error?: string }>;
 
   // Match management operations
   getMatchesByTeamsAndTime(
@@ -925,6 +938,103 @@ export class MemStorage implements IStorage {
     };
     this.bets.set(betId, updated);
     return updated;
+  }
+
+  async settleAtomically(params: {
+    betId: string;
+    userId: string;
+    finalStatus: 'won' | 'lost' | 'void';
+    actualWinnings: number;
+    selectionUpdates: Array<{
+      selectionId: string;
+      status: 'won' | 'lost' | 'void';
+      result: string;
+    }>;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      // In MemStorage, operations are already atomic (single-threaded)
+      // But we'll simulate transaction-like behavior with rollback on error
+      
+      const bet = this.bets.get(params.betId);
+      if (!bet) {
+        return { success: false, error: `Bet ${params.betId} not found` };
+      }
+
+      // Store original states for rollback
+      const originalSelections = new Map<string, BetSelection>();
+      const originalBet = { ...bet };
+      const originalUser = this.users.get(params.userId);
+      
+      if (!originalUser) {
+        return { success: false, error: `User ${params.userId} not found` };
+      }
+
+      try {
+        // 1. Update all selections
+        for (const update of params.selectionUpdates) {
+          const selection = this.betSelections.get(update.selectionId);
+          if (selection) {
+            originalSelections.set(update.selectionId, { ...selection });
+            const updated: BetSelection = {
+              ...selection,
+              status: update.status,
+              result: update.result,
+            };
+            this.betSelections.set(update.selectionId, updated);
+          }
+        }
+
+        // 2. Update bet status
+        const updatedBet: Bet = {
+          ...bet,
+          status: params.finalStatus,
+          actualWinnings: params.actualWinnings,
+          settledAt: new Date().toISOString(),
+        };
+        this.bets.set(params.betId, updatedBet);
+
+        // 3. Credit user balance and create transaction if won
+        if (params.finalStatus === 'won' && params.actualWinnings > 0) {
+          const newBalance = originalUser.balance + params.actualWinnings;
+          const updatedUser: User = {
+            ...originalUser,
+            balance: newBalance,
+            updatedAt: new Date(),
+          };
+          this.users.set(params.userId, updatedUser);
+
+          // Create transaction record
+          const transaction: Transaction = {
+            id: randomUUID(),
+            userId: params.userId,
+            type: 'bet_win',
+            amountCents: params.actualWinnings,
+            balanceAfterCents: newBalance,
+            description: `Bet win for bet #${params.betId}`,
+            status: 'completed',
+            metadata: { betId: params.betId },
+            createdAt: new Date(),
+          };
+          this.transactions.set(transaction.id, transaction);
+        }
+
+        return { success: true };
+      } catch (error) {
+        // Rollback on error
+        for (const [id, selection] of originalSelections) {
+          this.betSelections.set(id, selection);
+        }
+        this.bets.set(params.betId, originalBet);
+        this.users.set(params.userId, originalUser);
+        
+        throw error;
+      }
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error during settlement' 
+      };
+    }
   }
 
   // Admin operations

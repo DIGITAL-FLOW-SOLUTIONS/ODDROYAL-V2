@@ -130,6 +130,45 @@ export class SupabaseStorage implements IStorage {
     return data ? mappers.toBet(data) : undefined;
   }
 
+  async settleAtomically(params: {
+    betId: string;
+    userId: string;
+    finalStatus: 'won' | 'lost' | 'void';
+    actualWinnings: number;
+    selectionUpdates: Array<{
+      selectionId: string;
+      status: 'won' | 'lost' | 'void';
+      result: string;
+    }>;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Execute all operations in a single Supabase RPC call for atomicity
+      // This ensures all updates happen in one database transaction
+      const { data, error } = await this.client.rpc('settle_bet_atomically', {
+        p_bet_id: params.betId,
+        p_user_id: params.userId,
+        p_final_status: params.finalStatus,
+        p_actual_winnings: params.actualWinnings,
+        p_selection_updates: params.selectionUpdates.map(s => ({
+          selection_id: s.selectionId,
+          status: s.status,
+          result: s.result
+        }))
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error during atomic settlement' 
+      };
+    }
+  }
+
   async updateUserBalance(
     userId: string,
     amountToAdd: number,

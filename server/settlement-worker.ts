@@ -396,20 +396,27 @@ export class BetSettlementWorker {
       // Determine overall bet outcome
       const betOutcome = this.calculateBetOutcome(bet, selectionOutcomes);
       
-      // Update individual selections
-      for (const outcome of selectionOutcomes) {
-        await storage.updateSelectionStatus(outcome.selectionId, outcome.status, outcome.result);
-      }
+      // ATOMIC SETTLEMENT: All operations in a single transaction
+      const result = await storage.settleAtomically({
+        betId: bet.id,
+        userId: bet.userId,
+        finalStatus: betOutcome.finalStatus,
+        actualWinnings: betOutcome.actualWinnings,
+        selectionUpdates: selectionOutcomes.map(o => ({
+          selectionId: o.selectionId,
+          status: o.status,
+          result: o.result
+        }))
+      });
 
-      // Update bet status and winnings
-      await storage.updateBetStatus(bet.id, betOutcome.finalStatus, betOutcome.actualWinnings);
-
-      // Process payout if bet won
-      if (betOutcome.finalStatus === 'won' && betOutcome.actualWinnings > 0) {
-        await this.processPayout(bet.userId, betOutcome.actualWinnings, bet.id);
+      if (!result.success) {
+        logger.error(`Atomic settlement failed for bet ${bet.id}: ${result.error}`);
+        this.errors++;
+        return false;
       }
 
       logger.info(`Settled bet ${bet.id}: ${betOutcome.finalStatus} - winnings: ${betOutcome.actualWinnings}`);
+      this.processedBets++;
       return true;
       
     } catch (error) {
@@ -589,42 +596,6 @@ export class BetSettlementWorker {
     };
   }
 
-  /**
-   * Process payout to user's wallet
-   */
-  private async processPayout(userId: string, winningsCents: number, betId: string): Promise<void> {
-    try {
-      // Get user's current balance
-      const user = await storage.getUser(userId);
-      if (!user) {
-        throw new Error(`User ${userId} not found`);
-      }
-
-      // Calculate new balance
-      const newBalanceCents = user.balance + winningsCents;
-      
-      // Update user balance
-      await storage.updateUserBalance(userId, winningsCents);
-
-      // Create transaction record
-      await storage.createTransaction({
-        userId,
-        type: 'bet_winnings',
-        amount: winningsCents,
-        balanceBefore: user.balance,
-        balanceAfter: newBalanceCents,
-        reference: betId,
-        description: `Winnings from bet ${betId.slice(0, 8)}...`,
-        status: 'completed'
-      });
-
-      logger.info(`Processed payout: ${winningsCents} cents to user ${userId}`);
-      
-    } catch (error) {
-      logger.error(`Failed to process payout for user ${userId}:`, error);
-      throw error;
-    }
-  }
 }
 
 // Export singleton instance
