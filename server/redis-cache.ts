@@ -105,6 +105,41 @@ class RedisCacheManager {
     await this.client.expire(key, seconds);
   }
 
+  /**
+   * Acquire a distributed lock using SET NX EX
+   * Returns true if lock acquired, false if already exists
+   */
+  async acquireLock(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+    try {
+      const result = await this.client.set(key, value, 'EX', ttlSeconds, 'NX');
+      return result === 'OK';
+    } catch (error) {
+      logger.error(`Failed to acquire lock for key ${key}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Release a distributed lock only if the value matches (safe release)
+   * Uses Lua script to ensure atomic compare-and-delete
+   */
+  async releaseLock(key: string, value: string): Promise<boolean> {
+    try {
+      const script = `
+        if redis.call("get", KEYS[1]) == ARGV[1] then
+          return redis.call("del", KEYS[1])
+        else
+          return 0
+        end
+      `;
+      const result = await this.client.eval(script, 1, key, value);
+      return result === 1;
+    } catch (error) {
+      logger.error(`Failed to release lock for key ${key}:`, error);
+      return false;
+    }
+  }
+
   // Sports-specific cache operations
   async setSportsList(sports: any[], ttlSeconds: number = 3600): Promise<void> {
     await this.set("sports:list", sports, ttlSeconds);

@@ -71,6 +71,17 @@ export interface IStorage {
 
   // Settlement operations
   getPendingBets(): Promise<Bet[]>;
+  getBetSelections(betId: string): Promise<BetSelection[]>;
+  updateSelectionStatus(
+    selectionId: string,
+    status: 'won' | 'lost' | 'void',
+    result: string
+  ): Promise<BetSelection | undefined>;
+  updateBetStatus(
+    betId: string,
+    status: 'won' | 'lost' | 'void',
+    actualWinnings: number
+  ): Promise<Bet | undefined>;
 
   // Match management operations
   getMatchesByTeamsAndTime(
@@ -873,6 +884,47 @@ export class MemStorage implements IStorage {
     return Array.from(this.bets.values()).filter(
       (bet) => bet.status === "pending",
     );
+  }
+
+  async getBetSelections(betId: string): Promise<BetSelection[]> {
+    return Array.from(this.betSelections.values()).filter(
+      (selection) => selection.betId === betId,
+    );
+  }
+
+  async updateSelectionStatus(
+    selectionId: string,
+    status: 'won' | 'lost' | 'void',
+    result: string
+  ): Promise<BetSelection | undefined> {
+    const selection = this.betSelections.get(selectionId);
+    if (!selection) return undefined;
+
+    const updated: BetSelection = {
+      ...selection,
+      status,
+      result,
+    };
+    this.betSelections.set(selectionId, updated);
+    return updated;
+  }
+
+  async updateBetStatus(
+    betId: string,
+    status: 'won' | 'lost' | 'void',
+    actualWinnings: number
+  ): Promise<Bet | undefined> {
+    const bet = this.bets.get(betId);
+    if (!bet) return undefined;
+
+    const updated: Bet = {
+      ...bet,
+      status,
+      actualWinnings,
+      settledAt: new Date().toISOString(),
+    };
+    this.bets.set(betId, updated);
+    return updated;
   }
 
   // Admin operations

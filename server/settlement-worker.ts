@@ -36,6 +36,9 @@ export class BetSettlementWorker {
   private processedBets = 0;
   private errors = 0;
   private lastRun: Date | null = null;
+  private lockTTL = 30; // Lock expires after 30 seconds
+  private maxRetries = 3; // Max retries for API calls
+  private retryDelay = 1000; // Initial retry delay in ms
 
   constructor(private intervalMinutes = 2) {}
 
@@ -276,8 +279,16 @@ export class BetSettlementWorker {
       try {
         const match = await storage.getMatch(matchId);
         if (match && match.sport) {
-          // Try to fetch scores from The Odds API with the correct sport
-          const scores = await oddsApiClient.getScores(match.sport, 3);
+          // Try to fetch scores from The Odds API with retry logic
+          const scores = await this.retryWithBackoff(
+            () => oddsApiClient.getScores(match.sport, 3),
+            `Fetch scores for match ${matchId}`
+          );
+          
+          if (!scores) {
+            logger.warn(`Failed to fetch scores for match ${matchId} after retries`);
+            return null;
+          }
           
           // Find the match by team names
           const scoreData = scores.find((s: any) => {
@@ -318,10 +329,54 @@ export class BetSettlementWorker {
   }
 
   /**
+   * Retry an async operation with exponential backoff
+   */
+  private async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    context: string,
+    attempt: number = 1
+  ): Promise<T | null> {
+    try {
+      return await operation();
+    } catch (error) {
+      if (attempt >= this.maxRetries) {
+        logger.error(`${context} failed after ${this.maxRetries} attempts:`, error);
+        return null;
+      }
+
+      const delay = this.retryDelay * Math.pow(2, attempt - 1); // Exponential backoff
+      const jitter = Math.random() * 200; // Add jitter to prevent thundering herd
+      const totalDelay = delay + jitter;
+
+      logger.warn(`${context} failed (attempt ${attempt}/${this.maxRetries}), retrying in ${totalDelay.toFixed(0)}ms...`);
+      
+      await new Promise(resolve => setTimeout(resolve, totalDelay));
+      return this.retryWithBackoff(operation, context, attempt + 1);
+    }
+  }
+
+  /**
    * Settle individual bet based on match results
    */
   private async settleBet(bet: Bet, matchResults: MatchResult[]): Promise<boolean> {
+    // Generate unique lock token for this worker
+    const lockToken = `${Date.now()}-${Math.random().toString(36)}`;
+    const lockKey = `settlement:lock:${bet.id}`;
+    
+    // Try to acquire distributed lock with SET NX EX
+    const lockAcquired = await redisCache.acquireLock(lockKey, lockToken, this.lockTTL);
+    if (!lockAcquired) {
+      logger.info(`Bet ${bet.id} is locked by another worker, skipping`);
+      return false;
+    }
+
     try {
+      // IDEMPOTENCY CHECK: Skip if bet is already settled
+      if (bet.status !== 'pending') {
+        logger.info(`Bet ${bet.id} already settled with status: ${bet.status}`);
+        return false;
+      }
+
       // Get bet selections
       const selections = await storage.getBetSelections(bet.id);
       if (selections.length === 0) {
@@ -360,6 +415,9 @@ export class BetSettlementWorker {
     } catch (error) {
       logger.error(`Error settling bet ${bet.id}:`, error);
       return false;
+    } finally {
+      // Always release lock safely (only if this worker owns it)
+      await redisCache.releaseLock(lockKey, lockToken);
     }
   }
 
@@ -556,7 +614,8 @@ export class BetSettlementWorker {
         balanceBefore: user.balance,
         balanceAfter: newBalanceCents,
         reference: betId,
-        description: `Winnings from bet ${betId.slice(0, 8)}...`
+        description: `Winnings from bet ${betId.slice(0, 8)}...`,
+        status: 'completed'
       });
 
       logger.info(`Processed payout: ${winningsCents} cents to user ${userId}`);

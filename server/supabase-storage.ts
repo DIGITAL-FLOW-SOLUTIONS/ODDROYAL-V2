@@ -81,16 +81,14 @@ export class SupabaseStorage implements IStorage {
 
   async updateSelectionStatus(
     selectionId: string,
-    status: string,
-    result?: string,
+    status: 'won' | 'lost' | 'void',
+    result: string
   ): Promise<BetSelection | undefined> {
     const updateData: any = { 
-      status, 
+      status,
+      result,
       updated_at: new Date().toISOString() 
     };
-    if (result !== undefined) {
-      updateData.result = result;
-    }
 
     const { data, error } = await this.client
       .from('bet_selections')
@@ -108,18 +106,15 @@ export class SupabaseStorage implements IStorage {
 
   async updateBetStatus(
     betId: string,
-    status: string,
-    actualWinningsCents?: number,
+    status: 'won' | 'lost' | 'void',
+    actualWinnings: number
   ): Promise<Bet | undefined> {
     const updateData: any = { 
-      status, 
+      status,
+      actual_winnings: actualWinnings,
+      settled_at: new Date().toISOString(),
       updated_at: new Date().toISOString() 
     };
-    
-    if (actualWinningsCents !== undefined) {
-      updateData.actual_winnings = actualWinningsCents;
-      updateData.settled_at = new Date().toISOString();
-    }
 
     const { data, error } = await this.client
       .from('bets')
