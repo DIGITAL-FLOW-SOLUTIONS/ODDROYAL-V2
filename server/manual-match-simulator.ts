@@ -111,47 +111,44 @@ export class ManualMatchSimulator {
    */
   private async startScheduledMatches(now: Date): Promise<void> {
     try {
+      // Query now filters for matches whose kickoff time has passed
       const scheduledMatches = await storage.getScheduledManualMatches();
       
-      if (scheduledMatches.length > 0) {
-        console.log(`🔍 Found ${scheduledMatches.length} scheduled manual match(es)`);
+      // Only log if there are matches to process
+      if (scheduledMatches.length === 0) {
+        return;
       }
+      
+      console.log(`🔍 Found ${scheduledMatches.length} scheduled manual match(es) ready to start`);
       
       for (const match of scheduledMatches) {
         const kickoffTime = new Date(match.kickoff_time || match.kickoffTime);
         const timeDiff = now.getTime() - kickoffTime.getTime();
         const minutesLate = Math.floor(timeDiff / 60000);
         
-        // Start any match whose kickoff time has passed (no time limit)
-        // This ensures matches aren't stuck in scheduled status
-        if (now >= kickoffTime) {
-          if (minutesLate > 0) {
-            console.log(`⚽ Starting match (${minutesLate} min late): ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`);
-          } else {
-            console.log(`⚽ Starting match: ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`);
-          }
-          
-          // Update match status to live
-          await storage.updateMatchToLive(match.id);
-          
-          // Suspend markets briefly (realistic simulation)
-          await storage.suspendAllMarkets(match.id);
-          
-          // Reopen markets after 2 seconds
-          setTimeout(async () => {
-            await storage.reopenAllMarkets(match.id);
-            await unifiedMatchService.updateManualMatchCache(match.id);
-          }, 2000);
-          
-          // Update cache
-          await unifiedMatchService.updateManualMatchCache(match.id);
-          
-          this.matchesProcessed++;
+        // All matches from query should start (kickoff time has passed)
+        if (minutesLate > 0) {
+          console.log(`⚽ Starting match (${minutesLate} min late): ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`);
         } else {
-          // Log why match wasn't started (for debugging)
-          const minutesUntil = Math.ceil(-timeDiff / 60000);
-          console.log(`⏰ Match not ready (starts in ${minutesUntil} min): ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`);
+          console.log(`⚽ Starting match: ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`);
         }
+        
+        // Update match status to live
+        await storage.updateMatchToLive(match.id);
+        
+        // Suspend markets briefly (realistic simulation)
+        await storage.suspendAllMarkets(match.id);
+        
+        // Reopen markets after 2 seconds
+        setTimeout(async () => {
+          await storage.reopenAllMarkets(match.id);
+          await unifiedMatchService.updateManualMatchCache(match.id);
+        }, 2000);
+        
+        // Update cache
+        await unifiedMatchService.updateManualMatchCache(match.id);
+        
+        this.matchesProcessed++;
       }
     } catch (error) {
       console.error('Error starting scheduled matches:', error);

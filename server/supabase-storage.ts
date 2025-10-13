@@ -2484,7 +2484,7 @@ export class SupabaseStorage implements IStorage {
     try {
       const { error } = await this.client
         .from('markets')
-        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .update({ status: 'open', updated_at: new Date().toISOString() })
         .eq('match_id', matchId);
 
       if (error) {
