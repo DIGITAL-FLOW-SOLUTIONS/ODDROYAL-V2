@@ -105,55 +105,97 @@ export class BetSettlementWorker {
    */
   private async processPendingBets(): Promise<void> {
     if (this.isRunning) {
-      logger.info('Settlement process already running, skipping this cycle');
+      logger.info('[AUDIT] Settlement process already running, skipping this cycle');
       return;
     }
 
     this.isRunning = true;
+    const runStartTime = Date.now();
     this.lastRun = new Date();
-    logger.info('Processing pending bet settlements...');
+    const runId = `run-${Date.now()}`;
+    
+    logger.info('=== [AUDIT] SETTLEMENT CYCLE START ===', {
+      runId,
+      timestamp: new Date().toISOString(),
+      totalProcessed: this.processedBets,
+      totalErrors: this.errors
+    });
 
     try {
       // Get all pending bets
       const pendingBets = await this.getPendingBets();
-      logger.info(`Found ${pendingBets.length} pending bets`);
+      logger.info(`[AUDIT] Found ${pendingBets.length} pending bet(s) to evaluate`, {
+        runId,
+        betIds: pendingBets.map(b => b.id)
+      });
 
       if (pendingBets.length === 0) {
+        logger.info('[AUDIT] No pending bets, settlement cycle complete', { runId });
         return;
       }
 
       // Get unique fixture IDs from all pending selections
       const fixtureIds = await this.getUniqueFixtureIds(pendingBets);
-      logger.info(`Checking results for ${fixtureIds.length} fixtures`);
+      logger.info(`[AUDIT] Checking results for ${fixtureIds.length} unique fixture(s)`, {
+        runId,
+        fixtureIds
+      });
 
       // Fetch completed match results
       const matchResults = await this.fetchCompletedMatches(fixtureIds);
-      logger.info(`Found ${matchResults.length} completed matches`);
+      logger.info(`[AUDIT] Found ${matchResults.length} completed match(es) with results`, {
+        runId,
+        completedFixtures: matchResults.map(m => m.fixtureId)
+      });
 
       if (matchResults.length === 0) {
-        logger.info('No completed matches found');
+        logger.info('[AUDIT] No completed matches found, waiting for results', { runId });
         return;
       }
 
       // Process settlements for each bet
       let settledBetsCount = 0;
+      let skippedBetsCount = 0;
+      let errorBetsCount = 0;
+      
       for (const bet of pendingBets) {
         try {
           const settled = await this.settleBet(bet, matchResults);
           if (settled) {
             settledBetsCount++;
-            this.processedBets++;
+          } else {
+            skippedBetsCount++;
           }
         } catch (error) {
-          logger.error(`Failed to settle bet ${bet.id}:`, error);
+          logger.error(`[AUDIT] Failed to settle bet ${bet.id}`, {
+            runId,
+            betId: bet.id,
+            userId: bet.userId,
+            error: error instanceof Error ? error.message : String(error)
+          });
+          errorBetsCount++;
           this.errors++;
         }
       }
 
-      logger.success(`Successfully settled ${settledBetsCount} bets`);
+      const runDuration = Date.now() - runStartTime;
+      logger.success('=== [AUDIT] SETTLEMENT CYCLE COMPLETE ===', {
+        runId,
+        duration: `${runDuration}ms`,
+        totalBets: pendingBets.length,
+        settled: settledBetsCount,
+        skipped: skippedBetsCount,
+        errors: errorBetsCount,
+        cumulativeProcessed: this.processedBets,
+        cumulativeErrors: this.errors
+      });
       
     } catch (error) {
-      logger.error('Error processing pending bets:', error);
+      logger.error('[AUDIT] Critical error in settlement cycle', {
+        runId,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       this.errors++;
     } finally {
       this.isRunning = false;
@@ -363,17 +405,38 @@ export class BetSettlementWorker {
     const lockToken = `${Date.now()}-${Math.random().toString(36)}`;
     const lockKey = `settlement:lock:${bet.id}`;
     
+    logger.info(`[AUDIT] Attempting to acquire lock for bet settlement`, {
+      betId: bet.id,
+      userId: bet.userId,
+      lockKey,
+      lockToken: lockToken.slice(0, 16) + '...'
+    });
+    
     // Try to acquire distributed lock with SET NX EX
     const lockAcquired = await redisCache.acquireLock(lockKey, lockToken, this.lockTTL);
     if (!lockAcquired) {
-      logger.info(`Bet ${bet.id} is locked by another worker, skipping`);
+      logger.warn(`[AUDIT] LOCK_CONTENTION: Bet ${bet.id} is locked by another worker`, {
+        betId: bet.id,
+        userId: bet.userId,
+        reason: 'concurrent_settlement_attempt'
+      });
       return false;
     }
+
+    logger.info(`[AUDIT] Lock acquired successfully`, {
+      betId: bet.id,
+      lockTTL: this.lockTTL
+    });
 
     try {
       // IDEMPOTENCY CHECK: Skip if bet is already settled
       if (bet.status !== 'pending') {
-        logger.info(`Bet ${bet.id} already settled with status: ${bet.status}`);
+        logger.info(`[AUDIT] IDEMPOTENCY_SKIP: Bet already settled`, {
+          betId: bet.id,
+          currentStatus: bet.status,
+          settledAt: bet.settledAt,
+          reason: 'duplicate_settlement_prevented'
+        });
         return false;
       }
 
