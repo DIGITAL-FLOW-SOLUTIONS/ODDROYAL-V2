@@ -113,6 +113,10 @@ export class ManualMatchSimulator {
     try {
       const scheduledMatches = await storage.getScheduledManualMatches();
       
+      if (scheduledMatches.length > 0) {
+        console.log(`🔍 Found ${scheduledMatches.length} scheduled manual match(es)`);
+      }
+      
       for (const match of scheduledMatches) {
         const kickoffTime = new Date(match.kickoff_time || match.kickoffTime);
         
