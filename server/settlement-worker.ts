@@ -3,6 +3,9 @@ import { oddsApiClient } from './odds-api-client';
 import { redisCache } from './redis-cache';
 import type { Bet, BetSelection } from '@shared/schema';
 import { logger } from './logger';
+import { settlementMonitor } from './settlement-monitor';
+import { settlementRetryQueue } from './settlement-retry-queue';
+import { randomUUID } from 'crypto';
 
 interface MatchResult {
   fixtureId: string;
@@ -39,19 +42,28 @@ export class BetSettlementWorker {
   private lockTTL = 30; // Lock expires after 30 seconds
   private maxRetries = 3; // Max retries for API calls
   private retryDelay = 1000; // Initial retry delay in ms
+  private workerId: string; // Unique worker identifier
+  private shutdownRequested = false; // Graceful shutdown flag
 
-  constructor(private intervalMinutes = 2) {}
+  constructor(private intervalMinutes = 2) {
+    this.workerId = `worker-${randomUUID().slice(0, 8)}`;
+    logger.info(`[SETTLEMENT] Worker initialized with ID: ${this.workerId}`);
+  }
 
   /**
    * Get the current status of the settlement worker
    */
-  getStatus(): {
+  async getStatus(): Promise<{
     isRunning: boolean;
     lastRun: string | null;
     nextRun: string | null;
     processedBets: number;
     errors: number;
-  } {
+    workerId: string;
+    metrics: any;
+    circuitBreaker: any;
+    retryQueue: any;
+  }> {
     const now = new Date();
     let nextRun: string | null = null;
     
@@ -60,12 +72,18 @@ export class BetSettlementWorker {
       nextRun = nextRunTime.toISOString();
     }
 
+    const retryQueueStats = await settlementRetryQueue.getQueueStats();
+
     return {
       isRunning: this.intervalId !== null,
       lastRun: this.lastRun?.toISOString() || null,
       nextRun,
       processedBets: this.processedBets,
-      errors: this.errors
+      errors: this.errors,
+      workerId: this.workerId,
+      metrics: settlementMonitor.getStats(),
+      circuitBreaker: settlementMonitor.getCircuitBreakerStatus(),
+      retryQueue: retryQueueStats
     };
   }
 
@@ -101,11 +119,48 @@ export class BetSettlementWorker {
   }
 
   /**
+   * Graceful shutdown - wait for current settlement to complete
+   */
+  async shutdown(): Promise<void> {
+    logger.info('[SETTLEMENT] Graceful shutdown initiated');
+    this.shutdownRequested = true;
+    
+    // Stop accepting new cycles
+    this.stop();
+    
+    // Wait for current settlement to complete (max 30 seconds)
+    const maxWait = 30000;
+    const startTime = Date.now();
+    
+    while (this.isRunning && (Date.now() - startTime) < maxWait) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    if (this.isRunning) {
+      logger.warn('[SETTLEMENT] Shutdown timeout - current settlement still running');
+    } else {
+      logger.success('[SETTLEMENT] Graceful shutdown complete');
+    }
+  }
+
+  /**
    * Main settlement process - finds pending bets and settles them
    */
   private async processPendingBets(): Promise<void> {
     if (this.isRunning) {
       logger.info('[AUDIT] Settlement process already running, skipping this cycle');
+      return;
+    }
+
+    // Check if shutdown requested
+    if (this.shutdownRequested) {
+      logger.info('[SETTLEMENT] Shutdown requested, skipping cycle');
+      return;
+    }
+
+    // Check circuit breaker
+    if (settlementMonitor.isCircuitOpen()) {
+      logger.warn('[SETTLEMENT] Circuit breaker open, skipping cycle');
       return;
     }
 
@@ -116,12 +171,35 @@ export class BetSettlementWorker {
     
     logger.info('=== [AUDIT] SETTLEMENT CYCLE START ===', {
       runId,
+      workerId: this.workerId,
       timestamp: new Date().toISOString(),
       totalProcessed: this.processedBets,
-      totalErrors: this.errors
+      totalErrors: this.errors,
+      metrics: settlementMonitor.getSummary()
     });
 
     try {
+      // First, process retry queue
+      const retryItems = await settlementRetryQueue.getItemsReadyForRetry(5);
+      if (retryItems.length > 0) {
+        logger.info(`[RETRY_QUEUE] Processing ${retryItems.length} items from retry queue`, { runId });
+        for (const item of retryItems) {
+          try {
+            const bet = await storage.getBet(item.betId);
+            if (bet && bet.status === 'pending') {
+              // Will be processed with regular pending bets
+              logger.info(`[RETRY_QUEUE] Bet ${item.betId} still pending, will process normally`);
+            } else if (bet && bet.status !== 'pending') {
+              // Already settled, remove from retry queue
+              await settlementRetryQueue.removeFromRetryQueue(item.betId);
+              logger.info(`[RETRY_QUEUE] Bet ${item.betId} already settled, removed from queue`);
+            }
+          } catch (error) {
+            logger.error(`[RETRY_QUEUE] Error checking retry item ${item.betId}:`, error);
+          }
+        }
+      }
+
       // Get all pending bets
       const pendingBets = await this.getPendingBets();
       logger.info(`[AUDIT] Found ${pendingBets.length} pending bet(s) to evaluate`, {
@@ -459,6 +537,9 @@ export class BetSettlementWorker {
       // Determine overall bet outcome
       const betOutcome = this.calculateBetOutcome(bet, selectionOutcomes);
       
+      // Track settlement start time
+      const settlementStart = Date.now();
+      
       // ATOMIC SETTLEMENT: All operations in a single transaction
       const result = await storage.settleAtomically({
         betId: bet.id,
@@ -469,17 +550,62 @@ export class BetSettlementWorker {
           selectionId: o.selectionId,
           status: o.status,
           result: o.result
-        }))
+        })),
+        workerId: this.workerId
       });
+
+      const processingTimeMs = Date.now() - settlementStart;
 
       if (!result.success) {
         logger.error(`Atomic settlement failed for bet ${bet.id}: ${result.error}`);
         this.errors++;
+        
+        // Record failure in monitor
+        settlementMonitor.recordSettlement({
+          betId: bet.id,
+          userId: bet.userId,
+          finalStatus: betOutcome.finalStatus,
+          actualWinnings: betOutcome.actualWinnings,
+          processingTimeMs,
+          success: false,
+          error: result.error,
+          timestamp: new Date()
+        });
+
+        // Check if this is a duplicate settlement
+        if (result.error?.includes('already settled')) {
+          settlementMonitor.recordDuplicatePrevented(bet.id, result.error);
+          // Don't add duplicates to retry queue
+        } else {
+          // Add to retry queue for transient failures
+          await settlementRetryQueue.addToRetryQueue(
+            bet.id,
+            bet.userId,
+            result.error,
+            'normal'
+          );
+        }
+        
         return false;
       }
 
       logger.info(`Settled bet ${bet.id}: ${betOutcome.finalStatus} - winnings: ${betOutcome.actualWinnings}`);
       this.processedBets++;
+      
+      // Remove from retry queue if it was there
+      await settlementRetryQueue.removeFromRetryQueue(bet.id);
+      
+      // Record success in monitor
+      settlementMonitor.recordSettlement({
+        betId: bet.id,
+        userId: bet.userId,
+        finalStatus: betOutcome.finalStatus,
+        actualWinnings: betOutcome.actualWinnings,
+        processingTimeMs,
+        success: true,
+        timestamp: new Date()
+      });
+      
       return true;
       
     } catch (error) {

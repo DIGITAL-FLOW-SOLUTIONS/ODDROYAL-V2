@@ -94,7 +94,8 @@ export interface IStorage {
       status: 'won' | 'lost' | 'void';
       result: string;
     }>;
-  }): Promise<{ success: boolean; error?: string }>;
+    workerId?: string;
+  }): Promise<{ success: boolean; error?: string; result?: any }>;
 
   // Match management operations
   getMatchesByTeamsAndTime(

@@ -5812,7 +5812,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // Get settlement worker status
+  // Get settlement worker status (enhanced with metrics)
   app.get("/api/admin/settlement/worker-status", 
     ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
     authenticateAdmin, 
@@ -5822,7 +5822,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Import settlement worker to check status
         const { settlementWorker } = await import('./settlement-worker');
         
-        const status = settlementWorker.getStatus();
+        const status = await settlementWorker.getStatus();
 
         res.json({
           success: true,
@@ -5833,6 +5833,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({
           success: false,
           error: 'Failed to retrieve worker status'
+        });
+      }
+    }
+  );
+
+  // Get settlement retry queue status
+  app.get("/api/admin/settlement/retry-queue", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('bets:read'), 
+    async (req: any, res) => {
+      try {
+        const { settlementRetryQueue } = await import('./settlement-retry-queue');
+        
+        const stats = await settlementRetryQueue.getQueueStats();
+        const deadLetterItems = await settlementRetryQueue.getDeadLetterItems(20);
+
+        res.json({
+          success: true,
+          data: {
+            stats,
+            deadLetterItems
+          }
+        });
+      } catch (error) {
+        console.error('Get retry queue error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve retry queue status'
+        });
+      }
+    }
+  );
+
+  // Manually retry a dead letter item
+  app.post("/api/admin/settlement/retry-dead-letter/:betId", 
+    authenticateAdmin,
+    ...SecurityMiddlewareOrchestrator.getCriticalMiddleware(), 
+    requirePermission('bets:settle'), 
+    require2FA,
+    auditAction('retry_dead_letter', (req) => ({ 
+      targetType: 'bet', 
+      targetId: req.params.betId 
+    })),
+    async (req: any, res) => {
+      try {
+        const { betId } = req.params;
+        const { settlementRetryQueue } = await import('./settlement-retry-queue');
+        
+        const success = await settlementRetryQueue.retryDeadLetterItem(betId);
+
+        if (success) {
+          res.json({
+            success: true,
+            message: `Bet ${betId} moved back to retry queue`
+          });
+        } else {
+          res.status(404).json({
+            success: false,
+            error: 'Dead letter item not found'
+          });
+        }
+      } catch (error) {
+        console.error('Retry dead letter error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retry dead letter item'
+        });
+      }
+    }
+  );
+
+  // Get settlement audit log
+  app.get("/api/admin/settlement/audit-log", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('bets:read'), 
+    async (req: any, res) => {
+      try {
+        const { limit = 50, offset = 0, status, betId } = req.query;
+
+        let query = supabaseAdmin
+          .from('settlement_audit_log')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (status) {
+          query = query.eq('settlement_status', status);
+        }
+
+        if (betId) {
+          query = query.eq('bet_id', betId);
+        }
+
+        const { data, error } = await query
+          .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+        if (error) throw error;
+
+        res.json({
+          success: true,
+          data: data || []
+        });
+      } catch (error) {
+        console.error('Get audit log error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve settlement audit log'
+        });
+      }
+    }
+  );
+
+  // Get settlement statistics (from DB)
+  app.get("/api/admin/settlement/statistics", 
+    ...SecurityMiddlewareOrchestrator.getStandardMiddleware(),
+    authenticateAdmin, 
+    requirePermission('bets:read'), 
+    async (req: any, res) => {
+      try {
+        const { hours = 24 } = req.query;
+        const startDate = new Date(Date.now() - Number(hours) * 60 * 60 * 1000);
+
+        const { data, error } = await supabaseAdmin
+          .rpc('get_settlement_statistics', {
+            p_start_date: startDate.toISOString(),
+            p_end_date: new Date().toISOString()
+          });
+
+        if (error) throw error;
+
+        res.json({
+          success: true,
+          data: data || {}
+        });
+      } catch (error) {
+        console.error('Get settlement statistics error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Failed to retrieve settlement statistics'
         });
       }
     }

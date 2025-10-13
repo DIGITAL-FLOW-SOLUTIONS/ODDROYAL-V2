@@ -140,7 +140,8 @@ export class SupabaseStorage implements IStorage {
       status: 'won' | 'lost' | 'void';
       result: string;
     }>;
-  }): Promise<{ success: boolean; error?: string }> {
+    workerId?: string;
+  }): Promise<{ success: boolean; error?: string; result?: any }> {
     try {
       // Execute all operations in a single Supabase RPC call for atomicity
       // This ensures all updates happen in one database transaction
@@ -153,11 +154,20 @@ export class SupabaseStorage implements IStorage {
           selection_id: s.selectionId,
           status: s.status,
           result: s.result
-        }))
+        })),
+        p_worker_id: params.workerId || null
       });
 
       if (error) {
         return { success: false, error: error.message };
+      }
+
+      // The RPC returns a JSONB object with success and other details
+      if (data && typeof data === 'object') {
+        if (data.success === false) {
+          return { success: false, error: data.error, result: data };
+        }
+        return { success: true, result: data };
       }
 
       return { success: true };
