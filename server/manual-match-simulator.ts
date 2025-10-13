@@ -139,10 +139,18 @@ export class ManualMatchSimulator {
         // Suspend markets briefly (realistic simulation)
         await storage.suspendAllMarkets(match.id);
         
-        // Reopen markets after 2 seconds
+        // Reopen markets after 2 seconds (with safety checks)
         setTimeout(async () => {
-          await storage.reopenAllMarkets(match.id);
-          await unifiedMatchService.updateManualMatchCache(match.id);
+          try {
+            // Check if match is still live before reopening markets
+            const currentMatch = await storage.getMatch(match.id);
+            if (currentMatch && currentMatch.status === 'live') {
+              await storage.reopenAllMarkets(match.id);
+              await unifiedMatchService.updateManualMatchCache(match.id);
+            }
+          } catch (error) {
+            console.error(`Error in market reopen timer for match ${match.id}:`, error);
+          }
         }, 2000);
         
         // Update cache
@@ -226,10 +234,18 @@ export class ManualMatchSimulator {
       if (event.type === 'goal') {
         await storage.suspendAllMarkets(match.id);
         
-        // Reopen with potentially adjusted odds after 3 seconds
+        // Reopen with potentially adjusted odds after 3 seconds (with safety checks)
         setTimeout(async () => {
-          await storage.reopenAllMarkets(match.id);
-          await unifiedMatchService.updateManualMatchCache(match.id);
+          try {
+            // Check if match is still live before reopening markets
+            const currentMatch = await storage.getMatch(match.id);
+            if (currentMatch && currentMatch.status === 'live') {
+              await storage.reopenAllMarkets(match.id);
+              await unifiedMatchService.updateManualMatchCache(match.id);
+            }
+          } catch (error) {
+            console.error(`Error in goal market reopen timer for match ${match.id}:`, error);
+          }
         }, 3000);
       }
       
