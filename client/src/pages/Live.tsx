@@ -129,16 +129,19 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
   ) => {
     if (!onAddToBetSlip) return;
 
-    // Find match to get team names
+    // Find match to get team names - use match_id property
     const match = sportGroups
       .flatMap((sport: any) => sport.leagues)
       .flatMap((league: any) => league.matches)
-      .find((m: any) => m.id === matchId);
+      .find((m: any) => m.match_id === matchId);
     
-    if (!match) return;
+    if (!match) {
+      console.warn('Match not found for betting:', matchId);
+      return;
+    }
 
     const getSelectionName = (market: string, type: string) => {
-      if (market === "1x2") {
+      if (market === "1x2" || market === "h2h") {
         return type === "home" ? "1" : type === "draw" ? "X" : "2";
       }
       return type.charAt(0).toUpperCase() + type.slice(1);
@@ -152,14 +155,14 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
       type,
       selection: getSelectionName(market, type),
       odds,
-      homeTeam: match.homeTeam?.name || match.homeTeam,
-      awayTeam: match.awayTeam?.name || match.awayTeam,
-      league: match.league || "Unknown",
+      homeTeam: match.home_team,
+      awayTeam: match.away_team,
+      league: match.league_name || "Unknown",
       isLive: true,
     };
 
     onAddToBetSlip(selection);
-    console.log("Added live selection to bet slip:", selection);
+    console.log("✅ Added live selection to bet slip:", selection);
   };
 
   // Toggle league expansion

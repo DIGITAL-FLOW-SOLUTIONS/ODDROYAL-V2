@@ -91,7 +91,8 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
     }
     
     console.log('✅ Calling onOddsClick handler');
-    onOddsClick?.(match.match_id, '1x2', type, odds);
+    // Use 'h2h' market type to match how the data is structured
+    onOddsClick(match.match_id, '1x2', type, odds);
   };
 
   const handleRowClick = () => {
