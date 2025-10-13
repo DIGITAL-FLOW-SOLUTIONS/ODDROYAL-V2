@@ -220,14 +220,32 @@ class RedisPubSubManager {
   }
 
   async publishNewMatch(match: any): Promise<void> {
+    // Send only essential fields to reduce WebSocket payload size
+    // Bookmakers data is available via REST API, no need to send it via WebSocket
+    const lightweightMatch = {
+      match_id: match.match_id,
+      sport_key: match.sport_key,
+      league_id: match.league_id,
+      league_name: match.league_name,
+      home_team: match.home_team,
+      away_team: match.away_team,
+      home_team_logo: match.home_team_logo,
+      away_team_logo: match.away_team_logo,
+      commence_time: match.commence_time,
+      status: match.status,
+      scores: match.scores,
+      market_status: match.market_status,
+      source: match.source,
+    };
+    
     const message: NewMatchMessage = {
       type: 'match:new',
-      match,
+      match: lightweightMatch,
       timestamp: Date.now(),
     };
     
     await this.publisher.publish(CHANNELS.MATCH_NEW, JSON.stringify(message));
-    logger.debug(`📡 Published new match: ${match.match_id}`);
+    logger.debug(`📡 Published new match (lightweight): ${match.match_id}`);
   }
 
   async publishRemoveMatch(matchId: string): Promise<void> {

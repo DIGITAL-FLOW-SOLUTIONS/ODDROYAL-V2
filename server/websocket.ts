@@ -65,7 +65,7 @@ const messageBatcher = {
   oddsUpdates: new Map<string, any>(),
   otherMessages: [] as any[],
   batchTimer: null as NodeJS.Timeout | null,
-  BATCH_INTERVAL: 2000, // 2000ms batching window - reduces to ~0.5 updates/second
+  BATCH_INTERVAL: 5000, // 5000ms batching window - reduces flicker significantly
 };
 
 function scheduleFlush() {
