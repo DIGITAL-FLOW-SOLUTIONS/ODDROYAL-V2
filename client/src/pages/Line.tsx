@@ -22,13 +22,17 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const matches = useMatchStore(state => state.matches);
   const sports = useMatchStore(state => state.sports);
   const leagues = useMatchStore(state => state.leagues);
+  const isConnected = useMatchStore(state => state.isConnected);
+  
+  // Determine if we're loading (no data yet and not connected)
+  const isLoading = matches.size === 0 && !isConnected;
   
   // Filter prematch matches with useMemo to avoid infinite loops
   const prematchMatches = useMemo(() => {
     return Array.from(matches.values()).filter(m => m.status === 'upcoming');
   }, [matches]);
 
-  // Group prematch matches by sport and league (similar to old REST response structure)
+  // Group prematch matches by sport and league
   const sportGroups = useMemo(() => {
     const groupsMap = new Map<string, any>();
     
@@ -40,8 +44,8 @@ export default function Line({ onAddToBetSlip }: LineProps) {
       let sportGroup = groupsMap.get(match.sport_key);
       if (!sportGroup) {
         sportGroup = {
-          sport: match.sport_key,
-          sportTitle: sport.sport_title,
+          id: match.sport_key,
+          name: sport.sport_title,
           leagues: new Map<string, any>()
         };
         groupsMap.set(match.sport_key, sportGroup);
@@ -51,14 +55,37 @@ export default function Line({ onAddToBetSlip }: LineProps) {
       let league = sportGroup.leagues.get(match.league_id);
       if (!league) {
         league = {
-          league_id: match.league_id,
-          league_name: match.league_name,
+          id: match.league_id,
+          name: match.league_name,
           matches: []
         };
         sportGroup.leagues.set(match.league_id, league);
       }
       
-      league.matches.push(match);
+      // Transform match data to the format expected by components
+      const transformedMatch = {
+        id: match.match_id,
+        homeTeam: {
+          name: match.home_team,
+          logo: match.home_team_logo,
+        },
+        awayTeam: {
+          name: match.away_team,
+          logo: match.away_team_logo,
+        },
+        kickoffTime: match.commence_time,
+        venue: match.venue,
+        odds: match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h')
+          ? {
+              home: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
+              draw: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === 'Draw')?.price || 0,
+              away: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
+            }
+          : null,
+        additionalMarkets: match.bookmakers?.[0]?.markets?.length || 0,
+      };
+      
+      league.matches.push(transformedMatch);
     }
     
     // Convert maps to arrays
@@ -66,8 +93,8 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     groupsMap.forEach(sportGroup => {
       const leagues = Array.from(sportGroup.leagues.values());
       groups.push({
-        sport: sportGroup.sport,
-        sportTitle: sportGroup.sportTitle,
+        id: sportGroup.id,
+        name: sportGroup.name,
         leagues
       });
     });
@@ -75,30 +102,35 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     return groups;
   }, [prematchMatches, sports]);
 
-  // All upcoming matches for popular events
-  const upcomingMatches = prematchMatches;
-
-  // Transform API data for Popular Events - only use real data, include logos
-  const popularMatches = upcomingMatches.slice(0, 6).map((match: any) => ({
-    id: match.match_id,
-    homeTeam: {
-      name: match.home_team,
-      logo: match.home_team_logo,
-    },
-    awayTeam: {
-      name: match.away_team,
-      logo: match.away_team_logo,
-    },
-    kickoffTime: match.commence_time,
-    league: match.league_name,
-    venue: match.venue,
-    odds: {
-      home: 0,
-      draw: 0,
-      away: 0,
-    },
-    additionalMarkets: match.bookmakers?.[0]?.markets?.length || 0,
-  }));
+  // Transform data for Popular Events - only use real data, include logos
+  const popularMatches = useMemo(() => {
+    return prematchMatches.slice(0, 6).map((match: any) => ({
+      id: match.match_id,
+      homeTeam: {
+        name: match.home_team,
+        logo: match.home_team_logo,
+      },
+      awayTeam: {
+        name: match.away_team,
+        logo: match.away_team_logo,
+      },
+      kickoffTime: match.commence_time,
+      league: match.league_name,
+      venue: match.venue,
+      odds: match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h')
+        ? {
+            home: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
+            draw: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === 'Draw')?.price || 0,
+            away: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
+          }
+        : {
+            home: 0,
+            draw: 0,
+            away: 0,
+          },
+      additionalMarkets: match.bookmakers?.[0]?.markets?.length || 0,
+    }));
+  }, [prematchMatches]);
 
   // Handle odds selection for bet slip
   const handleOddsClick = (
@@ -109,7 +141,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   ) => {
     if (!onAddToBetSlip) return;
 
-    const match = upcomingMatches.find((m: any) => m.match_id === matchId);
+    const match = prematchMatches.find((m: any) => m.match_id === matchId);
     if (!match) return;
 
     // Create human-readable selection name
@@ -163,6 +195,22 @@ export default function Line({ onAddToBetSlip }: LineProps) {
           ),
         })).filter((sport: any) => sport.leagues.length > 0);
 
+  // Show loading state while waiting for WebSocket data
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-none overflow-hidden h-full">
+        <div className="p-4 space-y-8">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground">Loading prematch matches...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full max-w-none overflow-hidden h-full">
       <div className="p-4 space-y-8">
@@ -183,7 +231,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         >
           <PopularEvents
             matches={popularMatches}
-            isLoading={false}
+            isLoading={isLoading}
             onOddsClick={handleOddsClick}
             onAddToFavorites={handleAddToFavorites}
           />
@@ -206,7 +254,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         >
           <SportsMatches
             sports={filteredSportGroups}
-            isLoading={false}
+            isLoading={isLoading}
             onOddsClick={handleOddsClick}
             onAddToFavorites={handleAddToFavorites}
           />
