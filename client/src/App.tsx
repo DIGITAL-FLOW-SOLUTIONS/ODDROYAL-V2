@@ -98,27 +98,6 @@ function App() {
   // Initialize WebSocket streaming for real-time updates
   useWebSocket();
 
-  // [LOG] Detect forced layout shifts (throttled)
-  useEffect(() => {
-    let lastLogTime = 0;
-    const LOG_THROTTLE = 500; // Only log once per 500ms
-    
-    const observer = new ResizeObserver(entries => {
-      const now = performance.now();
-      if (now - lastLogTime > LOG_THROTTLE) {
-        console.warn('[LAYOUT] Resize observed:', {
-          count: entries.length,
-          timestamp: now.toFixed(2),
-        });
-        lastLogTime = now;
-      }
-    });
-    
-    observer.observe(document.body);
-    
-    return () => observer.disconnect();
-  }, []);
-
   // [LOG] Monitor FPS (browser paint performance) - only log when FPS drops
   useEffect(() => {
     let frameCount = 0;

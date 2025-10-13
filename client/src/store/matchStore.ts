@@ -237,19 +237,18 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     });
   },
   
-  // Batch update matches - with deep change detection
+  // Batch update matches - with deep change detection and in-place updates
   batchUpdateMatches: (matchList) => {
     console.time('[UPDATE] batchUpdateMatches cycle');
     console.log('[UPDATE] Batch updating', matchList.length, 'matches');
     
-    const { matches } = get();
-    const newMatches = new Map(matches); // Create new Map to avoid mutations
+    const state = get();
     let modifiedCount = 0;
     let newCount = 0;
     let actualChanges = false;
     
     matchList.forEach(match => {
-      const existing = matches.get(match.match_id);
+      const existing = state.matches.get(match.match_id);
       
       if (existing) {
         // Deep change detection: only update if data actually changed
@@ -266,12 +265,12 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
         });
         
         if (hasChanged) {
-          newMatches.set(match.match_id, match);
+          state.matches.set(match.match_id, match);
           modifiedCount++;
           actualChanges = true;
         }
       } else {
-        newMatches.set(match.match_id, match);
+        state.matches.set(match.match_id, match);
         newCount++;
         actualChanges = true;
       }
@@ -279,9 +278,9 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     
     console.log(`[UPDATE] Batch complete: ${modifiedCount} modified, ${newCount} new, ${matchList.length} total`);
     
-    // Only update store if there were actual changes
+    // Only update store if there were actual changes - create new Map reference to trigger subscribers
     if (actualChanges) {
-      set({ matches: newMatches, lastUpdate: Date.now() });
+      set({ matches: new Map(state.matches), lastUpdate: Date.now() });
       console.log('[UPDATE] Batch store updated, triggering re-render');
     } else {
       console.log('[UPDATE] No changes detected, skipping re-render');
