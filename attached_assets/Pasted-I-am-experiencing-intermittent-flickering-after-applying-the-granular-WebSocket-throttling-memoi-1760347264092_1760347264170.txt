@@ -1,0 +1,56 @@
+I am experiencing intermittent flickering after applying the granular WebSocket + throttling + memoization logic. So I implemented a detailed console logging and performance tracking to identify exactly what’s causing re-renders or layout shifts.
+
+This is what I implemented:
+
+1. Logging in the WebSocket message handler
+ Inside the ws.onmessage handler, log:
+The number of updates received per second.
+The size of the payload (event.data.length).
+A timestamp using performance.now(). 
+
+2. Log inside the update function.
+In updateMatches, before and after merging data, log:
+How many matches were updated or inserted.
+Whether any unchanged objects were replaced.
+
+3. logs in the throttled update loop
+
+Just before calling setMatches([...dataRef.current])
+
+4. Log React component renders.
+In your main list and card components:
+Check if every card re-renders or just the affected one.
+
+5. Detect forced layout shifts.
+In the parent container (e.g., <main> or <div className=\"content\">), attach a ResizeObserver.
+If you see [LAYOUT] spammed, it means some CSS or DOM manipulation is forcing relayouts → causing flicker.
+
+6. Log browser paint performance.
+At the top of your main app component:
+
+7. Add backend log correlation.
+In your Express WebSocket server, log every broadcast.
+This helps confirm if flicker aligns with server pushes.
+
+Your Job is to observe the console log for about 2 minutes and write a report of what exactly is causing the flickering. When you look at the homepage now you will see if flickering, we want you to find the route causes, then write a report of what causing it based on the console logs. 
+
+
+Then based on your report implement the fix and solve all the mentioned issues causing the flickering.
+
+After solving check the console log again to see if the flickering issue is solved permanently.
+
+Once after each implementation , restart the app and wait 2 minutes and observe the console log again. Observe the following:
+- Is [UI] Throttled render triggered firing more than twice per second?
+- Do you see many Render: MatchCard logs repeating for all matches?
+- Are [LAYOUT] Resize observed logs continuous?
+- Does FPS drop when flicker occurs?
+- Does [WS] Message spam align with visible flicker? 
+
+✅ Goal:
+After this logging phase you’ll have a complete profile of where flicker originates:
+- If all cards re-render, React memoization is failing.
+- If layout resizes, CSS or container scroll management is off.
+- If WebSocket messages flood, you need backend throttling or differential updates.
+
+
+Repeat this until the issue is solved.
