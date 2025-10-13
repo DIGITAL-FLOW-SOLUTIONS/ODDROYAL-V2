@@ -237,34 +237,54 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     });
   },
   
-  // Batch update matches
+  // Batch update matches - with deep change detection
   batchUpdateMatches: (matchList) => {
     console.time('[UPDATE] batchUpdateMatches cycle');
     console.log('[UPDATE] Batch updating', matchList.length, 'matches');
     
     const { matches } = get();
+    const newMatches = new Map(matches); // Create new Map to avoid mutations
     let modifiedCount = 0;
     let newCount = 0;
+    let actualChanges = false;
     
     matchList.forEach(match => {
       const existing = matches.get(match.match_id);
       
       if (existing) {
-        // Lightweight check: assume it changed if batch update includes it
-        // (we trust the backend to only send changed data)
-        matches.set(match.match_id, match);
-        modifiedCount++;
+        // Deep change detection: only update if data actually changed
+        const hasChanged = Object.keys(match).some(key => {
+          const newVal = match[key as keyof Match];
+          const oldVal = existing[key as keyof Match];
+          
+          // Handle nested objects like scores
+          if (typeof newVal === 'object' && newVal !== null && typeof oldVal === 'object' && oldVal !== null) {
+            return JSON.stringify(newVal) !== JSON.stringify(oldVal);
+          }
+          
+          return newVal !== oldVal;
+        });
+        
+        if (hasChanged) {
+          newMatches.set(match.match_id, match);
+          modifiedCount++;
+          actualChanges = true;
+        }
       } else {
-        matches.set(match.match_id, match);
+        newMatches.set(match.match_id, match);
         newCount++;
+        actualChanges = true;
       }
     });
     
     console.log(`[UPDATE] Batch complete: ${modifiedCount} modified, ${newCount} new, ${matchList.length} total`);
     
-    if (modifiedCount > 0 || newCount > 0) {
-      set({ matches: new Map(matches), lastUpdate: Date.now() });
+    // Only update store if there were actual changes
+    if (actualChanges) {
+      set({ matches: newMatches, lastUpdate: Date.now() });
       console.log('[UPDATE] Batch store updated, triggering re-render');
+    } else {
+      console.log('[UPDATE] No changes detected, skipping re-render');
     }
     
     console.timeEnd('[UPDATE] batchUpdateMatches cycle');

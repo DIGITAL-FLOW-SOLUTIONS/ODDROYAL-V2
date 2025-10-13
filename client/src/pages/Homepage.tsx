@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, memo } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,12 +26,13 @@ interface HomepageProps {
 export default function Homepage({ onAddToBetSlip }: HomepageProps) {
   const { setPageLoading } = usePageLoading();
   
-  // Subscribe to global Zustand store - WebSocket provides all data
+  // Subscribe to matches Map directly to detect changes
   const matches = useMatchStore(state => state.matches);
   const isConnected = useMatchStore(state => state.isConnected);
   const hasInitialData = useRef(false);
   
-  // Filter live matches with useMemo to avoid infinite loops
+  // Filter live matches with React.useMemo to prevent unnecessary recalculations
+  // Only re-filter when matches Map reference changes (which happens on actual updates)
   const liveMatches = useMemo(() => {
     return Array.from(matches.values()).filter(m => m.status === 'live');
   }, [matches]);

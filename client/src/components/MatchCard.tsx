@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ interface MatchCardProps {
   onAddToBetSlip?: (selection: any) => void;
 }
 
-export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
+const MatchCard = memo(function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
   const [isFavorite, setIsFavorite] = useState(match.isFavorite || false);
   const [, setLocation] = useLocation();
 
@@ -188,4 +188,6 @@ export default function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
       </Card>
     </motion.div>
   );
-}
+});
+
+export default MatchCard;
