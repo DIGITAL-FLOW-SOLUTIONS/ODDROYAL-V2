@@ -78,6 +78,12 @@ export function useWebSocket() {
         try {
           const message = JSON.parse(event.data);
 
+          // [LOG] WebSocket message received (lightweight - no preview)
+          console.log(`[WS] Message at ${performance.now().toFixed(2)}ms`, {
+            type: message.type,
+            size: event.data.length,
+          });
+
           // Handle different update types from Redis Pub/Sub
           switch (message.type) {
             case 'connection':
@@ -85,6 +91,7 @@ export function useWebSocket() {
               break;
 
             case 'match:update':
+              console.log('[WS] Processing match:update', { match_id: message.match_id, updates: message.updates });
               // Diff patch for match update
               updateMatch({
                 match_id: message.match_id,
@@ -93,6 +100,7 @@ export function useWebSocket() {
               break;
 
             case 'odds:update':
+              console.log('[WS] Processing odds:update', { match_id: message.match_id });
               // Odds changed
               updateOdds({
                 match_id: message.match_id,
@@ -102,6 +110,7 @@ export function useWebSocket() {
               break;
 
             case 'market:update':
+              console.log('[WS] Processing market:update', { market_id: message.market_id });
               // Market status changed
               updateMarket({
                 market_id: message.market_id,
@@ -111,6 +120,7 @@ export function useWebSocket() {
               break;
 
             case 'manual:update':
+              console.log('[WS] Processing manual:update', { match_id: message.match_id });
               // Manual match updated
               updateMatch({
                 match_id: message.match_id,
@@ -119,6 +129,7 @@ export function useWebSocket() {
               break;
 
             case 'match:new':
+              console.log('[WS] Processing match:new', { match_id: message.match?.match_id });
               // New match added
               updateMatch({
                 match_id: message.match.match_id,
@@ -127,6 +138,7 @@ export function useWebSocket() {
               break;
 
             case 'match:remove':
+              console.log('[WS] Processing match:remove', { match_id: message.match_id });
               // Match removed
               removeMatch(message.match_id);
               break;

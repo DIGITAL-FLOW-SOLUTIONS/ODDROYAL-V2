@@ -167,25 +167,83 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   
   // Update single match (diff patch)
   updateMatch: (matchUpdate) => {
+    console.time('[UPDATE] updateMatch cycle');
     const { matches } = get();
     const existing = matches.get(matchUpdate.match_id);
     
+    let wasModified = false;
+    
     if (existing) {
       // Merge update with existing
-      matches.set(matchUpdate.match_id, { ...existing, ...matchUpdate });
+      const merged = { ...existing, ...matchUpdate };
+      
+      // Lightweight check: just compare the keys that were updated
+      const changedKeys = Object.keys(matchUpdate).filter(
+        key => key !== 'match_id' && existing[key as keyof Match] !== matchUpdate[key as keyof typeof matchUpdate]
+      );
+      
+      if (changedKeys.length > 0) {
+        matches.set(matchUpdate.match_id, merged);
+        wasModified = true;
+        console.log('[UPDATE] Match modified:', matchUpdate.match_id, {
+          changedKeys,
+          updateKeys: Object.keys(matchUpdate),
+        });
+      } else {
+        console.log('[UPDATE] Match unchanged (no-op):', matchUpdate.match_id);
+      }
     } else {
       // New match
       matches.set(matchUpdate.match_id, matchUpdate as Match);
+      wasModified = true;
+      console.log('[UPDATE] New match added:', matchUpdate.match_id);
     }
     
-    set({ matches: new Map(matches), lastUpdate: Date.now() });
+    if (wasModified) {
+      set({ matches: new Map(matches), lastUpdate: Date.now() });
+      console.log('[UPDATE] Store updated, triggering re-render');
+    }
+    
+    console.timeEnd('[UPDATE] updateMatch cycle');
   },
   
   // Update odds (diff patch)
   updateOdds: (oddsUpdate) => {
+    console.time('[UPDATE] updateOdds cycle');
     const { odds } = get();
-    odds.set(oddsUpdate.match_id, oddsUpdate);
-    set({ odds: new Map(odds), lastUpdate: Date.now() });
+    const existing = odds.get(oddsUpdate.match_id);
+    
+    let wasModified = false;
+    
+    if (existing) {
+      // Lightweight comparison: check if any odds values changed
+      const homeChanged = existing.home !== oddsUpdate.home;
+      const drawChanged = existing.draw !== oddsUpdate.draw;
+      const awayChanged = existing.away !== oddsUpdate.away;
+      
+      if (homeChanged || drawChanged || awayChanged) {
+        odds.set(oddsUpdate.match_id, oddsUpdate);
+        wasModified = true;
+        console.log('[UPDATE] Odds modified:', oddsUpdate.match_id, {
+          homeChanged,
+          drawChanged,
+          awayChanged,
+        });
+      } else {
+        console.log('[UPDATE] Odds unchanged (no-op):', oddsUpdate.match_id);
+      }
+    } else {
+      odds.set(oddsUpdate.match_id, oddsUpdate);
+      wasModified = true;
+      console.log('[UPDATE] New odds added:', oddsUpdate.match_id);
+    }
+    
+    if (wasModified) {
+      set({ odds: new Map(odds), lastUpdate: Date.now() });
+      console.log('[UPDATE] Odds store updated, triggering re-render');
+    }
+    
+    console.timeEnd('[UPDATE] updateOdds cycle');
   },
   
   // Update market (diff patch)
@@ -217,11 +275,35 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   
   // Batch update matches
   batchUpdateMatches: (matchList) => {
+    console.time('[UPDATE] batchUpdateMatches cycle');
+    console.log('[UPDATE] Batch updating', matchList.length, 'matches');
+    
     const { matches } = get();
+    let modifiedCount = 0;
+    let newCount = 0;
+    
     matchList.forEach(match => {
-      matches.set(match.match_id, match);
+      const existing = matches.get(match.match_id);
+      
+      if (existing) {
+        // Lightweight check: assume it changed if batch update includes it
+        // (we trust the backend to only send changed data)
+        matches.set(match.match_id, match);
+        modifiedCount++;
+      } else {
+        matches.set(match.match_id, match);
+        newCount++;
+      }
     });
-    set({ matches: new Map(matches), lastUpdate: Date.now() });
+    
+    console.log(`[UPDATE] Batch complete: ${modifiedCount} modified, ${newCount} new, ${matchList.length} total`);
+    
+    if (modifiedCount > 0 || newCount > 0) {
+      set({ matches: new Map(matches), lastUpdate: Date.now() });
+      console.log('[UPDATE] Batch store updated, triggering re-render');
+    }
+    
+    console.timeEnd('[UPDATE] batchUpdateMatches cycle');
   },
   
   // Batch update odds

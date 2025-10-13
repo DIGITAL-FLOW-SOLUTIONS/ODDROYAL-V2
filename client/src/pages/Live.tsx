@@ -14,6 +14,9 @@ interface LiveProps {
 }
 
 export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LiveProps) {
+  // [LOG] Track page component renders
+  console.count('Render: Live Page');
+  
   const { mode } = useMode();
   
   // Subscribe to global store - instant access, no REST calls

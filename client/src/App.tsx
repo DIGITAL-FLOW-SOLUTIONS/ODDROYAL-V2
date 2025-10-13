@@ -98,6 +98,64 @@ function App() {
   // Initialize WebSocket streaming for real-time updates
   useWebSocket();
 
+  // [LOG] Detect forced layout shifts (throttled)
+  useEffect(() => {
+    let lastLogTime = 0;
+    const LOG_THROTTLE = 500; // Only log once per 500ms
+    
+    const observer = new ResizeObserver(entries => {
+      const now = performance.now();
+      if (now - lastLogTime > LOG_THROTTLE) {
+        console.warn('[LAYOUT] Resize observed:', {
+          count: entries.length,
+          timestamp: now.toFixed(2),
+        });
+        lastLogTime = now;
+      }
+    });
+    
+    observer.observe(document.body);
+    
+    return () => observer.disconnect();
+  }, []);
+
+  // [LOG] Monitor FPS (browser paint performance) - only log when FPS drops
+  useEffect(() => {
+    let frameCount = 0;
+    let lastTime = performance.now();
+    
+    const measureFPS = () => {
+      frameCount++;
+      const currentTime = performance.now();
+      const elapsed = currentTime - lastTime;
+      
+      // Log FPS every 2 seconds instead of every second
+      if (elapsed >= 2000) {
+        const fps = Math.round((frameCount * 1000) / elapsed);
+        
+        // Only log if FPS is problematic (below 55) or excellent (above 58)
+        if (fps < 55 || fps > 58) {
+          console.log(`[FPS] ${fps} fps`, {
+            status: fps < 55 ? '⚠️ LOW' : '✅ GOOD',
+            elapsed: elapsed.toFixed(2),
+          });
+        }
+        
+        // Reset counters
+        frameCount = 0;
+        lastTime = currentTime;
+      }
+      
+      requestAnimationFrame(measureFPS);
+    };
+    
+    const animationId = requestAnimationFrame(measureFPS);
+    
+    return () => {
+      cancelAnimationFrame(animationId);
+    };
+  }, []);
+
   return (
     <PersistQueryClientProvider
       client={queryClient}

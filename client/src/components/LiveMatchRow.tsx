@@ -20,6 +20,9 @@ interface LiveMatchRowProps {
 }
 
 export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, selectedOdds }: LiveMatchRowProps) {
+  // [LOG] Track component renders
+  console.count(`Render: LiveMatchRow ${match.match_id}`);
+  
   const [isFavorite, setIsFavorite] = useState(false);
   const [, setLocation] = useLocation();
 
@@ -240,6 +243,9 @@ interface OddsCellProps {
 }
 
 const OddsCell = memo(function OddsCell({ label, odds, delta, locked, selected, onClick, testId }: OddsCellProps) {
+  // [LOG] Track OddsCell renders
+  console.count(`Render: OddsCell ${testId}`);
+  
   const isLocked = locked || odds === 0;
 
   // Determine border classes based on odds change

@@ -149,6 +149,13 @@ function broadcastToAll(message: any) {
   
   const messageStr = JSON.stringify(message);
   
+  // [LOG] Server broadcast tracking (lightweight)
+  console.log(`[SERVER WS] Emitting ${message.type}`, {
+    size: messageStr.length,
+    clients: connectedClients.size,
+    time: new Date().toISOString(),
+  });
+  
   let successCount = 0;
   let failCount = 0;
   
@@ -168,6 +175,12 @@ function broadcastToAll(message: any) {
   if (successCount > 0) {
     logger.debug(`📡 Broadcasted ${message.type} to ${successCount} clients`);
   }
+  
+  console.log(`[SERVER WS] Broadcast complete:`, {
+    successCount,
+    failCount,
+    messageType: message.type,
+  });
 }
 
 export function broadcastPriceUpdate(update: PriceUpdate) {
@@ -176,6 +189,12 @@ export function broadcastPriceUpdate(update: PriceUpdate) {
   const message = JSON.stringify({
     type: 'price_update',
     data: update
+  });
+  
+  console.log('[SERVER WS] Broadcasting price_update', {
+    fixtureId: update.fixtureId,
+    size: message.length,
+    timestamp: new Date().toISOString(),
   });
   
   connectedClients.forEach((ws) => {
@@ -216,6 +235,13 @@ export function broadcastMatchUpdate(update: MatchUpdate) {
   const message = JSON.stringify({
     type: 'match_update',
     data: update
+  });
+  
+  console.log('[SERVER WS] Broadcasting match_update', {
+    matchId: update.matchId,
+    updateType: update.type,
+    size: message.length,
+    timestamp: new Date().toISOString(),
   });
   
   connectedClients.forEach((ws) => {
