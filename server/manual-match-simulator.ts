@@ -119,10 +119,17 @@ export class ManualMatchSimulator {
       
       for (const match of scheduledMatches) {
         const kickoffTime = new Date(match.kickoff_time || match.kickoffTime);
+        const timeDiff = now.getTime() - kickoffTime.getTime();
+        const minutesLate = Math.floor(timeDiff / 60000);
         
-        // Check if match should start (within 1 minute of kickoff)
-        if (now >= kickoffTime && now.getTime() - kickoffTime.getTime() < 60000) {
-          console.log(`⚽ Starting match: ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`);
+        // Start any match whose kickoff time has passed (no time limit)
+        // This ensures matches aren't stuck in scheduled status
+        if (now >= kickoffTime) {
+          if (minutesLate > 0) {
+            console.log(`⚽ Starting match (${minutesLate} min late): ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`);
+          } else {
+            console.log(`⚽ Starting match: ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`);
+          }
           
           // Update match status to live
           await storage.updateMatchToLive(match.id);
@@ -140,6 +147,10 @@ export class ManualMatchSimulator {
           await unifiedMatchService.updateManualMatchCache(match.id);
           
           this.matchesProcessed++;
+        } else {
+          // Log why match wasn't started (for debugging)
+          const minutesUntil = Math.ceil(-timeDiff / 60000);
+          console.log(`⏰ Match not ready (starts in ${minutesUntil} min): ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`);
         }
       }
     } catch (error) {
