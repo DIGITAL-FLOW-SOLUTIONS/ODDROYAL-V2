@@ -20,8 +20,6 @@ interface LiveMatchRowProps {
 }
 
 export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, selectedOdds }: LiveMatchRowProps) {
-  // [LOG] Track component renders
-  console.count(`Render: LiveMatchRow ${match.match_id}`);
   
   const [isFavorite, setIsFavorite] = useState(false);
   const [, setLocation] = useLocation();
@@ -226,6 +224,17 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
       </div>
     </motion.div>
   );
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render if match data actually changed
+  return (
+    prevProps.match.match_id === nextProps.match.match_id &&
+    prevProps.match.status === nextProps.match.status &&
+    prevProps.match.scores?.home === nextProps.match.scores?.home &&
+    prevProps.match.scores?.away === nextProps.match.scores?.away &&
+    prevProps.match.market_status === nextProps.match.market_status &&
+    prevProps.match.bookmakers === nextProps.match.bookmakers &&
+    prevProps.selectedOdds === nextProps.selectedOdds
+  );
 });
 
 /**
@@ -243,9 +252,6 @@ interface OddsCellProps {
 }
 
 const OddsCell = memo(function OddsCell({ label, odds, delta, locked, selected, onClick, testId }: OddsCellProps) {
-  // [LOG] Track OddsCell renders
-  console.count(`Render: OddsCell ${testId}`);
-  
   const isLocked = locked || odds === 0;
 
   // Determine border classes based on odds change

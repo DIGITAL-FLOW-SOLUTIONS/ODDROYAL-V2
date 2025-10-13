@@ -165,85 +165,49 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     });
   },
   
-  // Update single match (diff patch)
+  // Update single match (diff patch) - optimized with change detection
   updateMatch: (matchUpdate) => {
-    console.time('[UPDATE] updateMatch cycle');
-    const { matches } = get();
-    const existing = matches.get(matchUpdate.match_id);
-    
-    let wasModified = false;
+    const state = get();
+    const existing = state.matches.get(matchUpdate.match_id);
     
     if (existing) {
-      // Merge update with existing
-      const merged = { ...existing, ...matchUpdate };
-      
-      // Lightweight check: just compare the keys that were updated
+      // Lightweight check: compare keys that were updated
       const changedKeys = Object.keys(matchUpdate).filter(
         key => key !== 'match_id' && existing[key as keyof Match] !== matchUpdate[key as keyof typeof matchUpdate]
       );
       
       if (changedKeys.length > 0) {
-        matches.set(matchUpdate.match_id, merged);
-        wasModified = true;
-        console.log('[UPDATE] Match modified:', matchUpdate.match_id, {
-          changedKeys,
-          updateKeys: Object.keys(matchUpdate),
-        });
-      } else {
-        console.log('[UPDATE] Match unchanged (no-op):', matchUpdate.match_id);
+        const merged = { ...existing, ...matchUpdate };
+        state.matches.set(matchUpdate.match_id, merged);
+        // Create new Map reference only when changed
+        set({ matches: new Map(state.matches), lastUpdate: Date.now() });
       }
     } else {
       // New match
-      matches.set(matchUpdate.match_id, matchUpdate as Match);
-      wasModified = true;
-      console.log('[UPDATE] New match added:', matchUpdate.match_id);
+      state.matches.set(matchUpdate.match_id, matchUpdate as Match);
+      set({ matches: new Map(state.matches), lastUpdate: Date.now() });
     }
-    
-    if (wasModified) {
-      set({ matches: new Map(matches), lastUpdate: Date.now() });
-      console.log('[UPDATE] Store updated, triggering re-render');
-    }
-    
-    console.timeEnd('[UPDATE] updateMatch cycle');
   },
   
-  // Update odds (diff patch)
+  // Update odds (diff patch) - optimized with change detection
   updateOdds: (oddsUpdate) => {
-    console.time('[UPDATE] updateOdds cycle');
-    const { odds } = get();
-    const existing = odds.get(oddsUpdate.match_id);
-    
-    let wasModified = false;
+    const state = get();
+    const existing = state.odds.get(oddsUpdate.match_id);
     
     if (existing) {
-      // Lightweight comparison: check if any odds values changed
-      const homeChanged = existing.home !== oddsUpdate.home;
-      const drawChanged = existing.draw !== oddsUpdate.draw;
-      const awayChanged = existing.away !== oddsUpdate.away;
+      const changed = existing.home !== oddsUpdate.home || 
+                     existing.draw !== oddsUpdate.draw || 
+                     existing.away !== oddsUpdate.away;
       
-      if (homeChanged || drawChanged || awayChanged) {
-        odds.set(oddsUpdate.match_id, oddsUpdate);
-        wasModified = true;
-        console.log('[UPDATE] Odds modified:', oddsUpdate.match_id, {
-          homeChanged,
-          drawChanged,
-          awayChanged,
-        });
-      } else {
-        console.log('[UPDATE] Odds unchanged (no-op):', oddsUpdate.match_id);
+      if (changed) {
+        state.odds.set(oddsUpdate.match_id, oddsUpdate);
+        // Create new Map reference only when changed
+        set({ odds: new Map(state.odds), lastUpdate: Date.now() });
       }
     } else {
-      odds.set(oddsUpdate.match_id, oddsUpdate);
-      wasModified = true;
-      console.log('[UPDATE] New odds added:', oddsUpdate.match_id);
+      state.odds.set(oddsUpdate.match_id, oddsUpdate);
+      set({ odds: new Map(state.odds), lastUpdate: Date.now() });
     }
-    
-    if (wasModified) {
-      set({ odds: new Map(odds), lastUpdate: Date.now() });
-      console.log('[UPDATE] Odds store updated, triggering re-render');
-    }
-    
-    console.timeEnd('[UPDATE] updateOdds cycle');
   },
   
   // Update market (diff patch)
@@ -306,13 +270,27 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     console.timeEnd('[UPDATE] batchUpdateMatches cycle');
   },
   
-  // Batch update odds
+  // Batch update odds - optimized for batched WebSocket messages
   batchUpdateOdds: (oddsList) => {
-    const { odds } = get();
+    const state = get();
+    let modifiedCount = 0;
+    
     oddsList.forEach(oddsItem => {
-      odds.set(oddsItem.match_id, oddsItem);
+      const existing = state.odds.get(oddsItem.match_id);
+      
+      if (!existing || 
+          existing.home !== oddsItem.home || 
+          existing.draw !== oddsItem.draw || 
+          existing.away !== oddsItem.away) {
+        state.odds.set(oddsItem.match_id, oddsItem);
+        modifiedCount++;
+      }
     });
-    set({ odds: new Map(odds), lastUpdate: Date.now() });
+    
+    if (modifiedCount > 0) {
+      // Single Map reference update for entire batch
+      set({ odds: new Map(state.odds), lastUpdate: Date.now() });
+    }
   },
   
   // Connection state

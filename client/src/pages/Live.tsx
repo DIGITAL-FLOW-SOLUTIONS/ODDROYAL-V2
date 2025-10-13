@@ -14,20 +14,18 @@ interface LiveProps {
 }
 
 export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LiveProps) {
-  // [LOG] Track page component renders
-  console.count('Render: Live Page');
-  
   const { mode } = useMode();
   
-  // Subscribe to global store - instant access, no REST calls
-  const matches = useMatchStore(state => state.matches);
+  // Subscribe only to lastUpdate - triggers re-render only when data actually changes
+  const lastUpdate = useMatchStore(state => state.lastUpdate);
   const sports = useMatchStore(state => state.sports);
   const leagues = useMatchStore(state => state.leagues);
   
-  // Filter live matches with useMemo to avoid infinite loops
+  // Filter live matches - reads current state without subscribing to it
   const liveMatches = useMemo(() => {
-    return Array.from(matches.values()).filter(m => m.status === 'live');
-  }, [matches]);
+    const currentMatches = useMatchStore.getState().matches;
+    return Array.from(currentMatches.values()).filter(m => m.status === 'live');
+  }, [lastUpdate]);
   
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
   const [selectedSport, setSelectedSport] = useState<string | null>(null);

@@ -28,6 +28,7 @@ export function useWebSocket() {
     updateOdds,
     updateMarket,
     batchUpdateMatches,
+    batchUpdateOdds,
     removeMatch,
     setConnected,
     setInitialData,
@@ -88,6 +89,37 @@ export function useWebSocket() {
           switch (message.type) {
             case 'connection':
               console.log('📡 Connected to live updates:', message.message);
+              break;
+
+            case 'batch:matches':
+              console.log(`[WS] Processing batch:matches (${message.count} updates)`);
+              // Process batched match updates in a single store mutation
+              const matchesToUpdate = message.updates.map((update: any) => {
+                if (update.type === 'match:new') {
+                  return {
+                    match_id: update.match.match_id,
+                    ...update.match,
+                  };
+                } else {
+                  return {
+                    match_id: update.match_id,
+                    ...update.updates,
+                  };
+                }
+              });
+              // Use batch update for single store mutation
+              batchUpdateMatches(matchesToUpdate);
+              break;
+
+            case 'batch:odds':
+              console.log(`[WS] Processing batch:odds (${message.count} updates)`);
+              // Process batched odds updates efficiently
+              const oddsUpdates = message.updates.map((update: any) => ({
+                match_id: update.match_id,
+                ...update.odds,
+                timestamp: update.timestamp,
+              }));
+              batchUpdateOdds(oddsUpdates);
               break;
 
             case 'match:update':
@@ -184,7 +216,7 @@ export function useWebSocket() {
       console.error('❌ Failed to create WebSocket:', error);
       isConnectingRef.current = false;
     }
-  }, [updateMatch, updateOdds, updateMarket, removeMatch, setConnected]);
+  }, [updateMatch, updateOdds, updateMarket, batchUpdateOdds, removeMatch, setConnected, setInitialData]);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
