@@ -212,12 +212,12 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
           />
         </div>
 
-        {/* Favorite Button */}
+        {/* Favorite Button - Hidden on mobile */}
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleFavorite}
-          className="h-8 w-8 flex-shrink-0"
+          className="h-8 w-8 flex-shrink-0 hidden md:flex"
           data-testid={`favorite-${match.match_id}`}
         >
           <Star className={`h-4 w-4 ${isFavorite ? 'fill-yellow-500 text-yellow-500' : ''}`} />

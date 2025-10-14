@@ -112,7 +112,7 @@ const MatchCard = memo(function MatchCard({ match, onAddToBetSlip }: MatchCardPr
               size="icon"
               onClick={toggleFavorite}
               data-testid={`button-favorite-${match.id}`}
-              className="h-6 w-6 bg-surface-6 border-0 rounded-md"
+              className="h-6 w-6 bg-surface-6 border-0 rounded-md hidden md:flex"
             >
               <Star 
                 className={`h-3 w-3 ${isFavorite ? 'fill-yellow-500 text-yellow-500' : ''}`} 
