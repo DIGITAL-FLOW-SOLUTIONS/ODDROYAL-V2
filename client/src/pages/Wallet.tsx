@@ -115,9 +115,7 @@ function Wallet() {
             data-testid="text-wallet-balance"
           >
             {user
-              ? currencyUtils.formatCurrency(
-                  currencyUtils.poundsToCents(parseFloat(user.balance)),
-                )
+              ? `KES ${parseFloat(user.balance).toFixed(2)}`
               : ""}
           </p>
         </div>
@@ -138,9 +136,7 @@ function Wallet() {
               data-testid="text-current-balance"
             >
               {user
-                ? currencyUtils.formatCurrency(
-                    currencyUtils.poundsToCents(parseFloat(user.balance)),
-                  )
+                ? `KES ${parseFloat(user.balance).toFixed(2)}`
                 : ""}
             </div>
           </CardContent>
@@ -235,9 +231,7 @@ function Wallet() {
                 <p className="text-sm text-muted-foreground">
                   Available balance:{" "}
                   {user
-                    ? currencyUtils.formatCurrency(
-                        currencyUtils.poundsToCents(parseFloat(user.balance)),
-                      )
+                    ? `KES ${parseFloat(user.balance).toFixed(2)}`
                     : ""}
                 </p>
                 <Button

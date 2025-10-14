@@ -276,7 +276,7 @@ function Profile() {
                       <label className="text-sm font-medium">Account Balance</label>
                     </div>
                     <p className="text-base md:text-lg font-bold text-green-600" data-testid="text-balance">
-                      {userProfile ? currencyUtils.formatCurrency(currencyUtils.poundsToCents(parseFloat(userProfile.balance))) : ''}
+                      {userProfile ? `KES ${parseFloat(userProfile.balance).toFixed(2)}` : ''}
                     </p>
                   </div>
                 </div>

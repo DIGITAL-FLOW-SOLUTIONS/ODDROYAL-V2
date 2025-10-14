@@ -131,7 +131,7 @@ function Dashboard() {
         <div className="text-right">
           <p className="text-sm text-muted-foreground">Account Balance</p>
           <p className="text-2xl font-bold" data-testid="text-balance">
-            {currencyUtils.formatCurrency(parseFloat(user.balance))}
+            KES {parseFloat(user.balance).toFixed(2)}
           </p>
         </div>
       </div>
