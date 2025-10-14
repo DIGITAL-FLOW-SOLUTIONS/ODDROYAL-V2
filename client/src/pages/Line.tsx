@@ -116,7 +116,7 @@ function LineContent({ onAddToBetSlip }: LineProps) {
                 draw: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === 'Draw')?.price || 0,
                 away: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
               }
-            : null,
+            : { home: 0, draw: 0, away: 0 },
           additionalMarkets: match.bookmakers?.[0]?.markets?.length || 0,
         }))
       })) || []
