@@ -6,6 +6,10 @@ const ODDS_API_BASE = process.env.ODDS_API_BASE || 'https://api.the-odds-api.com
 const ODDS_API_KEY = process.env.ODDS_API_KEY;
 const CONCURRENCY_LIMIT = parseInt(process.env.CONCURRENCY_LIMIT || '6');
 
+if (!ODDS_API_KEY) {
+  throw new Error('ODDS_API_KEY environment variable is required');
+}
+
 // Rate limiting configuration
 const RATE_LIMIT_CONFIG = {
   maxRetries: 3,

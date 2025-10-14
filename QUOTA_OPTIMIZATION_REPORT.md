@@ -65,12 +65,28 @@ Successfully optimized API usage from **~30M credits/month** to **~2.27M credits
 
 ## Files Modified
 1. `server/match-utils.ts` - Added sport-specific configs, reduced football leagues to 30
-2. `server/odds-api-client.ts` - Dynamic credit cost calculation
+2. `server/odds-api-client.ts` - Dynamic credit cost calculation, proper API key validation
 3. `server/api-quota-tracker.ts` - Variable credit cost tracking
-4. `server/preload-worker.ts` - Sport-specific configs + merge fix
+4. `server/preload-worker.ts` - Sport-specific configs + merge fix, removed duplicate Redis connection
 5. `server/refresh-worker.ts` - Optimized intervals + sport-specific configs
+6. `server/redis-cache.ts` - Fixed race condition preventing duplicate connections
+
+## Critical Bug Fix (Oct 14, 2025)
+**Problem**: Preload worker wasn't running - no API requests were being made despite having ODDS_API_KEY configured
+
+**Root Cause**: 
+- Duplicate Redis connection attempt in `preload-worker.ts` 
+- Race condition in `redis-cache.ts` connect() method
+- Both caused "Redis is already connecting/connected" errors
+
+**Solution**:
+1. Removed redundant `redisCache.connect()` in preload worker (server initialization already connects)
+2. Fixed race condition by checking actual ioredis client status instead of async flags
+3. Increased preload timeout from 30s to 60s for all sports to load
+
+**Result**: ✅ API successfully fetching data - 96 matches loaded across 7 sports
 
 ## Next Steps
-- Monitor actual quota usage in production
+- Monitor actual quota usage in production (should be ~2.27M/month)
 - Adjust intervals if needed based on real-world patterns
 - Consider further optimizations if approaching 80% of quota

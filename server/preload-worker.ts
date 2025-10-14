@@ -64,8 +64,8 @@ export class PreloadWorker {
     logger.info('🚀 Starting full preload of all sports data (dynamic)...');
     
     try {
-      // Connect to Redis
-      await redisCache.connect();
+      // Note: Redis connection is handled by server initialization (server/index.ts)
+      // No need to connect here - it's already connected
       
       // Fetch all available sports from The Odds API and group them
       await this.fetchAndGroupSports();

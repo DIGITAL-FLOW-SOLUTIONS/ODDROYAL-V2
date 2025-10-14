@@ -203,13 +203,13 @@ async function withTimeout<T>(
             logger.info("Starting data preload...");
             const preloadReport = await withTimeout(
               preloadWorker.preloadAll(),
-              30000,
+              60000,
               "Data preload"
             );
             logger.success("Preload complete:", preloadReport);
           } catch (redisErr) {
             logger.warn("Redis/preload failed, continuing without cache:", redisErr);
-            // Continue without Redis - app will use SportMonks API directly
+            // Continue without Redis - app will use direct API calls
           }
           
           // Start refresh worker if Redis connected (even if preload timed out)

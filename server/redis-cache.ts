@@ -11,6 +11,8 @@ if (!REDIS_URL) {
 class RedisCacheManager {
   private client: Redis;
   private connected: boolean = false;
+  private connecting: boolean = false;
+  private connectionPromise: Promise<void> | null = null;
 
   constructor() {
     this.client = new Redis(REDIS_URL as string, {
@@ -22,23 +24,48 @@ class RedisCacheManager {
     this.client.on("connect", () => {
       logger.success("Redis connected");
       this.connected = true;
+      this.connecting = false;
     });
 
     this.client.on("error", (err) => {
       logger.error("Redis connection error:", err);
       this.connected = false;
+      this.connecting = false;
     });
 
     this.client.on("close", () => {
       logger.info("Redis connection closed");
       this.connected = false;
+      this.connecting = false;
     });
   }
 
   async connect(): Promise<void> {
-    if (!this.connected) {
-      await this.client.connect();
+    // Check the actual Redis client status
+    const status = this.client.status;
+    
+    // If already connected or connecting, return/wait
+    if (status === 'ready' || status === 'connect') {
+      return;
     }
+    
+    if (status === 'connecting') {
+      // If currently connecting, wait for it
+      return new Promise((resolve, reject) => {
+        this.client.once('ready', resolve);
+        this.client.once('error', reject);
+      });
+    }
+    
+    // Start new connection attempt
+    this.connecting = true;
+    this.connectionPromise = this.client.connect().catch(err => {
+      this.connecting = false;
+      this.connectionPromise = null;
+      throw err;
+    });
+    
+    return this.connectionPromise;
   }
 
   async disconnect(): Promise<void> {
