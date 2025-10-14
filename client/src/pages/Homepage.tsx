@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
 import { useMatchStore } from "@/store/matchStore";
+import { usePrematchMatches } from "@/hooks/usePrematchMatches";
 
 interface HomepageProps {
   onAddToBetSlip?: (selection: any) => void;
@@ -31,6 +32,9 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
   const odds = useMatchStore(state => state.odds);
   const isConnected = useMatchStore(state => state.isConnected);
   const hasInitialData = useRef(false);
+  
+  // Get prematch matches
+  const { data: prematchData, isLoading: isPrematchLoading } = usePrematchMatches();
   
   // Filter live matches with React.useMemo to prevent unnecessary recalculations
   // Only re-filter when matches Map reference changes (which happens on actual updates)
@@ -56,24 +60,21 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
     }
   }, [liveMatches.length, isConnected, setPageLoading]);
 
-  // Featured matches from live data with actual odds
+  // Featured matches from prematch data with actual odds
   const featuredMatches: any[] = useMemo(() => {
-    return liveMatches.slice(0, 6).map((match: any) => {
-      const matchOdds = odds.get(match.match_id);
-      return {
-        id: match.match_id,
-        homeTeam: { name: match.home_team, logo: match.home_team_logo },
-        awayTeam: { name: match.away_team, logo: match.away_team_logo },
-        kickoffTime: match.commence_time,
-        league: match.league_name,
-        odds: {
-          home: matchOdds?.home || 0,
-          draw: matchOdds?.draw || 0,
-          away: matchOdds?.away || 0
-        }
-      };
-    });
-  }, [liveMatches, odds]);
+    if (!prematchData?.allMatches || prematchData.allMatches.length === 0) {
+      return [];
+    }
+    
+    // Sort by kickoff time (soonest first) and take first 6
+    return prematchData.allMatches
+      .sort((a: any, b: any) => {
+        const dateA = new Date(a.kickoffTime).getTime();
+        const dateB = new Date(b.kickoffTime).getTime();
+        return dateA - dateB;
+      })
+      .slice(0, 6);
+  }, [prematchData]);
 
   const topLeagues = [
     { id: "1", name: "Premier League", country: "England", matches: 89, logo: "⚽" },
@@ -151,8 +152,8 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p className="font-medium">No live matches at the moment</p>
-                    <p className="text-sm mt-1">Check back during match times</p>
+                    <p className="font-medium">No upcoming matches available</p>
+                    <p className="text-sm mt-1">Check back soon for scheduled matches</p>
                   </div>
                 )}
               </CardContent>
