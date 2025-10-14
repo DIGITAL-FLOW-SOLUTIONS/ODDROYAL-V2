@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useMode } from "@/contexts/ModeContext";
 import { useQuery } from "@tanstack/react-query";
-import { Clock } from "lucide-react";
+import { Clock, AlertCircle } from "lucide-react";
 
 // Import all the new components
 import HeroBanner from "@/components/HeroBanner";
@@ -15,7 +15,7 @@ interface LineProps {
   onAddToBetSlip?: (selection: any) => void;
 }
 
-export default function Line({ onAddToBetSlip }: LineProps) {
+function LineContent({ onAddToBetSlip }: LineProps) {
   console.log('[LINE] Component render START');
   const [selectedLeague, setSelectedLeague] = useState("all");
   const { mode, setMode } = useMode();
@@ -268,4 +268,34 @@ export default function Line({ onAddToBetSlip }: LineProps) {
       </div>
     </div>
   );
+}
+
+// Error boundary wrapper to catch any rendering errors
+export default function Line(props: LineProps) {
+  console.log('[LINE] Wrapper component mounting');
+  
+  try {
+    return <LineContent {...props} />;
+  } catch (error) {
+    console.error('[LINE] RENDER ERROR:', error);
+    return (
+      <div className="flex-1 overflow-y-auto">
+        <div className="container mx-auto py-12">
+          <div className="flex flex-col items-center justify-center gap-4 text-center">
+            <AlertCircle className="h-16 w-16 text-destructive" />
+            <h2 className="text-2xl font-bold text-foreground">Error Loading Line Page</h2>
+            <p className="text-muted-foreground max-w-md">
+              {error instanceof Error ? error.message : 'An unexpected error occurred'}
+            </p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }
