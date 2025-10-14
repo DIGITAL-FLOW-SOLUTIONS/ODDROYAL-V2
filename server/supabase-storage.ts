@@ -1613,30 +1613,35 @@ export class SupabaseStorage implements IStorage {
         .from('matches')
         .update(updateData)
         .eq('id', id)
-        .select()
-        .single();
+        .select();
 
       if (error) {
         throw new Error(`Failed to update match: ${error.message}`);
       }
 
+      if (!data || data.length === 0) {
+        throw new Error(`Match not found: ${id}`);
+      }
+
+      const matchData = data[0];
+
       return {
-        id: data.id,
-        externalId: data.external_id,
-        externalSource: data.external_source,
-        sport: data.sport,
-        leagueId: data.league_id,
-        leagueName: data.league_name,
-        homeTeamId: data.home_team_id,
-        homeTeamName: data.home_team_name,
-        awayTeamId: data.away_team_id,
-        awayTeamName: data.away_team_name,
-        kickoffTime: data.kickoff_time,
-        status: data.status,
-        homeScore: data.home_score,
-        awayScore: data.away_score,
-        isManual: data.is_manual,
-        updatedAt: data.updated_at
+        id: matchData.id,
+        externalId: matchData.external_id,
+        externalSource: matchData.external_source,
+        sport: matchData.sport,
+        leagueId: matchData.league_id,
+        leagueName: matchData.league_name,
+        homeTeamId: matchData.home_team_id,
+        homeTeamName: matchData.home_team_name,
+        awayTeamId: matchData.away_team_id,
+        awayTeamName: matchData.away_team_name,
+        kickoffTime: matchData.kickoff_time,
+        status: matchData.status,
+        homeScore: matchData.home_score,
+        awayScore: matchData.away_score,
+        isManual: matchData.is_manual,
+        updatedAt: matchData.updated_at
       };
     } catch (error: any) {
       console.error('Error updating match:', error);

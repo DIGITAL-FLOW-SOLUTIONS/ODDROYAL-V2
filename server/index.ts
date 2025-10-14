@@ -111,6 +111,26 @@ async function withTimeout<T>(
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
+    // Production: Add caching middleware for static assets before serveStatic
+    app.use((req, res, next) => {
+      const path = req.path;
+      
+      // Cache images, fonts, and other static assets aggressively (1 year)
+      if (path.match(/\.(jpg|jpeg|png|gif|svg|webp|ico|woff|woff2|ttf|eot)$/i)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+      // Cache JS and CSS with versioning (Vite adds hashes to filenames) (1 year)
+      else if (path.match(/\.(js|css)$/i)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+      // Don't cache HTML files (always fresh)
+      else if (path.match(/\.html$/i) || path === '/') {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      }
+      
+      next();
+    });
+    
     serveStatic(app);
   }
 
