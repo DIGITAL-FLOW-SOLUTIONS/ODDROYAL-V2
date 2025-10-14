@@ -241,6 +241,7 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   // Create children with props by providing context
+  console.log('[LAYOUT] Rendering children:', (children as any)?.type?.name);
   const childrenWithProps = React.cloneElement(children as React.ReactElement, {
     onAddToBetSlip: handleAddToBetSlip,
     betSlipSelections

@@ -16,6 +16,7 @@ interface LineProps {
 }
 
 export default function Line({ onAddToBetSlip }: LineProps) {
+  console.log('[LINE] Component render START');
   const [selectedLeague, setSelectedLeague] = useState("all");
   const { mode, setMode } = useMode();
 
@@ -31,12 +32,14 @@ export default function Line({ onAddToBetSlip }: LineProps) {
       const response = await fetch(`/api/menu?mode=${mode}`);
       if (!response.ok) throw new Error('Failed to fetch menu');
       const result = await response.json();
+      console.log('[LINE] Menu data received:', result.data);
       return result.data;
     },
     staleTime: mode === 'live' ? 60 * 1000 : 5 * 60 * 1000,
   });
 
   const sports = menuData?.sports || [];
+  console.log('[LINE] Sports:', sports.length, 'Mode:', mode);
   
   // Fetch matches for all leagues
   const leagueIds = useMemo(() => {
@@ -46,6 +49,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         ids.push({ sport: sport.sport_key, leagueId: league.league_id });
       });
     });
+    console.log('[LINE] League IDs to fetch:', ids.length);
     return ids;
   }, [sports]);
 
@@ -53,6 +57,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const leagueMatchesQueries = useQuery({
     queryKey: ['/api/line/all', mode, leagueIds.map(l => l.leagueId).join(',')],
     queryFn: async () => {
+      console.log('[LINE] Fetching matches for', leagueIds.length, 'leagues');
       const results = await Promise.all(
         leagueIds.map(async ({ sport, leagueId }) => {
           try {
@@ -65,6 +70,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
           }
         })
       );
+      console.log('[LINE] Fetched results:', results.length, 'Total matches:', results.reduce((sum, r) => sum + r.matches.length, 0));
       return results;
     },
     enabled: leagueIds.length > 0,
@@ -72,6 +78,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   });
 
   const isLoading = menuLoading || leagueMatchesQueries.isLoading;
+  console.log('[LINE] Loading states - menu:', menuLoading, 'matches:', leagueMatchesQueries.isLoading);
 
   // Build match lookup by league
   const matchesByLeague = useMemo(() => {
@@ -79,12 +86,13 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     leagueMatchesQueries.data?.forEach(({ leagueId, matches }) => {
       map.set(leagueId, matches);
     });
+    console.log('[LINE] Matches by league map size:', map.size);
     return map;
   }, [leagueMatchesQueries.data]);
 
   // Group sports with their leagues and matches - maintaining menu order
   const sportGroups = useMemo(() => {
-    return sports.map((sport: any) => ({
+    const groups = sports.map((sport: any) => ({
       id: sport.sport_key,
       name: sport.sport_title,
       leagues: sport.leagues?.map((league: any) => ({
@@ -113,6 +121,8 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         }))
       })) || []
     }));
+    console.log('[LINE] Sport groups:', groups.length, 'Total matches:', groups.reduce((sum: number, g: any) => sum + g.leagues.reduce((s: number, l: any) => s + l.matches.length, 0), 0));
+    return groups;
   }, [sports, matchesByLeague]);
 
   // Collect all matches for Popular Events
