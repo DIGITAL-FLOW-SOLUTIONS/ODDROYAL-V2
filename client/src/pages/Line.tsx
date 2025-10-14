@@ -272,12 +272,17 @@ function LineContent({ onAddToBetSlip }: LineProps) {
 
 // Error boundary wrapper to catch any rendering errors
 export default function Line(props: LineProps) {
-  console.log('[LINE] Wrapper component mounting');
+  console.log('='.repeat(80));
+  console.log('[LINE] ✅ WRAPPER COMPONENT IS MOUNTING');
+  console.log('[LINE] Props:', props);
+  console.log('='.repeat(80));
   
   try {
     return <LineContent {...props} />;
   } catch (error) {
-    console.error('[LINE] RENDER ERROR:', error);
+    console.error('='.repeat(80));
+    console.error('[LINE] ❌ RENDER ERROR CAUGHT:', error);
+    console.error('='.repeat(80));
     return (
       <div className="flex-1 overflow-y-auto">
         <div className="container mx-auto py-12">
