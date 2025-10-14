@@ -46,6 +46,10 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
     if (liveMatches.length > 0) {
       hasInitialData.current = true;
       setPageLoading(false);
+    } else if (isConnected) {
+      // We're connected but no matches - stop loading and show empty state
+      hasInitialData.current = true;
+      setPageLoading(false);
     } else if (!isConnected) {
       // Show loading while disconnected and no data
       setPageLoading(!hasInitialData.current);
@@ -131,18 +135,26 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {featuredMatches.map((match: any, index: number) => (
-                    <motion.div
-                      key={match.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                    >
-                      <MatchCard match={match} onAddToBetSlip={onAddToBetSlip} />
-                    </motion.div>
-                  ))}
-                </div>
+                {featuredMatches.length > 0 ? (
+                  <div className="space-y-4">
+                    {featuredMatches.map((match: any, index: number) => (
+                      <motion.div
+                        key={match.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                      >
+                        <MatchCard match={match} onAddToBetSlip={onAddToBetSlip} />
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p className="font-medium">No live matches at the moment</p>
+                    <p className="text-sm mt-1">Check back during match times</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
