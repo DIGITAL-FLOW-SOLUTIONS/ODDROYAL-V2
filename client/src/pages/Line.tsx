@@ -24,8 +24,8 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const leagues = useMatchStore(state => state.leagues);
   const isConnected = useMatchStore(state => state.isConnected);
   
-  // Determine if we're loading (no data yet and not connected)
-  const isLoading = matches.size === 0 && !isConnected;
+  // Determine if we're loading - show loading state until we have matches data
+  const isLoading = matches.size === 0;
   
   // Filter prematch matches with useMemo to avoid infinite loops
   const prematchMatches = useMemo(() => {
