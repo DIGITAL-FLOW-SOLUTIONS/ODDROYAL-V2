@@ -601,9 +601,62 @@ class RedisCacheManager {
             marketStatus = status || 'open';
           }
 
+          // Normalize upstream API status values to canonical set
+          // Odds API may use: "in_progress", "halftime", "live", "not_started", "pre-game", "final", "finished"
+          const normalizeStatus = (status: string | undefined): 'live' | 'upcoming' | 'completed' => {
+            if (!status) {
+              // Fallback: determine from commence_time
+              const commenceTime = new Date(match.commence_time).getTime();
+              const now = Date.now();
+              const elapsedMin = Math.floor((now - commenceTime) / 60000);
+              
+              if (elapsedMin >= 0 && elapsedMin <= 120) return 'live';
+              if (elapsedMin < 0) return 'upcoming';
+              return 'completed';
+            }
+            
+            const lowerStatus = status.toLowerCase();
+            
+            // Map to "live"
+            if (lowerStatus === 'live' || lowerStatus === 'in_progress' || 
+                lowerStatus === 'in-progress' || lowerStatus === 'halftime' || 
+                lowerStatus === 'half-time') {
+              return 'live';
+            }
+            
+            // Map to "upcoming"
+            if (lowerStatus === 'upcoming' || lowerStatus === 'not_started' || 
+                lowerStatus === 'not-started' || lowerStatus === 'pre-game' ||
+                lowerStatus === 'pregame' || lowerStatus === 'scheduled') {
+              return 'upcoming';
+            }
+            
+            // Map to "completed"
+            if (lowerStatus === 'completed' || lowerStatus === 'finished' || 
+                lowerStatus === 'final' || lowerStatus === 'ended') {
+              return 'completed';
+            }
+            
+            // Default fallback based on commence_time
+            const commenceTime = new Date(match.commence_time).getTime();
+            const now = Date.now();
+            const elapsedMin = Math.floor((now - commenceTime) / 60000);
+            
+            if (elapsedMin >= 0 && elapsedMin <= 120) return 'live';
+            if (elapsedMin < 0) return 'upcoming';
+            return 'completed';
+          };
+          
+          const actualStatus = normalizeStatus(match.status);
+          
+          // Log status normalization for debugging (only for first few matches)
+          if (allMatches.length < 3 && match.status && match.status !== actualStatus) {
+            console.log(`🔄 Status normalized: "${match.status}" → "${actualStatus}" for ${match.home_team} vs ${match.away_team}`);
+          }
+
           allMatches.push({
             ...match,
-            status: 'live', // Explicitly set status for live matches
+            status: actualStatus,
             home_team_logo: homeLogo?.logo || null,
             away_team_logo: awayLogo?.logo || null,
             odds_deltas: oddsDeltas,
