@@ -27,16 +27,16 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   // Determine if we're loading - show loading state until we have matches data
   const isLoading = matches.size === 0;
   
-  // Filter prematch matches with useMemo to avoid infinite loops
-  const prematchMatches = useMemo(() => {
-    return Array.from(matches.values()).filter(m => m.status === 'upcoming');
+  // Get all matches (both live and upcoming) with useMemo to avoid infinite loops
+  const allMatches = useMemo(() => {
+    return Array.from(matches.values());
   }, [matches]);
 
-  // Group prematch matches by sport and league
+  // Group all matches by sport and league
   const sportGroups = useMemo(() => {
     const groupsMap = new Map<string, any>();
     
-    for (const match of prematchMatches) {
+    for (const match of allMatches) {
       const sport = sports.find(s => s.sport_key === match.sport_key);
       if (!sport) continue;
       
@@ -100,11 +100,11 @@ export default function Line({ onAddToBetSlip }: LineProps) {
     });
     
     return groups;
-  }, [prematchMatches, sports]);
+  }, [allMatches, sports]);
 
   // Transform data for Popular Events - only use real data, include logos
   const popularMatches = useMemo(() => {
-    return prematchMatches.slice(0, 6).map((match: any) => ({
+    return allMatches.slice(0, 6).map((match: any) => ({
       id: match.match_id,
       homeTeam: {
         name: match.home_team,
@@ -130,7 +130,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
           },
       additionalMarkets: match.bookmakers?.[0]?.markets?.length || 0,
     }));
-  }, [prematchMatches]);
+  }, [allMatches]);
 
   // Handle odds selection for bet slip
   const handleOddsClick = (
@@ -141,7 +141,7 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   ) => {
     if (!onAddToBetSlip) return;
 
-    const match = prematchMatches.find((m: any) => m.match_id === matchId);
+    const match = allMatches.find((m: any) => m.match_id === matchId);
     if (!match) return;
 
     // Create human-readable selection name
