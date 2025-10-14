@@ -385,16 +385,16 @@ export function hasPermission(role: AdminRole, permission: string): boolean {
 
 // ===================== BET PLACEMENT SCHEMA =====================
 
-// Betting limits constants
+// Betting limits constants (all amounts in KES)
 export const BETTING_LIMITS = {
-  MIN_STAKE_CENTS: 150000, // KES 1,500 (for ordinary/express bets)
-  MAX_STAKE_CENTS: 50000000, // KES 500,000
-  MIN_SINGLE_STAKE_CENTS: 150000, // KES 1,500 per single bet
-  MAX_SINGLE_STAKE_CENTS: 50000000, // KES 500,000 per single bet
-  MIN_EXPRESS_STAKE_CENTS: 150000, // KES 1,500 for express bets
-  MAX_EXPRESS_STAKE_CENTS: 50000000, // KES 500,000 for express bets
-  MIN_SYSTEM_STAKE_CENTS: 350000, // KES 3,500 for system bets
-  MAX_SYSTEM_STAKE_CENTS: 50000000, // KES 500,000 for system bets
+  MIN_STAKE_CENTS: 1500, // KES 1,500 (for ordinary/express bets)
+  MAX_STAKE_CENTS: 500000, // KES 500,000
+  MIN_SINGLE_STAKE_CENTS: 1500, // KES 1,500 per single bet
+  MAX_SINGLE_STAKE_CENTS: 500000, // KES 500,000 per single bet
+  MIN_EXPRESS_STAKE_CENTS: 1500, // KES 1,500 for express bets
+  MAX_EXPRESS_STAKE_CENTS: 500000, // KES 500,000 for express bets
+  MIN_SYSTEM_STAKE_CENTS: 3500, // KES 3,500 for system bets
+  MAX_SYSTEM_STAKE_CENTS: 500000, // KES 500,000 for system bets
   MIN_EXPRESS_SELECTIONS: 2,
   MIN_SYSTEM_SELECTIONS: 3,
   MAX_SELECTIONS: 20,
@@ -451,7 +451,7 @@ export const betPlacementSchema = z.object({
   if (data.totalStakeCents < minStake) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `Minimum stake for ${data.betType} bet is ${currencyUtils.formatCurrency(minStake)}`,
+      message: `Minimum stake for ${data.betType} bet is KES ${minStake.toFixed(2)}`,
       path: ["totalStakeCents"],
     });
   }
@@ -459,7 +459,7 @@ export const betPlacementSchema = z.object({
   if (data.totalStakeCents > maxStake) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `Maximum stake for ${data.betType} bet is ${currencyUtils.formatCurrency(maxStake)}`,
+      message: `Maximum stake for ${data.betType} bet is KES ${maxStake.toFixed(2)}`,
       path: ["totalStakeCents"],
     });
   }
@@ -499,10 +499,10 @@ export const stakeValidation = {
     }
     
     if (stakeCents < limits.min) {
-      return `Minimum stake is ${currencyUtils.formatCurrency(limits.min)}`;
+      return `Minimum stake is KES ${limits.min.toFixed(2)}`;
     }
     if (stakeCents > limits.max) {
-      return `Maximum stake is ${currencyUtils.formatCurrency(limits.max)}`;
+      return `Maximum stake is KES ${limits.max.toFixed(2)}`;
     }
     return "Invalid stake amount";
   }

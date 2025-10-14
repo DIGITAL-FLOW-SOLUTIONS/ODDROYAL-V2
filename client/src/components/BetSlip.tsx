@@ -105,13 +105,12 @@ export default function BetSlip({
 
   const updateStake = (selectionId: string, value: string) => {
     const numValue = parseFloat(value) || 0;
-    const stakeCents = Math.round(numValue * 100);
     
-    // Validate stake in real-time
+    // Validate stake in real-time (values are in KES)
     let error = "";
     if (value && numValue > 0) {
-      if (!stakeValidation.isValidSingleStake(stakeCents)) {
-        error = stakeValidation.formatStakeError(stakeCents, 'single');
+      if (!stakeValidation.isValidSingleStake(numValue)) {
+        error = stakeValidation.formatStakeError(numValue, 'single');
       }
     }
     
@@ -121,12 +120,11 @@ export default function BetSlip({
   
   const updateExpressStake = (value: string) => {
     const numValue = parseFloat(value) || 0;
-    const stakeCents = Math.round(numValue * 100);
     
     let error = "";
     if (value && numValue > 0) {
-      if (!stakeValidation.isValidExpressStake(stakeCents)) {
-        error = stakeValidation.formatStakeError(stakeCents, 'express');
+      if (!stakeValidation.isValidExpressStake(numValue)) {
+        error = stakeValidation.formatStakeError(numValue, 'express');
       }
     }
     
@@ -136,12 +134,11 @@ export default function BetSlip({
   
   const updateSystemStake = (value: string) => {
     const numValue = parseFloat(value) || 0;
-    const stakeCents = Math.round(numValue * 100);
     
     let error = "";
     if (value && numValue > 0) {
-      if (!stakeValidation.isValidSystemStake(stakeCents)) {
-        error = stakeValidation.formatStakeError(stakeCents, 'system');
+      if (!stakeValidation.isValidSystemStake(numValue)) {
+        error = stakeValidation.formatStakeError(numValue, 'system');
       }
     }
     
@@ -463,8 +460,8 @@ export default function BetSlip({
                           type="number"
                           placeholder="Stake"
                           step="0.01"
-                          min={currencyUtils.centsToPounds(BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS)}
-                          max={currencyUtils.centsToPounds(BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS)}
+                          min={BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS}
+                          max={BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS}
                           value={stakes[selection.id] || ""}
                           onChange={(e) =>
                             updateStake(selection.id, e.target.value)
@@ -563,8 +560,8 @@ export default function BetSlip({
                       type="number"
                       placeholder="Express stake"
                       step="0.01"
-                      min={currencyUtils.centsToPounds(BETTING_LIMITS.MIN_STAKE_CENTS)}
-                      max={currencyUtils.centsToPounds(BETTING_LIMITS.MAX_STAKE_CENTS)}
+                      min={BETTING_LIMITS.MIN_STAKE_CENTS}
+                      max={BETTING_LIMITS.MAX_STAKE_CENTS}
                       value={expressStake || ""}
                       onChange={(e) => updateExpressStake(e.target.value)}
                       data-testid="input-express-stake"
@@ -662,8 +659,8 @@ export default function BetSlip({
                           type="number"
                           placeholder="System stake"
                           step="0.01"
-                          min={currencyUtils.centsToPounds(BETTING_LIMITS.MIN_STAKE_CENTS)}
-                          max={currencyUtils.centsToPounds(BETTING_LIMITS.MAX_STAKE_CENTS)}
+                          min={BETTING_LIMITS.MIN_STAKE_CENTS}
+                          max={BETTING_LIMITS.MAX_STAKE_CENTS}
                           value={systemStake || ""}
                           onChange={(e) => updateSystemStake(e.target.value)}
                           data-testid="input-system-stake"
