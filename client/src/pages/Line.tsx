@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useMode } from "@/contexts/ModeContext";
 import { useQuery } from "@tanstack/react-query";
+import { Clock } from "lucide-react";
 
 // Import all the new components
 import HeroBanner from "@/components/HeroBanner";
@@ -176,6 +177,9 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const footballSport = sportGroups.find((s: any) => s.id === 'football');
   const otherSports = sportGroups.filter((s: any) => s.id !== 'football');
 
+  // Check if we have any actual matches
+  const hasMatches = allMatchesWithLeague.length > 0;
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="container mx-auto pb-6 space-y-8">
@@ -191,14 +195,16 @@ export default function Line({ onAddToBetSlip }: LineProps) {
         )}
 
         {/* No data state */}
-        {!isLoading && sportGroups.length === 0 && (
+        {!isLoading && !hasMatches && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No matches available</p>
+            <Clock className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <p className="text-lg font-medium text-foreground mb-2">No matches available</p>
+            <p className="text-muted-foreground">Check back later for upcoming matches</p>
           </div>
         )}
 
         {/* Content - only show when we have data */}
-        {!isLoading && sportGroups.length > 0 && (
+        {!isLoading && hasMatches && (
           <>
             {/* Popular Events - First 6 matches */}
             <motion.div
