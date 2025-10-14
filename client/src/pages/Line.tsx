@@ -64,7 +64,7 @@ function LineContent({ onAddToBetSlip }: LineProps) {
             const response = await fetch(`/api/line/${sport}/${leagueId}?mode=${mode}`);
             if (!response.ok) return { sport, leagueId, matches: [] };
             const result = await response.json();
-            return { sport, leagueId, matches: result.data || [] };
+            return { sport, leagueId, matches: result.data?.matches || [] };
           } catch (error) {
             return { sport, leagueId, matches: [] };
           }
