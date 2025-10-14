@@ -14,7 +14,14 @@ interface LiveProps {
 }
 
 export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LiveProps) {
-  const { mode } = useMode();
+  const { mode, setMode } = useMode();
+  
+  // Ensure mode is set to 'live' when Live page loads
+  useEffect(() => {
+    if (mode !== 'live') {
+      setMode('live');
+    }
+  }, [mode, setMode]);
   
   // Subscribe only to lastUpdate - triggers re-render only when data actually changes
   const lastUpdate = useMatchStore(state => state.lastUpdate);

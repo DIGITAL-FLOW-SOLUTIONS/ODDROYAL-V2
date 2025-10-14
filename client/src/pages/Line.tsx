@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useMode } from "@/contexts/ModeContext";
 import { useQuery } from "@tanstack/react-query";
@@ -17,7 +17,14 @@ interface LineProps {
 
 export default function Line({ onAddToBetSlip }: LineProps) {
   const [selectedLeague, setSelectedLeague] = useState("all");
-  const { mode } = useMode();
+  const { mode, setMode } = useMode();
+
+  // Ensure mode is set to 'prematch' when Line page loads
+  useEffect(() => {
+    if (mode !== 'prematch') {
+      setMode('prematch');
+    }
+  }, [mode, setMode]);
 
   // Fetch menu data - same as sidebar, organized with football first
   const { data: menuData, isLoading: menuLoading } = useQuery({

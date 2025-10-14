@@ -26,7 +26,9 @@ import {
   Crown,
   Star,
   BarChart3,
-  Shield
+  Shield,
+  Clock,
+  Zap
 } from "lucide-react";
 
 export default function SportsSidebar() {
@@ -113,6 +115,44 @@ export default function SportsSidebar() {
                     <Link href="/">
                       <Home className="h-4 w-4" />
                       <span>Homepage</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </motion.div>
+              <motion.div
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.05 }}
+              >
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/line"}
+                    data-testid="link-prematch-sidebar"
+                    className={`${location === "/line" ? "bg-brand-surface-1 text-primary-foreground" : "bg-surface-3"} border-0 rounded-md`}
+                  >
+                    <Link href="/line">
+                      <Clock className="h-4 w-4" />
+                      <span>Pre-match</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </motion.div>
+              <motion.div
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.1 }}
+              >
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/live"}
+                    data-testid="link-live-sidebar"
+                    className={`${location === "/live" ? "bg-brand-surface-1 text-primary-foreground" : "bg-surface-3"} border-0 rounded-md`}
+                  >
+                    <Link href="/live">
+                      <Zap className="h-4 w-4" />
+                      <span>Live</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
