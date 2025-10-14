@@ -19,12 +19,10 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const [selectedLeague, setSelectedLeague] = useState("all");
   const { mode, setMode } = useMode();
 
-  // Ensure mode is set to 'prematch' when Line page loads
+  // Ensure mode is set to 'prematch' when Line page loads (run only once)
   useEffect(() => {
-    if (mode !== 'prematch') {
-      setMode('prematch');
-    }
-  }, [mode, setMode]);
+    setMode('prematch');
+  }, [setMode]);
 
   // Fetch menu data - same as sidebar, organized with football first
   const { data: menuData, isLoading: menuLoading } = useQuery({
