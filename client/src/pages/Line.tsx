@@ -16,7 +16,9 @@ interface LineProps {
 }
 
 function LineContent({ onAddToBetSlip }: LineProps) {
-  console.log('[LINE] Component render START');
+  console.log('[LINE] ========================================');
+  console.log('[LINE] COMPONENT RENDER START');
+  console.log('[LINE] ========================================');
   const [selectedLeague, setSelectedLeague] = useState("all");
   const { mode, setMode } = useMode();
 
@@ -270,37 +272,6 @@ function LineContent({ onAddToBetSlip }: LineProps) {
   );
 }
 
-// Error boundary wrapper to catch any rendering errors
 export default function Line(props: LineProps) {
-  console.log('='.repeat(80));
-  console.log('[LINE] ✅ WRAPPER COMPONENT IS MOUNTING');
-  console.log('[LINE] Props:', props);
-  console.log('='.repeat(80));
-  
-  try {
-    return <LineContent {...props} />;
-  } catch (error) {
-    console.error('='.repeat(80));
-    console.error('[LINE] ❌ RENDER ERROR CAUGHT:', error);
-    console.error('='.repeat(80));
-    return (
-      <div className="flex-1 overflow-y-auto">
-        <div className="container mx-auto py-12">
-          <div className="flex flex-col items-center justify-center gap-4 text-center">
-            <AlertCircle className="h-16 w-16 text-destructive" />
-            <h2 className="text-2xl font-bold text-foreground">Error Loading Line Page</h2>
-            <p className="text-muted-foreground max-w-md">
-              {error instanceof Error ? error.message : 'An unexpected error occurred'}
-            </p>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-            >
-              Reload Page
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  return <LineContent {...props} />;
 }
