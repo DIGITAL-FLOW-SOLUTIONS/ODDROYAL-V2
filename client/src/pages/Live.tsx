@@ -263,9 +263,6 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
                   <h3 className="text-sm font-semibold text-foreground">
                     {sport.sport_title}
                   </h3>
-                  <span className="text-xs text-muted-foreground">
-                    ({sport.total_matches} live)
-                  </span>
                 </div>
 
                 {/* Leagues */}
@@ -280,9 +277,6 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-foreground">
                               {league.league_name}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              ({league.matches.length})
                             </span>
                           </div>
                           {isExpanded ? (
