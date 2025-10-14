@@ -16,14 +16,18 @@ This function is essential for production use and must be applied immediately.
 2. Navigate to the SQL Editor
 3. Create a new query
 
-### Step 2: Run Migration 006 - Enhanced Settlement Atomicity
+### Step 2: Run Migration - Enhanced Settlement Atomicity
+
+**IMPORTANT:** Use the corrected migration file with alphabetical parameter ordering.
 
 Copy and paste the **ENTIRE contents** of the file:
 ```
-db/migrations/006_enhanced_settlement_atomicity.sql
+APPLY_THIS_IN_SUPABASE.sql
 ```
 
 into the Supabase SQL Editor and click "Run".
+
+**Note:** Supabase RPC requires function parameters in alphabetical order.
 
 This migration will:
 - ✅ Create the `settlement_audit_log` table for tracking all settlements

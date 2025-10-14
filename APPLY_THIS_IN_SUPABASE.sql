@@ -1,11 +1,19 @@
--- Enhanced Atomic Bet Settlement with Void Handling and Duplicate Prevention
--- This migration improves the settlement RPC to:
--- 1. Handle void bets (refund stake)
--- 2. Prevent duplicate settlements at DB level
--- 3. Add comprehensive error handling
--- 4. Support settlement audit trail
+-- ========================================================================
+-- CRITICAL: Apply this SQL in Supabase SQL Editor to fix bet settlement
+-- ========================================================================
+-- This creates the missing settle_bet_atomically function that is 
+-- preventing ALL bet settlements from working.
+--
+-- Instructions:
+-- 1. Open Supabase Dashboard → SQL Editor
+-- 2. Copy and paste this ENTIRE file
+-- 3. Click "Run"
+-- 4. Restart your application
+--
+-- Expected result: ✅ Function created successfully
+-- ========================================================================
 
--- First, create settlement audit log table
+-- Create settlement audit log table
 CREATE TABLE IF NOT EXISTS settlement_audit_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bet_id UUID NOT NULL REFERENCES bets(id),
@@ -19,7 +27,7 @@ CREATE TABLE IF NOT EXISTS settlement_audit_log (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create index for querying audit logs
+-- Create indexes for querying audit logs
 CREATE INDEX IF NOT EXISTS idx_settlement_audit_bet_id ON settlement_audit_log(bet_id);
 CREATE INDEX IF NOT EXISTS idx_settlement_audit_user_id ON settlement_audit_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_settlement_audit_status ON settlement_audit_log(settlement_status);
@@ -244,7 +252,7 @@ BEGIN
 END;
 $$;
 
--- Grant execute permissions (adjust roles as needed)
+-- Grant execute permissions
 GRANT EXECUTE ON FUNCTION settle_bet_atomically TO authenticated;
 GRANT EXECUTE ON FUNCTION get_settlement_statistics TO authenticated;
 
@@ -266,3 +274,16 @@ ORDER BY hour DESC;
 
 -- Create index for the view
 CREATE INDEX IF NOT EXISTS idx_settlement_audit_hour ON settlement_audit_log(date_trunc('hour', created_at));
+
+-- ========================================================================
+-- VERIFICATION QUERY
+-- ========================================================================
+-- Run this after the migration to verify:
+--
+-- SELECT routine_name, routine_type
+-- FROM information_schema.routines
+-- WHERE routine_schema = 'public'
+-- AND routine_name = 'settle_bet_atomically';
+--
+-- Expected result: One row showing the function exists
+-- ========================================================================
