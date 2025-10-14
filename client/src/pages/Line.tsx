@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useMode } from "@/contexts/ModeContext";
-import { useMatchStore } from "@/store/matchStore";
+import { useQuery } from "@tanstack/react-query";
 
 // Import all the new components
 import HeroBanner from "@/components/HeroBanner";
@@ -18,119 +18,127 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   const [selectedLeague, setSelectedLeague] = useState("all");
   const { mode } = useMode();
 
-  // Subscribe to global store - instant access, no REST calls
-  const matches = useMatchStore(state => state.matches);
-  const sports = useMatchStore(state => state.sports);
-  const leagues = useMatchStore(state => state.leagues);
-  const isConnected = useMatchStore(state => state.isConnected);
-  
-  // Determine if we're loading - show loading state until we have matches data
-  const isLoading = matches.size === 0;
-  
-  // Get all matches (both live and upcoming) with useMemo to avoid infinite loops
-  const allMatches = useMemo(() => {
-    return Array.from(matches.values());
-  }, [matches]);
+  // Fetch menu data - same as sidebar, organized with football first
+  const { data: menuData, isLoading: menuLoading } = useQuery({
+    queryKey: ['/api/menu', mode],
+    queryFn: async () => {
+      const response = await fetch(`/api/menu?mode=${mode}`);
+      if (!response.ok) throw new Error('Failed to fetch menu');
+      const result = await response.json();
+      return result.data;
+    },
+    staleTime: mode === 'live' ? 60 * 1000 : 5 * 60 * 1000,
+  });
 
-  // Group all matches by sport and league
-  const sportGroups = useMemo(() => {
-    const groupsMap = new Map<string, any>();
-    
-    for (const match of allMatches) {
-      const sport = sports.find(s => s.sport_key === match.sport_key);
-      if (!sport) continue;
-      
-      // Get or create sport group
-      let sportGroup = groupsMap.get(match.sport_key);
-      if (!sportGroup) {
-        sportGroup = {
-          id: match.sport_key,
-          name: sport.sport_title,
-          leagues: new Map<string, any>()
-        };
-        groupsMap.set(match.sport_key, sportGroup);
-      }
-      
-      // Get or create league within sport
-      let league = sportGroup.leagues.get(match.league_id);
-      if (!league) {
-        league = {
-          id: match.league_id,
-          name: match.league_name,
-          matches: []
-        };
-        sportGroup.leagues.set(match.league_id, league);
-      }
-      
-      // Transform match data to the format expected by components
-      const transformedMatch = {
-        id: match.match_id,
-        homeTeam: {
-          name: match.home_team,
-          logo: match.home_team_logo,
-        },
-        awayTeam: {
-          name: match.away_team,
-          logo: match.away_team_logo,
-        },
-        kickoffTime: match.commence_time,
-        venue: match.venue,
-        odds: match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h')
-          ? {
-              home: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
-              draw: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === 'Draw')?.price || 0,
-              away: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
-            }
-          : null,
-        additionalMarkets: match.bookmakers?.[0]?.markets?.length || 0,
-      };
-      
-      league.matches.push(transformedMatch);
-    }
-    
-    // Convert maps to arrays
-    const groups: any[] = [];
-    groupsMap.forEach(sportGroup => {
-      const leagues = Array.from(sportGroup.leagues.values());
-      groups.push({
-        id: sportGroup.id,
-        name: sportGroup.name,
-        leagues
+  const sports = menuData?.sports || [];
+  
+  // Fetch matches for all leagues
+  const leagueIds = useMemo(() => {
+    const ids: Array<{ sport: string; leagueId: string }> = [];
+    sports.forEach((sport: any) => {
+      sport.leagues?.forEach((league: any) => {
+        ids.push({ sport: sport.sport_key, leagueId: league.league_id });
       });
     });
-    
-    return groups;
-  }, [allMatches, sports]);
+    return ids;
+  }, [sports]);
+
+  // Fetch all league matches in parallel
+  const leagueMatchesQueries = useQuery({
+    queryKey: ['/api/line/all', mode, leagueIds.map(l => l.leagueId).join(',')],
+    queryFn: async () => {
+      const results = await Promise.all(
+        leagueIds.map(async ({ sport, leagueId }) => {
+          try {
+            const response = await fetch(`/api/line/${sport}/${leagueId}?mode=${mode}`);
+            if (!response.ok) return { sport, leagueId, matches: [] };
+            const result = await response.json();
+            return { sport, leagueId, matches: result.data || [] };
+          } catch (error) {
+            return { sport, leagueId, matches: [] };
+          }
+        })
+      );
+      return results;
+    },
+    enabled: leagueIds.length > 0,
+    staleTime: mode === 'live' ? 30 * 1000 : 3 * 60 * 1000,
+  });
+
+  const isLoading = menuLoading || leagueMatchesQueries.isLoading;
+
+  // Build match lookup by league
+  const matchesByLeague = useMemo(() => {
+    const map = new Map<string, any[]>();
+    leagueMatchesQueries.data?.forEach(({ leagueId, matches }) => {
+      map.set(leagueId, matches);
+    });
+    return map;
+  }, [leagueMatchesQueries.data]);
+
+  // Group sports with their leagues and matches - maintaining menu order
+  const sportGroups = useMemo(() => {
+    return sports.map((sport: any) => ({
+      id: sport.sport_key,
+      name: sport.sport_title,
+      leagues: sport.leagues?.map((league: any) => ({
+        id: league.league_id,
+        name: league.league_name,
+        matches: (matchesByLeague.get(league.league_id) || []).map((match: any) => ({
+          id: match.match_id,
+          homeTeam: {
+            name: match.home_team,
+            logo: match.home_team_logo,
+          },
+          awayTeam: {
+            name: match.away_team,
+            logo: match.away_team_logo,
+          },
+          kickoffTime: match.commence_time,
+          venue: match.venue,
+          odds: match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h')
+            ? {
+                home: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
+                draw: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === 'Draw')?.price || 0,
+                away: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
+              }
+            : null,
+          additionalMarkets: match.bookmakers?.[0]?.markets?.length || 0,
+        }))
+      })) || []
+    }));
+  }, [sports, matchesByLeague]);
+
+  // Collect all matches for Popular Events
+  const allMatchesWithLeague = useMemo(() => {
+    const matches: any[] = [];
+    sportGroups.forEach((sport: any) => {
+      sport.leagues?.forEach((league: any) => {
+        league.matches.forEach((match: any) => {
+          matches.push({ ...match, league: league.name });
+        });
+      });
+    });
+    return matches;
+  }, [sportGroups]);
 
   // Transform data for Popular Events - only use real data, include logos
   const popularMatches = useMemo(() => {
-    return allMatches.slice(0, 6).map((match: any) => ({
-      id: match.match_id,
-      homeTeam: {
-        name: match.home_team,
-        logo: match.home_team_logo,
-      },
-      awayTeam: {
-        name: match.away_team,
-        logo: match.away_team_logo,
-      },
-      kickoffTime: match.commence_time,
-      league: match.league_name,
+    return allMatchesWithLeague.slice(0, 6).map((match: any) => ({
+      id: match.id,
+      homeTeam: match.homeTeam,
+      awayTeam: match.awayTeam,
+      kickoffTime: match.kickoffTime,
+      league: match.league,
       venue: match.venue,
-      odds: match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h')
-        ? {
-            home: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
-            draw: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === 'Draw')?.price || 0,
-            away: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
-          }
-        : {
+      odds: match.odds || {
             home: 0,
             draw: 0,
             away: 0,
           },
-      additionalMarkets: match.bookmakers?.[0]?.markets?.length || 0,
+      additionalMarkets: match.additionalMarkets,
     }));
-  }, [allMatches]);
+  }, [allMatchesWithLeague]);
 
   // Handle odds selection for bet slip
   const handleOddsClick = (
@@ -141,136 +149,101 @@ export default function Line({ onAddToBetSlip }: LineProps) {
   ) => {
     if (!onAddToBetSlip) return;
 
-    const match = allMatches.find((m: any) => m.match_id === matchId);
+    const match = allMatchesWithLeague.find((m: any) => m.id === matchId);
     if (!match) return;
 
     // Create human-readable selection name
     const getSelectionName = (market: string, type: string) => {
       if (market === "1x2") {
-        return type === "home" ? "1" : type === "draw" ? "X" : "2";
+        return type === "1" ? match.homeTeam.name : type === "X" ? "Draw" : match.awayTeam.name;
       }
-      return type.charAt(0).toUpperCase() + type.slice(1);
+      return type;
     };
 
     const selection = {
-      id: `${matchId}-${market}-${type}`,
-      matchId,
-      fixtureId: matchId, // Add fixtureId for backend compatibility
-      market: market || "1x2",
-      type,
+      matchId: match.id,
+      matchName: `${match.homeTeam.name} vs ${match.awayTeam.name}`,
+      market,
       selection: getSelectionName(market, type),
       odds,
-      homeTeam: match.home_team,
-      awayTeam: match.away_team,
-      league: match.league_name || "Unknown",
-      isLive: false,
+      status: 'pending' as const,
     };
 
     onAddToBetSlip(selection);
-    console.log("Added to bet slip:", selection);
   };
 
-  // Handle league selection from Top Leagues
-  const handleLeagueSelect = (leagueId: string) => {
-    setSelectedLeague(leagueId);
-    // TODO: Filter matches based on selected league
-    console.log("Selected league:", leagueId);
-  };
-
-  // Handle favorites
-  const handleAddToFavorites = (matchId: string) => {
-    console.log("Added to favorites:", matchId);
-    // TODO: Implement favorites functionality
-  };
-
-  // Filter sport groups based on selected league
-  const filteredSportGroups =
-    selectedLeague === "all"
-      ? sportGroups
-      : sportGroups.map(sport => ({
-          ...sport,
-          leagues: sport.leagues.filter((league: any) =>
-            league.id === selectedLeague ||
-            league.name.toLowerCase().includes(selectedLeague.toLowerCase())
-          ),
-        })).filter((sport: any) => sport.leagues.length > 0);
-
-  // Show loading state while waiting for WebSocket data
-  if (isLoading) {
-    return (
-      <div className="w-full max-w-none overflow-hidden h-full">
-        <div className="p-4 space-y-8">
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center space-y-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-              <p className="text-muted-foreground">Loading prematch matches...</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Separate football from other sports - maintaining order
+  const footballSport = sportGroups.find((s: any) => s.id === 'football');
+  const otherSports = sportGroups.filter((s: any) => s.id !== 'football');
 
   return (
-    <div className="w-full max-w-none overflow-hidden h-full">
-      <div className="p-4 space-y-8">
-        {/* Hero Banner - Top promotional slider */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <HeroBanner />
-        </motion.div>
+    <div className="flex-1 overflow-y-auto">
+      <div className="container mx-auto pb-6 space-y-8">
+        {/* Hero Banner */}
+        <HeroBanner />
 
-        {/* Popular Events - Horizontal carousel of featured matches */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.6 }}
-        >
-          <PopularEvents
-            matches={popularMatches}
-            isLoading={isLoading}
-            onOddsClick={handleOddsClick}
-            onAddToFavorites={handleAddToFavorites}
-          />
-        </motion.div>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="text-center py-12">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
+            <p className="mt-4 text-muted-foreground">Loading matches...</p>
+          </div>
+        )}
 
-        {/* Top Leagues - Horizontal slider with league selection */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.6 }}
-        >
-          <TopLeagues />
-        </motion.div>
+        {/* No data state */}
+        {!isLoading && sportGroups.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">No matches available</p>
+          </div>
+        )}
 
-        {/* Sports Matches - Table format grouped by sport and league */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6, duration: 0.6 }}
-        >
-          <SportsMatches
-            sports={filteredSportGroups}
-            isLoading={isLoading}
-            onOddsClick={handleOddsClick}
-            onAddToFavorites={handleAddToFavorites}
-          />
-        </motion.div>
+        {/* Content - only show when we have data */}
+        {!isLoading && sportGroups.length > 0 && (
+          <>
+            {/* Popular Events - First 6 matches */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+            >
+              <PopularEvents
+                matches={popularMatches}
+                onOddsClick={handleOddsClick}
+              />
+            </motion.div>
 
-        {/* Other Sports - Expandable accordion sections */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8, duration: 0.6 }}
-        >
-          <OtherSports
-            onOddsClick={handleOddsClick}
-            onAddToFavorites={handleAddToFavorites}
-          />
-        </motion.div>
+            {/* Football Section - Always First */}
+            {footballSport && footballSport.leagues.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                <SportsMatches
+                  sports={[footballSport]}
+                  onOddsClick={handleOddsClick}
+                />
+              </motion.div>
+            )}
+
+            {/* Other Sports - In Menu Order */}
+            {otherSports.map((sport: any, index: number) => (
+              sport.leagues.length > 0 && (
+                <motion.div
+                  key={sport.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
+                >
+                  <SportsMatches
+                    sports={[sport]}
+                    onOddsClick={handleOddsClick}
+                  />
+                </motion.div>
+              )
+            ))}
+          </>
+        )}
       </div>
     </div>
   );
