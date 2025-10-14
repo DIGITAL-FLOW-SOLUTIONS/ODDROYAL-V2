@@ -28,6 +28,7 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
   
   // Subscribe to matches Map directly to detect changes
   const matches = useMatchStore(state => state.matches);
+  const odds = useMatchStore(state => state.odds);
   const isConnected = useMatchStore(state => state.isConnected);
   const hasInitialData = useRef(false);
   
@@ -51,21 +52,24 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
     }
   }, [liveMatches.length, isConnected, setPageLoading]);
 
-  // Featured matches from live data
+  // Featured matches from live data with actual odds
   const featuredMatches: any[] = useMemo(() => {
-    return liveMatches.slice(0, 6).map((match: any) => ({
-      id: match.match_id,
-      homeTeam: { name: match.home_team, logo: match.home_team_logo },
-      awayTeam: { name: match.away_team, logo: match.away_team_logo },
-      kickoffTime: match.commence_time,
-      league: match.league_name,
-      odds: {
-        home: 0,
-        draw: 0,
-        away: 0
-      }
-    }));
-  }, [liveMatches]);
+    return liveMatches.slice(0, 6).map((match: any) => {
+      const matchOdds = odds.get(match.match_id);
+      return {
+        id: match.match_id,
+        homeTeam: { name: match.home_team, logo: match.home_team_logo },
+        awayTeam: { name: match.away_team, logo: match.away_team_logo },
+        kickoffTime: match.commence_time,
+        league: match.league_name,
+        odds: {
+          home: matchOdds?.home || 0,
+          draw: matchOdds?.draw || 0,
+          away: matchOdds?.away || 0
+        }
+      };
+    });
+  }, [liveMatches, odds]);
 
   const topLeagues = [
     { id: "1", name: "Premier League", country: "England", matches: 89, logo: "⚽" },
