@@ -175,7 +175,7 @@ function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-staked">
-              {currencyUtils.formatCurrency(totalStaked)}
+              KES {totalStaked.toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -239,10 +239,10 @@ function Dashboard() {
                             </div>
                             <div className="text-right">
                               <p className="font-medium">
-                                Stake: {currencyUtils.formatCurrency(parseFloat(bet.totalStake))}
+                                Stake: KES {parseFloat(bet.totalStake).toFixed(2)}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                Potential: {currencyUtils.formatCurrency(parseFloat(bet.potentialWinnings))}
+                                Potential: KES {parseFloat(bet.potentialWinnings).toFixed(2)}
                               </p>
                             </div>
                           </div>
@@ -297,11 +297,11 @@ function Dashboard() {
                             </div>
                             <div className="text-right">
                               <p className="font-medium">
-                                Stake: {currencyUtils.formatCurrency(parseFloat(bet.totalStake))}
+                                Stake: KES {parseFloat(bet.totalStake).toFixed(2)}
                               </p>
                               <p className="text-sm text-muted-foreground">
                                 {bet.status === 'won' ? 'Won: ' : 'Potential: '}
-                                {currencyUtils.formatCurrency(parseFloat(bet.potentialWinnings))}
+                                KES {parseFloat(bet.potentialWinnings).toFixed(2)}
                               </p>
                             </div>
                           </div>
@@ -356,10 +356,10 @@ function Dashboard() {
                             </div>
                             <div className="text-right">
                               <p className="font-medium">
-                                Stake: {currencyUtils.formatCurrency(parseFloat(bet.totalStake))}
+                                Stake: KES {parseFloat(bet.totalStake).toFixed(2)}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                Potential: {currencyUtils.formatCurrency(parseFloat(bet.potentialWinnings))}
+                                Potential: KES {parseFloat(bet.potentialWinnings).toFixed(2)}
                               </p>
                             </div>
                           </div>
@@ -414,10 +414,10 @@ function Dashboard() {
                       <div className="text-right">
                         <p className={`font-medium ${transaction.amount.startsWith('-') ? 'text-red-600' : 'text-green-600'}`}>
                           {transaction.amount.startsWith('-') ? '-' : '+'}
-                          {currencyUtils.formatCurrency(Math.abs(parseFloat(transaction.amount)))}
+                          KES {Math.abs(parseFloat(transaction.amount)).toFixed(2)}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          Balance: {currencyUtils.formatCurrency(parseFloat(transaction.balanceAfter))}
+                          Balance: KES {parseFloat(transaction.balanceAfter).toFixed(2)}
                         </p>
                       </div>
                     </div>
