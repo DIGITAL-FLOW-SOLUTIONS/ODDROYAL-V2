@@ -216,7 +216,7 @@ export default function BetSlip({
             const singleTotalOdds = sel.odds;
             const betData = {
               betType: "single" as const,
-              totalStakeCents: Math.round(stakes[sel.id] * 100),
+              totalStakeCents: Math.round(stakes[sel.id]),
               totalOdds: singleTotalOdds.toFixed(4),
               selections: [
                 {
@@ -274,7 +274,7 @@ export default function BetSlip({
           const expressTotalOdds = calculateTotalOdds("express");
           const expressBetData = {
             betType: "express" as const,
-            totalStakeCents: Math.round(expressStake * 100),
+            totalStakeCents: Math.round(expressStake),
             totalOdds: expressTotalOdds.toFixed(4),
             selections: selections.map((sel) => ({
               fixtureId: sel.fixtureId || sel.matchId,
@@ -324,7 +324,7 @@ export default function BetSlip({
           const systemTotalOdds = calculateTotalOdds("system");
           const systemBetData = {
             betType: "system" as const,
-            totalStakeCents: Math.round(systemStake * 100),
+            totalStakeCents: Math.round(systemStake),
             totalOdds: systemTotalOdds.toFixed(4),
             selections: selections.map((sel) => ({
               fixtureId: sel.fixtureId || sel.matchId,
