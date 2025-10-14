@@ -233,10 +233,10 @@ function BetHistory() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-staked">
-              {currencyUtils.formatCurrency(stats.totalStaked)}
+              KES {stats.totalStaked.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Avg: {currencyUtils.formatCurrency(stats.total > 0 ? Math.round(stats.totalStaked / stats.total) : 0)}
+              Avg: KES {(stats.total > 0 ? stats.totalStaked / stats.total : 0).toFixed(2)}
             </p>
           </CardContent>
         </Card>
@@ -249,7 +249,7 @@ function BetHistory() {
           <CardContent>
             <div className={`text-2xl font-bold ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="text-net-profit">
               {stats.netProfit >= 0 ? '+' : ''}
-              {currencyUtils.formatCurrency(Math.abs(stats.netProfit))}
+              KES {Math.abs(stats.netProfit).toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">
               {stats.netProfit >= 0 ? 'Profit' : 'Loss'} to date
@@ -446,12 +446,12 @@ function BetHistory() {
                     <div className="flex justify-between sm:block sm:text-right">
                       <div>
                         <p className="text-sm md:text-base font-medium">
-                          Stake: {currencyUtils.formatCurrency(bet.totalStake)}
+                          Stake: KES {bet.totalStake.toFixed(2)}
                         </p>
                         <p className="text-xs md:text-sm text-muted-foreground">
                           {bet.status === 'won' && bet.actualWinnings ? 
-                            `Won: ${currencyUtils.formatCurrency(bet.actualWinnings)}` :
-                            `Potential: ${currencyUtils.formatCurrency(bet.potentialWinnings)}`
+                            `Won: KES ${bet.actualWinnings.toFixed(2)}` :
+                            `Potential: KES ${bet.potentialWinnings.toFixed(2)}`
                           }
                         </p>
                       </div>

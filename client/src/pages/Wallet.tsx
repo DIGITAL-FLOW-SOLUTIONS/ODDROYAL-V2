@@ -154,7 +154,7 @@ function Wallet() {
               className="text-2xl font-bold text-green-600"
               data-testid="text-total-deposits"
             >
-              {currencyUtils.formatCurrency(totalDeposits)}
+              KES {totalDeposits.toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -171,7 +171,7 @@ function Wallet() {
               className="text-2xl font-bold text-red-600"
               data-testid="text-total-withdrawals"
             >
-              {currencyUtils.formatCurrency(totalWithdrawals)}
+              KES {totalWithdrawals.toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -312,15 +312,11 @@ function Wallet() {
                               : transaction.amount < 0
                                 ? ""
                                 : "+"}
-                          {currencyUtils.formatCurrency(
-                            Math.abs(transaction.amount),
-                          )}
+                          KES {Math.abs(transaction.amount).toFixed(2)}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           Balance:{" "}
-                          {currencyUtils.formatCurrency(
-                            transaction.balanceAfter,
-                          )}
+                          KES {transaction.balanceAfter.toFixed(2)}
                         </p>
                       </div>
                     </div>
