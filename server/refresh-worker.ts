@@ -10,6 +10,7 @@ import {
   getRefreshInterval,
   isMatchStartingSoon,
   applyLeagueLimits,
+  getSportApiConfig,
   ApiSport,
   GroupedSport,
   FOOTBALL_LEAGUE_PRIORITY,
@@ -20,19 +21,17 @@ import { logger } from './logger';
 const CONCURRENCY_LIMIT = parseInt(process.env.CONCURRENCY_LIMIT || '6');
 const limit = pLimit(CONCURRENCY_LIMIT);
 
-// Professional betting site intervals
+// Optimized intervals for 2.5M monthly quota
 const REFRESH_INTERVALS = {
   live: {
-    football_top: 45000,      // 45s for top football leagues
-    football_other: 90000,    // 90s for other football
-    other_sports: 120000,     // 2min for other sports
+    football_top: 120000,      // 2min for top 7 football leagues
+    football_other: 240000,    // 4min for other 23 football leagues
+    other_sports: 300000,      // 5min for other sports (60 leagues)
   },
   prematch: {
-    starting_soon: 300000,    // 5min for matches < 1hr away
-    starting_medium: 600000,  // 10min for matches 1-6hr away  
-    starting_late: 900000,    // 15min for matches > 6hr away
+    all: 900000,              // 15min for all prematch (unified interval)
   },
-  settlement: 300000,         // 5min for score checks
+  settlement: 300000,         // 5min for score checks (unchanged)
 };
 
 // Top priority football leagues
@@ -138,16 +137,14 @@ export class RefreshWorker {
     }, liveInterval);
     this.intervals.set(liveKey, liveRefresh);
 
-    // Prematch refresh - ONE fetch per sport at 5-minute interval
-    // This ensures matches starting soon (<1hr) get fresh updates every 5min
-    // while keeping API usage minimal (single fetch per sport)
+    // Prematch refresh - ONE fetch per sport at 15-minute interval (optimized for quota)
     const prematchKey = `prematch:${sportKey}`;
     const prematchRefresh = setInterval(async () => {
       await this.refreshPrematchSport(sportGroup);
-    }, REFRESH_INTERVALS.prematch.starting_soon); // 5 minutes - most frequent cadence
+    }, REFRESH_INTERVALS.prematch.all); // 15 minutes for all sports
     this.intervals.set(prematchKey, prematchRefresh);
 
-    logger.info(`  📡 Started refresh for ${sportKey} (live: ${liveInterval/1000}s, prematch: 5min)`);
+    logger.info(`  📡 Started refresh for ${sportKey} (live: ${liveInterval/1000}s, prematch: 15min)`);
   }
 
   private async refreshLiveSport(sportGroup: GroupedSport): Promise<void> {
@@ -161,16 +158,20 @@ export class RefreshWorker {
       // Aggregate all events from all leagues in this sport
       const allEvents: any[] = [];
       
+      // Get sport-specific API configuration
+      const apiConfig = getSportApiConfig(sportKey);
+      
       // Fetch in parallel with concurrency limit
       const fetchPromises = sportKeys.map(key => 
         limit(async () => {
           try {
             const events = await oddsApiClient.getOdds(key, {
-              regions: 'uk,eu,us',
-              markets: 'h2h,spreads,totals',
+              regions: apiConfig.regions,
+              markets: apiConfig.markets,
               oddsFormat: 'decimal',
               dateFormat: 'iso',
               status: 'live',
+              sportCategory: sportKey,
             });
             return events;
           } catch (err) {
@@ -321,15 +322,19 @@ export class RefreshWorker {
       const sportKeys = leagues.map(l => l.key);
       const allEvents: any[] = [];
       
+      // Get sport-specific API configuration
+      const apiConfig = getSportApiConfig(sportKey);
+      
       // Fetch in parallel with concurrency limit
       const fetchPromises = sportKeys.map(key => 
         limit(async () => {
           try {
             const events = await oddsApiClient.getOdds(key, {
-              regions: 'uk,eu,us',
-              markets: 'h2h,spreads,totals',
+              regions: apiConfig.regions,
+              markets: apiConfig.markets,
               oddsFormat: 'decimal',
               dateFormat: 'iso',
+              sportCategory: sportKey,
             });
             return events;
           } catch (err) {

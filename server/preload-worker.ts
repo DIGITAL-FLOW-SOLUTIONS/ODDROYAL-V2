@@ -10,6 +10,7 @@ import {
   generateMatchId,
   isMatchStartingSoon,
   applyLeagueLimits,
+  getSportApiConfig,
   ApiSport,
   GroupedSport,
 } from './match-utils';
@@ -278,11 +279,15 @@ export class PreloadWorker {
   // Fetch prematch data for a single league (returns data without caching)
   private async fetchPrematchForLeague(sportKey: string, ourSportKey: string): Promise<{leagues: any[], matches: any[]} | null> {
     try {
+      // Get sport-specific API configuration
+      const apiConfig = getSportApiConfig(ourSportKey);
+      
       const events = await oddsApiClient.getOdds(sportKey, {
-        regions: 'uk,eu,us',
-        markets: 'h2h,spreads,totals',
+        regions: apiConfig.regions,
+        markets: apiConfig.markets,
         oddsFormat: 'decimal',
         dateFormat: 'iso',
+        sportCategory: ourSportKey,
       });
 
       if (events.length === 0) return { leagues: [], matches: [] };
@@ -304,12 +309,16 @@ export class PreloadWorker {
   // Fetch live data for a single league (returns data without caching)
   private async fetchLiveForLeague(sportKey: string, ourSportKey: string): Promise<{leagues: any[], matches: any[]} | null> {
     try {
+      // Get sport-specific API configuration
+      const apiConfig = getSportApiConfig(ourSportKey);
+      
       const events = await oddsApiClient.getOdds(sportKey, {
-        regions: 'uk,eu,us',
-        markets: 'h2h,spreads,totals',
+        regions: apiConfig.regions,
+        markets: apiConfig.markets,
         oddsFormat: 'decimal',
         dateFormat: 'iso',
         status: 'live',
+        sportCategory: ourSportKey,
       });
 
       if (events.length === 0) return { leagues: [], matches: [] };
@@ -328,20 +337,32 @@ export class PreloadWorker {
     }
   }
 
-  // Cache aggregated results for a sport
+  // Cache aggregated results for a sport (MERGE with existing instead of replacing)
   private async cacheAggregatedResults(
     ourSportKey: string,
     prematchLeagues: any[],
     liveLeagues: any[]
   ): Promise<void> {
-    // Cache prematch leagues
+    // Cache prematch leagues - MERGE with existing to prevent data loss
     if (prematchLeagues.length > 0) {
+      // Get existing leagues first
+      const existingPrematchLeagues = await redisCache.getPrematchLeagues(ourSportKey) || [];
+      
+      // Create a map of existing leagues by ID
+      const leagueMap = new Map(existingPrematchLeagues.map(lg => [lg.league_id, lg]));
+      
+      // Add or update new leagues
       const leaguesForCache = prematchLeagues.map(lg => ({
         league_id: lg.league_id,
         league_name: lg.league_name,
         match_count: lg.match_count,
       }));
-      await redisCache.setPrematchLeagues(ourSportKey, leaguesForCache, 900);
+      
+      // Merge: update existing leagues and add new ones
+      leaguesForCache.forEach(lg => leagueMap.set(lg.league_id, lg));
+      
+      // Save merged leagues
+      await redisCache.setPrematchLeagues(ourSportKey, Array.from(leagueMap.values()), 900);
 
       // Cache matches for each league (leagues already contain matches array)
       for (const league of prematchLeagues) {
@@ -361,14 +382,26 @@ export class PreloadWorker {
       }
     }
 
-    // Cache live leagues
+    // Cache live leagues - MERGE with existing to prevent data loss
     if (liveLeagues.length > 0) {
+      // Get existing leagues first
+      const existingLiveLeagues = await redisCache.getLiveLeagues(ourSportKey) || [];
+      
+      // Create a map of existing leagues by ID
+      const leagueMap = new Map(existingLiveLeagues.map(lg => [lg.league_id, lg]));
+      
+      // Add or update new leagues
       const leaguesForCache = liveLeagues.map(lg => ({
         league_id: lg.league_id,
         league_name: lg.league_name,
         match_count: lg.match_count,
       }));
-      await redisCache.setLiveLeagues(ourSportKey, leaguesForCache, 90);
+      
+      // Merge: update existing leagues and add new ones
+      leaguesForCache.forEach(lg => leagueMap.set(lg.league_id, lg));
+      
+      // Save merged leagues
+      await redisCache.setLiveLeagues(ourSportKey, Array.from(leagueMap.values()), 90);
 
       // Cache matches for each league (leagues already contain matches array)
       for (const league of liveLeagues) {

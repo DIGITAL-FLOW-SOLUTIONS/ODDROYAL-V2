@@ -159,17 +159,23 @@ class TheOddsApiClient {
       oddsFormat?: string;
       dateFormat?: string;
       status?: 'live' | 'upcoming';
+      sportCategory?: string; // Our internal sport category (football, basketball, etc.)
     } = {}
   ): Promise<any[]> {
     const {
-      regions = 'uk,eu,us',
-      markets = 'h2h,spreads,totals',
+      regions,
+      markets,
       oddsFormat = 'decimal',
       dateFormat = 'iso',
-      status
+      status,
+      sportCategory
     } = options;
 
-    const requestKey = `odds:${sportKey}:${status || 'upcoming'}:${markets}`;
+    // Use sport-specific config if sportCategory is provided, otherwise use defaults
+    const finalRegions = regions || 'uk';
+    const finalMarkets = markets || 'h2h';
+
+    const requestKey = `odds:${sportKey}:${status || 'upcoming'}:${finalMarkets}`;
     
     return this.deduplicateRequest(requestKey, async () => {
       return limit(async () => {
@@ -177,8 +183,8 @@ class TheOddsApiClient {
         
         return this.executeWithRetry(async () => {
           const params: any = {
-            regions,
-            markets,
+            regions: finalRegions,
+            markets: finalMarkets,
             oddsFormat,
             dateFormat,
           };
@@ -188,8 +194,14 @@ class TheOddsApiClient {
           }
 
           const response = await this.client.get(`/sports/${sportKey}/odds`, { params });
-          metrics.incrementCredits(1);
-          await apiQuotaTracker.incrementRequest();
+          
+          // Calculate credit cost based on markets and regions
+          const marketCount = finalMarkets.split(',').length;
+          const regionCount = finalRegions.split(',').length;
+          const creditCost = marketCount * regionCount;
+          
+          metrics.incrementCredits(creditCost);
+          await apiQuotaTracker.incrementRequest(creditCost);
           return response.data;
         });
       });
@@ -204,16 +216,22 @@ class TheOddsApiClient {
       markets?: string;
       oddsFormat?: string;
       dateFormat?: string;
+      sportCategory?: string;
     } = {}
   ): Promise<any> {
     const {
-      regions = 'uk,eu,us',
-      markets = 'h2h,spreads,totals',
+      regions,
+      markets,
       oddsFormat = 'decimal',
       dateFormat = 'iso',
+      sportCategory
     } = options;
 
-    const requestKey = `event:${sportKey}:${eventId}:${markets}`;
+    // Use sport-specific config if sportCategory is provided, otherwise use defaults
+    const finalRegions = regions || 'uk';
+    const finalMarkets = markets || 'h2h';
+
+    const requestKey = `event:${sportKey}:${eventId}:${finalMarkets}`;
     
     return this.deduplicateRequest(requestKey, async () => {
       return limit(async () => {
@@ -224,14 +242,21 @@ class TheOddsApiClient {
             `/sports/${sportKey}/events/${eventId}/odds`,
             {
               params: {
-                regions,
-                markets,
+                regions: finalRegions,
+                markets: finalMarkets,
                 oddsFormat,
                 dateFormat,
               },
             }
           );
-          metrics.incrementCredits(1);
+          
+          // Calculate credit cost based on markets and regions
+          const marketCount = finalMarkets.split(',').length;
+          const regionCount = finalRegions.split(',').length;
+          const creditCost = marketCount * regionCount;
+          
+          metrics.incrementCredits(creditCost);
+          await apiQuotaTracker.incrementRequest(creditCost);
           return response.data;
         });
       });
@@ -249,8 +274,10 @@ class TheOddsApiClient {
           const response = await this.client.get(`/sports/${sportKey}/scores`, {
             params: { daysFrom },
           });
-          metrics.incrementCredits(1);
-          await apiQuotaTracker.incrementRequest();
+          // Scores cost 2 credits when using daysFrom parameter, 1 for live only
+          const creditCost = daysFrom > 0 ? 2 : 1;
+          metrics.incrementCredits(creditCost);
+          await apiQuotaTracker.incrementRequest(creditCost);
           return response.data;
         });
       });

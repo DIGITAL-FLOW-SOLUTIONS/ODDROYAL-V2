@@ -106,9 +106,28 @@ export function getSportKeysForCategory(groupedSports: GroupedSport[], categoryK
 
 // League limits for API efficiency (Professional betting site strategy)
 export const LEAGUE_LIMITS = {
-  football: 35,  // Max 35 football leagues (7 top priority + 28 others)
+  football: 30,  // Max 30 football leagues (7 top priority + 23 others)
   default: 10,   // Max 10 leagues for other sports
 };
+
+// Sport-specific API configuration for quota optimization
+export const SPORT_API_CONFIG: Record<string, { regions: string; markets: string; creditCost: number }> = {
+  football: {
+    regions: 'uk',  // Single region
+    markets: 'h2h,spreads,totals',  // 3 markets
+    creditCost: 3,  // 3 markets × 1 region
+  },
+  default: {
+    regions: 'uk',  // Single region
+    markets: 'h2h',  // Single market
+    creditCost: 1,  // 1 market × 1 region
+  },
+};
+
+// Get API config for a sport category
+export function getSportApiConfig(sportKey: string): { regions: string; markets: string; creditCost: number } {
+  return SPORT_API_CONFIG[sportKey] || SPORT_API_CONFIG.default;
+}
 
 // Apply league limits to grouped sports
 export function applyLeagueLimits(groupedSports: GroupedSport[]): GroupedSport[] {

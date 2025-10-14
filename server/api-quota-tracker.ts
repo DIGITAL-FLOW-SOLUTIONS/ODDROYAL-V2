@@ -6,8 +6,8 @@ const MONTHLY_QUOTA = 2_500_000;
 const DAILY_QUOTA = Math.floor(MONTHLY_QUOTA / 30);
 
 export class ApiQuotaTracker {
-  // Increment request counter
-  async incrementRequest(): Promise<void> {
+  // Increment request counter with specific credit cost
+  async incrementRequest(creditCost: number = 1): Promise<void> {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const month = today.substring(0, 7); // YYYY-MM
     
@@ -15,12 +15,12 @@ export class ApiQuotaTracker {
       // Increment daily counter
       const dailyKey = `quota:daily:${today}`;
       const dailyCount = await redisCache.get<number>(dailyKey) || 0;
-      await redisCache.set(dailyKey, dailyCount + 1, 86400 * 7);
+      await redisCache.set(dailyKey, dailyCount + creditCost, 86400 * 7);
       
       // Increment monthly counter
       const monthlyKey = `quota:monthly:${month}`;
       const monthlyCount = await redisCache.get<number>(monthlyKey) || 0;
-      await redisCache.set(monthlyKey, monthlyCount + 1, 86400 * 60);
+      await redisCache.set(monthlyKey, monthlyCount + creditCost, 86400 * 60);
     } catch (error) {
       logger.error('Failed to increment quota:', error);
     }
