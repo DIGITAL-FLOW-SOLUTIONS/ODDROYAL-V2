@@ -1,0 +1,216 @@
+1) Live page — make it truly “live” (minutes, goals, status)
+
+Root causes of 0' showing / wrong time
+
+Your aggregator may be using the wrong field (prematch timestamp) instead of the live in_play status/time provided by the feed.
+
+If you only poll prematch endpoints or infrequently poll the in-play endpoint, the UI will display stale status.
+
+If you replace entire fixture objects on each update you may lose a live_time field produced earlier.
+
+What to do (server + client)
+
+Server (aggregator) — ensure you:
+
+Poll the in-play / live endpoint (or the odds/live endpoint) frequently for matches flagged as in_play. Poll frequency: 2–5 seconds for in-play matches.
+
+Compute minute/status server-side only if your feed lacks a reliable minute field.
+
+Publish delta messages containing:
+
+fixture_id
+
+status (e.g., not_started, first_half, halftime, in_play, finished)
+
+elapsed_minute (integer, e.g., 57)
+
+score object { home: x, away: y }
+
+events array for recent events like goals {type:'goal', team:'home', minute:57, scorer:'Name'}
+
+Compute elapsed minute logic (server-side):
+
+If feed gives elapsed or minute, use it.
+
+Otherwise compute:
+
+elapsed = floor((nowUTC - kickoffUTC + addedOffsetMs) / 60000) + manualOffset
+
+Maintain a small server-side adjustment for stoppage (you can allow the aggregator to accept corrections from the feed).
+
+Keep lastPublishedTs in Redis to avoid republishing small noise.
+
+Server sample: aggregator in-play logic (pseudocode)
+
+// inside aggregator processing loop for a fixture
+const now = Date.now();
+let elapsed = null;
+if (fixture.status === 'in_play' && fixture.kickoff_time) {
+  const kickoff = new Date(fixture.kickoff_time).getTime();
+  elapsed = Math.floor((now - kickoff) / 60000);
+  if (elapsed < 0) elapsed = 0;
+}
+
+// prefer feed-provided minute if available
+const elapsedMinute = fixture.live?.minute ?? fixture.live?.elapsed ?? elapsed;
+
+const payload = {
+  fixture_id: fixture.id,
+  status: fixture.status,
+  elapsed_minute: elapsedMinute,
+  score: { home: fixture.home_score ?? 0, away: fixture.away_score ?? 0 },
+  events: computeRecentEvents(prev, fixture), // diff goal events
+  ts: Date.now()
+};
+
+publishIfSignificantDiff(fixture.id, payload);
+
+
+Important publishing rules
+
+Always publish immediate on goal/finish/start/half-time events.
+
+Throttle minor odds-only updates (batch every 250–500ms).
+
+Keep published payloads minimal.
+
+Client (React) — subscribing and rendering
+
+Subscribe to Ably channel (or your WS) for update events.
+
+Keep a normalized local store (fixturesById) and merge diffs rather than replace.
+
+Render elapsed_minute and score from fixturesById[fixture_id].live or fixture.meta.
+
+Keep a small local timer to increment minute display between server updates (visual smoothing):
+
+When you get elapsed_minute from server, set clientLastElapsed and clientLastTs.
+
+On every 10s or requestAnimationFrame tick update displayed minute using (serverElapsed + floor((now - serverTs)/60000)), but only for a visible small buffer — this avoids small jumps.
+
+Client code (React sketch)
+
+// useLive.tsx (simplified)
+useEffect(() => {
+  ablyChannel.subscribe('update', msg => {
+    const payload = msg.data;
+    store.applyPatch([payload]); // merge into Zustand
+  });
+}, []);
+
+function MatchClock({ fixtureId }){
+  const fixture = useStore(s => s.fixtures[fixtureId]);
+  // fixture has elapsed_minute and lastServerTs
+  const [displayMinute, setDisplayMinute] = useState(fixture?.elapsed_minute);
+  useEffect(() => {
+    if (!fixture) return;
+    // update displayed minute every second but compute from serverTs
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const diff = Math.floor((now - fixture.lastServerTs) / 60000);
+      setDisplayMinute((fixture.elapsed_minute || 0) + diff);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [fixture?.lastServerTs, fixture?.elapsed_minute]);
+  return <span>{displayMinute}'</span>;
+}
+
+
+Testing
+
+Use aggregator logs to ensure for in-play fixtures you are publishing elapsed_minute frequently and goals events.
+
+Simulate a goal event and check UI updates immediately.
+
+2) Match Market page — show logos, info & all markets for each sport
+
+Goal: When user opens a match details page, show:
+
+Match header: logos, team names, kickoff time, competition, venue (if available), status, score.
+
+A complete list of markets available for that match from The Odds API. For each market show market name, sub-markets (outcomes), odds, bookmaker sources (if you allow selection).
+
+Server-side: fetching & storing all markets
+
+The Odds API returns market data per fixture inside bookmakers array with markets. You must extract all markets and normalize by market_key (e.g., h2h, totals, spreads, correct_score, first_goal, last_goal, etc).
+
+For the 7 sports you support, fetch the sports list and allowed markets: do a discovery pass at startup:
+
+GET /sports to list sport keys.
+
+For each sport, call the odds endpoint with markets param if supported to see market keys present.
+
+Store markets normalized in Redis:
+
+fixture:<id>:markets → JSON object { marketKey: { outcomes: [...], bookmakers: [...] } }
+
+Provide endpoint: GET /api/fixture/:id/markets that returns markets for the match.
+
+Implementation notes
+
+Some markets are nested or named differently across bookmakers; normalize names and group equivalents.
+
+For markets with many outcomes (e.g., correct score), paginate or use virtualized components.
+
+Frontend: market page structure
+
+Header: logos (use logos from your CDN or The Odds API if available; otherwise API-Football if you decided to combine later).
+
+Market list: Accordion per market (1X2, Totals, BTTS, Handicap, Correct Score, First/Last Goal, Time of First Goal, Corners, Cards, etc).
+
+Each market row shows outcomes and an add-to-betslip button.
+
+Provide search/filter within market page (e.g., filter for over/under lines).
+
+Fetch & render example (React)
+
+// MatchPage.tsx
+useEffect(() => {
+  async function load() {
+    const res = await fetch(`/api/fixture/${id}/markets`);
+    const markets = await res.json();
+    setMarkets(markets);
+  }
+  load();
+}, [id]);
+
+
+Market normalization sketch (server computeDiff / hydration)
+
+// When storing fixture in Redis, also set fixture:<id>:markets
+function normalizeMarkets(rawFixture) {
+  const markets = {};
+  for (const bookmaker of rawFixture.bookmakers || []) {
+    for (const m of bookmaker.markets) {
+      if (!markets[m.key]) markets[m.key] = { outcomes: new Map(), sources: [] };
+      markets[m.key].sources.push({ bookmaker: bookmaker.key, last_update: bookmaker.last_update });
+      // merge outcomes by name
+      for (const o of m.outcomes) {
+        markets[m.key].outcomes[o.name] = markets[m.key].outcomes[o.name] || { name: o.name, prices: [] };
+        markets[m.key].outcomes[o.name].prices.push({ book: bookmaker.key, price: o.price });
+      }
+    }
+  }
+  return markets;
+}
+
+
+Ensure all 7 sports markets are fetched
+
+Discovery pass:
+
+const sports = await axios.get('https://api.the-odds-api.com/v4/sports', { params: { apiKey: ODDS_API_KEY }});
+for (const s of sports.data) {
+  // sample call to get markets for a sport with small date window
+  const res = await axios.get(`https://api.the-odds-api.com/v4/sports/${s.key}/odds`, { params: {...} });
+  // inspect res to find present market keys
+}
+
+
+Store mapping sportKey -> supportedMarketKeys.
+
+Edge cases
+
+Some markets are only provided by a subset of bookmakers — show which bookmakers provide which market.
+
+Some markets update extremely frequently (in-play totals/spreads) — treat these as in-play markets and throttle updates.

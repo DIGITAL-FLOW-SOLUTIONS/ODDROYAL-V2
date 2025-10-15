@@ -973,11 +973,8 @@ export function registerOddsApiRoutes(app: Express): void {
         ttl: 3600000, // 1 hour in milliseconds
       });
       
-      res.json({
-        success: true,
-        tokenRequest,
-        timestamp: Date.now()
-      });
+      // Return the tokenRequest directly (Ably expects this format)
+      res.json(tokenRequest);
       
     } catch (error) {
       console.error('Error generating Ably token:', error);
