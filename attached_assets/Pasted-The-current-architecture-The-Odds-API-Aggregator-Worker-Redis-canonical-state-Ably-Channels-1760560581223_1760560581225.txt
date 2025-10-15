@@ -1,0 +1,126 @@
+The current architecture (The Odds API → Aggregator Worker → Redis (canonical state) → Ably Channels → React Client) is working well, but I still notice occasional flickering on the frontend when live data updates come in.
+Please thoroughly investigate and eliminate any causes of flickering. Follow these exact debugging and optimization steps:
+
+1. Identify the Render Source
+
+Add console logs or React DevTools Profiler to detect which components re-render when new Ably updates arrive.
+
+Specifically check:
+
+MatchRow / MatchCard components
+
+The container list (MatchesList or similar)
+
+The MarketSection or OddsGrid components
+
+Log for each:
+
+console.count(`Render: MatchRow ${fixture.id}`);
+
+
+If the entire list re-renders on every Ably update, isolate why — only the updated fixture(s) should re-render.
+
+2. Inspect State Merge Logic
+
+Check the function that merges incoming Ably data into Zustand/React Query/Redux store.
+
+Confirm it does not replace the entire fixtures object each time.
+
+It should merge by key:
+
+set(state => ({
+  fixtures: {
+    ...state.fixtures,
+    [update.fixture_id]: {
+      ...state.fixtures[update.fixture_id],
+      ...update
+    }
+  }
+}));
+
+
+Replacing fixtures entirely triggers full re-render → flicker.
+
+3. Add Equality Checks
+
+Wrap all UI components rendering fixture data with React.memo and a custom equality check:
+
+export const MatchRow = React.memo(({ fixture }) => {
+  // render odds, score, etc.
+}, (prev, next) => JSON.stringify(prev) === JSON.stringify(next));
+
+
+Or better: use shallow equality for only the relevant props (odds, score, minute).
+
+4. Throttle or Batch UI Updates
+
+Review your Ably subscription handler.
+
+Confirm updates are throttled or batched (e.g. apply every 200–500ms).
+
+If updates are processed too frequently, the UI re-renders too often, creating perceived flicker even if diffing is correct.
+
+Example:
+
+const queueRef = useRef([]);
+useEffect(() => {
+  channel.subscribe('update', msg => queueRef.current.push(msg.data));
+  const t = setInterval(() => {
+    if (queueRef.current.length > 0) {
+      const batch = queueRef.current.splice(0);
+      startTransition(() => useStore.getState().applyPatch(batch));
+    }
+  }, 300);
+  return () => clearInterval(t);
+}, []);
+
+5. Check CSS Transitions
+
+Inspect whether odds or score elements have CSS transitions or animations that conflict with state updates.
+
+Example issue: opacity: 0 → 1 animations can cause flicker if triggered by re-renders.
+
+Ensure your animation classes only trigger on value changes, not every re-render.
+
+6. Verify Stable Keys in Lists
+
+In React lists, ensure each item has a stable key:
+
+{fixtures.map(f => <MatchRow key={f.id} fixture={f} />)}
+
+
+If key changes between updates (e.g., using array index), React will unmount/remount DOM nodes → visible flicker.
+
+7. Profile FPS and Paint Events
+
+Add a performance.mark() and console.time() around render batches.
+
+Confirm that FPS stays stable when updates flow.
+
+If FPS drops below ~50 frequently, throttle update frequency or investigate excessive React reconciliations.
+
+8. Final Optimization Pass
+
+Once root cause found, fix accordingly:
+
+If caused by full state replacement → switch to per-fixture merge.
+
+If caused by unstable keys → fix key props.
+
+If caused by frequent updates → increase batching interval.
+
+If caused by layout shifts → fix CSS/DOM structure.
+
+Add small visual smoothing: use CSS fade-in/out or number rolling transitions for odds to make updates imperceptible.
+
+✅ Goal
+
+After the fix:
+
+Only changed fixtures re-render.
+
+No global list repainting.
+
+No layout shifts or blinking.
+
+FPS stays 55–60 during heavy update flow.
