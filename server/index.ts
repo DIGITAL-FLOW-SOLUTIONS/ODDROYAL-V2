@@ -6,7 +6,6 @@ import { settlementWorker } from "./settlement-worker";
 import { manualMatchSimulator } from "./manual-match-simulator";
 import { redisCache } from "./redis-cache";
 import { preloadWorker } from "./preload-worker";
-import { refreshWorker } from "./refresh-worker";
 // import { exposureEngine } from "./exposure-engine";
 // import { liveMatchSimulator } from "./live-match-simulator";
 import { storage } from "./storage";
@@ -232,23 +231,16 @@ async function withTimeout<T>(
             // Continue without Redis - app will use direct API calls
           }
           
-          // Start Ably Aggregator Worker (NEW - replaces refresh worker)
+          // Start Ably Aggregator Worker (replaces old refresh worker + WebSocket system)
           if (redisConnected) {
             try {
               logger.info("Starting Ably Aggregator Worker...");
               const { ablyAggregator } = await import('../worker/aggregator');
               await ablyAggregator.start();
-              logger.success("Ably Aggregator started - publishing to Ably channels");
+              logger.success("✅ Ably Aggregator started - publishing to Ably channels");
             } catch (ablyErr) {
-              logger.error("Ably Aggregator failed to start:", ablyErr);
-              // Fallback to old refresh worker if Ably fails
-              try {
-                logger.info("Falling back to refresh worker...");
-                await refreshWorker.start();
-                logger.success("Refresh worker started");
-              } catch (refreshErr) {
-                logger.warn("Refresh worker failed to start:", refreshErr);
-              }
+              logger.error("❌ Ably Aggregator failed to start:", ablyErr);
+              logger.warn("Real-time updates will not be available. Check ABLY_API_KEY environment variable.");
             }
           }
           
