@@ -1,0 +1,76 @@
+Goal:
+Cleanly migrate the project to use only the new architecture:
+The Odds API → Aggregator Worker → Redis → Ably Channels → React Client,
+and completely remove the old WebSocket-based system.
+
+🧹 Step 1 — Identify and Remove Old Architecture Files
+
+Search for and delete or archive all files and scripts tied to the old architecture that are no longer needed in the new Ably-based architecture.
+
+Specifically locate and remove:
+
+refresh-worker.ts (replaced by new Aggregator Worker)
+
+redis-pubsub.ts (no longer needed, Redis now serves as canonical cache, not publisher)
+
+websocket.ts or any server WebSocket/Socket.IO setup
+
+useWebSocket.ts React hook (client now uses Ably SDK)
+
+Any instance of WebSocketServer, socket.emit, io.emit, or [SERVER WS] logs
+
+Any batch:matches or batch:update references using WebSocket events
+
+⚠️ Important:
+Only delete files and logic not used by the new Ably-based pipeline.
+Do not delete Redis cache files, Zustand store, or Aggregator Worker logic shared with the new architecture.
+
+⚙️ Step 2 — Validate New Architecture Integration
+
+Verify the following connections are working:
+
+Aggregator Worker fetches data from The Odds API and writes to Redis.
+
+Redis serves as canonical state and source of truth for all live and prematch data.
+
+Ably Channels publish updates to clients using:
+
+ably.channels.get('match-updates').publish('batch:matches', data);
+
+
+React Client subscribes via Ably SDK (useAblyChannel or similar hook) and updates the Zustand store incrementally (diff-based).
+
+Confirm that no WebSocketServer, socket, or io connections are active anywhere in the system.
+
+🧾 Step 3 — Implement Logging to Verify Transition
+
+Add clear logs to confirm every stage of the new data flow:
+
+[AGGREGATOR] Fetch complete: X matches, sport: Y
+
+[REDIS] Cache updated: sport=Y, leagues=N
+
+[ABLY] Publish complete: channel=match-updates, payloadSize=Z
+
+[REACT] Ably message received: updateType=batch:matches
+
+Then observe the console for 2–3 minutes and confirm:
+
+No [SERVER WS], [WS BROADCAST], or [SOCKET.IO] logs exist.
+
+Only [ABLY], [REDIS], and [AGGREGATOR] logs appear.
+
+🧪 Step 4 — Validate Functionality
+
+Navigate to Line and Live pages.
+
+Confirm that data updates smoothly and consistently (no flickering or disappearing matches).
+
+Confirm that React updates are triggered only via Ably messages.
+
+Check Redis TTL logs to ensure cached data persists correctly.
+
+If everything checks out, log:
+
+✅ MIGRATION COMPLETE — Running on Ably Architecture
+Data flow: The Odds API → Aggregator Worker → Redis → Ably Channels → React Client
