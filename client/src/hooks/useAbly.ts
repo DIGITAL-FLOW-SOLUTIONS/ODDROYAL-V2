@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useRef, useCallback, startTransition } from 'react';
-import Ably from 'ably/promises';
+import Ably from 'ably';
 import { useMatchStore } from '@/store/matchStore';
 
 const BATCH_INTERVAL = 250; // 250ms batching window for smooth updates
@@ -115,19 +115,10 @@ export function useAbly() {
    */
   const initializeAbly = useCallback(async () => {
     try {
-      console.log('[Ably] Fetching auth token...');
+      console.log('[Ably] Creating Ably client with token auth...');
       
-      // Get token from backend
-      const response = await fetch('/api/ably/token');
-      const result = await response.json();
-      
-      if (!result.success || !result.tokenRequest) {
-        throw new Error('Failed to get Ably token');
-      }
-
-      console.log('[Ably] Creating Ably client...');
-      
-      // Create Ably client with token auth
+      // Create Ably client with token auth endpoint
+      // Ably SDK will automatically fetch tokens from authUrl
       const client = new Ably.Realtime({
         authUrl: '/api/ably/token',
         authMethod: 'GET',
@@ -155,11 +146,13 @@ export function useAbly() {
       const storeIsEmpty = useMatchStore.getState().matches.size === 0;
       const needsInitialization = !hasInitializedRef.current && storeIsEmpty;
       
+      let hydrateResult: any = null;
+      
       if (needsInitialization) {
         try {
           console.log('[Ably] Hydrating initial data from Redis...');
           const hydrateResponse = await fetch('/api/hydrate');
-          const hydrateResult = await hydrateResponse.json();
+          hydrateResult = await hydrateResponse.json();
           
           if (hydrateResult.success) {
             setInitialData(hydrateResult.data);
@@ -173,9 +166,19 @@ export function useAbly() {
         console.log('[Ably] Store already has data, skipping hydration');
       }
 
-      // Subscribe to sports channels
-      // Start with football (most popular)
-      const sportsToSubscribe = ['football', 'basketball', 'americanfootball', 'baseball', 'icehockey'];
+      // Subscribe to all sports channels
+      // Get sports list from hydrated data or use comprehensive list
+      let sportsToSubscribe: string[] = [];
+      
+      if (hydrateResult?.success && hydrateResult.data?.sports) {
+        // Use sports from hydration data
+        sportsToSubscribe = hydrateResult.data.sports.map((s: any) => s.sport_key);
+      } else {
+        // Fallback to comprehensive list (matches aggregator)
+        sportsToSubscribe = ['football', 'basketball', 'americanfootball', 'baseball', 'icehockey', 'cricket', 'mma'];
+      }
+      
+      console.log(`[Ably] Subscribing to ${sportsToSubscribe.length} sports:`, sportsToSubscribe);
       
       for (const sport of sportsToSubscribe) {
         const channelName = `sports:${sport}`;
@@ -204,6 +207,7 @@ export function useAbly() {
 
     } catch (error) {
       console.error('[Ably] Initialization error:', error);
+      console.error('[Ably] Error details:', (error as Error).message, (error as Error).stack);
       setConnected(false);
     }
   }, [setConnected, setInitialData, queueUpdate]);

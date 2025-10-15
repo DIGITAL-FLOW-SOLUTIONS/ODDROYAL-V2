@@ -406,6 +406,7 @@ export class AblyAggregator {
 
   /**
    * Flush batched diffs to Ably channel
+   * Splits batches that exceed 60KB to stay under Ably's 65KB limit
    */
   private async flushBatch(channel: string): Promise<void> {
     try {
@@ -422,33 +423,64 @@ export class AblyAggregator {
       
       this.batchQueue.set(channel, []);
       
-      // Prepare batch message
-      const batchMessage = {
-        type: 'batch:updates',
-        updates: queue,
-        count: queue.length,
-        timestamp: Date.now(),
-      };
+      // Split queue into chunks that fit Ably's 65KB limit
+      const MAX_MESSAGE_SIZE = 60000; // 60KB safety margin (Ably limit is 65536)
+      const batches: any[][] = [];
+      let currentBatch: any[] = [];
       
-      // Publish to Ably
-      const startTime = Date.now();
-      const ablyChannel = ably.channels.get(channel);
-      await ablyChannel.publish('update', batchMessage);
-      
-      const publishLatency = Date.now() - startTime;
-      this.metrics.publishLatency.push(publishLatency);
-      if (this.metrics.publishLatency.length > 100) {
-        this.metrics.publishLatency.shift();
+      for (const diff of queue) {
+        // Try adding to current batch
+        const testBatch = [...currentBatch, diff];
+        const testMessage = {
+          type: 'batch:updates',
+          updates: testBatch,
+          count: testBatch.length,
+          timestamp: Date.now(),
+        };
+        const testSize = JSON.stringify(testMessage).length;
+        
+        // If adding this diff exceeds limit, flush current batch and start new
+        if (testSize > MAX_MESSAGE_SIZE && currentBatch.length > 0) {
+          batches.push(currentBatch);
+          currentBatch = [diff]; // Start new batch with this diff
+        } else {
+          currentBatch.push(diff);
+        }
       }
       
-      this.metrics.totalMessagesPublished++;
+      // Add final batch
+      if (currentBatch.length > 0) {
+        batches.push(currentBatch);
+      }
       
-      // Calculate message size
-      const messageSize = JSON.stringify(batchMessage).length;
-      this.updateAverageMessageSize(messageSize);
-      
-      if (messageSize > 8000) {
-        logger.warn(`Large Ably message: ${(messageSize / 1024).toFixed(2)} KB on ${channel}`);
+      // Publish each batch
+      for (const batch of batches) {
+        const batchMessage = {
+          type: 'batch:updates',
+          updates: batch,
+          count: batch.length,
+          timestamp: Date.now(),
+        };
+        
+        const startTime = Date.now();
+        const ablyChannel = ably.channels.get(channel);
+        await ablyChannel.publish('update', batchMessage);
+        
+        const publishLatency = Date.now() - startTime;
+        this.metrics.publishLatency.push(publishLatency);
+        if (this.metrics.publishLatency.length > 100) {
+          this.metrics.publishLatency.shift();
+        }
+        
+        this.metrics.totalMessagesPublished++;
+        
+        // Calculate message size
+        const messageSize = JSON.stringify(batchMessage).length;
+        this.updateAverageMessageSize(messageSize);
+        
+        if (batches.length > 1) {
+          logger.info(`Split ${channel} batch: ${batch.length} updates, ${(messageSize / 1024).toFixed(1)}KB`);
+        }
       }
       
     } catch (error) {
