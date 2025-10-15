@@ -232,14 +232,23 @@ async function withTimeout<T>(
             // Continue without Redis - app will use direct API calls
           }
           
-          // Start refresh worker if Redis connected (even if preload timed out)
+          // Start Ably Aggregator Worker (NEW - replaces refresh worker)
           if (redisConnected) {
             try {
-              logger.info("Starting refresh worker...");
-              await refreshWorker.start();
-              logger.success("Refresh worker started");
-            } catch (refreshErr) {
-              logger.warn("Refresh worker failed to start:", refreshErr);
+              logger.info("Starting Ably Aggregator Worker...");
+              const { ablyAggregator } = await import('../worker/aggregator');
+              await ablyAggregator.start();
+              logger.success("Ably Aggregator started - publishing to Ably channels");
+            } catch (ablyErr) {
+              logger.error("Ably Aggregator failed to start:", ablyErr);
+              // Fallback to old refresh worker if Ably fails
+              try {
+                logger.info("Falling back to refresh worker...");
+                await refreshWorker.start();
+                logger.success("Refresh worker started");
+              } catch (refreshErr) {
+                logger.warn("Refresh worker failed to start:", refreshErr);
+              }
             }
           }
           

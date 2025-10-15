@@ -853,4 +853,163 @@ export function registerOddsApiRoutes(app: Express): void {
       });
     }
   });
+
+  // ============================================================================
+  // ABLY INTEGRATION ENDPOINTS
+  // ============================================================================
+  
+  /**
+   * Hydrate endpoint - serves Redis snapshots for initial page load
+   * Replaces /api/initial-data for Ably architecture
+   */
+  app.get('/api/hydrate', async (req: Request, res: Response) => {
+    try {
+      const { league, sport, since } = req.query;
+      
+      // Get matches from Redis canonical store (fixture:<id> keys)
+      let matches: any[] = [];
+      
+      if (league && typeof league === 'string') {
+        // Get specific league fixtures
+        const leagueKey = `league:${league}:fixtures`;
+        const fixtureIds = await redisCache.get<string[]>(leagueKey) || [];
+        
+        // Fetch all fixtures in parallel
+        matches = await Promise.all(
+          fixtureIds.map(async (id) => {
+            const fixture = await redisCache.get(`fixture:${id}`);
+            return fixture;
+          })
+        );
+        
+        matches = matches.filter(Boolean);
+      } else {
+        // Get all live and upcoming matches
+        const liveMatches = await unifiedMatchService.getAllLiveMatches();
+        const upcomingMatches = await unifiedMatchService.getAllUpcomingMatches(100);
+        matches = [...liveMatches, ...upcomingMatches];
+      }
+      
+      // Filter by timestamp if 'since' is provided
+      if (since && typeof since === 'string') {
+        const sinceTime = parseInt(since);
+        matches = matches.filter(m => {
+          const matchTime = new Date(m.commence_time).getTime();
+          return matchTime >= sinceTime;
+        });
+      }
+      
+      // Get sports and leagues metadata
+      const sports = await redisCache.getSportsList() || [];
+      const leaguesMap = new Map<string, any[]>();
+      
+      for (const match of matches) {
+        const sportLeagues = leaguesMap.get(match.sport_key) || [];
+        const existingLeague = sportLeagues.find(l => l.league_id === match.league_id);
+        
+        if (!existingLeague) {
+          sportLeagues.push({
+            league_id: match.league_id,
+            league_name: match.league_name,
+            sport_key: match.sport_key,
+            match_count: 1
+          });
+          leaguesMap.set(match.sport_key, sportLeagues);
+        } else {
+          existingLeague.match_count++;
+        }
+      }
+      
+      const leagues: any[] = [];
+      leaguesMap.forEach((sportLeagues) => {
+        leagues.push(...sportLeagues);
+      });
+      
+      res.json({
+        success: true,
+        data: {
+          sports: sports.map(s => ({
+            sport_key: s.key,
+            sport_title: s.title,
+            sport_icon: getSportIcon(s.key)
+          })),
+          leagues,
+          matches
+        },
+        timestamp: Date.now(),
+        source: 'redis_canonical'
+      });
+      
+    } catch (error) {
+      console.error('Error in /api/hydrate:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to hydrate data',
+        details: (error as Error).message
+      });
+    }
+  });
+  
+  /**
+   * Ably Token Auth endpoint - generates short-lived client tokens
+   * Security: Tokens expire in 1 hour, clients use them to connect to Ably
+   */
+  app.get('/api/ably/token', async (req: Request, res: Response) => {
+    try {
+      const Ably = (await import('ably')).default;
+      const ABLY_API_KEY = process.env.ABLY_API_KEY;
+      
+      if (!ABLY_API_KEY) {
+        throw new Error('ABLY_API_KEY not configured');
+      }
+      
+      const ably = new Ably.Rest({ key: ABLY_API_KEY });
+      
+      // Generate token with 1 hour TTL
+      const tokenRequest = await ably.auth.createTokenRequest({
+        capability: {
+          'sports:*': ['subscribe'], // Allow subscribe to all sports channels
+        },
+        ttl: 3600000, // 1 hour in milliseconds
+      });
+      
+      res.json({
+        success: true,
+        tokenRequest,
+        timestamp: Date.now()
+      });
+      
+    } catch (error) {
+      console.error('Error generating Ably token:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate Ably token',
+        details: (error as Error).message
+      });
+    }
+  });
+  
+  /**
+   * Aggregator metrics endpoint - for monitoring
+   */
+  app.get('/api/aggregator/metrics', authenticateAdmin, requireAdminLevel(), async (req: Request, res: Response) => {
+    try {
+      const { ablyAggregator } = await import('../worker/aggregator');
+      const metrics = ablyAggregator.getMetrics();
+      
+      res.json({
+        success: true,
+        metrics,
+        timestamp: Date.now()
+      });
+      
+    } catch (error) {
+      console.error('Error fetching aggregator metrics:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch aggregator metrics',
+        details: (error as Error).message
+      });
+    }
+  });
 }
