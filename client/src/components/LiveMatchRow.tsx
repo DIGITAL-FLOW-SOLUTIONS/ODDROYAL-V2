@@ -9,7 +9,7 @@ import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Lock, Star } from 'lucide-react';
-import { useState, memo } from 'react';
+import { useState, memo, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { type CachedMatch } from '@/lib/liveMatchesCache';
 
@@ -23,39 +23,86 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
   
   const [isFavorite, setIsFavorite] = useState(false);
   const [, setLocation] = useLocation();
+  const [, setTick] = useState(0); // Force re-render for minute updates
+  
+  // Update minute display every 10 seconds for live matches
+  useEffect(() => {
+    if (match.status !== 'live') return;
+    
+    const interval = setInterval(() => {
+      setTick(prev => prev + 1);
+    }, 10000); // Update every 10 seconds
+    
+    return () => clearInterval(interval);
+  }, [match.status]);
 
-  // Calculate match minute based on elapsed time from commence_time
+  // Get match minute - use server-provided elapsed_minute if available, otherwise calculate
   const getMatchMinute = () => {
     if (match.status !== 'live') return '0';
     
+    // Prefer server-provided elapsed_minute
+    if (match.elapsed_minute !== undefined && match.last_server_update) {
+      // Add client-side smoothing: increment based on time since last server update
+      const serverMinute = match.elapsed_minute;
+      const now = Date.now();
+      const timeSinceUpdate = now - match.last_server_update;
+      const additionalMinutes = Math.floor(timeSinceUpdate / 60000);
+      
+      // Cap at reasonable values per sport
+      const maxMinutes: Record<string, number> = {
+        football: 90,
+        basketball: 48,
+        americanfootball: 60,
+        baseball: 180,
+        icehockey: 60,
+        cricket: 300,
+        mma: 25,
+      };
+      
+      const max = maxMinutes[match.sport_key] || 90;
+      return Math.min(serverMinute + additionalMinutes, max).toString();
+    }
+    
+    // Fallback: calculate from commence_time (less accurate, doesn't account for stoppages)
     const startTime = new Date(match.commence_time).getTime();
     const now = Date.now();
     const elapsedMs = now - startTime;
     const elapsedMin = Math.floor(elapsedMs / 60000);
     
-    // Cap at reasonable values per sport
     const maxMinutes: Record<string, number> = {
       football: 90,
       basketball: 48,
       americanfootball: 60,
-      baseball: 180, // 9 innings * 20 min average
+      baseball: 180,
       icehockey: 60,
-      cricket: 300, // T20/ODI can be long
-      mma: 25, // 5 rounds * 5 min
+      cricket: 300,
+      mma: 25,
     };
     
     const max = maxMinutes[match.sport_key] || 90;
-    const result = Math.min(Math.max(0, elapsedMin), max).toString();
-    
-    // Debug logging for first match only
-    if (match.match_id.includes('poland')) {
-      console.log(`⏱️ Match ${match.home_team} vs ${match.away_team}: ${result}' (elapsed: ${elapsedMin}, status: ${match.status})`);
-    }
-    
-    return result;
+    return Math.min(Math.max(0, elapsedMin), max).toString();
   };
 
   const minute = getMatchMinute();
+  
+  // Get display status label
+  const getStatusLabel = () => {
+    if (match.live_status) {
+      const labels: Record<string, string> = {
+        first_half: '1st Half',
+        halftime: 'HT',
+        second_half: '2nd Half',
+        in_play: 'Live',
+        finished: 'FT',
+        postponed: 'Postponed',
+        cancelled: 'Cancelled',
+      };
+      return labels[match.live_status] || 'Live';
+    }
+    return match.status === 'live' ? 'Live' : '';
+  };
+  
+  const statusLabel = getStatusLabel();
 
   // Extract odds
   const h2hMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h');
@@ -116,14 +163,19 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
         onClick={handleRowClick}
         data-testid={`live-match-row-${match.match_id}`}
       >
-        {/* Live Minute Badge */}
-        <div className="flex-shrink-0 w-12 flex items-center justify-center">
+        {/* Live Minute and Status Badge */}
+        <div className="flex-shrink-0 w-16 flex flex-col items-center justify-center gap-0.5">
           <Badge
             className="bg-live-surface-1 text-red-100 text-xs font-bold border-0"
             data-testid={`minute-${match.match_id}`}
           >
             {minute}'
           </Badge>
+          {statusLabel && match.live_status !== 'in_play' && (
+            <span className="text-[10px] text-muted-foreground font-medium" data-testid={`status-${match.match_id}`}>
+              {statusLabel}
+            </span>
+          )}
         </div>
 
         {/* Teams and Scores */}

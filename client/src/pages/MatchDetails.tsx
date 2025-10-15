@@ -73,6 +73,7 @@ const transformOddsToMarkets = (oddsData: SportMonksOdds[]): Market[] => {
   if (!oddsData || oddsData.length === 0) {
     // Return comprehensive mock markets similar to Playwin
     return [
+      // Main Markets
       {
         id: "1x2",
         name: "Match Winner",
@@ -93,13 +94,23 @@ const transformOddsToMarkets = (oddsData: SportMonksOdds[]): Market[] => {
           { id: "x2", name: "X2", odds: 1.53 },
         ],
       },
+      // Goals Markets
       {
-        id: "over-under-25",
-        name: "Total Goals O/U 2.5",
+        id: "both-teams-score",
+        name: "Both Teams to Score",
         category: "goals",
         outcomes: [
-          { id: "over-25", name: "Over 2.5", odds: 1.85 },
-          { id: "under-25", name: "Under 2.5", odds: 1.95 },
+          { id: "yes", name: "Yes", odds: 1.7 },
+          { id: "no", name: "No", odds: 2.15 },
+        ],
+      },
+      {
+        id: "over-under-05",
+        name: "Total Goals O/U 0.5",
+        category: "goals",
+        outcomes: [
+          { id: "over-05", name: "Over 0.5", odds: 1.08 },
+          { id: "under-05", name: "Under 0.5", odds: 8.5 },
         ],
       },
       {
@@ -112,54 +123,166 @@ const transformOddsToMarkets = (oddsData: SportMonksOdds[]): Market[] => {
         ],
       },
       {
-        id: "both-teams-score",
-        name: "Both Teams to Score",
+        id: "over-under-25",
+        name: "Total Goals O/U 2.5",
         category: "goals",
         outcomes: [
-          { id: "yes", name: "Yes", odds: 1.7 },
-          { id: "no", name: "No", odds: 2.15 },
+          { id: "over-25", name: "Over 2.5", odds: 1.85 },
+          { id: "under-25", name: "Under 2.5", odds: 1.95 },
         ],
       },
       {
+        id: "over-under-35",
+        name: "Total Goals O/U 3.5",
+        category: "goals",
+        outcomes: [
+          { id: "over-35", name: "Over 3.5", odds: 2.75 },
+          { id: "under-35", name: "Under 3.5", odds: 1.42 },
+        ],
+      },
+      {
+        id: "over-under-45",
+        name: "Total Goals O/U 4.5",
+        category: "goals",
+        outcomes: [
+          { id: "over-45", name: "Over 4.5", odds: 4.9 },
+          { id: "under-45", name: "Under 4.5", odds: 1.14 },
+        ],
+      },
+      // Handicap Markets
+      {
         id: "handicap-0",
-        name: "Handicap (0)",
+        name: "Asian Handicap (0)",
         category: "handicap",
         outcomes: [
-          { id: "home-hcp", name: "1", odds: 1.95 },
-          { id: "draw-hcp", name: "X", odds: 2.2 },
-          { id: "away-hcp", name: "2", odds: 3.4 },
+          { id: "home-hcp-0", name: "Home (0)", odds: 2.1 },
+          { id: "away-hcp-0", name: "Away (0)", odds: 1.75 },
+        ],
+      },
+      {
+        id: "handicap-05",
+        name: "Asian Handicap (-0.5, +0.5)",
+        category: "handicap",
+        outcomes: [
+          { id: "home-hcp-05", name: "Home (-0.5)", odds: 2.45 },
+          { id: "away-hcp-05", name: "Away (+0.5)", odds: 1.55 },
         ],
       },
       {
         id: "handicap-1",
-        name: "Handicap (-1)",
+        name: "Asian Handicap (-1, +1)",
         category: "handicap",
         outcomes: [
-          { id: "home-hcp-1", name: "1", odds: 3.2 },
-          { id: "draw-hcp-1", name: "X", odds: 3.1 },
-          { id: "away-hcp-1", name: "2", odds: 2.05 },
+          { id: "home-hcp-1", name: "Home (-1)", odds: 3.2 },
+          { id: "away-hcp-1", name: "Away (+1)", odds: 1.35 },
         ],
       },
       {
-        id: "correct-score-1",
-        name: "Correct Score - Popular",
+        id: "handicap-15",
+        name: "Asian Handicap (-1.5, +1.5)",
+        category: "handicap",
+        outcomes: [
+          { id: "home-hcp-15", name: "Home (-1.5)", odds: 4.5 },
+          { id: "away-hcp-15", name: "Away (+1.5)", odds: 1.18 },
+        ],
+      },
+      // Correct Score
+      {
+        id: "correct-score-home",
+        name: "Correct Score - Home Win",
         category: "correct-score",
         outcomes: [
           { id: "1-0", name: "1-0", odds: 7.5 },
           { id: "2-0", name: "2-0", odds: 9.0 },
           { id: "2-1", name: "2-1", odds: 8.5 },
-          { id: "1-1", name: "1-1", odds: 5.5 },
-          { id: "0-0", name: "0-0", odds: 8.0 },
-          { id: "0-1", name: "0-1", odds: 11.0 },
+          { id: "3-0", name: "3-0", odds: 16.0 },
+          { id: "3-1", name: "3-1", odds: 15.0 },
+          { id: "3-2", name: "3-2", odds: 18.0 },
         ],
       },
       {
-        id: "first-goal",
-        name: "First Goal Scorer",
-        category: "player",
+        id: "correct-score-draw",
+        name: "Correct Score - Draw",
+        category: "correct-score",
         outcomes: [
-          { id: "any-player", name: "Any Time", odds: 4.5 },
-          { id: "no-goal", name: "No Goal", odds: 12.0 },
+          { id: "0-0", name: "0-0", odds: 8.0 },
+          { id: "1-1", name: "1-1", odds: 5.5 },
+          { id: "2-2", name: "2-2", odds: 12.0 },
+          { id: "3-3", name: "3-3", odds: 35.0 },
+        ],
+      },
+      {
+        id: "correct-score-away",
+        name: "Correct Score - Away Win",
+        category: "correct-score",
+        outcomes: [
+          { id: "0-1", name: "0-1", odds: 9.5 },
+          { id: "0-2", name: "0-2", odds: 12.0 },
+          { id: "1-2", name: "1-2", odds: 9.0 },
+          { id: "0-3", name: "0-3", odds: 21.0 },
+          { id: "1-3", name: "1-3", odds: 18.0 },
+          { id: "2-3", name: "2-3", odds: 22.0 },
+        ],
+      },
+      // Half Markets
+      {
+        id: "first-half-result",
+        name: "First Half Result",
+        category: "half",
+        outcomes: [
+          { id: "1h-home", name: "Home", odds: 3.4 },
+          { id: "1h-draw", name: "Draw", odds: 2.1 },
+          { id: "1h-away", name: "Away", odds: 3.8 },
+        ],
+      },
+      {
+        id: "halftime-fulltime",
+        name: "Half Time / Full Time",
+        category: "half",
+        outcomes: [
+          { id: "hh", name: "Home/Home", odds: 4.2 },
+          { id: "hd", name: "Home/Draw", odds: 11.0 },
+          { id: "ha", name: "Home/Away", odds: 21.0 },
+          { id: "dh", name: "Draw/Home", odds: 5.5 },
+          { id: "dd", name: "Draw/Draw", odds: 4.8 },
+          { id: "da", name: "Draw/Away", odds: 6.2 },
+          { id: "ah", name: "Away/Home", odds: 26.0 },
+          { id: "ad", name: "Away/Draw", odds: 13.0 },
+          { id: "aa", name: "Away/Away", odds: 5.0 },
+        ],
+      },
+      // Special Markets
+      {
+        id: "first-goal-scorer",
+        name: "First Goal Scorer",
+        category: "special",
+        outcomes: [
+          { id: "home-scores-first", name: "Home Team", odds: 2.05 },
+          { id: "away-scores-first", name: "Away Team", odds: 1.85 },
+          { id: "no-goal", name: "No Goal", odds: 15.0 },
+        ],
+      },
+      {
+        id: "time-first-goal",
+        name: "Time of First Goal",
+        category: "special",
+        outcomes: [
+          { id: "0-15", name: "0-15 min", odds: 4.5 },
+          { id: "16-30", name: "16-30 min", odds: 3.8 },
+          { id: "31-45", name: "31-45 min", odds: 4.2 },
+          { id: "46-60", name: "46-60 min", odds: 5.0 },
+          { id: "61-75", name: "61-75 min", odds: 6.5 },
+          { id: "76-90", name: "76-90 min", odds: 8.0 },
+        ],
+      },
+      {
+        id: "clean-sheet",
+        name: "To Keep a Clean Sheet",
+        category: "special",
+        outcomes: [
+          { id: "home-cs", name: "Home", odds: 3.2 },
+          { id: "away-cs", name: "Away", odds: 2.9 },
+          { id: "neither", name: "Neither", odds: 1.85 },
         ],
       },
     ];
@@ -423,6 +546,8 @@ export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
       goals: "Goals",
       handicap: "Handicap",
       "correct-score": "Correct Score",
+      half: "Half Markets",
+      special: "Special Markets",
       player: "Player Markets",
       other: "Other Markets",
     };

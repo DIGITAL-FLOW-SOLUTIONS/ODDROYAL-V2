@@ -26,6 +26,17 @@ export interface Match {
   market_status?: 'open' | 'suspended' | 'closed';
   source: 'api' | 'manual';
   bookmakers?: any[];
+  // Live match specific fields
+  live_status?: 'not_started' | 'first_half' | 'halftime' | 'second_half' | 'in_play' | 'finished' | 'postponed' | 'cancelled';
+  elapsed_minute?: number;
+  last_server_update?: number;
+  events?: Array<{
+    type: 'goal' | 'yellow_card' | 'red_card' | 'substitution' | 'penalty';
+    team: 'home' | 'away';
+    minute: number;
+    player?: string;
+    score_after?: { home: number; away: number };
+  }>;
 }
 
 export interface Odds {
