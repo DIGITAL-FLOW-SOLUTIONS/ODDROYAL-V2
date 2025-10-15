@@ -53,7 +53,7 @@ export function useAbly() {
     const batch = updateQueueRef.current.splice(0);
     if (batch.length === 0) return;
 
-    console.log(`[Ably] Flushing ${batch.length} updates with startTransition`);
+    console.log(`[REACT] Ably batch received: ${batch.length} updates - applying with startTransition`);
 
     // Use startTransition for non-blocking UI updates
     startTransition(() => {
@@ -190,7 +190,7 @@ export function useAbly() {
             
             // Handle batch updates
             if (data.type === 'batch:updates') {
-              console.log(`[Ably] Received batch from ${channelName}: ${data.count} updates`);
+              console.log(`[REACT] Ably message received: updateType=batch:updates, count=${data.count}, channel=${channelName}`);
               
               data.updates.forEach((diff: AblyUpdate) => {
                 queueUpdate(diff);

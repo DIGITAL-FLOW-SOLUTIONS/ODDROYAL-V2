@@ -180,6 +180,8 @@ export class AblyAggregator {
       // Get all live matches from unified service
       const liveMatches = await unifiedMatchService.getAllLiveMatches();
       
+      logger.info(`[AGGREGATOR] Live fetch complete: ${liveMatches.length} matches`);
+      
       this.metrics.redisLatency.push(Date.now() - startTime);
       if (this.metrics.redisLatency.length > 100) {
         this.metrics.redisLatency.shift();
@@ -207,6 +209,8 @@ export class AblyAggregator {
       // Get upcoming matches from unified service
       const upcomingMatches = await unifiedMatchService.getAllUpcomingMatches(100);
       
+      logger.info(`[AGGREGATOR] Prematch fetch complete: ${upcomingMatches.length} matches`);
+      
       this.metrics.redisLatency.push(Date.now() - startTime);
       if (this.metrics.redisLatency.length > 100) {
         this.metrics.redisLatency.shift();
@@ -232,6 +236,8 @@ export class AblyAggregator {
       const upcomingManual = await storage.getUpcomingManualMatches(50);
       
       const allManual = [...liveManual, ...upcomingManual];
+      
+      logger.info(`[AGGREGATOR] Manual fetch complete: ${allManual.length} matches (${liveManual.length} live, ${upcomingManual.length} upcoming)`);
       
       // Transform and process
       for (const dbMatch of allManual) {
@@ -262,6 +268,7 @@ export class AblyAggregator {
         
         // Write new canonical state to Redis
         await redisCache.set(fixtureKey, currentMatch, 3600); // 1 hour TTL
+        logger.info(`[REDIS] Cache updated: match=${currentMatch.match_id}, sport=${currentMatch.sport_key}, league=${currentMatch.league_id}`);
         
         // Add to league index
         await this.updateLeagueIndex(currentMatch);
@@ -478,8 +485,10 @@ export class AblyAggregator {
         const messageSize = JSON.stringify(batchMessage).length;
         this.updateAverageMessageSize(messageSize);
         
+        logger.info(`[ABLY] Publish complete: channel=${channel}, updates=${batch.length}, size=${(messageSize / 1024).toFixed(1)}KB, latency=${publishLatency}ms`);
+        
         if (batches.length > 1) {
-          logger.info(`Split ${channel} batch: ${batch.length} updates, ${(messageSize / 1024).toFixed(1)}KB`);
+          logger.info(`[ABLY] Split batch: ${batch.length} updates, ${(messageSize / 1024).toFixed(1)}KB`);
         }
       }
       
