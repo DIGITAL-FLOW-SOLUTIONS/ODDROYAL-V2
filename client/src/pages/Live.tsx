@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useState, useRef, useMemo, useEffect } from "react";
 import { useMatchStore } from "@/store/matchStore";
+import { renderProfiler } from "@/lib/renderProfiler";
+import { FPSCounter } from "@/components/FPSCounter";
 
 interface LiveProps {
   onAddToBetSlip?: (selection: any) => void;
@@ -15,6 +17,9 @@ interface LiveProps {
 
 export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LiveProps) {
   const { mode, setMode } = useMode();
+  
+  // Log component render for profiling
+  renderProfiler.logRender('Live');
   
   // Ensure mode is set to 'live' when Live page loads (run only once)
   useEffect(() => {
@@ -35,8 +40,12 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
   
-  // Create Set of selected odds IDs for quick lookup
-  const selectedOddsSet = new Set(betSlipSelections.map(s => s.id));
+  // Create Set of selected odds IDs for quick lookup (memoized to prevent child re-renders)
+  // Note: This assumes betSlipSelections reference is stable when content hasn't changed
+  // If the parent always creates a new array, consider memoizing at the parent level
+  const selectedOddsSet = useMemo(() => {
+    return new Set(betSlipSelections.map(s => s.id));
+  }, [betSlipSelections]);
   
   // Scroll functionality for sports carousel
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -181,6 +190,7 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
 
   return (
     <div className="w-full max-w-none overflow-hidden h-full">
+      <FPSCounter />
       {/* Sports Card Carousel */}
       <div className="relative w-full py-4">
         {/* Navigation Arrows */}

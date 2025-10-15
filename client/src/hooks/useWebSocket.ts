@@ -8,8 +8,9 @@
  * - Requests initial data on connection
  */
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, startTransition } from 'react';
 import { useMatchStore } from '@/store/matchStore';
+import { renderProfiler } from '@/lib/renderProfiler';
 
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const WS_URL = `${WS_PROTOCOL}//${window.location.host}/ws`;
@@ -93,6 +94,8 @@ export function useWebSocket() {
 
             case 'batch:matches':
               console.log(`[WS] Processing batch:matches (${message.count} updates)`);
+              renderProfiler.markStart('batch-matches-update');
+              
               // Process batched match updates in a single store mutation
               const matchesToUpdate = message.updates.map((update: any) => {
                 if (update.type === 'match:new') {
@@ -107,37 +110,54 @@ export function useWebSocket() {
                   };
                 }
               });
-              // Use batch update for single store mutation
-              batchUpdateMatches(matchesToUpdate);
+              
+              // Wrap in startTransition to batch React updates and prevent flickering
+              startTransition(() => {
+                batchUpdateMatches(matchesToUpdate);
+              });
+              
+              renderProfiler.markEnd('batch-matches-update');
               break;
 
             case 'batch:odds':
               console.log(`[WS] Processing batch:odds (${message.count} updates)`);
+              renderProfiler.markStart('batch-odds-update');
+              
               // Process batched odds updates efficiently
               const oddsUpdates = message.updates.map((update: any) => ({
                 match_id: update.match_id,
                 ...update.odds,
                 timestamp: update.timestamp,
               }));
-              batchUpdateOdds(oddsUpdates);
+              
+              // Wrap in startTransition to batch React updates and prevent flickering
+              startTransition(() => {
+                batchUpdateOdds(oddsUpdates);
+              });
+              
+              renderProfiler.markEnd('batch-odds-update');
               break;
 
             case 'match:update':
               console.log('[WS] Processing match:update', { match_id: message.match_id, updates: message.updates });
-              // Diff patch for match update
-              updateMatch({
-                match_id: message.match_id,
-                ...message.updates,
+              // Diff patch for match update - wrapped in startTransition
+              startTransition(() => {
+                updateMatch({
+                  match_id: message.match_id,
+                  ...message.updates,
+                });
               });
               break;
 
             case 'odds:update':
               console.log('[WS] Processing odds:update', { match_id: message.match_id });
-              // Odds changed
-              updateOdds({
-                match_id: message.match_id,
-                ...message.odds,
-                timestamp: message.timestamp,
+              // Odds changed - wrapped in startTransition
+              startTransition(() => {
+                updateOdds({
+                  match_id: message.match_id,
+                  ...message.odds,
+                  timestamp: message.timestamp,
+                });
               });
               break;
 
@@ -153,26 +173,32 @@ export function useWebSocket() {
 
             case 'manual:update':
               console.log('[WS] Processing manual:update', { match_id: message.match_id });
-              // Manual match updated
-              updateMatch({
-                match_id: message.match_id,
-                ...message.updates,
+              // Manual match updated - wrapped in startTransition
+              startTransition(() => {
+                updateMatch({
+                  match_id: message.match_id,
+                  ...message.updates,
+                });
               });
               break;
 
             case 'match:new':
               console.log('[WS] Processing match:new', { match_id: message.match?.match_id });
-              // New match added
-              updateMatch({
-                match_id: message.match.match_id,
-                ...message.match,
+              // New match added - wrapped in startTransition
+              startTransition(() => {
+                updateMatch({
+                  match_id: message.match.match_id,
+                  ...message.match,
+                });
               });
               break;
 
             case 'match:remove':
               console.log('[WS] Processing match:remove', { match_id: message.match_id });
-              // Match removed
-              removeMatch(message.match_id);
+              // Match removed - wrapped in startTransition
+              startTransition(() => {
+                removeMatch(message.match_id);
+              });
               break;
 
             case 'pong':

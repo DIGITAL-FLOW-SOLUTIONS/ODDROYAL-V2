@@ -5,13 +5,13 @@
  * Layout: [Minute] [Team 1 (Score)] vs [Team 2 (Score)] | [1] [X] [2]
  */
 
-import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Lock, Star } from 'lucide-react';
 import { useState, memo, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { type CachedMatch } from '@/lib/liveMatchesCache';
+import { renderProfiler } from '@/lib/renderProfiler';
 
 interface LiveMatchRowProps {
   match: CachedMatch;
@@ -20,6 +20,13 @@ interface LiveMatchRowProps {
 }
 
 export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, selectedOdds }: LiveMatchRowProps) {
+  
+  // Log render for profiling
+  renderProfiler.logRender(`LiveMatchRow_${match.match_id}`, {
+    status: match.status,
+    scores: match.scores,
+    market_status: match.market_status,
+  });
   
   const [isFavorite, setIsFavorite] = useState(false);
   const [, setLocation] = useLocation();
@@ -152,12 +159,7 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.2 }}
-      className="group"
-    >
+    <div className="group">
       <div
         className="flex items-center gap-2 p-2 hover-elevate rounded-md cursor-pointer bg-surface-5 border-0"
         onClick={handleRowClick}
@@ -275,19 +277,43 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
           <Star className={`h-4 w-4 ${isFavorite ? 'fill-yellow-500 text-yellow-500' : ''}`} />
         </Button>
       </div>
-    </motion.div>
+    </div>
   );
 }, (prevProps, nextProps) => {
   // Custom comparison - only re-render if match data actually changed
-  return (
-    prevProps.match.match_id === nextProps.match.match_id &&
-    prevProps.match.status === nextProps.match.status &&
-    prevProps.match.scores?.home === nextProps.match.scores?.home &&
-    prevProps.match.scores?.away === nextProps.match.scores?.away &&
-    prevProps.match.market_status === nextProps.match.market_status &&
-    prevProps.match.bookmakers === nextProps.match.bookmakers &&
-    prevProps.selectedOdds === nextProps.selectedOdds
-  );
+  
+  // Basic fields comparison
+  if (
+    prevProps.match.match_id !== nextProps.match.match_id ||
+    prevProps.match.status !== nextProps.match.status ||
+    prevProps.match.scores?.home !== nextProps.match.scores?.home ||
+    prevProps.match.scores?.away !== nextProps.match.scores?.away ||
+    prevProps.match.market_status !== nextProps.match.market_status ||
+    prevProps.match.elapsed_minute !== nextProps.match.elapsed_minute ||
+    prevProps.match.live_status !== nextProps.match.live_status ||
+    prevProps.selectedOdds !== nextProps.selectedOdds
+  ) {
+    return false; // Props changed, should re-render
+  }
+  
+  // Deep comparison for bookmakers (to check odds changes)
+  const prevOdds = prevProps.match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h')?.outcomes;
+  const nextOdds = nextProps.match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h')?.outcomes;
+  
+  if (!prevOdds && !nextOdds) return true;
+  if (!prevOdds || !nextOdds) return false;
+  
+  // Compare odds values
+  const prevHome = prevOdds.find((o: any) => o.name === prevProps.match.home_team)?.price;
+  const prevDraw = prevOdds.find((o: any) => o.name === 'Draw')?.price;
+  const prevAway = prevOdds.find((o: any) => o.name === prevProps.match.away_team)?.price;
+  
+  const nextHome = nextOdds.find((o: any) => o.name === nextProps.match.home_team)?.price;
+  const nextDraw = nextOdds.find((o: any) => o.name === 'Draw')?.price;
+  const nextAway = nextOdds.find((o: any) => o.name === nextProps.match.away_team)?.price;
+  
+  // Return true if odds haven't changed (don't re-render)
+  return prevHome === nextHome && prevDraw === nextDraw && prevAway === nextAway;
 });
 
 /**
