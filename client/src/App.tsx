@@ -11,7 +11,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ModeProvider } from "@/contexts/ModeContext";
 import { PageLoadingProvider } from "@/contexts/PageLoadingContext";
 import { useScrollRestoration } from "@/hooks/use-scroll-restoration";
-import { useWebSocket } from "@/hooks/useWebSocket";
+import { useAbly } from "@/hooks/useAbly";
 import Layout from "@/components/Layout";
 import SimpleLayout from "@/components/SimpleLayout";
 import Homepage from "@/pages/Homepage";
@@ -95,8 +95,8 @@ function Router() {
 }
 
 function App() {
-  // Initialize WebSocket streaming for real-time updates
-  useWebSocket();
+  // Initialize Ably realtime streaming for real-time updates
+  useAbly();
 
   // [LOG] Monitor FPS (browser paint performance) - only log when FPS drops
   useEffect(() => {

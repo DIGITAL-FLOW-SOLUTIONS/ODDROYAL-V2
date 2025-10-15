@@ -348,17 +348,32 @@ export class UnifiedMatchService {
   
   /**
    * Update manual match in Redis cache when it changes
+   * Also triggers Ably aggregator to pick up the change
    */
   async updateManualMatchCache(matchId: string): Promise<void> {
     try {
       const match = await storage.getMatch(matchId);
       if (match && match.is_manual) {
         const unified = await this.transformManualMatch(match);
+        
+        // Write to canonical fixture key for aggregator to detect
+        await redisCache.set(`fixture:${matchId}`, unified, 3600);
         await redisCache.set(`manual:match:${matchId}`, unified, 60);
+        
+        // Update league index
+        const leagueKey = `league:${unified.league_id}:fixtures`;
+        let fixtureIds = await redisCache.get<string[]>(leagueKey) || [];
+        if (!fixtureIds.includes(matchId)) {
+          fixtureIds.push(matchId);
+          await redisCache.set(leagueKey, fixtureIds, 3600);
+        }
         
         // Invalidate unified lists to force refresh
         await redisCache.del('unified:matches:live');
         await redisCache.del('unified:matches:upcoming');
+        
+        // Log for aggregator visibility
+        console.log(`📝 Manual match updated in Redis (fixture:${matchId}) - Aggregator will detect change`);
       }
     } catch (error) {
       console.error(`Error updating manual match cache for ${matchId}:`, error);
