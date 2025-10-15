@@ -37,8 +37,20 @@ interface MatchCardProps {
 }
 
 const MatchCard = memo(function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
-  const [isFavorite, setIsFavorite] = useState(match.isFavorite || false);
+  const [isFavorite, setIsFavorite] = useState(match?.isFavorite || false);
   const [, setLocation] = useLocation();
+  
+  // Defensive check - don't render if match data is invalid
+  if (!match || 
+      !match.homeTeam || 
+      !match.awayTeam || 
+      !match.odds ||
+      typeof match.odds.home !== 'number' ||
+      typeof match.odds.away !== 'number' ||
+      (match.odds.draw !== undefined && typeof match.odds.draw !== 'number')) {
+    console.warn('MatchCard received invalid match data:', match);
+    return null;
+  }
 
   const handleAddToBetSlip = (type: "home" | "draw" | "away", odds: number, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent navigation when clicking odds buttons

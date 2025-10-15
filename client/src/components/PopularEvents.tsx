@@ -133,15 +133,28 @@ export default function PopularEvents({
       );
     }
 
-    return matches.map((match, index) => (
-      <motion.div
-        key={match.id}
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: index * 0.1 }}
-        className="flex-shrink-0"
-      >
-        <Card 
+    return matches
+      .filter(match => {
+        // Filter out invalid matches
+        return match && 
+               match.id && 
+               match.homeTeam?.name && 
+               match.awayTeam?.name && 
+               match.kickoffTime &&
+               match.odds &&
+               typeof match.odds.home === 'number' &&
+               typeof match.odds.draw === 'number' &&
+               typeof match.odds.away === 'number';
+      })
+      .map((match, index) => (
+        <motion.div
+          key={match.id}
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: index * 0.1 }}
+          className="flex-shrink-0"
+        >
+          <Card 
           className="w-80 hover-elevate cursor-pointer" 
           style={{ backgroundColor: 'hsl(var(--surface-3))', borderColor: 'hsl(var(--surface-4))' }}
           onClick={() => handleCardClick(match.id)}

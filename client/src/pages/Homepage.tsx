@@ -66,8 +66,21 @@ export default function Homepage({ onAddToBetSlip }: HomepageProps) {
       return [];
     }
     
+    // Filter out invalid matches and ensure they have all required properties
+    const validMatches = prematchData.allMatches.filter((match: any) => {
+      return match && 
+             match.id &&
+             match.homeTeam?.name &&
+             match.awayTeam?.name &&
+             match.kickoffTime &&
+             match.odds &&
+             typeof match.odds.home === 'number' &&
+             typeof match.odds.away === 'number' &&
+             (match.odds.draw === undefined || typeof match.odds.draw === 'number');
+    });
+    
     // Sort by kickoff time (soonest first) and take first 6
-    return prematchData.allMatches
+    return validMatches
       .sort((a: any, b: any) => {
         const dateA = new Date(a.kickoffTime).getTime();
         const dateB = new Date(b.kickoffTime).getTime();
