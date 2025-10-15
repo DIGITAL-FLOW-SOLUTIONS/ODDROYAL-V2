@@ -25,7 +25,6 @@ import {
   AdminRoles,
   rolePermissions
 } from "@shared/schema";
-import { initializeWebSocket, broadcastBetUpdate } from './websocket';
 // import { liveMatchSimulator } from './live-match-simulator';
 // import { addSimulationRoutes } from './simulation-routes';
 import { 
@@ -7082,9 +7081,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Add live match simulation control endpoints
   // addSimulationRoutes(app);
-  
-  // Initialize WebSocket server for real-time updates
-  initializeWebSocket(httpServer);
   
   // ===================== ONE-TIME SUPERADMIN SETUP ENDPOINT =====================
   
