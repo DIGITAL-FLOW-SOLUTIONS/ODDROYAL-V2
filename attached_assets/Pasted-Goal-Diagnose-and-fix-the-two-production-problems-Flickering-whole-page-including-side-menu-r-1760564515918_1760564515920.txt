@@ -1,0 +1,277 @@
+Goal: Diagnose and fix the two production problems:
+
+Flickering — whole page (including side menu) re-renders when live updates arrive.
+
+Data disappearing — leagues intermittently show zero matches even though they should have matches.
+
+We use this architecture: The Odds API → Aggregator Worker → Redis (canonical state) → Ably Channels → React Client. Your task is to instrument, observe, report, and fix. Focus on correctness, minimal invasiveness, and reproducibility. Produce a clear report with logs, timeline, root causes, and prioritized fixes.
+
+Important constraints:
+
+Do not remove or change business logic. Only add logging, monitoring, small safe guards, and minimal fixes that prevent full-state replacement or unstable keys.
+
+Run tests in the current environment (Replit). If production data is sensitive, prefer a staging channel or a short run (2–3 minutes).
+
+Provide the report in markdown at the project root DIAGNOSTICS-FLICKER-REPORT.md.
+
+1) Discover & map code locations
+
+Search repository for the following patterns and list files/paths found:
+
+axios or HTTP calls to api.the-odds-api.com or any Odds API endpoints (aggregator poller).
+
+Redis client usage (e.g., redis, ioredis, Redis.createClient).
+
+Ably / Pusher / socket usage (ably, pusher, socket.io).
+
+Frontend subscription code (Ably realtime client, WebSocket connect, or useEffect subscribe).
+
+State store code: Zustand, Redux, React Query, or any global store.
+
+Components rendering matches: MatchList, MatchRow, MatchCard, OddsGrid, Sidebar, BetSlip.
+
+Report file paths and a 1-line summary of purpose for each matched file.
+
+2) Instrumentation: add non-destructive logging everywhere (use the format below)
+
+A. Aggregator / The Odds API poller
+
+In every place that calls The Odds API or processes odds fixtures, add logs:
+
+When request starts: [AGG/API-REQ] ts=<iso> endpoint=<url> params=<params>.
+
+When response received: [AGG/API-RES] ts=<iso> bytes=<len> items=<countMatches> and first 200 chars preview of body (safe-truncate).
+
+If a poller chooses which leagues to poll, log that list and frequency: [AGG/POLL] leagues=[...] intervalMs=...
+
+Add timing: measure and log request latency with console.time/console.timeEnd.
+
+Add diff computation logs: whenever you compute a diff for a fixture, log:
+
+[AGG/DIFF] ts=<iso> fixture_id=<id> changedFields=[path1,path2] payloadSize=<bytes>
+
+
+If you batch/coalesce diffs, log batch size & flush timestamp: [AGG/BATCH] count=... flushedAt=....
+
+B. Redis
+
+Wrap Redis reads/writes to log:
+
+GET key=<key> latencyMs=... hit=(true|false) sizeBytes=...
+
+SET key=<key> latencyMs=... sizeBytes=...
+
+For sorted sets or list operations (league fixtures): log ZCARD length and top 5 IDs: [REDIS/LEAGUE] leagueId=<id> count=<n> top5=[...].
+
+Track Redis errors and timeouts explicitly.
+
+C. Ably publish / subscribe
+
+On publish:
+
+[ABLY/PUB] ts=<iso> channel=<chan> event=<evt> sizeBytes=<len> recipientsHint=<if available>
+
+
+On subscribe callback (server or client side):
+
+[ABLY/SUB-RX] ts=<iso> channel=<chan> event=<evt> sizeBytes=<len> payloadPreview=<first200> 
+
+
+Log Ably connection state changes (connected, disconnected, resumed).
+
+D. Backend hydrate endpoint (/api/hydrate)
+
+Log endpoint calls, query params, returned fixture count and time. [HYDRATE] user=<ip?> league=<id> fixturesCount=... latencyMs=...
+
+E. Frontend: React Client (critical)
+
+Add lightweight, targeted instrumentation (not heavy profiler):
+
+In every major component MatchList, MatchRow, OddsGrid, Sidebar, BetSlip add:
+
+console.count('RENDER: MatchRow:'+fixture.id) // for row-level
+console.count('RENDER: MatchesList')
+
+
+and at top of render function:
+
+performance.mark('render-start:MatchRow:'+fixture.id)
+
+
+and performance.measure after render to record render duration.
+
+In your global store merge/update function (where Ably messages are applied), log:
+
+[CLIENT/UPDATE-RECV] ts=<iso> messages=<n> totalPayloadBytes=<len> applyMode=(merge|replace) changedFixtures=[id1,id2...]
+
+
+and before and after applying patch record a shallow diff count:
+
+[CLIENT/UPDATE-MERGE] fixture_id=<id> prevHash=<hash> nextHash=<hash> replaced=(true|false)
+
+
+Use a deterministic hash (e.g., JSON.stringify + small hash) to detect full-replacements vs partial merges.
+
+Track list keys in UI render: when mapping fixture arrays to JSX ensure key is stable and log if key is non-numeric/index.
+
+Add a ResizeObserver or MutationObserver guard to log layout-change events: [CLIENT/LAYOUT-CHANGE] target=... reason=...
+
+Log Ably messages on client: [CLIENT/ABLY-RX] ts=... event=... size=... preview=....
+
+F. Timestamps & correlation IDs
+
+For each diff published by aggregator, include a trace_id or update_id (UUID) and surface that same ID through Redis/Ably and on client logs so you can correlate a published change to client re-renders.
+
+3) Runtime steps: collect logs & reproduce
+
+Start aggregator and backend as usual. Start frontend in a browser where devtools console is visible.
+
+Run a short controlled session (2–3 minutes). During that period:
+
+Click the sidebar rapidly through multiple leagues to try reproducing data disappearing.
+
+Navigate to Live and Line pages and watch for flicker.
+
+Keep browser console open and record logs.
+
+Capture & save logs:
+
+Server logs (aggregator + express) to logs/agg.log.
+
+Redis logs (or aggregated log lines) to logs/redis.log.
+
+Ably publish logs to logs/ably-publish.log.
+
+Client console logs: instruct Replit to capture browser console output into logs/client-console.log (if using headless browser or Puppeteer; otherwise save screenshots + copy console output).
+
+While running, capture a short screen recording or a sequence of screenshots showing visible flicker/disappearance (optional but helpful).
+
+4) Analysis to perform (automated & manual)
+
+Replit should produce a DIAGNOSTICS-FLICKER-REPORT.md including:
+
+A. Timeline of events (sample)
+
+Correlate aggregator publish times with Ably publish times, Redis writes, Ably receive times on the client, and the client component renders. Show a timeline table like:
+
+[00:00:12.231] AGG published update update_id=abc123 fixture=133
+[00:00:12.238] REDIS set fixture:133
+[00:00:12.245] ABLY published update on sports:football (size:4.1KB)
+[00:00:12.252] CLIENT ABLY-RX update_id=abc123
+[00:00:12.260] CLIENT applyPatch -> triggers MatchList re-render (count: 200)
+
+
+Use the trace_id to join events.
+
+B. Root cause hypothesis & evidence
+
+For flicker: demonstrate whether a full-state fixtures replacement is happening (prevHash !== nextHash for whole object), or whether unstable React keys or a top-level re-render causes DOM node unmounts.
+
+For disappearance: show if Redis had empty league:<id>:fixtures at the time (server-side problem) OR if the client hydrated a league view but then immediately applied a patch that removed items due to an empty patch (client merging bug) OR if Ably message with empty list arrived.
+
+C. Concrete findings
+
+Eg: FINDING 1: On update event X, client.applyPatch replaces the entire fixtures object (it does setState({fixtures: newObj})) causing React to re-render entire tree. Evidence: client log [CLIENT/UPDATE-MERGE] shows replaced=true and Render counts spiking to 300.
+
+Eg: FINDING 2: League disappearance occurred at 00:01:23 because aggregator polled The Odds API for that league and received an empty fixtures array (AGG/API-RES bytes=4 len=0) and overwrote Redis list; later another poll restored fixtures.
+
+D. Actionable fixes (priority order)
+
+For full-state replacement: Do not replace root fixtures object. Change merge function to per-fixture patch merge. Provide exact code patch (diff) for the store merge function.
+
+For unstable keys: ensure key={fixture.id} and never use array index. Show code fix.
+
+For aggregator empty-writes: change logic so aggregator does not overwrite canonical league:<id>:fixtures with empty results unless confirmed (e.g., confirm two consecutive empty polls or mark status=maintenance). Provide exact patch.
+
+For client patch handling: ignore empty arrays from Ably that would remove existing fixtures unless isFinal flag is set. Implement server-provided source and partial flags to indicate partial deltas.
+
+For Ably message ordering/collisions: include sequence number and server timestamp; client should ignore older out-of-order messages.
+
+E. Tests performed & results
+
+Re-run the 2–3 minute session after applying fixes and show improved metrics: reduced global renders, no disappearance, stable FPS.
+
+5) Minimal code patches to apply (apply only after tests)
+
+Include these exact fixes (add to the repo):
+
+A. Safe merge example (store update) — replace any setFixtures(newFixtures) usage with:
+
+// safeMergeFixtures.ts
+export function safeMergeFixtures(state, newFixturesMap) {
+  const next = { ...state.fixtures };
+  const changed = [];
+  for (const id in newFixturesMap) {
+    const prev = next[id];
+    const incoming = newFixturesMap[id];
+    // shallow compare relevant keys
+    const prevHash = JSON.stringify(prev?.markets ?? {}) + '|' + (prev?.score ?? '');
+    const nextHash = JSON.stringify(incoming.markets ?? {}) + '|' + (incoming.score ?? '');
+    if (prevHash !== nextHash) {
+      next[id] = { ...prev, ...incoming, lastServerTs: Date.now() };
+      changed.push(id);
+    }
+  }
+  return { fixtures: next, changedFixtures: changed };
+}
+
+
+B. Agg aggregator guard against empty overwrite (pseudo)
+
+// before writing league list
+if (fixtures.length === 0) {
+  // do not overwrite unless this was the only source OR empty confirmed twice
+  const last = await redis.get(`league:${leagueId}:lastNonEmptyTs`);
+  const now = Date.now();
+  if (!last || (now - last) < 60000) {
+    console.log('[AGG] ignoring single empty fetch for league', leagueId);
+  } else {
+    // accept empty and set lastNonEmpty to null
+    await redis.set(`league:${leagueId}:fixtures`, JSON.stringify([]));
+  }
+} else {
+  await redis.set(`league:${leagueId}:fixtures`, JSON.stringify(fixtures));
+  await redis.set(`league:${leagueId}:lastNonEmptyTs`, Date.now());
+}
+
+6) Deliverables
+
+After the run, produce DIAGNOSTICS-FLICKER-REPORT.md at repo root containing:
+
+File map of instrumented files.
+
+Collected logs (or links to logs/*.log).
+
+Correlated timeline table.
+
+Root cause(s) with evidence (screenshots / console excerpts).
+
+Exact code patches applied (diffs).
+
+Verification run results (post-fix metrics).
+
+Final recommendations for production (throttle policies, channel partitioning, etc).
+
+7) Run duration & verification
+
+Collect logs for at least 2–3 minutes during active interaction (rapid sidebar clicking + watching live page).
+
+After fixes, repeat another 2–3 minute run and include comparative metrics.
+
+8) If you find multiple issues: prioritize and fix in this order
+
+Root store replacement (client-side) — highest cause of flicker.
+
+Unstable React keys / list remounts.
+
+Aggregator overwriting canonical data with empty sets.
+
+Ably message ordering / repeated flushes.
+
+CSS/layout issues causing repaint.
+
+Finish by committing changes and producing the DIAGNOSTICS-FLICKER-REPORT.md and a short summary message:
+
+“issue fixed: <true|partial|needs follow-up>”
+
+If not fully fixed, include next steps and time estimates for deeper fixes.
