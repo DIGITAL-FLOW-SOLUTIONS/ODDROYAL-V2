@@ -184,16 +184,23 @@ export class RefreshWorker {
       const results = await Promise.all(fetchPromises);
       results.forEach(events => allEvents.push(...events));
 
-      // Handle empty responses gracefully
+      // Handle empty responses gracefully - NEVER overwrite with empty data
       if (allEvents.length === 0) {
         const existingLeagues = await redisCache.getLiveLeagues(sportKey);
         
         if (existingLeagues && existingLeagues.length > 0) {
+          // Only extend TTL if it would increase it (never shrink)
           const currentTtl = await redisCache.ttl(`live:leagues:${sportKey}`);
-          if (currentTtl > 0 && currentTtl < 60) {
-            await redisCache.expire(`live:leagues:${sportKey}`, 90);
-            logger.info(`  ⏰ No fresh live matches for ${sportKey}, keeping existing ${existingLeagues.length} leagues`);
+          const targetTtl = 90;
+          
+          if (currentTtl < targetTtl) {
+            await redisCache.expire(`live:leagues:${sportKey}`, targetTtl);
+            logger.info(`  ⏰ Empty API response for ${sportKey}, extended TTL from ${currentTtl}s to ${targetTtl}s for ${existingLeagues.length} leagues`);
+          } else {
+            logger.info(`  ℹ️  Empty API response for ${sportKey}, keeping existing TTL (${currentTtl}s) for ${existingLeagues.length} leagues`);
           }
+        } else {
+          logger.info(`  ℹ️  No live matches for ${sportKey} (cache also empty)`);
         }
         return;
       }
@@ -351,11 +358,18 @@ export class RefreshWorker {
         const existingLeagues = await redisCache.getPrematchLeagues(sportKey);
         
         if (existingLeagues && existingLeagues.length > 0) {
+          // Only extend TTL if it would increase it (never shrink)
           const currentTtl = await redisCache.ttl(`prematch:leagues:${sportKey}`);
-          if (currentTtl > 0 && currentTtl < 300) {
-            await redisCache.expire(`prematch:leagues:${sportKey}`, 900);
-            logger.info(`  ⏰ No fresh prematch data for ${sportKey}, keeping existing ${existingLeagues.length} leagues`);
+          const targetTtl = 900;
+          
+          if (currentTtl < targetTtl) {
+            await redisCache.expire(`prematch:leagues:${sportKey}`, targetTtl);
+            logger.info(`  ⏰ Empty API response for ${sportKey}, extended TTL from ${currentTtl}s to ${targetTtl}s for ${existingLeagues.length} leagues`);
+          } else {
+            logger.info(`  ℹ️  Empty API response for ${sportKey}, keeping existing TTL (${currentTtl}s) for ${existingLeagues.length} leagues`);
           }
+        } else {
+          logger.info(`  ℹ️  No prematch data for ${sportKey} (cache also empty)`);
         }
         return;
       }

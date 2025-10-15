@@ -182,17 +182,38 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     const existing = state.matches.get(matchUpdate.match_id);
     
     if (existing) {
-      // Lightweight check: compare keys that were updated
-      const changedKeys = Object.keys(matchUpdate).filter(
-        key => key !== 'match_id' && existing[key as keyof Match] !== matchUpdate[key as keyof typeof matchUpdate]
-      );
+      // Targeted change detection for known nested fields
+      let hasChanged = false;
       
-      if (changedKeys.length > 0) {
+      for (const key of Object.keys(matchUpdate)) {
+        if (key === 'match_id') continue;
+        
+        const newVal = matchUpdate[key as keyof typeof matchUpdate];
+        const oldVal = existing[key as keyof Match];
+        
+        // Special handling for scores object
+        if (key === 'scores' && newVal && oldVal) {
+          const newScores = newVal as any;
+          const oldScores = oldVal as any;
+          if (newScores.home !== oldScores.home || newScores.away !== oldScores.away) {
+            hasChanged = true;
+            break;
+          }
+        }
+        // Primitive comparison for other fields
+        else if (newVal !== oldVal) {
+          hasChanged = true;
+          break;
+        }
+      }
+      
+      if (hasChanged) {
         const merged = { ...existing, ...matchUpdate };
         state.matches.set(matchUpdate.match_id, merged);
-        // Create new Map reference only when changed
+        // Only update store reference when actual changes detected
         set({ matches: new Map(state.matches), lastUpdate: Date.now() });
       }
+      // No render if no changes
     } else {
       // New match
       state.matches.set(matchUpdate.match_id, matchUpdate as Match);
