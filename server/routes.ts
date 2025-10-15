@@ -6,7 +6,6 @@ import crypto from "crypto";
 import { storage } from "./storage";
 import { supabaseAdmin } from "./supabase";
 import { redisCache } from "./redis-cache";
-import { redisPubSub } from "./redis-pubsub";
 import { memoryCache } from "./memory-cache";
 import { pdfReportService } from "./pdf-service";
 import { emailReportService } from "./email-service";
@@ -2923,19 +2922,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        // Publish new manual match to Redis Pub/Sub for real-time streaming
-        const matchWithMarkets = await storage.getMatch(match.id);
-        const existingMarkets = await storage.getMatchMarkets(match.id);
-        
-        await redisPubSub.publishNewMatch({
-          ...matchWithMarkets,
-          bookmakers: existingMarkets ? [{
-            key: 'manual',
-            title: 'Manual',
-            markets: existingMarkets
-          }] : [],
-          source: 'manual'
-        });
+        // Note: Ably Aggregator Worker will detect this new match within 10 seconds
+        // and publish updates to Ably channels automatically
         
         res.json({
           success: true,
@@ -2987,11 +2975,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updatedBy: req.adminUser.id
         });
         
-        // Publish manual match update to Redis Pub/Sub for real-time streaming
-        await redisPubSub.publishManualUpdate({
-          match_id: id,
-          updates: validatedData
-        });
+        // Note: Ably Aggregator Worker will detect this update within 10 seconds
+        // and publish changes to Ably channels automatically
         
         res.json({
           success: true,
@@ -3040,8 +3025,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         await storage.softDeleteMatch(id, req.adminUser.id);
         
-        // Publish match removal to Redis Pub/Sub for real-time streaming
-        await redisPubSub.publishRemoveMatch(id);
+        // Note: Ably Aggregator Worker will detect this deletion within 10 seconds
+        // and publish removal to Ably channels automatically
         
         res.json({
           success: true,
