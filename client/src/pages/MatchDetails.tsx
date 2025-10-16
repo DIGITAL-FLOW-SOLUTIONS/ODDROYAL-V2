@@ -141,27 +141,31 @@ export default function MatchDetails() {
   const [expandedMarkets, setExpandedMarkets] = useState<Record<string, boolean>>({});
 
   const { data: matchData, isLoading: matchLoading } = useQuery({
-    queryKey: ["/api/fixtures", matchId],
+    queryKey: ["/api/match", matchId, "details"],
     queryFn: async () => {
-      const response = await fetch(`/api/fixtures/${matchId}`);
+      const response = await fetch(`/api/match/${matchId}/details`);
       if (!response.ok) throw new Error("Failed to fetch match details");
-      return response.json();
-    },
-    enabled: !!matchId,
-  });
-
-  const { data: oddsData, isLoading: oddsLoading } = useQuery({
-    queryKey: ["/api/fixtures", matchId, "odds"],
-    queryFn: async () => {
-      const response = await fetch(`/api/fixtures/${matchId}/odds`);
-      if (!response.ok) throw new Error("Failed to fetch match odds");
       return response.json();
     },
     enabled: !!matchId,
     refetchInterval: 30000,
   });
 
-  const isLoading = matchLoading || oddsLoading;
+  const { data: marketsData, isLoading: marketsLoading } = useQuery({
+    queryKey: ["/api/match", matchId, "markets"],
+    queryFn: async () => {
+      const response = await fetch(`/api/match/${matchId}/markets`);
+      if (!response.ok) {
+        // Return empty markets instead of throwing - match might not have markets yet
+        return { success: true, data: { markets: [] } };
+      }
+      return response.json();
+    },
+    enabled: !!matchId,
+    refetchInterval: 30000,
+  });
+
+  const isLoading = matchLoading || marketsLoading;
 
   if (isLoading) {
     return <MatchDetailsSkeleton />;
@@ -180,13 +184,38 @@ export default function MatchDetails() {
     );
   }
 
-  const match: MatchDetails = matchData.data;
-  const sportKey = oddsData?.sportKey || match.sportKey || 'default';
+  const match: MatchDetails = {
+    id: matchData.data.match_id,
+    homeTeam: {
+      name: matchData.data.home_team,
+      logo: matchData.data.home_team_logo,
+    },
+    awayTeam: {
+      name: matchData.data.away_team,
+      logo: matchData.data.away_team_logo,
+    },
+    league: matchData.data.league_name,
+    kickoffTime: matchData.data.commence_time,
+    status: matchData.data.status === 'live' ? 'LIVE' : matchData.data.status === 'completed' ? 'FINISHED' : 'SCHEDULED',
+    homeScore: matchData.data.scores?.home,
+    awayScore: matchData.data.scores?.away,
+    sportKey: matchData.data.sport_key,
+  };
+
+  const sportKey = matchData.data.sport_key || 'default';
   
-  // Transform bookmakers data to markets based on sport
-  const markets = oddsData?.source === 'api' 
-    ? transformBookmakersToMarkets(oddsData.data, sportKey)
-    : [];
+  // Transform persisted markets from database to UI format
+  const dbMarkets = marketsData?.data?.markets || [];
+  const markets: Market[] = dbMarkets.map((market: any) => ({
+    key: market.key || market.type,
+    name: market.name,
+    description: market.parameter ? `Line: ${market.parameter}` : undefined,
+    outcomes: (market.outcomes || []).map((outcome: any) => ({
+      name: outcome.label,
+      price: parseFloat(outcome.odds),
+      point: outcome.point,
+    })),
+  }));
 
   const toggleMarket = (marketKey: string) => {
     setExpandedMarkets((prev) => ({
