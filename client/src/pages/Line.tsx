@@ -14,9 +14,6 @@ import OtherSports from "@/components/OtherSports";
 
 function LineContent() {
   const { onAddToBetSlip } = useBetSlip();
-  console.log('[LINE] ========================================');
-  console.log('[LINE] COMPONENT RENDER START');
-  console.log('[LINE] ========================================');
   const [selectedLeague, setSelectedLeague] = useState("all");
   const { mode, setMode } = useMode();
 
@@ -39,7 +36,6 @@ function LineContent() {
   });
 
   const sports = menuData?.sports || [];
-  console.log('[LINE] Sports:', sports.length, 'Mode:', mode);
   
   // Fetch matches for all leagues
   const leagueIds = useMemo(() => {
@@ -78,7 +74,6 @@ function LineContent() {
   });
 
   const isLoading = menuLoading || leagueMatchesQueries.isLoading;
-  console.log('[LINE] Loading states - menu:', menuLoading, 'matches:', leagueMatchesQueries.isLoading);
 
   // Build match lookup by league
   const matchesByLeague = useMemo(() => {

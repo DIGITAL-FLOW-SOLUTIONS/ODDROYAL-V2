@@ -36,13 +36,6 @@ export default function Layout({ children }: LayoutProps) {
   const headerRef = useRef<HTMLDivElement>(null);
   const [isInnerScrollLocked, setIsInnerScrollLocked] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(80);
-  const renderCountRef = useRef(0);
-
-  // Track renders for debugging
-  useEffect(() => {
-    renderCountRef.current += 1;
-    console.log(`[RENDER] Layout rendered ${renderCountRef.current} times`);
-  });
 
   // Load bet slip from localStorage on mount
   useEffect(() => {

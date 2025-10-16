@@ -55,10 +55,6 @@ export function useAbly() {
   const hasInitializedRef = useRef(false);
   const pendingUpdatesRef = useRef<Map<string, any>>(new Map());
 
-  const {
-    setConnected,
-    setInitialData,
-  } = useMatchStore();
 
   /**
    * Apply throttled batch updates to store - only updates changed matches
@@ -97,8 +93,6 @@ export function useAbly() {
     pendingUpdatesRef.current.clear();
 
     if (changeCount > 0) {
-      console.log(`[REACT] Applying ${changeCount} match updates to store`);
-      
       // Single store update with startTransition
       startTransition(() => {
         useMatchStore.setState({ 
@@ -106,8 +100,6 @@ export function useAbly() {
           lastUpdate: Date.now() 
         });
       });
-    } else {
-      console.log('[REACT] No changes detected, skipping store update');
     }
   }, []);
 
@@ -122,8 +114,6 @@ export function useAbly() {
 
     const batch = updateQueueRef.current.splice(0);
     if (batch.length === 0) return;
-
-    console.log(`[REACT] Ably batch received: ${batch.length} updates - merging for throttled apply`);
 
     // Merge all diffs into pending updates map
     batch.forEach(diff => {
@@ -198,17 +188,17 @@ export function useAbly() {
       // Connection state handling
       client.connection.on('connected', () => {
         console.log('✅ Ably connected');
-        setConnected(true);
+        useMatchStore.getState().setConnected(true);
       });
 
       client.connection.on('disconnected', () => {
         console.log('❌ Ably disconnected');
-        setConnected(false);
+        useMatchStore.getState().setConnected(false);
       });
 
       client.connection.on('failed', (error: any) => {
         console.error('❌ Ably connection failed:', error);
-        setConnected(false);
+        useMatchStore.getState().setConnected(false);
       });
 
       // Hydrate initial data from Redis
@@ -224,7 +214,7 @@ export function useAbly() {
           hydrateResult = await hydrateResponse.json();
           
           if (hydrateResult.success) {
-            setInitialData(hydrateResult.data);
+            useMatchStore.getState().setInitialData(hydrateResult.data);
             hasInitializedRef.current = true;
             console.log('[Ably] Initial data loaded:', hydrateResult.data.matches.length, 'matches');
           }
@@ -259,8 +249,6 @@ export function useAbly() {
             
             // Handle batch updates
             if (data.type === 'batch:updates') {
-              console.log(`[REACT] Ably message received: updateType=batch:updates, count=${data.count}, channel=${channelName}`);
-              
               data.updates.forEach((diff: AblyUpdate) => {
                 queueUpdate(diff);
               });
@@ -277,9 +265,9 @@ export function useAbly() {
     } catch (error) {
       console.error('[Ably] Initialization error:', error);
       console.error('[Ably] Error details:', (error as Error).message, (error as Error).stack);
-      setConnected(false);
+      useMatchStore.getState().setConnected(false);
     }
-  }, [setConnected, setInitialData, queueUpdate]);
+  }, [queueUpdate]);
 
   /**
    * Cleanup Ably connection
@@ -309,8 +297,8 @@ export function useAbly() {
       ablyClientRef.current = null;
     }
 
-    setConnected(false);
-  }, [flushBatch, applyThrottledBatch, setConnected]);
+    useMatchStore.getState().setConnected(false);
+  }, [flushBatch, applyThrottledBatch]);
 
   useEffect(() => {
     initializeAbly();

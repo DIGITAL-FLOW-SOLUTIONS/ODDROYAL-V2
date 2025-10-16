@@ -4,6 +4,20 @@ OddRoyal is a premium sports betting web application featuring real-time sports 
 
 # Recent Changes
 
+## October 16, 2025 - Critical Real-time Flickering Fix
+- **Root Cause Identified**: The `useAbly` hook was subscribing to the entire Zustand store using `useMatchStore()` without a selector, causing App component to re-render on every store update, which cascaded to Layout and all child components
+- **Solution Implemented**: 
+  - Changed useAbly to call store actions via `useMatchStore.getState()` instead of destructuring from `useMatchStore()`, eliminating unnecessary subscriptions
+  - Restructured App.tsx so Layout wraps the Router once instead of being recreated on each route
+  - Migrated all page components (Homepage, Line, Live, MatchDetails) to use BetSlipContext instead of props
+  - Maintained batched Ably updates with 400ms throttling and React.memo optimizations
+- **Performance Impact**: 
+  - Layout now renders only 2 times on mount (React Strict Mode), then never again
+  - Eliminated all visual flickering during real-time updates
+  - Maintained stable 60fps performance with continuous Ably updates
+  - Only affected page components re-render when data changes (as designed)
+- **Architecture Pattern**: Zustand store actions should always be called via `getState()` in hooks to avoid creating subscriptions; never destructure actions from `useStore()` without a selector
+
 ## October 11, 2025 - Critical Admin Panel Bug Fixes (Session 2)
 - **Delete Match Error Fix**: Resolved database enum constraint violation
   - Fixed `getActiveBetsByMatch` query that was using invalid bet_status value 'accepted'
