@@ -128,7 +128,7 @@ export class UnifiedMatchService {
   
   /**
    * Get match by ID (checks both API and manual sources)
-   * OPTIMIZED: Uses direct match cache for instant lookups
+   * OPTIMIZED: Uses direct match cache for instant lookups, with fallback search
    */
   async getMatchById(matchId: string): Promise<UnifiedMatch | null> {
     try {
@@ -160,6 +160,47 @@ export class UnifiedMatchService {
         // Cache as unified for next time
         await redisCache.set(`unified:match:${matchId}`, unified, 60);
         return unified;
+      }
+      
+      // FALLBACK: Search through all sports and leagues to find this match
+      // This handles cases where match was loaded via hydrate but not cached individually
+      const sports = await redisCache.getSportsList() || [];
+      for (const sport of sports) {
+        // Check both live and prematch leagues
+        const liveLeagues = await redisCache.getLiveLeagues(sport.key) || [];
+        const prematchLeagues = await redisCache.getPrematchLeagues(sport.key) || [];
+        const allLeagues = [...liveLeagues, ...prematchLeagues];
+        
+        for (const league of allLeagues) {
+          const liveMatches = await redisCache.getLiveMatches(sport.key, league.league_id) || [];
+          const prematchMatches = await redisCache.getPrematchMatches(sport.key, league.league_id) || [];
+          const allMatches = [...liveMatches, ...prematchMatches];
+          
+          const foundMatch = allMatches.find(m => (m.match_id || m.id) === matchId);
+          if (foundMatch) {
+            // Found it! Transform and cache
+            const unified: UnifiedMatch = {
+              match_id: foundMatch.match_id || foundMatch.id,
+              sport_key: sport.key,
+              sport_icon: foundMatch.sport_icon,
+              home_team: foundMatch.home_team,
+              away_team: foundMatch.away_team,
+              commence_time: foundMatch.commence_time,
+              status: foundMatch.status || 'upcoming',
+              league_id: foundMatch.league_id || league.league_id,
+              league_name: foundMatch.league_name || league.league_name,
+              bookmakers: foundMatch.bookmakers || [],
+              scores: foundMatch.scores,
+              source: 'api'
+            };
+            
+            // Cache for future instant lookups
+            await redisCache.set(`unified:match:${matchId}`, unified, 60);
+            await redisCache.set(`match:${matchId}`, { ...foundMatch, sport_key: sport.key, league_id: league.league_id }, 60);
+            
+            return unified;
+          }
+        }
       }
       
       // Check if it's a manual match (UUIDs are typically longer than 32 chars)
