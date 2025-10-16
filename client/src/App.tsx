@@ -48,7 +48,7 @@ function Router() {
   
   return (
     <Switch>
-      {/* Admin Panel Routes - Must come first and use specific patterns */}
+      {/* Admin Panel Routes - Standalone without Layout */}
       <Route path="/prime-admin/login" component={AdminApp} />
       <Route path="/prime-admin/register" component={AdminApp} />
       <Route path="/prime-admin/markets/:matchId" component={AdminApp} />
@@ -65,20 +65,46 @@ function Router() {
       <Route path="/prime-admin/security" component={AdminApp} />
       <Route path="/prime-admin" component={AdminApp} />
       
-      {/* Regular App Routes - Wrapped with Layout */}
-      <Route path="/" component={Homepage} />
-      <Route path="/line" component={Line} />
-      <Route path="/live" component={Live} />
-      <Route path="/league/:sport/:leagueId" component={LeagueMatches} />
-      <Route path="/match/:id" component={MatchDetails} />
-      <Route path="/dashboard" component={Dashboard} />
-      <Route path="/profile" component={Profile} />
-      <Route path="/wallet" component={Wallet} />
-      <Route path="/bets" component={BetHistory} />
-      <Route path="/analytics" component={Analytics} />
-      <Route path="/responsible-gambling" component={ResponsibleGamblingSettings} />
-      <Route path="/results" component={Results} />
-      <Route path="/login" component={Login} />
+      {/* Regular App Routes - Will be wrapped with Layout in App component */}
+      <Route path="/">
+        <Layout><Homepage /></Layout>
+      </Route>
+      <Route path="/line">
+        <Layout><Line /></Layout>
+      </Route>
+      <Route path="/live">
+        <Layout><Live /></Layout>
+      </Route>
+      <Route path="/league/:sport/:leagueId">
+        <Layout><LeagueMatches /></Layout>
+      </Route>
+      <Route path="/match/:id">
+        <Layout><MatchDetails /></Layout>
+      </Route>
+      <Route path="/dashboard">
+        <Layout><Dashboard /></Layout>
+      </Route>
+      <Route path="/profile">
+        <Layout><Profile /></Layout>
+      </Route>
+      <Route path="/wallet">
+        <Layout><Wallet /></Layout>
+      </Route>
+      <Route path="/bets">
+        <Layout><BetHistory /></Layout>
+      </Route>
+      <Route path="/analytics">
+        <Layout><Analytics /></Layout>
+      </Route>
+      <Route path="/responsible-gambling">
+        <Layout><ResponsibleGamblingSettings /></Layout>
+      </Route>
+      <Route path="/results">
+        <Layout><Results /></Layout>
+      </Route>
+      <Route path="/login">
+        <Layout><Login /></Layout>
+      </Route>
       
       {/* Simple Layout Routes */}
       <Route path="/deposit">
@@ -172,9 +198,7 @@ function App() {
             <ModeProvider>
               <PageLoadingProvider>
                 <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
-                  <Layout>
-                    <Router />
-                  </Layout>
+                  <Router />
                   <Toaster />
                 </div>
               </PageLoadingProvider>
