@@ -204,18 +204,8 @@ export default function MatchDetails() {
 
   const sportKey = matchData.data.sport_key || 'default';
   
-  // Transform persisted markets from database to UI format
-  const dbMarkets = marketsData?.data?.markets || [];
-  const markets: Market[] = dbMarkets.map((market: any) => ({
-    key: market.key || market.type,
-    name: market.name,
-    description: market.parameter ? `Line: ${market.parameter}` : undefined,
-    outcomes: (market.outcomes || []).map((outcome: any) => ({
-      name: outcome.label,
-      price: parseFloat(outcome.odds),
-      point: outcome.point,
-    })),
-  }));
+  // Markets are now generated dynamically and come in the correct format
+  const markets: Market[] = marketsData?.data?.markets || [];
 
   const toggleMarket = (marketKey: string) => {
     setExpandedMarkets((prev) => ({

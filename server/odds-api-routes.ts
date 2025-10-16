@@ -513,27 +513,63 @@ export function registerOddsApiRoutes(app: Express): void {
       if (!markets) {
         cacheMonitor.recordMiss('memory');
         
-        // Layer 2: Use unified match service (handles both API and manual matches)
-        const marketsArray = await unifiedMatchService.getMatchMarkets(matchId);
-        cacheSource = 'unified';
+        // Get match details first to know sport type and teams
+        const matchData = await unifiedMatchService.getMatchById(matchId);
         
-        if (!marketsArray || marketsArray.length === 0) {
-          cacheMonitor.recordMiss('redis');
+        if (!matchData) {
           return res.status(404).json({
             success: false,
-            error: 'Markets not found for this match',
+            error: 'Match not found',
           });
         }
         
+        // Import market generator
+        const { marketGenerator } = await import('./market-generator');
+        
+        // Generate markets based on sport type (with match ID for deterministic odds)
+        const generatedMarkets = marketGenerator.generateMarkets(
+          matchData.sport_key,
+          matchData.home_team,
+          matchData.away_team,
+          matchId
+        );
+        
+        // Try to get 1x2 odds from the match data (bookmakers h2h market)
+        let h2hMarket = null;
+        if (matchData.bookmakers && matchData.bookmakers.length > 0) {
+          const h2hBook = matchData.bookmakers.find((b: any) => 
+            b.markets?.some((m: any) => m.key === 'h2h')
+          );
+          if (h2hBook) {
+            const h2hData = h2hBook.markets.find((m: any) => m.key === 'h2h');
+            if (h2hData) {
+              h2hMarket = {
+                key: 'h2h',
+                name: '1X2 - Match Winner',
+                outcomes: h2hData.outcomes.map((o: any) => ({
+                  name: o.name,
+                  price: o.price
+                }))
+              };
+            }
+          }
+        }
+        
+        // Combine h2h market (if available) with generated markets
+        const allMarkets = h2hMarket 
+          ? [h2hMarket, ...generatedMarkets]
+          : generatedMarkets;
+        
         // Format markets response
         markets = {
-          markets: marketsArray,
+          markets: allMarkets,
           last_update: new Date().toISOString()
         };
         
+        cacheSource = 'generated';
         cacheMonitor.recordHit('redis');
-        // Store in memory cache (2 seconds for fast re-access)
-        memoryCache.set(cacheKey, markets, 2);
+        // Store in memory cache (10 seconds for fast re-access)
+        memoryCache.set(cacheKey, markets, 10);
       } else {
         cacheMonitor.recordHit('memory');
       }
@@ -581,8 +617,42 @@ export function registerOddsApiRoutes(app: Express): void {
         awayLogo = awayLogoData?.logo || null;
       }
 
-      // Get markets using unified service
-      const marketsArray = await unifiedMatchService.getMatchMarkets(matchId);
+      // Import market generator
+      const { marketGenerator } = await import('./market-generator');
+      
+      // Generate markets based on sport type (with match ID for deterministic odds)
+      const generatedMarkets = marketGenerator.generateMarkets(
+        matchData.sport_key,
+        matchData.home_team,
+        matchData.away_team,
+        matchId
+      );
+      
+      // Try to get 1x2 odds from the match data (bookmakers h2h market)
+      let h2hMarket = null;
+      if (matchData.bookmakers && matchData.bookmakers.length > 0) {
+        const h2hBook = matchData.bookmakers.find((b: any) => 
+          b.markets?.some((m: any) => m.key === 'h2h')
+        );
+        if (h2hBook) {
+          const h2hData = h2hBook.markets.find((m: any) => m.key === 'h2h');
+          if (h2hData) {
+            h2hMarket = {
+              key: 'h2h',
+              name: '1X2 - Match Winner',
+              outcomes: h2hData.outcomes.map((o: any) => ({
+                name: o.name,
+                price: o.price
+              }))
+            };
+          }
+        }
+      }
+      
+      // Combine h2h market (if available) with generated markets
+      const allMarkets = h2hMarket 
+        ? [h2hMarket, ...generatedMarkets]
+        : generatedMarkets;
 
       res.json({
         success: true,
@@ -590,7 +660,7 @@ export function registerOddsApiRoutes(app: Express): void {
           ...matchData,
           home_team_logo: homeLogo,
           away_team_logo: awayLogo,
-          markets: marketsArray || [],
+          markets: allMarkets,
           last_update: new Date().toISOString(),
         },
       });
