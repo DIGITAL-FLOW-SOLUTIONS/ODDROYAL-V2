@@ -15,10 +15,7 @@ import {
 } from "lucide-react";
 import { marketsCache } from "@/lib/marketsCache";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
-
-interface MatchDetailsProps {
-  onAddToBetSlip?: (selection: any) => void;
-}
+import { useBetSlip } from "@/contexts/BetSlipContext";
 
 interface Market {
   id: string;
@@ -361,7 +358,8 @@ const useCountdown = (targetDate: string) => {
   return timeLeft;
 };
 
-export default function MatchDetails({ onAddToBetSlip }: MatchDetailsProps) {
+export default function MatchDetails() {
+  const { onAddToBetSlip } = useBetSlip();
   const [, params] = useRoute("/match/:id");
   const matchId = params?.id;
   const [expandedMarkets, setExpandedMarkets] = useState<

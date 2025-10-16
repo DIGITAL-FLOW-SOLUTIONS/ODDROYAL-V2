@@ -9,13 +9,10 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import { useMatchStore } from "@/store/matchStore";
 import { renderProfiler } from "@/lib/renderProfiler";
 import { FPSCounter } from "@/components/FPSCounter";
+import { useBetSlip } from "@/contexts/BetSlipContext";
 
-interface LiveProps {
-  onAddToBetSlip?: (selection: any) => void;
-  betSlipSelections?: any[];
-}
-
-export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LiveProps) {
+export default function Live() {
+  const { onAddToBetSlip, betSlipSelections } = useBetSlip();
   const { mode, setMode } = useMode();
   
   // Log component render for profiling
@@ -41,10 +38,8 @@ export default function Live({ onAddToBetSlip, betSlipSelections = [] }: LivePro
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
   
   // Create Set of selected odds IDs for quick lookup (memoized to prevent child re-renders)
-  // Note: This assumes betSlipSelections reference is stable when content hasn't changed
-  // If the parent always creates a new array, consider memoizing at the parent level
   const selectedOddsSet = useMemo(() => {
-    return new Set(betSlipSelections.map(s => s.id));
+    return new Set((betSlipSelections || []).map(s => s.id));
   }, [betSlipSelections]);
   
   // Scroll functionality for sports carousel

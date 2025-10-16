@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useMode } from "@/contexts/ModeContext";
 import { useQuery } from "@tanstack/react-query";
 import { Clock, AlertCircle } from "lucide-react";
+import { useBetSlip } from "@/contexts/BetSlipContext";
 
 // Import all the new components
 import HeroBanner from "@/components/HeroBanner";
@@ -11,11 +12,8 @@ import TopLeagues from "@/components/TopLeagues";
 import SportsMatches from "@/components/SportsMatches";
 import OtherSports from "@/components/OtherSports";
 
-interface LineProps {
-  onAddToBetSlip?: (selection: any) => void;
-}
-
-function LineContent({ onAddToBetSlip }: LineProps) {
+function LineContent() {
+  const { onAddToBetSlip } = useBetSlip();
   console.log('[LINE] ========================================');
   console.log('[LINE] COMPONENT RENDER START');
   console.log('[LINE] ========================================');

@@ -65,31 +65,43 @@ function Router() {
       <Route path="/prime-admin/security" component={AdminApp} />
       <Route path="/prime-admin" component={AdminApp} />
       
-      {/* Regular App Routes */}
-      <Route path="/" component={() => <Layout><Homepage /></Layout>} />
-      <Route path="/line" component={() => <Layout><Line /></Layout>} />
-      <Route path="/live" component={() => <Layout><Live /></Layout>} />
-      <Route path="/league/:sport/:leagueId" component={() => <Layout><LeagueMatches /></Layout>} />
-      <Route path="/match/:id" component={() => <Layout><MatchDetails /></Layout>} />
-      <Route path="/dashboard" component={() => <Layout><Dashboard /></Layout>} />
-      <Route path="/profile" component={() => <Layout><Profile /></Layout>} />
-      <Route path="/wallet" component={() => <Layout><Wallet /></Layout>} />
-      <Route path="/bets" component={() => <Layout><BetHistory /></Layout>} />
-      <Route path="/analytics" component={() => <Layout><Analytics /></Layout>} />
-      <Route path="/responsible-gambling" component={() => <Layout><ResponsibleGamblingSettings /></Layout>} />
-      <Route path="/results" component={() => <Layout><Results /></Layout>} />
-      <Route path="/login" component={() => <Layout><Login /></Layout>} />
-      <Route path="/deposit" component={() => <SimpleLayout><Deposit /></SimpleLayout>} />
-      <Route path="/mpesa-deposit" component={() => <SimpleLayout><MpesaDeposit /></SimpleLayout>} />
-      <Route path="/withdrawal" component={() => <SimpleLayout><Withdrawal /></SimpleLayout>} />
-      <Route path="/terms-and-conditions" component={() => <SimpleLayout><TermsAndConditions /></SimpleLayout>} />
-      <Route path="/privacy-policy" component={() => <SimpleLayout><PrivacyPolicy /></SimpleLayout>} />
-      <Route path="/responsible-gaming" component={() => <SimpleLayout><ResponsibleGaming /></SimpleLayout>} />
+      {/* Regular App Routes - Wrapped with Layout */}
+      <Route path="/" component={Homepage} />
+      <Route path="/line" component={Line} />
+      <Route path="/live" component={Live} />
+      <Route path="/league/:sport/:leagueId" component={LeagueMatches} />
+      <Route path="/match/:id" component={MatchDetails} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/profile" component={Profile} />
+      <Route path="/wallet" component={Wallet} />
+      <Route path="/bets" component={BetHistory} />
+      <Route path="/analytics" component={Analytics} />
+      <Route path="/responsible-gambling" component={ResponsibleGamblingSettings} />
+      <Route path="/results" component={Results} />
+      <Route path="/login" component={Login} />
+      
+      {/* Simple Layout Routes */}
+      <Route path="/deposit">
+        <SimpleLayout><Deposit /></SimpleLayout>
+      </Route>
+      <Route path="/mpesa-deposit">
+        <SimpleLayout><MpesaDeposit /></SimpleLayout>
+      </Route>
+      <Route path="/withdrawal">
+        <SimpleLayout><Withdrawal /></SimpleLayout>
+      </Route>
+      <Route path="/terms-and-conditions">
+        <SimpleLayout><TermsAndConditions /></SimpleLayout>
+      </Route>
+      <Route path="/privacy-policy">
+        <SimpleLayout><PrivacyPolicy /></SimpleLayout>
+      </Route>
+      <Route path="/responsible-gaming">
+        <SimpleLayout><ResponsibleGaming /></SimpleLayout>
+      </Route>
       
       {/* Catch all */}
-      <Route>
-        <NotFound />
-      </Route>
+      <Route component={NotFound} />
     </Switch>
   );
 }
@@ -160,7 +172,9 @@ function App() {
             <ModeProvider>
               <PageLoadingProvider>
                 <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
-                  <Router />
+                  <Layout>
+                    <Router />
+                  </Layout>
                   <Toaster />
                 </div>
               </PageLoadingProvider>

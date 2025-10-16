@@ -19,12 +19,10 @@ import {
 import { usePageLoading } from "@/contexts/PageLoadingContext";
 import { useMatchStore } from "@/store/matchStore";
 import { usePrematchMatches } from "@/hooks/usePrematchMatches";
+import { useBetSlip } from "@/contexts/BetSlipContext";
 
-interface HomepageProps {
-  onAddToBetSlip?: (selection: any) => void;
-}
-
-export default function Homepage({ onAddToBetSlip }: HomepageProps) {
+export default function Homepage() {
+  const { onAddToBetSlip } = useBetSlip();
   const { setPageLoading } = usePageLoading();
   
   // Subscribe to matches Map directly to detect changes
