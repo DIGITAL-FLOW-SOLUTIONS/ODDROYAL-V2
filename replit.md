@@ -4,6 +4,21 @@ OddRoyal is a premium sports betting web application featuring real-time sports 
 
 # Recent Changes
 
+## October 16, 2025 - Continuous API Refresh System for Ably Aggregator
+- **Critical Data Loss Fix**: Resolved issue where website went blank after 60-90 seconds due to Redis cache expiring
+  - Previous architecture: Preload Worker (ONE TIME) → Redis (60s TTL) → Ably Aggregator (READ ONLY) → Frontend
+  - New architecture: Ably Aggregator continuously refetches from The Odds API when Redis is empty
+- **Continuous Refresh Implementation**:
+  - Aggregator now actively checks if Redis is empty before every poll cycle
+  - If empty, triggers full API refresh (live and prematch separately) with same logic as preload worker
+  - Persists refreshed data to Redis with proper TTLs (60s live, 600s prematch)
+  - Individual matches automatically cached with `match:{matchId}` keys via setPrematchMatches/setLiveMatches
+- **Graceful Degradation**:
+  - If API calls fail, aggregator extends TTL of existing Redis data instead of letting it expire
+  - Maintains service continuity even during API outages or rate limits
+  - Logs API refresh success/failure counts for monitoring
+- **Architecture Pattern**: Aggregators should be active data sources, not passive Redis readers - they must refetch from APIs when cache expires to prevent data loss
+
 ## October 16, 2025 - Match Lookup Performance Optimization
 - **Critical Performance Fix**: Resolved slow match details loading for all sports and leagues
   - Previous implementation loaded ALL matches (100s) just to find one match

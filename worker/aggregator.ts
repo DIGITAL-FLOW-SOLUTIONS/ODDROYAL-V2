@@ -4,11 +4,14 @@
  * Architecture: The Odds API + Manual DB → Aggregator → Redis (canonical state) → Ably Channels → Clients
  * 
  * This worker:
- * 1. Polls The Odds API for live/prematch data
+ * 1. Continuously refreshes data from The Odds API (fetches when Redis is empty/stale)
  * 2. Fetches manual matches from Supabase
  * 3. Computes minimal diffs vs previous state in Redis
  * 4. Writes new canonical snapshots to Redis (fixture:<id>)
  * 5. Publishes tiny delta patches to Ably channels
+ * 
+ * CRITICAL FIX: Unlike old version that only read from Redis, this now actively refetches
+ * from The Odds API when cache expires, preventing data loss after 60-90s
  */
 
 import Ably from 'ably';
@@ -18,6 +21,13 @@ import { storage } from '../server/storage';
 import { unifiedMatchService, UnifiedMatch } from '../server/unified-match-service';
 import { logger } from '../server/logger';
 import pLimit from 'p-limit';
+import {
+  groupSportsByCategory,
+  normalizeOddsEvent,
+  groupMatchesByLeague,
+  normalizeMarkets,
+  GroupedSport,
+} from '../server/match-utils';
 
 const ABLY_API_KEY = process.env.ABLY_API_KEY;
 const CONCURRENCY_LIMIT = parseInt(process.env.CONCURRENCY_LIMIT || '6');
@@ -69,6 +79,7 @@ export class AblyAggregator {
   private intervals: Map<string, NodeJS.Timeout> = new Map();
   private batchQueue: Map<string, MatchDiff[]> = new Map();
   private batchTimers: Map<string, NodeJS.Timeout> = new Map();
+  private groupedSports: GroupedSport[] = [];
   private metrics: AggregatorMetrics = {
     totalPolls: 0,
     totalDiffsDetected: 0,
@@ -100,13 +111,30 @@ export class AblyAggregator {
       logger.error('Redis not ready after 60 seconds, starting anyway');
     }
 
-    // Start polling loops
+    // Fetch and group all available sports from The Odds API
+    await this.fetchAndGroupSports();
+
+    // Start polling loops with API refresh capability
     this.startLivePolling();
     this.startPrematchPolling();
     this.startManualPolling();
 
-    logger.success('✅ Ably Aggregator started');
+    logger.success('✅ Ably Aggregator started with continuous API refresh');
     logger.info('📡 Publishing to Ably channels: sports:football, sports:basketball, etc.');
+  }
+
+  /**
+   * Fetch all available sports from The Odds API and group by category
+   */
+  private async fetchAndGroupSports(): Promise<void> {
+    try {
+      const apiSports = await oddsApiClient.getSports();
+      this.groupedSports = groupSportsByCategory(apiSports);
+      logger.info(`📋 Loaded ${this.groupedSports.length} sport categories with ${apiSports.length} total leagues`);
+    } catch (error) {
+      logger.error('Failed to fetch sports list:', error);
+      this.groupedSports = [];
+    }
   }
 
   async stop(): Promise<void> {
@@ -118,7 +146,7 @@ export class AblyAggregator {
     this.intervals.clear();
 
     // Flush remaining batches
-    for (const [channel, _] of this.batchQueue) {
+    for (const [channel] of Array.from(this.batchQueue.entries())) {
       await this.flushBatch(channel);
     }
 
@@ -169,6 +197,7 @@ export class AblyAggregator {
 
   /**
    * Poll and process live matches
+   * CRITICAL: Refetches from The Odds API when Redis is empty (prevents data loss)
    */
   private async pollAndProcessLive(): Promise<void> {
     try {
@@ -177,20 +206,34 @@ export class AblyAggregator {
 
       const startTime = Date.now();
       
-      // Get all live matches from unified service
-      const liveMatches = await unifiedMatchService.getAllLiveMatches();
+      // Step 1: Check if Redis has live data
+      const cachedMatches = await unifiedMatchService.getAllLiveMatches();
       
-      logger.info(`[AGGREGATOR] Live fetch complete: ${liveMatches.length} matches`);
+      // Step 2: If Redis is empty or stale, refetch from The Odds API
+      if (!cachedMatches || cachedMatches.length === 0) {
+        logger.warn('[AGGREGATOR-LIVE] Redis cache empty - refetching from The Odds API');
+        await this.refreshLiveDataFromApi();
+        
+        // Get refreshed data from Redis
+        const refreshedMatches = await unifiedMatchService.getAllLiveMatches();
+        logger.info(`[AGGREGATOR-LIVE] API refresh complete: ${refreshedMatches.length} matches`);
+        
+        // Process refreshed matches
+        await Promise.all(
+          refreshedMatches.map(match => limit(() => this.processMatchUpdate(match)))
+        );
+      } else {
+        // Process cached matches
+        logger.info(`[AGGREGATOR-LIVE] Using cached data: ${cachedMatches.length} matches`);
+        await Promise.all(
+          cachedMatches.map(match => limit(() => this.processMatchUpdate(match)))
+        );
+      }
       
       this.metrics.redisLatency.push(Date.now() - startTime);
       if (this.metrics.redisLatency.length > 100) {
         this.metrics.redisLatency.shift();
       }
-
-      // Process each match for changes
-      await Promise.all(
-        liveMatches.map(match => limit(() => this.processMatchUpdate(match)))
-      );
       
     } catch (error) {
       logger.error('Error polling live matches:', error);
@@ -198,7 +241,89 @@ export class AblyAggregator {
   }
 
   /**
+   * Refresh live data from The Odds API and persist to Redis
+   * Same logic as preload worker but runs continuously
+   * GRACEFUL DEGRADATION: If API fails, keeps existing data by extending TTLs
+   */
+  private async refreshLiveDataFromApi(): Promise<void> {
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const sportGroup of this.groupedSports) {
+      for (const league of sportGroup.leagues) {
+        try {
+          // Fetch live matches from The Odds API with status filter
+          const events = await oddsApiClient.getOdds(league.key, {
+            regions: 'uk,eu,us',
+            markets: 'h2h,spreads,totals',
+            oddsFormat: 'decimal',
+            dateFormat: 'iso',
+            status: 'live',
+          });
+
+          if (events.length === 0) continue;
+
+          // Normalize and group by league
+          const normalizedMatches = events.map(event => normalizeOddsEvent(event, sportGroup.ourKey));
+          const leagueGroups = groupMatchesByLeague(normalizedMatches);
+
+          // Persist to Redis with TTLs (setLiveMatches also caches individual matches)
+          for (const leagueGroup of leagueGroups) {
+            // Cache league metadata
+            const existingLeagues = await redisCache.getLiveLeagues(sportGroup.ourKey) || [];
+            const leagueMap = new Map(existingLeagues.map(lg => [lg.league_id, lg]));
+            leagueMap.set(leagueGroup.league_id, {
+              league_id: leagueGroup.league_id,
+              league_name: leagueGroup.league_name,
+              match_count: leagueGroup.match_count,
+            });
+            await redisCache.setLiveLeagues(sportGroup.ourKey, Array.from(leagueMap.values()), 90);
+
+            // Cache matches (this also caches individual match:{matchId} entries automatically)
+            await redisCache.setLiveMatches(
+              sportGroup.ourKey,
+              leagueGroup.league_id,
+              leagueGroup.matches,
+              60 // 60s TTL
+            );
+
+            // Cache markets for each match
+            for (const match of leagueGroup.matches) {
+              const markets = normalizeMarkets(match.bookmakers || []);
+              await redisCache.setMatchMarkets(match.match_id, {
+                match_id: match.match_id,
+                markets,
+                last_update: new Date().toISOString(),
+              }, 120);
+            }
+          }
+
+          successCount++;
+          logger.info(`[API-REFRESH-LIVE] ${sportGroup.ourKey}/${league.key}: ${normalizedMatches.length} matches`);
+        } catch (error) {
+          failCount++;
+          logger.error(`[API-REFRESH-LIVE] Failed ${sportGroup.ourKey}/${league.key}:`, error);
+          
+          // GRACEFUL DEGRADATION: Extend TTL of existing data instead of letting it expire
+          try {
+            const existingMatches = await redisCache.getLiveMatches(sportGroup.ourKey, league.key);
+            if (existingMatches && existingMatches.length > 0) {
+              logger.warn(`[API-REFRESH-LIVE] Extending TTL for ${existingMatches.length} existing matches in ${sportGroup.ourKey}/${league.key}`);
+              await redisCache.setLiveMatches(sportGroup.ourKey, league.key, existingMatches, 90); // Extended TTL
+            }
+          } catch (extendError) {
+            logger.error('[API-REFRESH-LIVE] Failed to extend TTL:', extendError);
+          }
+        }
+      }
+    }
+
+    logger.info(`[API-REFRESH-LIVE] Complete: ${successCount} success, ${failCount} failed`);
+  }
+
+  /**
    * Poll and process prematch (upcoming) matches
+   * CRITICAL: Refetches from The Odds API when Redis is empty (prevents data loss)
    */
   private async pollAndProcessPrematch(): Promise<void> {
     try {
@@ -206,24 +331,118 @@ export class AblyAggregator {
 
       const startTime = Date.now();
       
-      // Get upcoming matches from unified service
-      const upcomingMatches = await unifiedMatchService.getAllUpcomingMatches(100);
+      // Step 1: Check if Redis has prematch data
+      const cachedMatches = await unifiedMatchService.getAllUpcomingMatches(100);
       
-      logger.info(`[AGGREGATOR] Prematch fetch complete: ${upcomingMatches.length} matches`);
+      // Step 2: If Redis is empty or stale, refetch from The Odds API
+      if (!cachedMatches || cachedMatches.length === 0) {
+        logger.warn('[AGGREGATOR-PREMATCH] Redis cache empty - refetching from The Odds API');
+        await this.refreshPrematchDataFromApi();
+        
+        // Get refreshed data from Redis
+        const refreshedMatches = await unifiedMatchService.getAllUpcomingMatches(100);
+        logger.info(`[AGGREGATOR-PREMATCH] API refresh complete: ${refreshedMatches.length} matches`);
+        
+        // Process refreshed matches
+        await Promise.all(
+          refreshedMatches.map(match => limit(() => this.processMatchUpdate(match)))
+        );
+      } else {
+        // Process cached matches
+        logger.info(`[AGGREGATOR-PREMATCH] Using cached data: ${cachedMatches.length} matches`);
+        await Promise.all(
+          cachedMatches.map(match => limit(() => this.processMatchUpdate(match)))
+        );
+      }
       
       this.metrics.redisLatency.push(Date.now() - startTime);
       if (this.metrics.redisLatency.length > 100) {
         this.metrics.redisLatency.shift();
       }
-
-      // Process each match for changes
-      await Promise.all(
-        upcomingMatches.map(match => limit(() => this.processMatchUpdate(match)))
-      );
       
     } catch (error) {
       logger.error('Error polling prematch matches:', error);
     }
+  }
+
+  /**
+   * Refresh prematch data from The Odds API and persist to Redis
+   * Same logic as preload worker but runs continuously
+   * GRACEFUL DEGRADATION: If API fails, keeps existing data by extending TTLs
+   */
+  private async refreshPrematchDataFromApi(): Promise<void> {
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const sportGroup of this.groupedSports) {
+      for (const league of sportGroup.leagues) {
+        try {
+          // Fetch upcoming matches from The Odds API (no status filter = upcoming by default)
+          const events = await oddsApiClient.getOdds(league.key, {
+            regions: 'uk,eu,us',
+            markets: 'h2h,spreads,totals',
+            oddsFormat: 'decimal',
+            dateFormat: 'iso',
+          });
+
+          if (events.length === 0) continue;
+
+          // Normalize and group by league
+          const normalizedMatches = events.map(event => normalizeOddsEvent(event, sportGroup.ourKey));
+          const leagueGroups = groupMatchesByLeague(normalizedMatches);
+
+          // Persist to Redis with TTLs (setPrematchMatches also caches individual matches)
+          for (const leagueGroup of leagueGroups) {
+            // Cache league metadata
+            const existingLeagues = await redisCache.getPrematchLeagues(sportGroup.ourKey) || [];
+            const leagueMap = new Map(existingLeagues.map(lg => [lg.league_id, lg]));
+            leagueMap.set(leagueGroup.league_id, {
+              league_id: leagueGroup.league_id,
+              league_name: leagueGroup.league_name,
+              match_count: leagueGroup.match_count,
+            });
+            await redisCache.setPrematchLeagues(sportGroup.ourKey, Array.from(leagueMap.values()), 900);
+
+            // Cache matches (this also caches individual match:{matchId} entries automatically)
+            await redisCache.setPrematchMatches(
+              sportGroup.ourKey,
+              leagueGroup.league_id,
+              leagueGroup.matches,
+              600 // 10 min TTL
+            );
+
+            // Cache markets for each match
+            for (const match of leagueGroup.matches) {
+              const markets = normalizeMarkets(match.bookmakers || []);
+              await redisCache.setMatchMarkets(match.match_id, {
+                match_id: match.match_id,
+                markets,
+                last_update: new Date().toISOString(),
+              }, 300);
+            }
+          }
+
+          successCount++;
+          logger.info(`[API-REFRESH-PREMATCH] ${sportGroup.ourKey}/${league.key}: ${normalizedMatches.length} matches`);
+        } catch (error) {
+          failCount++;
+          logger.error(`[API-REFRESH-PREMATCH] Failed ${sportGroup.ourKey}/${league.key}:`, error);
+          
+          // GRACEFUL DEGRADATION: Extend TTL of existing data instead of letting it expire
+          try {
+            const existingMatches = await redisCache.getPrematchMatches(sportGroup.ourKey, league.key);
+            if (existingMatches && existingMatches.length > 0) {
+              logger.warn(`[API-REFRESH-PREMATCH] Extending TTL for ${existingMatches.length} existing matches in ${sportGroup.ourKey}/${league.key}`);
+              await redisCache.setPrematchMatches(sportGroup.ourKey, league.key, existingMatches, 900); // Extended TTL
+            }
+          } catch (extendError) {
+            logger.error('[API-REFRESH-PREMATCH] Failed to extend TTL:', extendError);
+          }
+        }
+      }
+    }
+
+    logger.info(`[API-REFRESH-PREMATCH] Complete: ${successCount} success, ${failCount} failed`);
   }
 
   /**
