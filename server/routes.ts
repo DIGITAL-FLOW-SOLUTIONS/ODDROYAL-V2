@@ -996,46 +996,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) || /^[0-9a-f]{32}$/i.test(id);
       };
 
-      // If ID is a valid match ID (UUID or hash), fetch match markets from storage or cache
+      // If ID is a valid match ID (UUID or hash), fetch match data
       if (isValidMatchId(fixtureIdParam)) {
         try {
+          // First check manual matches
           const markets = await storage.getMatchMarkets(fixtureIdParam);
           
-          if (!markets || markets.length === 0) {
+          if (markets && markets.length > 0) {
+            // Transform manual markets to SportMonks odds format
+            const transformedOdds = markets.flatMap((market: any) => {
+              if (!market.outcomes || market.outcomes.length === 0) {
+                return [];
+              }
+
+              return market.outcomes.map((outcome: any) => ({
+                id: outcome.id,
+                fixture_id: fixtureIdParam,
+                market_id: market.id,
+                label: outcome.label,
+                value: outcome.odds,
+                market: {
+                  id: market.id,
+                  name: market.name
+                }
+              }));
+            });
+
             return res.json({ 
               success: true, 
-              data: [] 
+              data: transformedOdds,
+              source: 'manual'
             });
           }
 
-          // Transform manual markets to SportMonks odds format
-          const transformedOdds = markets.flatMap((market: any) => {
-            if (!market.outcomes || market.outcomes.length === 0) {
-              return [];
-            }
+          // If not found in manual matches, check cache for API match
+          const cachedMatch = await findMatchInCache(fixtureIdParam);
+          
+          if (cachedMatch && cachedMatch.bookmakers && cachedMatch.bookmakers.length > 0) {
+            // Return the bookmakers and markets data from The Odds API
+            return res.json({ 
+              success: true, 
+              data: cachedMatch.bookmakers,
+              sportKey: cachedMatch.sport_key,
+              source: 'api'
+            });
+          }
 
-            return market.outcomes.map((outcome: any) => ({
-              id: outcome.id,
-              fixture_id: fixtureIdParam,
-              market_id: market.id,
-              label: outcome.label,
-              value: outcome.odds,
-              market: {
-                id: market.id,
-                name: market.name
-              }
-            }));
-          });
-
+          // No match found in either source
           return res.json({ 
             success: true, 
-            data: transformedOdds 
+            data: [],
+            source: 'none'
           });
         } catch (error) {
-          console.error('Error fetching manual match markets:', error);
+          console.error('Error fetching match markets:', error);
           return res.status(500).json({ 
             success: false, 
-            error: 'Failed to fetch manual match markets' 
+            error: 'Failed to fetch match markets' 
           });
         }
       }

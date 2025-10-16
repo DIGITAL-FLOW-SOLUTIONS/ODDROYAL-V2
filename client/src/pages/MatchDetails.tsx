@@ -1,30 +1,28 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRoute } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChevronDown,
   ChevronUp,
   Clock,
   Calendar,
   MapPin,
-  Star,
 } from "lucide-react";
-import { marketsCache } from "@/lib/marketsCache";
-import { usePageLoading } from "@/contexts/PageLoadingContext";
 import { useBetSlip } from "@/contexts/BetSlipContext";
 
 interface Market {
-  id: string;
+  key: string;
   name: string;
-  category: string;
+  description?: string;
   outcomes: {
-    id: string;
     name: string;
-    odds: number;
+    price: number;
+    point?: number;
   }[];
 }
 
@@ -34,344 +32,115 @@ interface MatchDetails {
   awayTeam: { name: string; logo?: string };
   league: string;
   kickoffTime: string;
-  venue: string;
+  venue?: string;
   status: string;
   homeScore?: number;
   awayScore?: number;
   minute?: number;
+  sportKey?: string;
 }
 
-interface SportMonksOdds {
-  id: number;
-  fixture_id: number;
-  market_id: number;
-  bookmaker_id: number;
-  label: string;
-  value: string;
-  handicap: string | null;
-  total: string | null;
-  winning: boolean;
-  stopped: boolean;
-  last_update: {
-    date: string;
-    timezone_type: number;
-    timezone: string;
-  };
-  market: {
-    id: number;
-    name: string;
-    developer_name: string;
-    has_winning_calculations: boolean;
-  };
-}
+// Mobile-first Skeleton Loader
+function MatchDetailsSkeleton() {
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header Skeleton */}
+      <div className="bg-gradient-to-br from-primary/20 to-primary/10 p-4">
+        <Skeleton className="h-4 w-32 mx-auto mb-4" />
+        <div className="flex items-center justify-center gap-4 mb-4">
+          <div className="text-center flex-1 max-w-[120px]">
+            <Skeleton className="h-12 w-12 rounded-full mx-auto mb-2" />
+            <Skeleton className="h-4 w-20 mx-auto" />
+          </div>
+          <Skeleton className="h-10 w-24" />
+          <div className="text-center flex-1 max-w-[120px]">
+            <Skeleton className="h-12 w-12 rounded-full mx-auto mb-2" />
+            <Skeleton className="h-4 w-20 mx-auto" />
+          </div>
+        </div>
+        <Skeleton className="h-3 w-40 mx-auto" />
+      </div>
 
-// Transform SportMonks odds data into our Market format
-const transformOddsToMarkets = (oddsData: SportMonksOdds[]): Market[] => {
-  if (!oddsData || oddsData.length === 0) {
-    // Return comprehensive mock markets similar to Playwin
-    return [
-      // Main Markets
-      {
-        id: "1x2",
-        name: "Match Winner",
-        category: "main",
-        outcomes: [
-          { id: "home", name: "1", odds: 2.25 },
-          { id: "draw", name: "X", odds: 3.1 },
-          { id: "away", name: "2", odds: 2.85 },
-        ],
-      },
-      {
-        id: "double-chance",
-        name: "Double Chance",
-        category: "main",
-        outcomes: [
-          { id: "1x", name: "1X", odds: 1.44 },
-          { id: "12", name: "12", odds: 1.28 },
-          { id: "x2", name: "X2", odds: 1.53 },
-        ],
-      },
-      // Goals Markets
-      {
-        id: "both-teams-score",
-        name: "Both Teams to Score",
-        category: "goals",
-        outcomes: [
-          { id: "yes", name: "Yes", odds: 1.7 },
-          { id: "no", name: "No", odds: 2.15 },
-        ],
-      },
-      {
-        id: "over-under-05",
-        name: "Total Goals O/U 0.5",
-        category: "goals",
-        outcomes: [
-          { id: "over-05", name: "Over 0.5", odds: 1.08 },
-          { id: "under-05", name: "Under 0.5", odds: 8.5 },
-        ],
-      },
-      {
-        id: "over-under-15",
-        name: "Total Goals O/U 1.5",
-        category: "goals",
-        outcomes: [
-          { id: "over-15", name: "Over 1.5", odds: 1.33 },
-          { id: "under-15", name: "Under 1.5", odds: 3.2 },
-        ],
-      },
-      {
-        id: "over-under-25",
-        name: "Total Goals O/U 2.5",
-        category: "goals",
-        outcomes: [
-          { id: "over-25", name: "Over 2.5", odds: 1.85 },
-          { id: "under-25", name: "Under 2.5", odds: 1.95 },
-        ],
-      },
-      {
-        id: "over-under-35",
-        name: "Total Goals O/U 3.5",
-        category: "goals",
-        outcomes: [
-          { id: "over-35", name: "Over 3.5", odds: 2.75 },
-          { id: "under-35", name: "Under 3.5", odds: 1.42 },
-        ],
-      },
-      {
-        id: "over-under-45",
-        name: "Total Goals O/U 4.5",
-        category: "goals",
-        outcomes: [
-          { id: "over-45", name: "Over 4.5", odds: 4.9 },
-          { id: "under-45", name: "Under 4.5", odds: 1.14 },
-        ],
-      },
-      // Handicap Markets
-      {
-        id: "handicap-0",
-        name: "Asian Handicap (0)",
-        category: "handicap",
-        outcomes: [
-          { id: "home-hcp-0", name: "Home (0)", odds: 2.1 },
-          { id: "away-hcp-0", name: "Away (0)", odds: 1.75 },
-        ],
-      },
-      {
-        id: "handicap-05",
-        name: "Asian Handicap (-0.5, +0.5)",
-        category: "handicap",
-        outcomes: [
-          { id: "home-hcp-05", name: "Home (-0.5)", odds: 2.45 },
-          { id: "away-hcp-05", name: "Away (+0.5)", odds: 1.55 },
-        ],
-      },
-      {
-        id: "handicap-1",
-        name: "Asian Handicap (-1, +1)",
-        category: "handicap",
-        outcomes: [
-          { id: "home-hcp-1", name: "Home (-1)", odds: 3.2 },
-          { id: "away-hcp-1", name: "Away (+1)", odds: 1.35 },
-        ],
-      },
-      {
-        id: "handicap-15",
-        name: "Asian Handicap (-1.5, +1.5)",
-        category: "handicap",
-        outcomes: [
-          { id: "home-hcp-15", name: "Home (-1.5)", odds: 4.5 },
-          { id: "away-hcp-15", name: "Away (+1.5)", odds: 1.18 },
-        ],
-      },
-      // Correct Score
-      {
-        id: "correct-score-home",
-        name: "Correct Score - Home Win",
-        category: "correct-score",
-        outcomes: [
-          { id: "1-0", name: "1-0", odds: 7.5 },
-          { id: "2-0", name: "2-0", odds: 9.0 },
-          { id: "2-1", name: "2-1", odds: 8.5 },
-          { id: "3-0", name: "3-0", odds: 16.0 },
-          { id: "3-1", name: "3-1", odds: 15.0 },
-          { id: "3-2", name: "3-2", odds: 18.0 },
-        ],
-      },
-      {
-        id: "correct-score-draw",
-        name: "Correct Score - Draw",
-        category: "correct-score",
-        outcomes: [
-          { id: "0-0", name: "0-0", odds: 8.0 },
-          { id: "1-1", name: "1-1", odds: 5.5 },
-          { id: "2-2", name: "2-2", odds: 12.0 },
-          { id: "3-3", name: "3-3", odds: 35.0 },
-        ],
-      },
-      {
-        id: "correct-score-away",
-        name: "Correct Score - Away Win",
-        category: "correct-score",
-        outcomes: [
-          { id: "0-1", name: "0-1", odds: 9.5 },
-          { id: "0-2", name: "0-2", odds: 12.0 },
-          { id: "1-2", name: "1-2", odds: 9.0 },
-          { id: "0-3", name: "0-3", odds: 21.0 },
-          { id: "1-3", name: "1-3", odds: 18.0 },
-          { id: "2-3", name: "2-3", odds: 22.0 },
-        ],
-      },
-      // Half Markets
-      {
-        id: "first-half-result",
-        name: "First Half Result",
-        category: "half",
-        outcomes: [
-          { id: "1h-home", name: "Home", odds: 3.4 },
-          { id: "1h-draw", name: "Draw", odds: 2.1 },
-          { id: "1h-away", name: "Away", odds: 3.8 },
-        ],
-      },
-      {
-        id: "halftime-fulltime",
-        name: "Half Time / Full Time",
-        category: "half",
-        outcomes: [
-          { id: "hh", name: "Home/Home", odds: 4.2 },
-          { id: "hd", name: "Home/Draw", odds: 11.0 },
-          { id: "ha", name: "Home/Away", odds: 21.0 },
-          { id: "dh", name: "Draw/Home", odds: 5.5 },
-          { id: "dd", name: "Draw/Draw", odds: 4.8 },
-          { id: "da", name: "Draw/Away", odds: 6.2 },
-          { id: "ah", name: "Away/Home", odds: 26.0 },
-          { id: "ad", name: "Away/Draw", odds: 13.0 },
-          { id: "aa", name: "Away/Away", odds: 5.0 },
-        ],
-      },
-      // Special Markets
-      {
-        id: "first-goal-scorer",
-        name: "First Goal Scorer",
-        category: "special",
-        outcomes: [
-          { id: "home-scores-first", name: "Home Team", odds: 2.05 },
-          { id: "away-scores-first", name: "Away Team", odds: 1.85 },
-          { id: "no-goal", name: "No Goal", odds: 15.0 },
-        ],
-      },
-      {
-        id: "time-first-goal",
-        name: "Time of First Goal",
-        category: "special",
-        outcomes: [
-          { id: "0-15", name: "0-15 min", odds: 4.5 },
-          { id: "16-30", name: "16-30 min", odds: 3.8 },
-          { id: "31-45", name: "31-45 min", odds: 4.2 },
-          { id: "46-60", name: "46-60 min", odds: 5.0 },
-          { id: "61-75", name: "61-75 min", odds: 6.5 },
-          { id: "76-90", name: "76-90 min", odds: 8.0 },
-        ],
-      },
-      {
-        id: "clean-sheet",
-        name: "To Keep a Clean Sheet",
-        category: "special",
-        outcomes: [
-          { id: "home-cs", name: "Home", odds: 3.2 },
-          { id: "away-cs", name: "Away", odds: 2.9 },
-          { id: "neither", name: "Neither", odds: 1.85 },
-        ],
-      },
-    ];
-  }
-
-  // Transform real SportMonks data if available
-  const groupedByMarket = oddsData.reduce(
-    (acc, odd) => {
-      const marketName = odd.market.name;
-      if (!acc[marketName]) {
-        acc[marketName] = {
-          id: marketName.toLowerCase().replace(/\s+/g, "-"),
-          name: marketName,
-          category: categorizeMarket(marketName),
-          outcomes: [],
-        };
-      }
-
-      acc[marketName].outcomes.push({
-        id: odd.id.toString(),
-        name: odd.label,
-        odds: parseFloat(odd.value),
-      });
-
-      return acc;
-    },
-    {} as Record<string, Market>,
+      {/* Markets Skeleton */}
+      <div className="p-4 space-y-4">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="p-4">
+            <Skeleton className="h-5 w-32 mb-4" />
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {[1, 2, 3].map((j) => (
+                <Skeleton key={j} className="h-16" />
+              ))}
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
   );
+}
 
-  return Object.values(groupedByMarket);
+// Sport-specific market configuration
+const SPORT_MARKET_LABELS: Record<string, Record<string, string>> = {
+  football: {
+    h2h: 'Match Winner (1X2)',
+    spreads: 'Asian Handicap',
+    totals: 'Total Goals (O/U)',
+  },
+  basketball: {
+    h2h: 'Match Winner',
+    spreads: 'Point Spread',
+    totals: 'Total Points (O/U)',
+  },
+  americanfootball: {
+    h2h: 'Moneyline',
+    spreads: 'Point Spread',
+    totals: 'Total Points (O/U)',
+  },
+  baseball: {
+    h2h: 'Moneyline',
+    spreads: 'Run Line',
+    totals: 'Total Runs (O/U)',
+  },
+  icehockey: {
+    h2h: 'Moneyline',
+    spreads: 'Puck Line',
+    totals: 'Total Goals (O/U)',
+  },
+  cricket: {
+    h2h: 'Match Winner',
+  },
+  mma: {
+    h2h: 'Fight Winner',
+  },
+  default: {
+    h2h: 'Match Winner',
+    spreads: 'Handicap',
+    totals: 'Total (O/U)',
+  }
 };
 
-const categorizeMarket = (marketName: string): string => {
-  const name = marketName.toLowerCase();
-  if (name.includes("winner") || name.includes("1x2")) return "main";
-  if (name.includes("goal") || name.includes("total") || name.includes("btts"))
-    return "goals";
-  if (name.includes("score")) return "correct-score";
-  if (name.includes("handicap")) return "handicap";
-  if (name.includes("player") || name.includes("scorer")) return "player";
-  return "other";
-};
+// Transform The Odds API bookmakers data into UI markets
+function transformBookmakersToMarkets(bookmakers: any[], sportKey: string = 'default'): Market[] {
+  if (!bookmakers || bookmakers.length === 0) return [];
 
-// Countdown timer hook - moved outside component to avoid hooks order violation
-const useCountdown = (targetDate: string) => {
-  const [timeLeft, setTimeLeft] = useState({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-  });
+  const labels = SPORT_MARKET_LABELS[sportKey] || SPORT_MARKET_LABELS.default;
+  const bestBookmaker = bookmakers[0];
+  
+  if (!bestBookmaker.markets) return [];
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date().getTime();
-      const target = new Date(targetDate).getTime();
-      const difference = target - now;
-
-      if (difference > 0) {
-        setTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor(
-            (difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-          ),
-          minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((difference % (1000 * 60)) / 1000),
-        });
-      } else {
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [targetDate]);
-
-  return timeLeft;
-};
+  return bestBookmaker.markets.map((market: any) => ({
+    key: market.key,
+    name: labels[market.key] || market.key.replace(/_/g, ' ').toUpperCase(),
+    outcomes: market.outcomes || [],
+  }));
+}
 
 export default function MatchDetails() {
   const { onAddToBetSlip } = useBetSlip();
   const [, params] = useRoute("/match/:id");
   const matchId = params?.id;
-  const [expandedMarkets, setExpandedMarkets] = useState<
-    Record<string, boolean>
-  >({
-    main: true,
-    goals: true,
-  });
-  const [cachedMarkets, setCachedMarkets] = useState<Market[]>([]);
-  const { setPageLoading } = usePageLoading();
+  const [expandedMarkets, setExpandedMarkets] = useState<Record<string, boolean>>({});
 
-  const { data: matchData, isLoading: matchLoading, isRefetching: matchRefetching, refetch: refetchMatch } = useQuery({
+  const { data: matchData, isLoading: matchLoading } = useQuery({
     queryKey: ["/api/fixtures", matchId],
     queryFn: async () => {
       const response = await fetch(`/api/fixtures/${matchId}`);
@@ -381,7 +150,7 @@ export default function MatchDetails() {
     enabled: !!matchId,
   });
 
-  const { data: oddsData, isLoading: oddsLoading, isRefetching: oddsRefetching, refetch: refetchOdds } = useQuery({
+  const { data: oddsData, isLoading: oddsLoading } = useQuery({
     queryKey: ["/api/fixtures", matchId, "odds"],
     queryFn: async () => {
       const response = await fetch(`/api/fixtures/${matchId}/odds`);
@@ -389,106 +158,18 @@ export default function MatchDetails() {
       return response.json();
     },
     enabled: !!matchId,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   });
 
-  // Track retry attempts for data availability
-  const [retryCount, setRetryCount] = useState(0);
-  const [isRetrying, setIsRetrying] = useState(false);
-  const maxRetries = 3;
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hasLoadedOnce = useRef(false);
+  const isLoading = matchLoading || oddsLoading;
 
-  useEffect(() => {
-    const isLoading = matchLoading || oddsLoading;
-    const isRefetching = matchRefetching || oddsRefetching;
-    const hasData = matchData?.data && oddsData?.data;
-    
-    // Mark as successfully loaded once we have data
-    if (hasData) {
-      hasLoadedOnce.current = true;
-    }
-    
-    // Reset retry count when we get data
-    if (hasData && retryCount > 0) {
-      setRetryCount(0);
-      setIsRetrying(false);
-    }
-
-    const shouldRetry = !isLoading && !isRefetching && !hasData && retryCount < maxRetries && !isRetrying && !!matchId;
-
-    // Only show loader if we've NEVER loaded data successfully
-    if (!hasLoadedOnce.current && (isLoading || isRefetching || shouldRetry)) {
-      setPageLoading(true);
-      
-      // If we should retry, trigger a refetch with delay
-      if (shouldRetry) {
-        setIsRetrying(true);
-        console.log(`📡 No match details available, retrying... (${retryCount + 1}/${maxRetries})`);
-        
-        // Clear any existing timeout before setting a new one
-        if (retryTimeoutRef.current) {
-          clearTimeout(retryTimeoutRef.current);
-        }
-        
-        retryTimeoutRef.current = setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          Promise.all([refetchMatch(), refetchOdds()]).catch(err => {
-            console.error('Refetch error:', err);
-          }).finally(() => {
-            setIsRetrying(false);
-          });
-        }, 1000); // 1 second delay between retries
-      }
-    } else {
-      // Either we have data or we've exceeded retries
-      setPageLoading(false);
-      if (!hasData && retryCount >= maxRetries) {
-        console.log('⚠️ Max retries reached for match details, showing empty state');
-      }
-    }
-
-  }, [matchLoading, oddsLoading, matchRefetching, oddsRefetching, matchData, oddsData, retryCount, isRetrying, matchId, refetchMatch, refetchOdds, setPageLoading]);
-
-  // Cleanup timeout only on unmount
-  useEffect(() => {
-    return () => {
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-        retryTimeoutRef.current = null;
-      }
-    };
-  }, []);
-
-  // Fetch markets from localStorage cache
-  useEffect(() => {
-    if (matchId) {
-      const cached = marketsCache.getMarket(matchId);
-      if (cached && cached.markets) {
-        setCachedMarkets(cached.markets);
-      }
-    }
-  }, [matchId]);
-
-  // Call countdown hook before any early returns to maintain hooks order
-  const countdown = useCountdown(
-    matchData?.data?.kickoffTime || new Date().toISOString(),
-  );
-
-  if (matchLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p>Loading match details...</p>
-        </div>
-      </div>
-    );
+  if (isLoading) {
+    return <MatchDetailsSkeleton />;
   }
 
   if (!matchData?.success || !matchData?.data) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen p-4">
         <div className="text-center">
           <h2 className="text-xl font-bold mb-2">Match not found</h2>
           <p className="text-muted-foreground">
@@ -500,25 +181,17 @@ export default function MatchDetails() {
   }
 
   const match: MatchDetails = matchData.data;
+  const sportKey = oddsData?.sportKey || match.sportKey || 'default';
   
-  // Use cached markets if available, otherwise use API data or fallback to mock
-  const markets = cachedMarkets.length > 0 
-    ? cachedMarkets 
-    : transformOddsToMarkets(oddsData?.data || []);
+  // Transform bookmakers data to markets based on sport
+  const markets = oddsData?.source === 'api' 
+    ? transformBookmakersToMarkets(oddsData.data, sportKey)
+    : [];
 
-  const marketsByCategory = markets.reduce(
-    (acc, market) => {
-      if (!acc[market.category]) acc[market.category] = [];
-      acc[market.category].push(market);
-      return acc;
-    },
-    {} as Record<string, Market[]>,
-  );
-
-  const toggleMarketCategory = (category: string) => {
+  const toggleMarket = (marketKey: string) => {
     setExpandedMarkets((prev) => ({
       ...prev,
-      [category]: !prev[category],
+      [marketKey]: !prev[marketKey],
     }));
   };
 
@@ -538,305 +211,189 @@ export default function MatchDetails() {
     };
   };
 
-  const getCategoryName = (category: string) => {
-    const names: Record<string, string> = {
-      main: "Main Markets",
-      goals: "Goals",
-      handicap: "Handicap",
-      "correct-score": "Correct Score",
-      half: "Half Markets",
-      special: "Special Markets",
-      player: "Player Markets",
-      other: "Other Markets",
+  const handleOddsClick = (market: Market, outcome: any) => {
+    if (!onAddToBetSlip) return;
+
+    const selection = {
+      id: `${match.id}-${market.key}-${outcome.name}`,
+      matchId: match.id,
+      fixtureId: match.id,
+      type: outcome.name.toLowerCase(),
+      selection: outcome.name,
+      odds: outcome.price,
+      homeTeam: match.homeTeam.name,
+      awayTeam: match.awayTeam.name,
+      league: match.league,
+      market: market.key,
+      isLive: match.status === "LIVE",
     };
-    return names[category] || category;
+
+    onAddToBetSlip(selection);
   };
 
   const kickoff = formatKickoffTime(match.kickoffTime);
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Match Header with Football Field Background */}
-      <div className="relative text-white overflow-hidden bg-gradient-to-br from-green-600 to-green-800">
-        {/* Football field pattern overlay */}
-        <div className="absolute inset-0 opacity-20">
-          <svg
-            width="100%"
-            height="100%"
-            viewBox="0 0 200 100"
-            className="absolute inset-0 w-full h-full"
-          >
-            {/* Field lines */}
-            <rect
-              x="0"
-              y="0"
-              width="200"
-              height="100"
-              fill="none"
-              stroke="white"
-              strokeWidth="0.5"
-            />
-            <line
-              x1="100"
-              y1="0"
-              x2="100"
-              y2="100"
-              stroke="white"
-              strokeWidth="0.5"
-            />
-            <circle
-              cx="100"
-              cy="50"
-              r="15"
-              fill="none"
-              stroke="white"
-              strokeWidth="0.5"
-            />
-            <rect
-              x="0"
-              y="25"
-              width="20"
-              height="50"
-              fill="none"
-              stroke="white"
-              strokeWidth="0.5"
-            />
-            <rect
-              x="180"
-              y="25"
-              width="20"
-              height="50"
-              fill="none"
-              stroke="white"
-              strokeWidth="0.5"
-            />
-            <rect
-              x="0"
-              y="35"
-              width="8"
-              height="30"
-              fill="none"
-              stroke="white"
-              strokeWidth="0.5"
-            />
-            <rect
-              x="192"
-              y="35"
-              width="8"
-              height="30"
-              fill="none"
-              stroke="white"
-              strokeWidth="0.5"
-            />
-          </svg>
+      {/* Mobile-First Match Header */}
+      <div className="bg-gradient-to-br from-primary/20 to-primary/10 p-4">
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <MapPin className="w-4 h-4 text-primary" />
+          <span className="text-sm font-medium text-foreground">{match.league}</span>
         </div>
 
-        <div className="relative container mx-auto px-4 py-8 pl-[32px] pr-[32px] pt-[0px] pb-[0px]">
-          {/* League and Action Icons */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Star className="w-4 h-4 text-purple-400" />
-              <span className="text-sm font-medium">{match.league}</span>
-              <Star className="w-4 h-4 text-yellow-400" />
-            </div>
-            <div className="flex items-center gap-3">
-              <button className="w-8 h-8 bg-white/20 rounded hover:bg-white/30 transition-colors flex items-center justify-center">
-                <svg
-                  className="w-4 h-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M4 4h12v12H4z" />
-                </svg>
-              </button>
-              <button className="w-8 h-8 bg-white/20 rounded hover:bg-white/30 transition-colors flex items-center justify-center">
-                <svg
-                  className="w-4 h-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M2 2h16v16H2z" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          {/* Main Match Information */}
-          <div className="flex items-center justify-center gap-8 mb-6">
-            {/* Home Team */}
-            <div className="text-center flex-1 max-w-[150px]">
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                <span className="text-xl font-bold">
+        {/* Team Display */}
+        <div className="flex items-center justify-center gap-4 mb-4">
+          {/* Home Team */}
+          <div className="text-center flex-1 max-w-[120px]">
+            <div className="w-12 h-12 bg-background/20 rounded-full flex items-center justify-center mx-auto mb-2">
+              {match.homeTeam.logo ? (
+                <img 
+                  src={match.homeTeam.logo} 
+                  alt={match.homeTeam.name}
+                  className="w-8 h-8 object-contain"
+                />
+              ) : (
+                <span className="text-lg font-bold text-foreground">
                   {match.homeTeam.name.charAt(0)}
                 </span>
-              </div>
-              <h1 className="text-lg font-bold">{match.homeTeam.name}</h1>
-            </div>
-
-            {/* Center - Time/Score */}
-            <div className="text-center">
-              <div className="text-4xl font-bold mb-2">
-                {match.status === "LIVE" &&
-                match.homeScore !== undefined &&
-                match.awayScore !== undefined
-                  ? `${match.homeScore} - ${match.awayScore}`
-                  : kickoff.time}
-              </div>
-              <div className="text-sm opacity-90 mb-1">{kickoff.date}</div>
-              {match.status === "LIVE" && match.minute && (
-                <div className="text-sm bg-red-500 px-2 py-1 rounded font-medium">
-                  {match.minute}' LIVE
-                </div>
               )}
             </div>
-
-            {/* Away Team */}
-            <div className="text-center flex-1 max-w-[150px]">
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                <span className="text-xl font-bold">
-                  {match.awayTeam.name.charAt(0)}
-                </span>
-              </div>
-              <h1 className="text-lg font-bold">{match.awayTeam.name}</h1>
-            </div>
+            <p className="text-sm font-bold text-foreground truncate">
+              {match.homeTeam.name}
+            </p>
           </div>
 
-          {/* Countdown Timer */}
-          {match.status !== "LIVE" && (
-            <div className="bg-black/30 backdrop-blur-sm rounded-lg p-4 max-w-md mx-auto">
-              <div className="flex justify-center gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold">
-                    {countdown.days.toString().padStart(2, "0")}
-                  </div>
-                  <div className="text-xs uppercase tracking-wide opacity-75">
-                    days
-                  </div>
-                </div>
-                <div className="text-2xl font-bold self-start">:</div>
-                <div>
-                  <div className="text-2xl font-bold">
-                    {countdown.hours.toString().padStart(2, "0")}
-                  </div>
-                  <div className="text-xs uppercase tracking-wide opacity-75">
-                    hours
-                  </div>
-                </div>
-                <div className="text-2xl font-bold self-start">:</div>
-                <div>
-                  <div className="text-2xl font-bold">
-                    {countdown.minutes.toString().padStart(2, "0")}
-                  </div>
-                  <div className="text-xs uppercase tracking-wide opacity-75">
-                    minutes
-                  </div>
-                </div>
-                <div className="text-2xl font-bold self-start">:</div>
-                <div>
-                  <div className="text-2xl font-bold">
-                    {countdown.seconds.toString().padStart(2, "0")}
-                  </div>
-                  <div className="text-xs uppercase tracking-wide opacity-75">
-                    seconds
-                  </div>
-                </div>
-              </div>
+          {/* Score/Time */}
+          <div className="text-center min-w-[80px]">
+            <div className="text-2xl md:text-3xl font-bold text-foreground mb-1">
+              {match.status === "LIVE" &&
+              match.homeScore !== undefined &&
+              match.awayScore !== undefined
+                ? `${match.homeScore} - ${match.awayScore}`
+                : kickoff.time}
             </div>
+            {match.status === "LIVE" && match.minute && (
+              <Badge variant="destructive" className="text-xs">
+                {match.minute}' LIVE
+              </Badge>
+            )}
+          </div>
+
+          {/* Away Team */}
+          <div className="text-center flex-1 max-w-[120px]">
+            <div className="w-12 h-12 bg-background/20 rounded-full flex items-center justify-center mx-auto mb-2">
+              {match.awayTeam.logo ? (
+                <img 
+                  src={match.awayTeam.logo} 
+                  alt={match.awayTeam.name}
+                  className="w-8 h-8 object-contain"
+                />
+              ) : (
+                <span className="text-lg font-bold text-foreground">
+                  {match.awayTeam.name.charAt(0)}
+                </span>
+              )}
+            </div>
+            <p className="text-sm font-bold text-foreground truncate">
+              {match.awayTeam.name}
+            </p>
+          </div>
+        </div>
+
+        {/* Match Info */}
+        <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            <span>{kickoff.date}</span>
+          </div>
+          {match.venue && (
+            <>
+              <span>•</span>
+              <span>{match.venue}</span>
+            </>
           )}
         </div>
       </div>
-      {/* Betting Markets */}
-      <div className="container mx-auto px-4 py-6">
-        <div className="space-y-6">
-          {Object.entries(marketsByCategory).map(
-            ([category, categoryMarkets]) => (
-              <Card key={category} className="overflow-hidden">
-                <CardHeader
-                  className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => toggleMarketCategory(category)}
-                  data-testid={`header-market-${category}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">
-                      {getCategoryName(category)}
-                    </CardTitle>
+
+      {/* Markets Section */}
+      <div className="p-4 space-y-3">
+        {markets.length === 0 ? (
+          <Card className="p-6">
+            <div className="text-center">
+              <Clock className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+              <p className="text-sm text-muted-foreground">
+                Markets will be available soon
+              </p>
+            </div>
+          </Card>
+        ) : (
+          <AnimatePresence>
+            {markets.map((market, index) => (
+              <motion.div
+                key={market.key}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+              >
+                <Card className="overflow-hidden">
+                  <button
+                    onClick={() => toggleMarket(market.key)}
+                    className="w-full p-4 flex items-center justify-between hover-elevate active-elevate-2"
+                    data-testid={`button-toggle-market-${market.key}`}
+                  >
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {categoryMarkets.length} markets
-                      </Badge>
-                      {expandedMarkets[category] ? (
-                        <ChevronUp className="w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4" />
+                      <h3 className="font-semibold text-sm md:text-base">
+                        {market.name}
+                      </h3>
+                      {market.description && (
+                        <Badge variant="secondary" className="text-xs">
+                          {market.description}
+                        </Badge>
                       )}
                     </div>
-                  </div>
-                </CardHeader>
+                    {expandedMarkets[market.key] ? (
+                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </button>
 
-                <AnimatePresence>
-                  {expandedMarkets[category] && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <CardContent className="pt-0">
-                        <div className="space-y-4">
-                          {categoryMarkets.map((market) => (
-                            <div
-                              key={market.id}
-                              className="border rounded-lg overflow-hidden"
+                  <AnimatePresence>
+                    {expandedMarkets[market.key] && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="p-4 pt-0 grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {market.outcomes.map((outcome: any, idx: number) => (
+                            <Button
+                              key={idx}
+                              variant="outline"
+                              onClick={() => handleOddsClick(market, outcome)}
+                              className="flex flex-col items-center justify-center h-auto py-3 hover-elevate active-elevate-2"
+                              data-testid={`button-odds-${market.key}-${idx}`}
                             >
-                              <div className="bg-muted/30 px-4 py-2 border-b">
-                                <h4 className="font-medium text-sm">
-                                  {market.name}
-                                </h4>
-                              </div>
-                              <div className="p-4">
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-                                  {market.outcomes.map((outcome) => (
-                                    <Button
-                                      key={outcome.id}
-                                      className="h-12 flex flex-col justify-center text-center odds-button"
-                                      onClick={() =>
-                                        onAddToBetSlip?.({
-                                          id: `${match.id}-${market.id}-${outcome.id}`,
-                                          matchId: match.id,
-                                          fixtureId: match.id,
-                                          market: market.id,
-                                          type: outcome.id,
-                                          selection: outcome.name,
-                                          odds: outcome.odds,
-                                          homeTeam: match.homeTeam.name,
-                                          awayTeam: match.awayTeam.name,
-                                          league: match.league,
-                                          isLive: match.status === "LIVE",
-                                        })
-                                      }
-                                      data-testid={`button-odds-${outcome.id}`}
-                                    >
-                                      <div className="text-xs font-medium mb-1">
-                                        {outcome.name}
-                                      </div>
-                                      <div className="text-sm font-bold">
-                                        {outcome.odds.toFixed(2)}
-                                      </div>
-                                    </Button>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
+                              <span className="text-xs text-muted-foreground mb-1 truncate w-full text-center">
+                                {outcome.point !== undefined ? `${outcome.name} ${outcome.point > 0 ? '+' : ''}${outcome.point}` : outcome.name}
+                              </span>
+                              <span className="text-lg font-bold text-primary">
+                                {outcome.price.toFixed(2)}
+                              </span>
+                            </Button>
                           ))}
                         </div>
-                      </CardContent>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Card>
-            ),
-          )}
-        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
       </div>
     </div>
   );

@@ -111,22 +111,175 @@ export const LEAGUE_LIMITS = {
 };
 
 // Sport-specific API configuration for quota optimization
-export const SPORT_API_CONFIG: Record<string, { regions: string; markets: string; creditCost: number }> = {
+// Based on The Odds API available markets for each sport
+export const SPORT_API_CONFIG: Record<string, { regions: string; markets: string; creditCost: number; displayName: string }> = {
   football: {
-    regions: 'uk',  // Single region
-    markets: 'h2h,spreads,totals',  // 3 markets
-    creditCost: 3,  // 3 markets × 1 region
+    regions: 'uk',
+    markets: 'h2h,spreads,totals',
+    creditCost: 3,
+    displayName: 'Football'
+  },
+  basketball: {
+    regions: 'uk',
+    markets: 'h2h,spreads,totals',
+    creditCost: 3,
+    displayName: 'Basketball'
+  },
+  americanfootball: {
+    regions: 'uk',
+    markets: 'h2h,spreads,totals',
+    creditCost: 3,
+    displayName: 'American Football'
+  },
+  baseball: {
+    regions: 'uk',
+    markets: 'h2h,spreads,totals',
+    creditCost: 3,
+    displayName: 'Baseball'
+  },
+  icehockey: {
+    regions: 'uk',
+    markets: 'h2h,spreads,totals',
+    creditCost: 3,
+    displayName: 'Ice Hockey'
+  },
+  cricket: {
+    regions: 'uk',
+    markets: 'h2h',
+    creditCost: 1,
+    displayName: 'Cricket'
+  },
+  mma: {
+    regions: 'uk',
+    markets: 'h2h',
+    creditCost: 1,
+    displayName: 'MMA'
   },
   default: {
-    regions: 'uk',  // Single region
-    markets: 'h2h',  // Single market
-    creditCost: 1,  // 1 market × 1 region
+    regions: 'uk',
+    markets: 'h2h',
+    creditCost: 1,
+    displayName: 'Other'
   },
 };
 
 // Get API config for a sport category
-export function getSportApiConfig(sportKey: string): { regions: string; markets: string; creditCost: number } {
+export function getSportApiConfig(sportKey: string): { regions: string; markets: string; creditCost: number; displayName: string } {
   return SPORT_API_CONFIG[sportKey] || SPORT_API_CONFIG.default;
+}
+
+// Sport-specific market display configurations
+// Maps market keys from The Odds API to human-readable names and categories
+export const SPORT_MARKET_CONFIG: Record<string, {
+  categories: Array<{
+    key: string;
+    name: string;
+    markets: Array<{ key: string; name: string; description?: string }>;
+  }>;
+}> = {
+  football: {
+    categories: [
+      {
+        key: 'main',
+        name: 'Main Markets',
+        markets: [
+          { key: 'h2h', name: 'Match Winner', description: '1X2' },
+          { key: 'spreads', name: 'Handicap', description: 'Asian Handicap' },
+          { key: 'totals', name: 'Total Goals', description: 'Over/Under' },
+        ]
+      }
+    ]
+  },
+  basketball: {
+    categories: [
+      {
+        key: 'main',
+        name: 'Main Markets',
+        markets: [
+          { key: 'h2h', name: 'Match Winner', description: 'Moneyline' },
+          { key: 'spreads', name: 'Point Spread', description: 'Handicap' },
+          { key: 'totals', name: 'Total Points', description: 'Over/Under' },
+        ]
+      }
+    ]
+  },
+  americanfootball: {
+    categories: [
+      {
+        key: 'main',
+        name: 'Main Markets',
+        markets: [
+          { key: 'h2h', name: 'Match Winner', description: 'Moneyline' },
+          { key: 'spreads', name: 'Point Spread', description: 'Handicap' },
+          { key: 'totals', name: 'Total Points', description: 'Over/Under' },
+        ]
+      }
+    ]
+  },
+  baseball: {
+    categories: [
+      {
+        key: 'main',
+        name: 'Main Markets',
+        markets: [
+          { key: 'h2h', name: 'Match Winner', description: 'Moneyline' },
+          { key: 'spreads', name: 'Run Line', description: 'Handicap' },
+          { key: 'totals', name: 'Total Runs', description: 'Over/Under' },
+        ]
+      }
+    ]
+  },
+  icehockey: {
+    categories: [
+      {
+        key: 'main',
+        name: 'Main Markets',
+        markets: [
+          { key: 'h2h', name: 'Match Winner', description: 'Moneyline' },
+          { key: 'spreads', name: 'Puck Line', description: 'Handicap' },
+          { key: 'totals', name: 'Total Goals', description: 'Over/Under' },
+        ]
+      }
+    ]
+  },
+  cricket: {
+    categories: [
+      {
+        key: 'main',
+        name: 'Main Markets',
+        markets: [
+          { key: 'h2h', name: 'Match Winner', description: 'Moneyline' },
+        ]
+      }
+    ]
+  },
+  mma: {
+    categories: [
+      {
+        key: 'main',
+        name: 'Main Markets',
+        markets: [
+          { key: 'h2h', name: 'Fight Winner', description: 'Moneyline' },
+        ]
+      }
+    ]
+  },
+  default: {
+    categories: [
+      {
+        key: 'main',
+        name: 'Main Markets',
+        markets: [
+          { key: 'h2h', name: 'Match Winner' },
+        ]
+      }
+    ]
+  }
+};
+
+// Get market configuration for a sport
+export function getSportMarketConfig(sportKey: string) {
+  return SPORT_MARKET_CONFIG[sportKey] || SPORT_MARKET_CONFIG.default;
 }
 
 // Apply league limits to grouped sports

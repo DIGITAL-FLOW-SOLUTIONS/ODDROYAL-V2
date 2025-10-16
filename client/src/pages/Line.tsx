@@ -11,6 +11,7 @@ import PopularEvents from "@/components/PopularEvents";
 import TopLeagues from "@/components/TopLeagues";
 import SportsMatches from "@/components/SportsMatches";
 import OtherSports from "@/components/OtherSports";
+import { LineMatchSkeleton } from "@/components/SkeletonLoaders";
 
 function LineContent() {
   const { onAddToBetSlip } = useBetSlip();
@@ -172,12 +173,17 @@ function LineContent() {
     };
 
     const selection = {
+      id: `${match.id}-${market}-${type}`,
       matchId: match.id,
-      matchName: `${match.homeTeam.name} vs ${match.awayTeam.name}`,
-      market,
+      fixtureId: match.id,
+      type: type.toLowerCase(),
       selection: getSelectionName(market, type),
       odds,
-      status: 'pending' as const,
+      homeTeam: match.homeTeam.name,
+      awayTeam: match.awayTeam.name,
+      league: match.league,
+      market: market,
+      isLive: false,
     };
 
     onAddToBetSlip(selection);
@@ -192,37 +198,32 @@ function LineContent() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="container mx-auto pb-6 space-y-8">
-        {/* Hero Banner */}
-        <HeroBanner />
-
-        {/* Loading State */}
-        {isLoading && (
-          <div className="text-center py-12">
-            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-            <p className="mt-4 text-muted-foreground">Loading matches...</p>
-          </div>
-        )}
-
-        {/* No data state */}
-        {!isLoading && !hasMatches && (
+      {/* Loading State with Skeleton */}
+      {isLoading ? (
+        <LineMatchSkeleton />
+      ) : !hasMatches ? (
+        /* No data state */
+        <div className="container mx-auto pb-6">
+          <HeroBanner />
           <div className="text-center py-12">
             <Clock className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
             <p className="text-lg font-medium text-foreground mb-2">No matches available</p>
             <p className="text-muted-foreground">Check back later for upcoming matches</p>
           </div>
-        )}
+        </div>
+      ) : (
+        /* Content - only show when we have data */
+        <div className="container mx-auto pb-6 space-y-8">
+          {/* Hero Banner */}
+          <HeroBanner />
 
-        {/* Content - only show when we have data */}
-        {!isLoading && hasMatches && (
-          <>
-            {/* Popular Events - First 6 matches */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-            >
-              <PopularEvents
+          {/* Popular Events - First 6 matches */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
+            <PopularEvents
                 matches={popularMatches}
                 onOddsClick={handleOddsClick}
               />
@@ -258,13 +259,12 @@ function LineContent() {
                 </motion.div>
               )
             ))}
-          </>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
-export default function Line(props: LineProps) {
-  return <LineContent {...props} />;
+export default function Line() {
+  return <LineContent />;
 }

@@ -10,6 +10,7 @@ import { useMatchStore } from "@/store/matchStore";
 import { renderProfiler } from "@/lib/renderProfiler";
 import { FPSCounter } from "@/components/FPSCounter";
 import { useBetSlip } from "@/contexts/BetSlipContext";
+import { LiveMatchSkeleton } from "@/components/SkeletonLoaders";
 
 export default function Live() {
   const { onAddToBetSlip, betSlipSelections } = useBetSlip();
