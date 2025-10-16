@@ -6,6 +6,7 @@ import { settlementWorker } from "./settlement-worker";
 import { manualMatchSimulator } from "./manual-match-simulator";
 import { redisCache } from "./redis-cache";
 import { preloadWorker } from "./preload-worker";
+import { marketSyncWorker } from "./market-sync-worker";
 // import { exposureEngine } from "./exposure-engine";
 // import { liveMatchSimulator } from "./live-match-simulator";
 import { storage } from "./storage";
@@ -184,7 +185,7 @@ async function withTimeout<T>(
           ).catch(err => {
             logger.warn("Admin user creation timeout:", err.message);
           });
-        } else if (false && isDemoMode) {
+        } else if (false) {
           // COMMENTED OUT: In demo/dev mode, create default admin
           // Disabled to allow testing first-time admin registration
           logger.info("Creating default super admin user (demo mode)...");
@@ -206,6 +207,7 @@ async function withTimeout<T>(
         try {
           settlementWorker.start();
           manualMatchSimulator.start();
+          marketSyncWorker.start();
           
           // Initialize Redis cache and preload data (optional - graceful fallback)
           let redisConnected = false;

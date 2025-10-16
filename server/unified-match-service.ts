@@ -204,6 +204,7 @@ export class UnifiedMatchService {
   
   /**
    * Get match markets (works for both manual and API matches)
+   * ENHANCED: Now with database persistence for API matches
    */
   async getMatchMarkets(matchId: string): Promise<any[]> {
     try {
@@ -219,8 +220,19 @@ export class UnifiedMatchService {
         
         return markets;
       } else {
-        // Get markets from Redis cache (API matches)
-        const markets = await redisCache.get<any[]>(`match:markets:${matchId}`);
+        // For API matches: Try Redis first, then fallback to database
+        let markets = await redisCache.get<any[]>(`match:markets:${matchId}`);
+        
+        if (!markets || markets.length === 0) {
+          // Fallback to database for persisted markets
+          markets = await storage.getMatchMarkets(matchId);
+          
+          // Cache to Redis for faster subsequent access
+          if (markets && markets.length > 0) {
+            await redisCache.set(`match:markets:${matchId}`, markets, 60);
+          }
+        }
+        
         return markets || [];
       }
     } catch (error) {
