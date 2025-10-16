@@ -162,6 +162,7 @@ class TheOddsApiClient {
       markets?: string;
       oddsFormat?: string;
       dateFormat?: string;
+      status?: 'live' | 'upcoming';
       sportCategory?: string; // Our internal sport category (football, basketball, etc.)
     } = {}
   ): Promise<any[]> {
@@ -170,6 +171,7 @@ class TheOddsApiClient {
       markets,
       oddsFormat = 'decimal',
       dateFormat = 'iso',
+      status,
       sportCategory
     } = options;
 
@@ -177,7 +179,7 @@ class TheOddsApiClient {
     const finalRegions = regions || 'uk';
     const finalMarkets = markets || 'h2h';
 
-    const requestKey = `odds:${sportKey}:${finalMarkets}`;
+    const requestKey = `odds:${sportKey}:${status || 'upcoming'}:${finalMarkets}`;
     
     return this.deduplicateRequest(requestKey, async () => {
       return limit(async () => {
@@ -191,9 +193,10 @@ class TheOddsApiClient {
             dateFormat,
           };
 
-          // NOTE: The Odds API returns BOTH live and upcoming matches in a single call.
-          // There is NO 'status' parameter in The Odds API.
-          // Filtering must be done CLIENT-SIDE based on commence_time.
+          if (status === 'live') {
+            params.status = 'live';
+          }
+
           const response = await this.client.get(`/sports/${sportKey}/odds`, { params });
           
           // Calculate credit cost based on markets and regions

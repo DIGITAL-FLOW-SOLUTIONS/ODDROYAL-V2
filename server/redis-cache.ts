@@ -610,32 +610,12 @@ class RedisCacheManager {
     const allMatches: any[] = [];
 
     for (const sport of sports) {
-      // Get BOTH live and prematch leagues
-      const liveLeagues = await this.getLiveLeagues(sport.key) || [];
-      const prematchLeagues = await this.getPrematchLeagues(sport.key) || [];
+      const leagues = await this.getLiveLeagues(sport.key) || [];
+      console.log(`  📊 Sport ${sport.key}: ${leagues.length} live leagues`);
       
-      // Merge leagues (using Map to deduplicate by league_id)
-      const leagueMap = new Map();
-      [...liveLeagues, ...prematchLeagues].forEach(league => {
-        if (!leagueMap.has(league.league_id)) {
-          leagueMap.set(league.league_id, league);
-        } else {
-          // Update match count to be sum of both
-          const existing = leagueMap.get(league.league_id);
-          existing.match_count = (existing.match_count || 0) + (league.match_count || 0);
-        }
-      });
-      
-      const allLeagues = Array.from(leagueMap.values());
-      console.log(`  📊 Sport ${sport.key}: ${allLeagues.length} leagues (${liveLeagues.length} live, ${prematchLeagues.length} prematch)`);
-      
-      for (const league of allLeagues) {
-        // Get BOTH live and prematch matches for this league
-        const liveMatches = await this.getLiveMatches(sport.key, league.league_id) || [];
-        const prematchMatches = await this.getPrematchMatches(sport.key, league.league_id) || [];
-        
-        const matches = [...liveMatches, ...prematchMatches];
-        console.log(`    📊 League ${league.league_id}: ${matches.length} matches (${liveMatches.length} live, ${prematchMatches.length} upcoming)`);
+      for (const league of leagues) {
+        const matches = await this.getLiveMatches(sport.key, league.league_id) || [];
+        console.log(`    📊 League ${league.league_id}: ${matches.length} matches`);
         
         // Enrich each match with logos and market status
         for (const match of matches) {

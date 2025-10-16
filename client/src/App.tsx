@@ -48,7 +48,7 @@ function Router() {
   
   return (
     <Switch>
-      {/* Admin Panel Routes - Standalone (NO Layout wrapper) */}
+      {/* Admin Panel Routes - Must come first and use specific patterns */}
       <Route path="/prime-admin/login" component={AdminApp} />
       <Route path="/prime-admin/register" component={AdminApp} />
       <Route path="/prime-admin/markets/:matchId" component={AdminApp} />
@@ -65,7 +65,22 @@ function Router() {
       <Route path="/prime-admin/security" component={AdminApp} />
       <Route path="/prime-admin" component={AdminApp} />
       
-      {/* Simple Layout Routes (NO main Layout) */}
+      {/* Regular App Routes - Wrapped with Layout */}
+      <Route path="/" component={Homepage} />
+      <Route path="/line" component={Line} />
+      <Route path="/live" component={Live} />
+      <Route path="/league/:sport/:leagueId" component={LeagueMatches} />
+      <Route path="/match/:id" component={MatchDetails} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/profile" component={Profile} />
+      <Route path="/wallet" component={Wallet} />
+      <Route path="/bets" component={BetHistory} />
+      <Route path="/analytics" component={Analytics} />
+      <Route path="/responsible-gambling" component={ResponsibleGamblingSettings} />
+      <Route path="/results" component={Results} />
+      <Route path="/login" component={Login} />
+      
+      {/* Simple Layout Routes */}
       <Route path="/deposit">
         <SimpleLayout><Deposit /></SimpleLayout>
       </Route>
@@ -83,47 +98,6 @@ function Router() {
       </Route>
       <Route path="/responsible-gaming">
         <SimpleLayout><ResponsibleGaming /></SimpleLayout>
-      </Route>
-      
-      {/* Regular App Routes - Wrapped with Layout */}
-      <Route path="/">
-        <Layout><Homepage /></Layout>
-      </Route>
-      <Route path="/line">
-        <Layout><Line /></Layout>
-      </Route>
-      <Route path="/live">
-        <Layout><Live /></Layout>
-      </Route>
-      <Route path="/league/:sport/:leagueId">
-        <Layout><LeagueMatches /></Layout>
-      </Route>
-      <Route path="/match/:id">
-        <Layout><MatchDetails /></Layout>
-      </Route>
-      <Route path="/dashboard">
-        <Layout><Dashboard /></Layout>
-      </Route>
-      <Route path="/profile">
-        <Layout><Profile /></Layout>
-      </Route>
-      <Route path="/wallet">
-        <Layout><Wallet /></Layout>
-      </Route>
-      <Route path="/bets">
-        <Layout><BetHistory /></Layout>
-      </Route>
-      <Route path="/analytics">
-        <Layout><Analytics /></Layout>
-      </Route>
-      <Route path="/responsible-gambling">
-        <Layout><ResponsibleGamblingSettings /></Layout>
-      </Route>
-      <Route path="/results">
-        <Layout><Results /></Layout>
-      </Route>
-      <Route path="/login">
-        <Layout><Login /></Layout>
       </Route>
       
       {/* Catch all */}
@@ -198,7 +172,9 @@ function App() {
             <ModeProvider>
               <PageLoadingProvider>
                 <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
-                  <Router />
+                  <Layout>
+                    <Router />
+                  </Layout>
                   <Toaster />
                 </div>
               </PageLoadingProvider>
