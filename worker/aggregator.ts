@@ -242,7 +242,8 @@ export class AblyAggregator {
 
   /**
    * Refresh live data from The Odds API and persist to Redis
-   * Same logic as preload worker but runs continuously
+   * NOTE: The Odds API returns BOTH live and upcoming matches.
+   * We filter CLIENT-SIDE based on commence_time and store in correct Redis keys.
    * GRACEFUL DEGRADATION: If API fails, keeps existing data by extending TTLs
    */
   private async refreshLiveDataFromApi(): Promise<void> {
@@ -252,19 +253,27 @@ export class AblyAggregator {
     for (const sportGroup of this.groupedSports) {
       for (const league of sportGroup.leagues) {
         try {
-          // Fetch live matches from The Odds API with status filter
+          // Fetch ALL matches (both live and upcoming) from The Odds API
           const events = await oddsApiClient.getOdds(league.key, {
             regions: 'uk,eu,us',
             markets: 'h2h,spreads,totals',
             oddsFormat: 'decimal',
             dateFormat: 'iso',
-            status: 'live',
           });
 
           if (events.length === 0) continue;
 
+          // Filter CLIENT-SIDE: commence_time < now = LIVE
+          const now = Date.now();
+          const liveEvents = events.filter(event => {
+            const commenceTime = new Date(event.commence_time).getTime();
+            return commenceTime < now;
+          });
+
+          if (liveEvents.length === 0) continue;
+
           // Normalize and group by league
-          const normalizedMatches = events.map(event => normalizeOddsEvent(event, sportGroup.ourKey));
+          const normalizedMatches = liveEvents.map(event => normalizeOddsEvent(event, sportGroup.ourKey));
           const leagueGroups = groupMatchesByLeague(normalizedMatches);
 
           // Persist to Redis with TTLs (setLiveMatches also caches individual matches)
@@ -299,7 +308,7 @@ export class AblyAggregator {
           }
 
           successCount++;
-          logger.info(`[API-REFRESH-LIVE] ${sportGroup.ourKey}/${league.key}: ${normalizedMatches.length} matches`);
+          logger.info(`[API-REFRESH-LIVE] ${sportGroup.ourKey}/${league.key}: ${liveEvents.length} live of ${events.length} total`);
         } catch (error) {
           failCount++;
           logger.error(`[API-REFRESH-LIVE] Failed ${sportGroup.ourKey}/${league.key}:`, error);
@@ -367,7 +376,8 @@ export class AblyAggregator {
 
   /**
    * Refresh prematch data from The Odds API and persist to Redis
-   * Same logic as preload worker but runs continuously
+   * NOTE: The Odds API returns BOTH live and upcoming matches.
+   * We filter CLIENT-SIDE based on commence_time and store in correct Redis keys.
    * GRACEFUL DEGRADATION: If API fails, keeps existing data by extending TTLs
    */
   private async refreshPrematchDataFromApi(): Promise<void> {
@@ -377,7 +387,7 @@ export class AblyAggregator {
     for (const sportGroup of this.groupedSports) {
       for (const league of sportGroup.leagues) {
         try {
-          // Fetch upcoming matches from The Odds API (no status filter = upcoming by default)
+          // Fetch ALL matches (both live and upcoming) from The Odds API
           const events = await oddsApiClient.getOdds(league.key, {
             regions: 'uk,eu,us',
             markets: 'h2h,spreads,totals',
@@ -387,8 +397,17 @@ export class AblyAggregator {
 
           if (events.length === 0) continue;
 
+          // Filter CLIENT-SIDE: commence_time >= now = UPCOMING
+          const now = Date.now();
+          const upcomingEvents = events.filter(event => {
+            const commenceTime = new Date(event.commence_time).getTime();
+            return commenceTime >= now;
+          });
+
+          if (upcomingEvents.length === 0) continue;
+
           // Normalize and group by league
-          const normalizedMatches = events.map(event => normalizeOddsEvent(event, sportGroup.ourKey));
+          const normalizedMatches = upcomingEvents.map(event => normalizeOddsEvent(event, sportGroup.ourKey));
           const leagueGroups = groupMatchesByLeague(normalizedMatches);
 
           // Persist to Redis with TTLs (setPrematchMatches also caches individual matches)
@@ -423,7 +442,7 @@ export class AblyAggregator {
           }
 
           successCount++;
-          logger.info(`[API-REFRESH-PREMATCH] ${sportGroup.ourKey}/${league.key}: ${normalizedMatches.length} matches`);
+          logger.info(`[API-REFRESH-PREMATCH] ${sportGroup.ourKey}/${league.key}: ${upcomingEvents.length} upcoming of ${events.length} total`);
         } catch (error) {
           failCount++;
           logger.error(`[API-REFRESH-PREMATCH] Failed ${sportGroup.ourKey}/${league.key}:`, error);
