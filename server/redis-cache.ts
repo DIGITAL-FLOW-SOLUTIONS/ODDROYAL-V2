@@ -209,9 +209,14 @@ class RedisCacheManager {
     for (const match of matches) {
       if (match.match_id || match.id) {
         const matchId = match.match_id || match.id;
+        // Include sport_key in individual match cache
         await this.setWithMetadata(
           `match:${matchId}`,
-          match,
+          {
+            ...match,
+            sport_key: sportKey,
+            league_id: leagueId
+          },
           ttlSeconds,
           { source: 'prematch' }
         );
@@ -257,9 +262,14 @@ class RedisCacheManager {
     for (const match of matches) {
       if (match.match_id || match.id) {
         const matchId = match.match_id || match.id;
+        // Include sport_key in individual match cache
         await this.setWithMetadata(
           `match:${matchId}`,
-          match,
+          {
+            ...match,
+            sport_key: sportKey,
+            league_id: leagueId
+          },
           ttlSeconds,
           { source: 'live' }
         );
@@ -310,6 +320,7 @@ class RedisCacheManager {
   }
 
   async getTeamLogo(sport: string, teamName: string): Promise<any | null> {
+    if (!teamName) return null;
     const normalizedName = teamName
       .trim()
       .toLowerCase()
