@@ -5,7 +5,6 @@ import { setupVite, serveStatic, log } from "./vite";
 import { settlementWorker } from "./settlement-worker";
 import { manualMatchSimulator } from "./manual-match-simulator";
 import { redisCache } from "./redis-cache";
-import { preloadWorker } from "./preload-worker";
 // import { exposureEngine } from "./exposure-engine";
 // import { liveMatchSimulator } from "./live-match-simulator";
 import { storage } from "./storage";
@@ -207,7 +206,7 @@ async function withTimeout<T>(
           settlementWorker.start();
           manualMatchSimulator.start();
           
-          // Initialize Redis cache and preload data (optional - graceful fallback)
+          // Initialize Redis cache (optional - graceful fallback)
           let redisConnected = false;
           try {
             logger.info("Connecting to Redis...");
@@ -217,18 +216,10 @@ async function withTimeout<T>(
               "Redis connection"
             );
             redisConnected = true;
-            
-            // Always attempt preload after connection (don't check isConnected() - connection event is async)
-            logger.info("Starting data preload...");
-            const preloadReport = await withTimeout(
-              preloadWorker.preloadAll(),
-              60000,
-              "Data preload"
-            );
-            logger.success("Preload complete:", preloadReport);
+            logger.success("✅ Redis connected successfully");
           } catch (redisErr) {
-            logger.warn("Redis/preload failed, continuing without cache:", redisErr);
-            // Continue without Redis - app will use direct API calls
+            logger.warn("Redis connection failed, continuing without cache:", redisErr);
+            // Continue without Redis - Aggregator will use direct API calls
           }
           
           // Start Ably Aggregator Worker (replaces old refresh worker + WebSocket system)
