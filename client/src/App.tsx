@@ -42,9 +42,13 @@ const persister = createSyncStoragePersister({
   key: 'ODDROYAL_CACHE',
 });
 
-function AdminRouter() {
+function Router() {
+  // Enable automatic scroll to top on route changes
+  useScrollRestoration();
+  
   return (
     <Switch>
+      {/* Admin Panel Routes - Must come first and use specific patterns */}
       <Route path="/prime-admin/login" component={AdminApp} />
       <Route path="/prime-admin/register" component={AdminApp} />
       <Route path="/prime-admin/markets/:matchId" component={AdminApp} />
@@ -60,16 +64,7 @@ function AdminRouter() {
       <Route path="/prime-admin/settlement" component={AdminApp} />
       <Route path="/prime-admin/security" component={AdminApp} />
       <Route path="/prime-admin" component={AdminApp} />
-    </Switch>
-  );
-}
-
-function MainAppRouter() {
-  // Enable automatic scroll to top on route changes
-  useScrollRestoration();
-  
-  return (
-    <Switch>
+      
       {/* Regular App Routes - Wrapped with Layout */}
       <Route path="/" component={Homepage} />
       <Route path="/line" component={Line} />
@@ -107,24 +102,6 @@ function MainAppRouter() {
       
       {/* Catch all */}
       <Route component={NotFound} />
-    </Switch>
-  );
-}
-
-function Router() {
-  return (
-    <Switch>
-      {/* Admin Panel Routes - Completely separate from main app layout */}
-      <Route path="/prime-admin/:rest*">
-        <AdminRouter />
-      </Route>
-      
-      {/* Main App Routes - Wrapped with Layout */}
-      <Route>
-        <Layout>
-          <MainAppRouter />
-        </Layout>
-      </Route>
     </Switch>
   );
 }
@@ -195,7 +172,9 @@ function App() {
             <ModeProvider>
               <PageLoadingProvider>
                 <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
-                  <Router />
+                  <Layout>
+                    <Router />
+                  </Layout>
                   <Toaster />
                 </div>
               </PageLoadingProvider>
