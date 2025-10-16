@@ -4,12 +4,25 @@ OddRoyal is a premium sports betting web application featuring real-time sports 
 
 # Recent Changes
 
+## October 16, 2025 - Match Lookup Performance Optimization
+- **Critical Performance Fix**: Resolved slow match details loading for all sports and leagues
+  - Previous implementation loaded ALL matches (100s) just to find one match
+  - Matches from non-EPL leagues and other sports weren't being found at all
+- **Individual Match Caching**: 
+  - Modified `setPrematchMatches` and `setLiveMatches` to cache each match individually with key `match:{matchId}`
+  - Enables instant O(1) lookup instead of O(n) search through arrays
+- **Optimized getMatchById**:
+  - Now checks individual match cache (`match:{matchId}`) first for instant retrieval
+  - Falls back to unified cache, then manual match database only if needed
+  - Eliminated expensive getAllLiveMatches() and getAllUpcomingMatches() calls
+- **Impact**: Match details now load instantly for all 7 sports (Football, Basketball, American Football, Baseball, Ice Hockey, Cricket, MMA) across all leagues
+
 ## October 16, 2025 - Dynamic Market Generator Implementation
 - **API Limitation Pivot**: Discovered The Odds API only provides h2h/spreads/totals markets, not the 40+ markets needed for comprehensive football betting
 - **New Approach**: Replaced API market persistence with dynamic market generation system
   - Keeps real 1x2/h2h odds from The Odds API where available
   - Generates all other markets dynamically using sport-specific templates
-  - Uses deterministic seeded PRNG for consistent odds across refreshes
+  - Uses deterministic seeded PRNG (Park-Miller) for consistent odds across refreshes
 - **Market Coverage**: 
   - Football: 53+ markets (totals, handicaps, BTTS, correct score, half markets, corners, cards, shots, offsides, player props, etc.)
   - Basketball: 15+ markets (totals, spreads, quarter winners, half markets)
@@ -19,7 +32,7 @@ OddRoyal is a premium sports betting web application featuring real-time sports 
   - Cricket: 7+ markets (totals, top batsman, top bowler)
   - MMA: 5+ markets (method of victory, total rounds, go distance)
 - **Technical Implementation**:
-  - Created `server/market-generator.ts` with Park-Miller PRNG for deterministic odds
+  - Created `server/market-generator.ts` with fixed Park-Miller PRNG (Math.abs for positive state)
   - Updated `/api/match/:matchId/details` and `/api/match/:matchId/markets` to use generator
   - Removed market sync worker and database market persistence
   - Simplified MatchDetails page to directly consume generated markets
