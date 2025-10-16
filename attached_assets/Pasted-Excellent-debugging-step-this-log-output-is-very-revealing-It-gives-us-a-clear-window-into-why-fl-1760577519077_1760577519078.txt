@@ -1,0 +1,120 @@
+Excellent debugging step — this log output is very revealing.
+It gives us a clear window into why flickering still happens even under the Ably + Redis + Aggregator setup.
+
+Let’s break it down carefully 👇
+
+🔍 What the Logs Reveal
+
+Here’s the pattern:
+
+[REACT] Ably message received: updateType=batch:updates, count=30...
+[REACT] Ably batch received: 59 updates - applying with startTransition
+[LAYOUT] Rendering children: LeagueMatches
+[LAYOUT] Rendering children: LeagueMatches
+
+
+That repeats multiple times per second.
+
+Each [LAYOUT] Rendering children: LeagueMatches means your entire LeagueMatches component tree is being re-rendered — not just the few matches that changed.
+This re-render = the flicker you see.
+
+⚙️ Root Cause
+
+The flicker is not coming from Ably or the data pipeline anymore — it’s purely a React state reconciliation problem on the client side.
+
+Here’s what’s happening:
+
+Ably delivers a batch of updates (e.g., count=30).
+
+Your useAbly.ts hook applies these updates using:
+
+startTransition(() => setState(newData))
+
+
+But newData is likely a new object reference, not a shallow merge.
+
+React sees the new reference and assumes everything changed → re-renders all child components.
+
+LeagueMatches re-renders → layout flashes.
+
+🧩 Confirmed by Logs
+
+You can see that for each Ably batch, you get two identical render logs:
+
+[LAYOUT] Rendering children: LeagueMatches
+[LAYOUT] Rendering children: LeagueMatches
+
+
+That double render means React is doing:
+
+Initial reconciliation after state update
+
+Layout reflow caused by re-rendered subtree
+
+That’s the “flicker.”
+
+✅ The Fix (Real One That Works)
+
+Here’s exactly what to change in your React client:
+
+1️⃣ In useAbly.ts
+
+Replace global state replacement with granular merging.
+
+Change this:
+
+setState(newData);
+
+
+To this diff-based merge:
+
+startTransition(() => {
+  setState(prev => {
+    const updated = { ...prev };
+    for (const update of batch) {
+      const matchId = update.id;
+      if (!shallowEqual(prev.matches[matchId], update)) {
+        updated.matches[matchId] = { ...prev.matches[matchId], ...update };
+      }
+    }
+    return updated;
+  });
+});
+
+
+Also, ensure shallowEqual checks only the fields that actually change (like odds, score, time).
+
+2️⃣ In LeagueMatches.tsx
+
+Wrap child renders with React.memo to block re-rendering unless props actually changed:
+
+const LeagueMatches = React.memo(({ matches }) => {
+  ...
+}, (prev, next) => shallowEqual(prev.matches, next.matches));
+
+3️⃣ Ensure Layout Doesn’t Re-Render
+
+Right now, [LAYOUT] Rendering children prints every batch.
+That means the parent (Layout.tsx) is re-rendering because of a prop or context change.
+
+Check where Layout gets data:
+
+If it uses context or Zustand selector, use shallow from Zustand.
+
+const matches = useStore(state => state.matches, shallow);
+
+
+Move heavy components (like sidebar, header) outside Layout so they never re-render.
+
+4️⃣ Optional — Throttle Ably Updates
+
+Even with perfect diffing, if you apply updates too often (like 30x/sec), React still repaints.
+
+Add throttling:
+
+const applyUpdates = throttle((batch) => {
+  startTransition(() => mergeUpdates(batch));
+}, 500); // apply updates every 0.5s
+
+
+This keeps it buttery smooth — like Bet365 and 1xBet behavior.
