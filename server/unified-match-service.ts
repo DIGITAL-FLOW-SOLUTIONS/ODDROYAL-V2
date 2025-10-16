@@ -128,17 +128,42 @@ export class UnifiedMatchService {
   
   /**
    * Get match by ID (checks both API and manual sources)
+   * OPTIMIZED: Uses direct match cache for instant lookups
    */
   async getMatchById(matchId: string): Promise<UnifiedMatch | null> {
     try {
-      // First check cache for this specific match
+      // First check unified match cache
       const cached = await redisCache.get<UnifiedMatch>(`unified:match:${matchId}`);
       if (cached) {
         return cached;
       }
       
-      // Check if it's a manual match (UUIDs are longer)
-      if (matchId.length > 30) {
+      // Check individual match cache (set by setPrematchMatches/setLiveMatches)
+      const directMatch = await redisCache.get<any>(`match:${matchId}`);
+      if (directMatch) {
+        // Transform to unified format if needed
+        const unified: UnifiedMatch = {
+          match_id: directMatch.match_id || directMatch.id,
+          sport_key: directMatch.sport_key,
+          sport_icon: directMatch.sport_icon,
+          home_team: directMatch.home_team,
+          away_team: directMatch.away_team,
+          commence_time: directMatch.commence_time,
+          status: directMatch.status || 'upcoming',
+          league_id: directMatch.league_id,
+          league_name: directMatch.league_name,
+          bookmakers: directMatch.bookmakers || [],
+          scores: directMatch.scores,
+          source: 'api'
+        };
+        
+        // Cache as unified for next time
+        await redisCache.set(`unified:match:${matchId}`, unified, 60);
+        return unified;
+      }
+      
+      // Check if it's a manual match (UUIDs are typically longer than 32 chars)
+      if (matchId.includes('-') || matchId.length > 35) {
         const manualMatch = await storage.getMatch(matchId);
         if (manualMatch) {
           const unified = await this.transformManualMatch(manualMatch);
@@ -146,20 +171,6 @@ export class UnifiedMatchService {
           await redisCache.set(`unified:match:${matchId}`, unified, 60);
           return unified;
         }
-      }
-      
-      // For API matches, try to find in all upcoming and live matches
-      // This is more efficient than searching all sports/leagues
-      const liveMatches = await this.getAllLiveMatches();
-      const upcomingMatches = await this.getAllUpcomingMatches(200);
-      
-      const allMatches = [...liveMatches, ...upcomingMatches];
-      const match = allMatches.find(m => m.match_id === matchId);
-      
-      if (match) {
-        // Cache for 30 seconds
-        await redisCache.set(`unified:match:${matchId}`, match, 30);
-        return match;
       }
       
       return null;

@@ -204,6 +204,19 @@ class RedisCacheManager {
       ttlSeconds,
       { source: 'prematch' }
     );
+    
+    // Also cache each match individually for fast lookup
+    for (const match of matches) {
+      if (match.match_id || match.id) {
+        const matchId = match.match_id || match.id;
+        await this.setWithMetadata(
+          `match:${matchId}`,
+          match,
+          ttlSeconds,
+          { source: 'prematch' }
+        );
+      }
+    }
   }
 
   async getPrematchMatches(
@@ -239,6 +252,19 @@ class RedisCacheManager {
     await this.setWithMetadata(`live:matches:${sportKey}:${leagueId}`, matches, ttlSeconds, {
       source: 'live'
     });
+    
+    // Also cache each match individually for fast lookup
+    for (const match of matches) {
+      if (match.match_id || match.id) {
+        const matchId = match.match_id || match.id;
+        await this.setWithMetadata(
+          `match:${matchId}`,
+          match,
+          ttlSeconds,
+          { source: 'live' }
+        );
+      }
+    }
   }
 
   async getLiveMatches(
