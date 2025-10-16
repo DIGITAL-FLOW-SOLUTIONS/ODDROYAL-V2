@@ -223,16 +223,15 @@ async function withTimeout<T>(
           }
           
           // Start Ably Aggregator Worker (replaces old refresh worker + WebSocket system)
-          if (redisConnected) {
-            try {
-              logger.info("Starting Ably Aggregator Worker...");
-              const { ablyAggregator } = await import('../worker/aggregator');
-              await ablyAggregator.start();
-              logger.success("✅ Ably Aggregator started - publishing to Ably channels");
-            } catch (ablyErr) {
-              logger.error("❌ Ably Aggregator failed to start:", ablyErr);
-              logger.warn("Real-time updates will not be available. Check ABLY_API_KEY environment variable.");
-            }
+          // CRITICAL: Always start aggregator - it handles Redis gracefully internally
+          try {
+            logger.info("Starting Ably Aggregator Worker...");
+            const { ablyAggregator } = await import('../worker/aggregator');
+            await ablyAggregator.start();
+            logger.success("✅ Ably Aggregator started - publishing to Ably channels");
+          } catch (ablyErr) {
+            logger.error("❌ Ably Aggregator failed to start:", ablyErr);
+            logger.warn("Real-time updates will not be available. Check ABLY_API_KEY environment variable.");
           }
           
           workersReady = true;
