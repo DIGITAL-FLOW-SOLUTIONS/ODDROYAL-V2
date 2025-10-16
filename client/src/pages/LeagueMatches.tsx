@@ -6,21 +6,26 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SportsMatches from "@/components/SportsMatches";
 import { useLocation } from "wouter";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, memo } from "react";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
+import { useBetSlip } from "@/contexts/BetSlipContext";
 
-interface LeagueMatchesProps {
-  onAddToBetSlip?: (selection: any) => void;
-}
-
-export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
+function LeagueMatches() {
+  const { onAddToBetSlip } = useBetSlip();
   const params = useParams<{ sport: string; leagueId: string }>();
   const { mode } = useMode();
   const [, setLocation] = useLocation();
   const { setPageLoading } = usePageLoading();
+  const renderCountRef = useRef(0);
   
   const sport = params.sport;
   const leagueId = params.leagueId;
+
+  // Track renders for debugging
+  useEffect(() => {
+    renderCountRef.current += 1;
+    console.log(`[RENDER] LeagueMatches rendered ${renderCountRef.current} times`);
+  });
 
   // Fetch league matches with instant loading from cache
   const { data: leagueData, isRefetching, isLoading, refetch } = useQuery({
@@ -142,8 +147,6 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
     type: string,
     odds: number,
   ) => {
-    if (!onAddToBetSlip) return;
-
     const match = leagueData?.matches?.find((m: any) => m.match_id === matchId);
     if (!match) return;
 
@@ -226,3 +229,6 @@ export default function LeagueMatches({ onAddToBetSlip }: LeagueMatchesProps) {
     </div>
   );
 }
+
+// Memoize to prevent re-renders from parent Layout
+export default memo(LeagueMatches);

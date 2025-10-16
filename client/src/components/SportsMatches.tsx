@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,7 +79,7 @@ interface SportsMatchesProps {
   onAddToFavorites?: (matchId: string) => void;
 }
 
-export default function SportsMatches({
+function SportsMatches({
   sports,
   isLoading = false,
   onOddsClick,
@@ -404,3 +404,7 @@ export default function SportsMatches({
     </div>
   );
 }
+
+// Memoize to prevent re-renders when props haven't changed
+// Using default shallow comparison for all props
+export default memo(SportsMatches);

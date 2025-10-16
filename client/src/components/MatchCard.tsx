@@ -1,4 +1,4 @@
-import { useState, memo } from "react";
+import { useState, memo, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,13 @@ interface MatchCardProps {
 const MatchCard = memo(function MatchCard({ match, onAddToBetSlip }: MatchCardProps) {
   const [isFavorite, setIsFavorite] = useState(match?.isFavorite || false);
   const [, setLocation] = useLocation();
+  const renderCountRef = useRef(0);
+
+  // Track renders for debugging
+  useEffect(() => {
+    renderCountRef.current += 1;
+    console.log(`[RENDER] MatchCard ${match?.id} rendered ${renderCountRef.current} times`);
+  });
   
   // Defensive check - don't render if match data is invalid
   if (!match || 

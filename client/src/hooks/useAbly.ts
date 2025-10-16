@@ -16,6 +16,7 @@ import Ably from 'ably';
 import { useMatchStore } from '@/store/matchStore';
 
 const BATCH_INTERVAL = 250; // 250ms batching window for smooth updates
+const THROTTLE_INTERVAL = 400; // 400ms throttle for applying updates to store
 
 interface AblyUpdate {
   fixture_id: string;
@@ -28,21 +29,90 @@ interface AblyUpdate {
   timestamp: number;
 }
 
+// Shallow equality check for objects
+function shallowEqual(obj1: any, obj2: any): boolean {
+  if (obj1 === obj2) return true;
+  if (!obj1 || !obj2) return false;
+  
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+  
+  if (keys1.length !== keys2.length) return false;
+  
+  for (const key of keys1) {
+    if (obj1[key] !== obj2[key]) return false;
+  }
+  
+  return true;
+}
+
 export function useAbly() {
   const ablyClientRef = useRef<Ably.Realtime | null>(null);
-  const channelsRef = useRef<Map<string, Ably.Types.RealtimeChannelPromise>>(new Map());
+  const channelsRef = useRef<Map<string, any>>(new Map());
   const updateQueueRef = useRef<AblyUpdate[]>([]);
   const batchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const throttleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitializedRef = useRef(false);
+  const pendingUpdatesRef = useRef<Map<string, any>>(new Map());
 
   const {
-    updateMatch,
     setConnected,
     setInitialData,
   } = useMatchStore();
 
   /**
-   * Flush batched updates to store using React 18 startTransition
+   * Apply throttled batch updates to store - only updates changed matches
+   */
+  const applyThrottledBatch = useCallback(() => {
+    if (throttleTimerRef.current) {
+      clearTimeout(throttleTimerRef.current);
+      throttleTimerRef.current = null;
+    }
+
+    const updates = pendingUpdatesRef.current;
+    if (updates.size === 0) return;
+
+    const currentState = useMatchStore.getState();
+    const matchesMap = new Map(currentState.matches);
+    let changeCount = 0;
+
+    // Apply all pending updates to the map
+    updates.forEach((update, matchId) => {
+      const existing = matchesMap.get(matchId);
+      
+      if (existing) {
+        // Check if anything actually changed
+        if (!shallowEqual(existing, { ...existing, ...update })) {
+          matchesMap.set(matchId, { ...existing, ...update });
+          changeCount++;
+        }
+      } else {
+        // New match
+        matchesMap.set(matchId, update);
+        changeCount++;
+      }
+    });
+
+    // Clear pending updates
+    pendingUpdatesRef.current.clear();
+
+    if (changeCount > 0) {
+      console.log(`[REACT] Applying ${changeCount} match updates to store`);
+      
+      // Single store update with startTransition
+      startTransition(() => {
+        useMatchStore.setState({ 
+          matches: matchesMap,
+          lastUpdate: Date.now() 
+        });
+      });
+    } else {
+      console.log('[REACT] No changes detected, skipping store update');
+    }
+  }, []);
+
+  /**
+   * Flush batched Ably messages and schedule throttled store update
    */
   const flushBatch = useCallback(() => {
     if (batchTimerRef.current) {
@@ -53,48 +123,47 @@ export function useAbly() {
     const batch = updateQueueRef.current.splice(0);
     if (batch.length === 0) return;
 
-    console.log(`[REACT] Ably batch received: ${batch.length} updates - applying with startTransition`);
+    console.log(`[REACT] Ably batch received: ${batch.length} updates - merging for throttled apply`);
 
-    // Use startTransition for non-blocking UI updates
-    startTransition(() => {
-      batch.forEach(diff => {
-        applyPatch(diff);
-      });
-    });
-  }, []);
-
-  /**
-   * Apply a patch diff to the match store
-   */
-  const applyPatch = useCallback((diff: AblyUpdate) => {
-    // Handle "new" match case
-    if (diff.changes.length === 1 && diff.changes[0].path === 'new') {
-      updateMatch({
-        match_id: diff.fixture_id,
-        ...diff.changes[0].value,
-      });
-      return;
-    }
-
-    // Apply incremental changes
-    const updates: any = { match_id: diff.fixture_id };
-    
-    diff.changes.forEach(change => {
-      if (change.path === 'status') {
-        updates.status = change.value;
-      } else if (change.path === 'market_status') {
-        updates.market_status = change.value;
-      } else if (change.path === 'scores') {
-        updates.scores = change.value;
-      } else if (change.path === 'odds') {
-        updates.odds = change.value;
-      } else if (change.path === 'commence_time') {
-        updates.commence_time = change.value;
+    // Merge all diffs into pending updates map
+    batch.forEach(diff => {
+      const matchId = diff.fixture_id;
+      const existing = pendingUpdatesRef.current.get(matchId) || { match_id: matchId };
+      
+      // Handle "new" match case
+      if (diff.changes.length === 1 && diff.changes[0].path === 'new') {
+        pendingUpdatesRef.current.set(matchId, {
+          match_id: matchId,
+          ...diff.changes[0].value,
+        });
+        return;
       }
+
+      // Apply incremental changes
+      diff.changes.forEach(change => {
+        if (change.path === 'status') {
+          existing.status = change.value;
+        } else if (change.path === 'market_status') {
+          existing.market_status = change.value;
+        } else if (change.path === 'scores') {
+          existing.scores = change.value;
+        } else if (change.path === 'odds') {
+          existing.odds = change.value;
+        } else if (change.path === 'commence_time') {
+          existing.commence_time = change.value;
+        }
+      });
+
+      pendingUpdatesRef.current.set(matchId, existing);
     });
 
-    updateMatch(updates);
-  }, [updateMatch]);
+    // Schedule throttled application of updates
+    if (!throttleTimerRef.current) {
+      throttleTimerRef.current = setTimeout(() => {
+        applyThrottledBatch();
+      }, THROTTLE_INTERVAL);
+    }
+  }, [applyThrottledBatch]);
 
   /**
    * Queue update for batched processing
@@ -184,7 +253,7 @@ export function useAbly() {
         const channelName = `sports:${sport}`;
         const channel = client.channels.get(channelName);
         
-        await channel.subscribe('update', (message: Ably.Types.Message) => {
+        await channel.subscribe('update', (message: any) => {
           try {
             const data = message.data;
             
@@ -221,7 +290,12 @@ export function useAbly() {
       clearTimeout(batchTimerRef.current);
       batchTimerRef.current = null;
     }
+    if (throttleTimerRef.current) {
+      clearTimeout(throttleTimerRef.current);
+      throttleTimerRef.current = null;
+    }
     flushBatch();
+    applyThrottledBatch();
 
     // Unsubscribe from all channels
     channelsRef.current.forEach((channel) => {
@@ -236,7 +310,7 @@ export function useAbly() {
     }
 
     setConnected(false);
-  }, [flushBatch, setConnected]);
+  }, [flushBatch, applyThrottledBatch, setConnected]);
 
   useEffect(() => {
     initializeAbly();

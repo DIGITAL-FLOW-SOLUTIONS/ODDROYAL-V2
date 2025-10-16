@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import SportsSidebar from "@/components/SportsSidebar";
@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
 import PageLoader from "@/components/PageLoader";
+import { BetSlipProvider } from "@/contexts/BetSlipContext";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -35,6 +36,13 @@ export default function Layout({ children }: LayoutProps) {
   const headerRef = useRef<HTMLDivElement>(null);
   const [isInnerScrollLocked, setIsInnerScrollLocked] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(80);
+  const renderCountRef = useRef(0);
+
+  // Track renders for debugging
+  useEffect(() => {
+    renderCountRef.current += 1;
+    console.log(`[RENDER] Layout rendered ${renderCountRef.current} times`);
+  });
 
   // Load bet slip from localStorage on mount
   useEffect(() => {
@@ -49,7 +57,7 @@ export default function Layout({ children }: LayoutProps) {
     localStorage.setItem("betSlipSelections", JSON.stringify(betSlipSelections));
   }, [betSlipSelections]);
 
-  const handleAddToBetSlip = (selection: BetSelection) => {
+  const handleAddToBetSlip = useCallback((selection: BetSelection) => {
     setBetSlipSelections(prev => {
       // Check if selection already exists
       const exists = prev.find(s => s.id === selection.id);
@@ -67,7 +75,7 @@ export default function Layout({ children }: LayoutProps) {
       
       return newSelections;
     });
-  };
+  }, []);
 
   const handleRemoveFromBetSlip = (selectionId: string) => {
     setBetSlipSelections(prev => prev.filter(s => s.id !== selectionId));
@@ -240,12 +248,11 @@ export default function Layout({ children }: LayoutProps) {
     "--sidebar-width-icon": "4rem",
   };
 
-  // Create children with props by providing context
-  console.log('[LAYOUT] Rendering children:', (children as any)?.type?.name);
-  const childrenWithProps = React.cloneElement(children as React.ReactElement, {
+  // Memoize bet slip context value to prevent re-renders
+  const betSlipContextValue = useMemo(() => ({
     onAddToBetSlip: handleAddToBetSlip,
     betSlipSelections
-  });
+  }), [handleAddToBetSlip, betSlipSelections]);
 
   return (
     <div ref={layoutContainerRef} className="bg-background">
@@ -278,7 +285,9 @@ export default function Layout({ children }: LayoutProps) {
             }}
           >
             <div className="scrollbar-hide w-full">
-              {childrenWithProps}
+              <BetSlipProvider value={betSlipContextValue}>
+                {children}
+              </BetSlipProvider>
             </div>
           </motion.div>
 
