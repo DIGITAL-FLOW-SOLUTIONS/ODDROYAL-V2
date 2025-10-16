@@ -4,6 +4,27 @@ OddRoyal is a premium sports betting web application featuring real-time sports 
 
 # Recent Changes
 
+## October 16, 2025 - Dynamic Market Generator Implementation
+- **API Limitation Pivot**: Discovered The Odds API only provides h2h/spreads/totals markets, not the 40+ markets needed for comprehensive football betting
+- **New Approach**: Replaced API market persistence with dynamic market generation system
+  - Keeps real 1x2/h2h odds from The Odds API where available
+  - Generates all other markets dynamically using sport-specific templates
+  - Uses deterministic seeded PRNG for consistent odds across refreshes
+- **Market Coverage**: 
+  - Football: 53+ markets (totals, handicaps, BTTS, correct score, half markets, corners, cards, shots, offsides, player props, etc.)
+  - Basketball: 15+ markets (totals, spreads, quarter winners, half markets)
+  - American Football: 12+ markets (totals, spreads, quarter winners, half markets)
+  - Baseball: 7+ markets (totals, run lines, inning markets)
+  - Ice Hockey: 11+ markets (totals, puck lines, period winners, BTTS)
+  - Cricket: 7+ markets (totals, top batsman, top bowler)
+  - MMA: 5+ markets (method of victory, total rounds, go distance)
+- **Technical Implementation**:
+  - Created `server/market-generator.ts` with Park-Miller PRNG for deterministic odds
+  - Updated `/api/match/:matchId/details` and `/api/match/:matchId/markets` to use generator
+  - Removed market sync worker and database market persistence
+  - Simplified MatchDetails page to directly consume generated markets
+- **Benefits**: Markets always available, sport-appropriate variety, consistent odds, no API rate limits
+
 ## October 16, 2025 - Critical Real-time Flickering Fix
 - **Root Cause Identified**: The `useAbly` hook was subscribing to the entire Zustand store using `useMatchStore()` without a selector, causing App component to re-render on every store update, which cascaded to Layout and all child components
 - **Solution Implemented**: 
