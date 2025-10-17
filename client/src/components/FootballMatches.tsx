@@ -10,6 +10,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, Clock, Star, Trophy } from "lucide-react";
+import { LazyImage } from "@/components/LazyImage";
 
 interface Team {
   name: string;
@@ -177,10 +178,12 @@ export default function FootballMatches({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {league.logo && (
-                          <img
+                          <LazyImage
                             src={league.logo}
                             alt={league.name}
-                            className="w-6 h-6 rounded"
+                            className="rounded"
+                            width={24}
+                            height={24}
                           />
                         )}
                         <CardTitle className="text-lg font-semibold text-white">

@@ -12,6 +12,7 @@ import { useState, memo, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { type CachedMatch } from '@/lib/liveMatchesCache';
 import { renderProfiler } from '@/lib/renderProfiler';
+import { LazyImage } from '@/components/LazyImage';
 
 interface LiveMatchRowProps {
   match: CachedMatch;
@@ -128,10 +129,12 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
             {/* Home Team */}
             <div className="flex items-center gap-2">
               {match.home_team_logo && (
-                <img
+                <LazyImage
                   src={match.home_team_logo}
                   alt={match.home_team}
-                  className="w-4 h-4 object-contain flex-shrink-0"
+                  className="flex-shrink-0"
+                  width={16}
+                  height={16}
                 />
               )}
               <span
@@ -153,10 +156,12 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
             {/* Away Team */}
             <div className="flex items-center gap-2">
               {match.away_team_logo && (
-                <img
+                <LazyImage
                   src={match.away_team_logo}
                   alt={match.away_team}
-                  className="w-4 h-4 object-contain flex-shrink-0"
+                  className="flex-shrink-0"
+                  width={16}
+                  height={16}
                 />
               )}
               <span
