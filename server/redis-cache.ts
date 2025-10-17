@@ -626,11 +626,11 @@ class RedisCacheManager {
       await this.setSportsList(sports, 7200); // 2 hours
       logger.info('✅ Fallback sports list cached');
     } else {
-      // Check if TTL is low and extend it
+      // Always extend TTL to full 2 hours on every refresh to prevent expiration
       const sportsListTtl = await this.ttl('sports:list');
-      if (sportsListTtl > 0 && sportsListTtl < 1800) { // Less than 30 minutes
-        logger.info(`🔄 Extending sports list TTL from ${sportsListTtl}s to 3600s`);
-        await this.expire('sports:list', 3600);
+      if (sportsListTtl > 0 && sportsListTtl < 7200) { // Less than 2 hours - always extend
+        logger.info(`🔄 Extending sports list TTL from ${sportsListTtl}s to 7200s (2h)`);
+        await this.expire('sports:list', 7200);
       }
     }
     
