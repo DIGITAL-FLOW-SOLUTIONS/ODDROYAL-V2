@@ -108,9 +108,10 @@ BEGIN
   END LOOP;
 
   -- 2. Update bet status and winnings
+  -- Map 'void' to 'cancelled' since bet_status enum doesn't have 'void'
   UPDATE bets
   SET 
-    status = p_final_status::bet_status,
+    status = (CASE WHEN p_final_status = 'void' THEN 'cancelled' ELSE p_final_status END)::bet_status,
     actual_winnings = p_actual_winnings,
     settled_at = NOW(),
     updated_at = NOW()
@@ -134,12 +135,11 @@ BEGIN
 
     -- Create win transaction record
     INSERT INTO transactions (
-      id, user_id, type, amount_cents, balance_after_cents,
-      description, status, metadata, created_at
+      id, user_id, type, amount, balance_before, balance_after,
+      description, status, created_at
     ) VALUES (
-      gen_random_uuid(), p_user_id, 'bet_win', p_actual_winnings, v_new_balance,
+      gen_random_uuid(), p_user_id, 'bet_winnings', p_actual_winnings, v_current_balance, v_new_balance,
       'Bet win for bet #' || p_bet_id, 'completed',
-      jsonb_build_object('betId', p_bet_id, 'betStatus', p_final_status),
       NOW()
     );
     
@@ -158,14 +158,14 @@ BEGIN
       updated_at = NOW()
     WHERE id = p_user_id;
 
-    -- Create refund transaction record
+    -- Create refund transaction record  
     INSERT INTO transactions (
-      id, user_id, type, amount_cents, balance_after_cents,
-      description, status, metadata, created_at
+      id, user_id, type, amount, balance_before, balance_after,
+      description, status, reference, created_at
     ) VALUES (
-      gen_random_uuid(), p_user_id, 'bet_refund', v_bet_stake, v_new_balance,
-      'Bet refund (void) for bet #' || p_bet_id, 'completed',
-      jsonb_build_object('betId', p_bet_id, 'betStatus', p_final_status, 'reason', 'void'),
+      gen_random_uuid(), p_user_id, 'bonus', v_bet_stake, v_current_balance, v_new_balance,
+      'Bet refund (cancelled) for bet #' || p_bet_id, 'completed',
+      p_bet_id::TEXT,
       NOW()
     );
   END IF;
