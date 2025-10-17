@@ -36,6 +36,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
+import { currencyUtils } from "@shared/schema";
 
 interface Transaction {
   id: string;
@@ -296,7 +297,7 @@ function Withdrawal() {
             <div>
               <span className="text-muted-foreground">Balance: </span>
               <span className="font-semibold">
-                KES {parseFloat(user?.balance || "0").toLocaleString()}
+                {currencyUtils.formatCurrency(parseInt(user?.balance || "0"))}
               </span>
             </div>
             <div>
@@ -304,7 +305,7 @@ function Withdrawal() {
                 Withdrawal balance:{" "}
               </span>
               <span className="font-semibold">
-                KES {parseFloat(user?.balance || "0").toLocaleString()}
+                {currencyUtils.formatCurrency(parseInt(user?.balance || "0"))}
               </span>
             </div>
           </div>

@@ -233,10 +233,10 @@ function BetHistory() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold" data-testid="text-total-staked">
-              KES {stats.totalStaked.toFixed(2)}
+              {currencyUtils.formatCurrency(stats.totalStaked)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Avg: KES {(stats.total > 0 ? stats.totalStaked / stats.total : 0).toFixed(2)}
+              Avg: {currencyUtils.formatCurrency(stats.total > 0 ? Math.round(stats.totalStaked / stats.total) : 0)}
             </p>
           </CardContent>
         </Card>
@@ -249,7 +249,7 @@ function BetHistory() {
           <CardContent>
             <div className={`text-2xl font-bold ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="text-net-profit">
               {stats.netProfit >= 0 ? '+' : ''}
-              KES {Math.abs(stats.netProfit).toFixed(2)}
+              {currencyUtils.formatCurrency(Math.abs(stats.netProfit))}
             </div>
             <p className="text-xs text-muted-foreground">
               {stats.netProfit >= 0 ? 'Profit' : 'Loss'} to date
