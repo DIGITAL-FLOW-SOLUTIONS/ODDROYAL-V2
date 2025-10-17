@@ -385,16 +385,16 @@ export function hasPermission(role: AdminRole, permission: string): boolean {
 
 // ===================== BET PLACEMENT SCHEMA =====================
 
-// Betting limits constants (all amounts in KES)
+// Betting limits constants (all amounts stored in cents)
 export const BETTING_LIMITS = {
-  MIN_STAKE_CENTS: 1500, // KES 1,500 (for ordinary/express bets)
-  MAX_STAKE_CENTS: 500000, // KES 500,000
-  MIN_SINGLE_STAKE_CENTS: 1500, // KES 1,500 per single bet
-  MAX_SINGLE_STAKE_CENTS: 500000, // KES 500,000 per single bet
-  MIN_EXPRESS_STAKE_CENTS: 1500, // KES 1,500 for express bets
-  MAX_EXPRESS_STAKE_CENTS: 500000, // KES 500,000 for express bets
-  MIN_SYSTEM_STAKE_CENTS: 3500, // KES 3,500 for system bets
-  MAX_SYSTEM_STAKE_CENTS: 500000, // KES 500,000 for system bets
+  MIN_STAKE_CENTS: 1500, // 1500 cents = KES 15.00 (for ordinary/express bets)
+  MAX_STAKE_CENTS: 50000000, // 50000000 cents = KES 500,000.00
+  MIN_SINGLE_STAKE_CENTS: 1500, // 1500 cents = KES 15.00 per single bet
+  MAX_SINGLE_STAKE_CENTS: 50000000, // 50000000 cents = KES 500,000.00 per single bet
+  MIN_EXPRESS_STAKE_CENTS: 1500, // 1500 cents = KES 15.00 for express bets
+  MAX_EXPRESS_STAKE_CENTS: 50000000, // 50000000 cents = KES 500,000.00 for express bets
+  MIN_SYSTEM_STAKE_CENTS: 3500, // 3500 cents = KES 35.00 for system bets
+  MAX_SYSTEM_STAKE_CENTS: 50000000, // 50000000 cents = KES 500,000.00 for system bets
   MIN_EXPRESS_SELECTIONS: 2,
   MIN_SYSTEM_SELECTIONS: 3,
   MAX_SELECTIONS: 20,
@@ -468,20 +468,26 @@ export const betPlacementSchema = z.object({
 // ===================== CURRENCY UTILITIES =====================
 
 // Helper functions for stake validation
+// Note: These validation functions accept KES values (NOT cents) from user input
+// and compare them against cent-based limits by converting to cents internally
 export const stakeValidation = {
-  isValidStake: (stakeCents: number): boolean => {
+  isValidStake: (stakeKES: number): boolean => {
+    const stakeCents = Math.round(stakeKES * 100);
     return stakeCents >= BETTING_LIMITS.MIN_STAKE_CENTS && stakeCents <= BETTING_LIMITS.MAX_STAKE_CENTS;
   },
-  isValidSingleStake: (stakeCents: number): boolean => {
+  isValidSingleStake: (stakeKES: number): boolean => {
+    const stakeCents = Math.round(stakeKES * 100);
     return stakeCents >= BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS && stakeCents <= BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS;
   },
-  isValidExpressStake: (stakeCents: number): boolean => {
+  isValidExpressStake: (stakeKES: number): boolean => {
+    const stakeCents = Math.round(stakeKES * 100);
     return stakeCents >= BETTING_LIMITS.MIN_EXPRESS_STAKE_CENTS && stakeCents <= BETTING_LIMITS.MAX_EXPRESS_STAKE_CENTS;
   },
-  isValidSystemStake: (stakeCents: number): boolean => {
+  isValidSystemStake: (stakeKES: number): boolean => {
+    const stakeCents = Math.round(stakeKES * 100);
     return stakeCents >= BETTING_LIMITS.MIN_SYSTEM_STAKE_CENTS && stakeCents <= BETTING_LIMITS.MAX_SYSTEM_STAKE_CENTS;
   },
-  formatStakeError: (stakeCents: number, betType: 'single' | 'express' | 'system' = 'single'): string => {
+  formatStakeError: (stakeKES: number, betType: 'single' | 'express' | 'system' = 'single'): string => {
     let limits: { min: number; max: number };
     
     switch (betType) {
@@ -498,11 +504,16 @@ export const stakeValidation = {
         limits = { min: BETTING_LIMITS.MIN_STAKE_CENTS, max: BETTING_LIMITS.MAX_STAKE_CENTS };
     }
     
+    // Convert cents to KES for display
+    const minKES = limits.min / 100;
+    const maxKES = limits.max / 100;
+    const stakeCents = Math.round(stakeKES * 100);
+    
     if (stakeCents < limits.min) {
-      return `Minimum stake is KES ${limits.min.toFixed(2)}`;
+      return `Minimum stake is KES ${minKES.toFixed(2)}`;
     }
     if (stakeCents > limits.max) {
-      return `Maximum stake is KES ${limits.max.toFixed(2)}`;
+      return `Maximum stake is KES ${maxKES.toFixed(2)}`;
     }
     return "Invalid stake amount";
   }

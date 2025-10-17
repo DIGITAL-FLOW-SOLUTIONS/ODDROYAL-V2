@@ -6662,7 +6662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const recentDuplicate = recentTransactions.find(t => {
         const timeDiff = Date.now() - new Date(t.createdAt).getTime();
         return t.type === 'deposit' && 
-               t.amount === amount.toString() && 
+               t.amount === (amount * 100).toString() && // Compare in cents
                t.status === 'pending' &&
                timeDiff < 30000; // 30 seconds only (reduced from 1 minute)
       });
@@ -6713,10 +6713,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Store transaction record for tracking
       // Store CheckoutRequestID in reference field for callback lookup
+      // Convert KES to cents for storage (amount * 100)
       await storage.createTransaction({
         userId: req.user.id,
         type: 'deposit',
-        amount: amount,
+        amount: amount * 100,
         balanceBefore: user.balance,
         balanceAfter: user.balance, // Balance doesn't change until payment is confirmed
         status: 'pending',
@@ -6841,9 +6842,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // If completed, update user balance (idempotent)
           if (status === 'completed') {
-            const amount = transaction.amount;
+            const amount = transaction.amount; // Already in cents
             await storage.updateUserBalance(req.user.id, amount);
-            console.log(`User ${req.user.id} balance updated by ${amount} for transaction ${transaction.id}`);
+            console.log(`User ${req.user.id} balance updated by ${amount} cents for transaction ${transaction.id}`);
           }
         }
 
@@ -6949,7 +6950,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // If payment was successful, update user balance (idempotent)
         if (status === 'completed') {
-          const depositAmount = transaction.amount;
+          const depositAmount = transaction.amount; // Already in cents
           
           // Check if this is user's first completed deposit for 100% welcome bonus
           const userTransactions = await storage.getUserTransactions(userId);
