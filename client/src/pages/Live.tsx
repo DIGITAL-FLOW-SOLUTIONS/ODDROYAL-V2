@@ -36,6 +36,7 @@ export default function Live() {
   }, [lastUpdate]);
   
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
+  const [expandedSports, setExpandedSports] = useState<Record<string, boolean>>({});
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
   
   // Create Set of selected odds IDs for quick lookup (memoized to prevent child re-renders)
@@ -183,6 +184,14 @@ export default function Live() {
     }));
   };
 
+  // Toggle sport expansion
+  const toggleSport = (sportKey: string) => {
+    setExpandedSports(prev => ({
+      ...prev,
+      [sportKey]: !prev[sportKey],
+    }));
+  };
+
 
   return (
     <div className="w-full max-w-none overflow-hidden h-full">
@@ -266,54 +275,75 @@ export default function Live() {
             transition={{ duration: 0.3 }}
             className="space-y-4"
           >
-            {filteredSportGroups.map((sport: any) => (
-              <div key={sport.sport_key} className="space-y-2">
-                {/* Sport Header */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-surface-2 rounded-md">
-                  <span className="text-lg">{sport.sport_icon}</span>
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {sport.sport_title}
-                  </h3>
-                </div>
-
-                {/* Leagues */}
-                {sport.leagues.map((league: any) => {
-                  const isExpanded = expandedLeagues[league.league_id] !== false; // Default to expanded
-                  
-                  return (
-                    <div key={league.league_id} className="bg-surface-3 rounded-md">
-                      <Collapsible open={isExpanded} onOpenChange={() => toggleLeague(league.league_id)}>
-                        {/* League Header */}
-                        <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-2 hover-elevate rounded-md">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-foreground">
-                              {league.league_name}
-                            </span>
-                          </div>
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </CollapsibleTrigger>
-
-                        {/* Matches */}
-                        <CollapsibleContent className="space-y-1 p-2">
-                          {league.matches.map((match: any) => (
-                            <LiveMatchRow
-                              key={match.match_id}
-                              match={match}
-                              onOddsClick={handleOddsClick}
-                              selectedOdds={selectedOddsSet}
-                            />
-                          ))}
-                        </CollapsibleContent>
-                      </Collapsible>
+            {filteredSportGroups.map((sport: any) => {
+              const isSportExpanded = expandedSports[sport.sport_key] !== false; // Default to expanded
+              
+              return (
+                <Collapsible 
+                  key={sport.sport_key} 
+                  open={isSportExpanded} 
+                  onOpenChange={() => toggleSport(sport.sport_key)}
+                  className="space-y-2"
+                >
+                  {/* Sport Header - Collapsible */}
+                  <CollapsibleTrigger className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-surface-2 rounded-md hover-elevate">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{sport.sport_icon}</span>
+                      <h3 className="text-sm font-semibold text-foreground">
+                        {sport.sport_title}
+                      </h3>
+                      <Badge variant="secondary" className="ml-2">
+                        {sport.total_matches}
+                      </Badge>
                     </div>
-                  );
-                })}
-              </div>
-            ))}
+                    {isSportExpanded ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </CollapsibleTrigger>
+
+                  {/* Leagues */}
+                  <CollapsibleContent className="space-y-2">
+                    {sport.leagues.map((league: any) => {
+                      const isExpanded = expandedLeagues[league.league_id] !== false; // Default to expanded
+                      
+                      return (
+                        <div key={league.league_id} className="bg-surface-3 rounded-md">
+                          <Collapsible open={isExpanded} onOpenChange={() => toggleLeague(league.league_id)}>
+                            {/* League Header */}
+                            <CollapsibleTrigger className="w-full flex items-center justify-between px-3 py-2 hover-elevate rounded-md">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-foreground">
+                                  {league.league_name}
+                                </span>
+                              </div>
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </CollapsibleTrigger>
+
+                            {/* Matches */}
+                            <CollapsibleContent className="space-y-1 p-2">
+                              {league.matches.map((match: any) => (
+                                <LiveMatchRow
+                                  key={match.match_id}
+                                  match={match}
+                                  onOddsClick={handleOddsClick}
+                                  selectedOdds={selectedOddsSet}
+                                />
+                              ))}
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </div>
+                      );
+                    })}
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            })}
           </motion.div>
         )}
       </div>
