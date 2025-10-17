@@ -101,7 +101,7 @@ BEGIN
   LOOP
     UPDATE bet_selections
     SET 
-      status = (v_selection->>'status')::TEXT,
+      status = (v_selection->>'status')::bet_selection_status,
       result = (v_selection->>'result')::TEXT,
       updated_at = NOW()
     WHERE id = (v_selection->>'selection_id')::UUID;
@@ -110,7 +110,7 @@ BEGIN
   -- 2. Update bet status and winnings
   UPDATE bets
   SET 
-    status = p_final_status,
+    status = p_final_status::bet_status,
     actual_winnings = p_actual_winnings,
     settled_at = NOW(),
     updated_at = NOW()

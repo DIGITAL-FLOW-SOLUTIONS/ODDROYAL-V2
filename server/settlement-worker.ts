@@ -361,7 +361,7 @@ export class BetSettlementWorker {
         return null;
       }
       
-      // For API matches: First, try to get from Redis cache
+      // For API matches: Get from Redis cache (populated by aggregator worker)
       const cachedMatch = await redisCache.get<any>(`match:details:${matchId}`);
       
       if (cachedMatch && cachedMatch.completed) {
@@ -382,74 +382,8 @@ export class BetSettlementWorker {
         };
       }
       
-      // If not in cache, check if we have a match record to get sport information
-      try {
-        const match = await storage.getMatch(matchId);
-        if (match && match.sport) {
-          // Try to fetch scores from The Odds API with retry logic
-          const scores = await this.retryWithBackoff(
-            () => oddsApiClient.getScores(match.sport, 3),
-            `Fetch scores for match ${matchId}`
-          );
-          
-          if (!scores) {
-            logger.warn(`Failed to fetch scores for match ${matchId} after retries`);
-            return null;
-          }
-          
-          // Find the match by team names
-          const scoreData = scores.find((s: any) => {
-            // Match by team names (case-insensitive comparison)
-            const homeMatch = s.home_team?.toLowerCase() === match.homeTeamName?.toLowerCase();
-            const awayMatch = s.away_team?.toLowerCase() === match.awayTeamName?.toLowerCase();
-            return homeMatch && awayMatch;
-          });
-          
-          if (scoreData && scoreData.completed) {
-            const homeScore = scoreData.scores?.find((s: any) => s.name === scoreData.home_team)?.score ?? 0;
-            const awayScore = scoreData.scores?.find((s: any) => s.name === scoreData.away_team)?.score ?? 0;
-            
-            const result = {
-              fixtureId: matchId,
-              homeScore: parseInt(homeScore) || 0,
-              awayScore: parseInt(awayScore) || 0,
-              totalGoals: (parseInt(homeScore) || 0) + (parseInt(awayScore) || 0),
-              status: 'finished' as const,
-              winner: (homeScore > awayScore ? 'home' : awayScore > homeScore ? 'away' : 'draw') as 'home' | 'away' | 'draw',
-              matchDate: scoreData.commence_time || new Date().toISOString(),
-              homeTeam: scoreData.home_team || '',
-              awayTeam: scoreData.away_team || ''
-            };
-            
-            // CRITICAL: Cache this result back to Redis for future settlements
-            // This ensures the aggregator worker doesn't need to run for settlements to work
-            try {
-              await redisCache.set(`match:details:${matchId}`, {
-                id: matchId,
-                home_team: scoreData.home_team,
-                away_team: scoreData.away_team,
-                commence_time: scoreData.commence_time,
-                completed: true,
-                scores: {
-                  home: result.homeScore,
-                  away: result.awayScore
-                }
-              }, 86400); // Cache for 24 hours
-              
-              logger.info(`Cached completed match result for ${matchId}: ${result.homeScore}-${result.awayScore}`);
-            } catch (cacheError) {
-              logger.warn(`Failed to cache match result for ${matchId}:`, cacheError);
-              // Continue anyway - we have the result
-            }
-            
-            return result;
-          }
-        }
-      } catch (scoresError) {
-        logger.warn(`Could not fetch scores from The Odds API:`, scoresError);
-      }
-      
-      logger.info(`No result data available for match ${matchId}`);
+      // API match not in cache - wait for aggregator worker to fetch results
+      logger.info(`API match ${matchId} not in cache yet, waiting for aggregator worker`);
       return null;
       
     } catch (error) {
