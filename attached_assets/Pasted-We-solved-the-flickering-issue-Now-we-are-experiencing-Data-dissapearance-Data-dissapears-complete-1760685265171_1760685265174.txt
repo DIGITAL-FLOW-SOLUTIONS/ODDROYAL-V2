@@ -1,0 +1,104 @@
+We solved the flickering issue. Now we are experiencing Data dissapearance. Data dissapears completely from the site and they is nothing displayed in all the pages. I tried to gather console logs of different pages when navigated to and reloaded. Maybe they can help us know where is the reason making data to dissapear:
+
+LEAGUE PAGE:
+
+[RENDER] LeagueMatches rendered 1 times
+index-BOY-eWHY.js:603 📡 No league matches available, retrying... (1/3)
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 2 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 3 times
+index-BOY-eWHY.js:688 [FPS] 59 fps {status: '✅ GOOD', elapsed: '2012.40'}
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 4 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 5 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 6 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 7 times
+index-BOY-eWHY.js:603 📡 No league matches available, retrying... (2/3)
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 8 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 9 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 10 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 11 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 12 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 13 times
+index-BOY-eWHY.js:603 📡 No league matches available, retrying... (3/3)
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 14 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 15 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 16 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 17 times
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 18 times
+index-BOY-eWHY.js:603 ⚠️ Max retries reached for league matches, showing empty state
+index-BOY-eWHY.js:603 [RENDER] LeagueMatches rendered 19 times
+index-BOY-eWHY.js:603 ⚠️ Max retries reached for league matches, showing empty state
+
+
+
+NAVIGATED TO LINE PAGE:
+
+[LINE] League IDs to fetch: 0
+index-BOY-eWHY.js:598 [LINE] Matches by league map size: 0
+index-BOY-eWHY.js:598 [LINE] Sport groups: 0 Total matches: 0
+index-BOY-eWHY.js:598 [LINE] League IDs to fetch: 0
+index-BOY-eWHY.js:598 [LINE] Sport groups: 0 Total matches: 0
+
+RELOADED LINE PAGE:
+
+[LINE] League IDs to fetch: 0
+index-BOY-eWHY.js:598 [LINE] Matches by league map size: 0
+index-BOY-eWHY.js:598 [LINE] Sport groups: 0 Total matches: 0
+index-BOY-eWHY.js:546 [Ably] Creating Ably client with token auth...
+index-BOY-eWHY.js:546 [Ably] Hydrating initial data from Redis...
+index-BOY-eWHY.js:598 [LINE] League IDs to fetch: 0
+index-BOY-eWHY.js:598 [LINE] Sport groups: 0 Total matches: 0
+index-BOY-eWHY.js:546 📊 Store initialized: {matches: 0, odds: 0, sports: 7, leagues: 0}
+index-BOY-eWHY.js:546 [Ably] Initial data loaded: 0 matches
+index-BOY-eWHY.js:546 [Ably] Subscribing to 7 sports: (7) ['football', 'basketball', 'americanfootball', 'baseball', 'icehockey', 'cricket', 'mma']
+index-BOY-eWHY.js:546 ✅ Ably connected
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:football
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:basketball
+index-BOY-eWHY.js:688 [FPS] 52 fps {status: '⚠️ LOW', elapsed: '2013.30'}
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:americanfootball
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:baseball
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:icehockey
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:cricket
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:mma
+
+
+LIVE PAGE & ON RE-LOAD HAS NO OBERVABLE LOGS, THIS WHAT IS SEEN FROM THE LOGS WHEN LIVE PAGE IS RELOADED:
+
+[Ably] Creating Ably client with token auth...
+index-BOY-eWHY.js:546 [Ably] Hydrating initial data from Redis...
+index-BOY-eWHY.js:546 📊 Store initialized: {matches: 0, odds: 0, sports: 7, leagues: 0}
+index-BOY-eWHY.js:546 [Ably] Initial data loaded: 0 matches
+index-BOY-eWHY.js:546 [Ably] Subscribing to 7 sports: (7) ['football', 'basketball', 'americanfootball', 'baseball', 'icehockey', 'cricket', 'mma']
+index-BOY-eWHY.js:546 ✅ Ably connected
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:football
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:basketball
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:americanfootball
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:baseball
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:icehockey
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:cricket
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:mma
+index-BOY-eWHY.js:688 [FPS] 60 fps {status: '✅ GOOD', elapsed: '2016.30'}
+index-BOY-eWHY.js:688 [FPS] 60 fps {status: '✅ GOOD', elapsed: '2015.30'}
+index-BOY-eWHY.js:688 [FPS] 60 fps {status: '✅ GOOD', elapsed: '2000.50'}
+index-BOY-eWHY.js:688 [FPS] 60 fps 
+
+
+HOMEPAGE ON RELOAD:
+
+[Ably] Creating Ably client with token auth...
+index-BOY-eWHY.js:546 [Ably] Hydrating initial data from Redis...
+index-BOY-eWHY.js:546 📊 Store initialized: {matches: 0, odds: 0, sports: 7, leagues: 0}
+index-BOY-eWHY.js:546 [Ably] Initial data loaded: 0 matches
+index-BOY-eWHY.js:546 [Ably] Subscribing to 7 sports: (7) ['football', 'basketball', 'americanfootball', 'baseball', 'icehockey', 'cricket', 'mma']
+index-BOY-eWHY.js:546 ✅ Ably connected
+index-BOY-eWHY.js:688 [FPS] 54 fps {status: '⚠️ LOW', elapsed: '2008.70'}
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:football
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:basketball
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:americanfootball
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:baseball
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:icehockey
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:cricket
+index-BOY-eWHY.js:546 [Ably] Subscribed to sports:mma
+index-BOY-eWHY.js:688 [FPS] 60 fps {status: '✅ GOOD', elapsed: '2016.40'}
+index-BOY-eWHY.js:688 [FPS] 59 fps {status: '✅ GOOD', elapsed: '2000.50'}
+index-BOY-eWHY.js:688 [FPS] 59 fps {status: '✅ GOOD', elapsed: '2015.20'}
+index-BOY-eWHY.js:688
