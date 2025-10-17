@@ -17,6 +17,7 @@ import { oddsApiClient } from '../server/odds-api-client';
 import { storage } from '../server/storage';
 import { unifiedMatchService, UnifiedMatch } from '../server/unified-match-service';
 import { logger } from '../server/logger';
+import { marketGenerator } from '../server/market-generator';
 import pLimit from 'p-limit';
 
 const ABLY_API_KEY = process.env.ABLY_API_KEY;
@@ -311,8 +312,49 @@ export class AblyAggregator {
         await this.queueForPublish(currentMatch.sport_key, diff);
       }
       
+      // Generate and cache markets for this match (always, not just on diff)
+      await this.generateAndCacheMarkets(currentMatch);
+      
     } catch (error) {
       logger.error(`Error processing match ${currentMatch.match_id}:`, error);
+    }
+  }
+
+  /**
+   * Generate markets for a match and store in Redis
+   * Markets are generated dynamically for all sports and cached for fast retrieval
+   */
+  private async generateAndCacheMarkets(match: UnifiedMatch): Promise<void> {
+    try {
+      const marketKey = `match:markets:${match.match_id}`;
+      
+      // Generate markets using the market generator (deterministic based on match details)
+      const generatedMarkets = marketGenerator.generateMarkets(
+        match.sport_key,
+        match.home_team,
+        match.away_team,
+        match.match_id
+      );
+      
+      // Prepare market data for storage
+      const marketData = {
+        match_id: match.match_id,
+        sport_key: match.sport_key,
+        markets: generatedMarkets,
+        generated_at: new Date().toISOString(),
+      };
+      
+      // Determine TTL based on match status
+      // Live matches: 2 minutes, Upcoming: 5 minutes
+      const ttl = match.status === 'live' ? 120 : 300;
+      
+      // Store in Redis
+      await redisCache.set(marketKey, marketData, ttl);
+      
+      logger.info(`[MARKETS] Generated ${generatedMarkets.length} markets for match=${match.match_id}, sport=${match.sport_key}`);
+      
+    } catch (error) {
+      logger.error(`Error generating markets for match ${match.match_id}:`, error);
     }
   }
 
