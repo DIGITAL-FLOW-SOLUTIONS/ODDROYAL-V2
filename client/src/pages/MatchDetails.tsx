@@ -215,7 +215,15 @@ export default function MatchDetails() {
   };
 
   const formatKickoffTime = (kickoffTime: string) => {
+    // Parse UTC time and convert to local time for display
     const date = new Date(kickoffTime);
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return {
+        time: "Invalid Time",
+        date: "Invalid Date",
+      };
+    }
     return {
       time: date.toLocaleTimeString("en-US", {
         hour: "2-digit",

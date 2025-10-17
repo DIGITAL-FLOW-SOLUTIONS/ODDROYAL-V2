@@ -87,16 +87,19 @@ const MatchCard = memo(function MatchCard({ match, onAddToBetSlip }: MatchCardPr
   };
 
   const formatTime = (timeString: string) => {
-    // Extract literal time without timezone conversion using regex
-    // Handles ISO 8601, RFC3339, and various timestamp formats with 1-2 digit hours
-    const timeMatch = timeString.match(/(\d{1,2}):(\d{2})/);
-    
-    if (!timeMatch) {
+    try {
+      // Parse UTC time and convert to local time for display
+      const date = new Date(timeString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return timeString;
+      }
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    } catch {
       return timeString; // Fallback: show original string if parsing fails
     }
-    
-    const [, hours, minutes] = timeMatch;
-    return `${hours.padStart(2, '0')}:${minutes}`;
   };
 
   return (

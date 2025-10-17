@@ -973,9 +973,39 @@ export default function AdminMatchesMarkets() {
 
   const formatMatchTime = (kickoffTime: string) => {
     try {
-      return format(parseISO(kickoffTime), 'dd/MM/yyyy HH:mm');
+      // Parse the UTC time and convert to local time for display
+      const utcDate = parseISO(kickoffTime);
+      return format(utcDate, 'dd/MM/yyyy HH:mm');
     } catch {
       return 'Invalid date';
+    }
+  };
+
+  // Convert UTC time to local datetime-local format for editing
+  const convertUTCToLocal = (utcDateString: string): string => {
+    try {
+      const date = new Date(utcDateString);
+      // Format as YYYY-MM-DDTHH:mm for datetime-local input
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    } catch {
+      return '';
+    }
+  };
+
+  // Convert local datetime-local to UTC ISO string for storage
+  const convertLocalToUTC = (localDateString: string): string => {
+    try {
+      // Create a date object from the local time string
+      const localDate = new Date(localDateString);
+      // Convert to ISO string (UTC)
+      return localDate.toISOString();
+    } catch {
+      return '';
     }
   };
 
@@ -1858,7 +1888,7 @@ export default function AdminMatchesMarkets() {
                     data-testid="input-create-kickoff"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Set the date and time when the match will begin
+                    Set the date and time when the match will begin (in your local timezone)
                   </p>
                 </div>
               </div>
@@ -2538,7 +2568,7 @@ export default function AdminMatchesMarkets() {
                         leagueName: createMatchData.leagueName,
                         homeTeamName: createMatchData.homeTeamName,
                         awayTeamName: createMatchData.awayTeamName,
-                        kickoffTime: createMatchData.kickoffTime,
+                        kickoffTime: convertLocalToUTC(createMatchData.kickoffTime),
                         markets: [defaultMarket, ...marketsToCreate],
                         events: createMatchData.events,
                         simulatedResult: createMatchData.simulatedResult,
