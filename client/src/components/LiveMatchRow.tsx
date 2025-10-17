@@ -30,18 +30,6 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
   
   const [isFavorite, setIsFavorite] = useState(false);
   const [, setLocation] = useLocation();
-  const [, setTick] = useState(0); // Force re-render for minute updates
-  
-  // Blinking animation for LIVE indicator
-  useEffect(() => {
-    if (match.status !== 'live') return;
-    
-    const interval = setInterval(() => {
-      setTick(prev => prev + 1);
-    }, 1000); // Update every second for blink effect
-    
-    return () => clearInterval(interval);
-  }, [match.status]);
   
   // Get display status label
   const getStatusLabel = () => {
