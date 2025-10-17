@@ -32,65 +32,16 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
   const [, setLocation] = useLocation();
   const [, setTick] = useState(0); // Force re-render for minute updates
   
-  // Update minute display every 10 seconds for live matches
+  // Blinking animation for LIVE indicator
   useEffect(() => {
     if (match.status !== 'live') return;
     
     const interval = setInterval(() => {
       setTick(prev => prev + 1);
-    }, 10000); // Update every 10 seconds
+    }, 1000); // Update every second for blink effect
     
     return () => clearInterval(interval);
   }, [match.status]);
-
-  // Get match minute - use server-provided elapsed_minute if available, otherwise calculate
-  const getMatchMinute = () => {
-    if (match.status !== 'live') return '0';
-    
-    // Prefer server-provided elapsed_minute
-    if (match.elapsed_minute !== undefined && match.last_server_update) {
-      // Add client-side smoothing: increment based on time since last server update
-      const serverMinute = match.elapsed_minute;
-      const now = Date.now();
-      const timeSinceUpdate = now - match.last_server_update;
-      const additionalMinutes = Math.floor(timeSinceUpdate / 60000);
-      
-      // Cap at reasonable values per sport
-      const maxMinutes: Record<string, number> = {
-        football: 90,
-        basketball: 48,
-        americanfootball: 60,
-        baseball: 180,
-        icehockey: 60,
-        cricket: 300,
-        mma: 25,
-      };
-      
-      const max = maxMinutes[match.sport_key] || 90;
-      return Math.min(serverMinute + additionalMinutes, max).toString();
-    }
-    
-    // Fallback: calculate from commence_time (less accurate, doesn't account for stoppages)
-    const startTime = new Date(match.commence_time).getTime();
-    const now = Date.now();
-    const elapsedMs = now - startTime;
-    const elapsedMin = Math.floor(elapsedMs / 60000);
-    
-    const maxMinutes: Record<string, number> = {
-      football: 90,
-      basketball: 48,
-      americanfootball: 60,
-      baseball: 180,
-      icehockey: 60,
-      cricket: 300,
-      mma: 25,
-    };
-    
-    const max = maxMinutes[match.sport_key] || 90;
-    return Math.min(Math.max(0, elapsedMin), max).toString();
-  };
-
-  const minute = getMatchMinute();
   
   // Get display status label
   const getStatusLabel = () => {
@@ -165,13 +116,16 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
         onClick={handleRowClick}
         data-testid={`live-match-row-${match.match_id}`}
       >
-        {/* Live Minute and Status Badge */}
+        {/* LIVE Indicator with Blinking Effect */}
         <div className="flex-shrink-0 w-16 flex flex-col items-center justify-center gap-0.5">
           <Badge
-            className="bg-live-surface-1 text-red-100 text-xs font-bold border-0"
-            data-testid={`minute-${match.match_id}`}
+            className={`bg-live-surface-1 text-red-100 text-xs font-bold border-0 flex items-center gap-1 ${
+              match.status === 'live' ? 'animate-pulse' : ''
+            }`}
+            data-testid={`live-indicator-${match.match_id}`}
           >
-            {minute}'
+            <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+            LIVE
           </Badge>
           {statusLabel && match.live_status !== 'in_play' && (
             <span className="text-[10px] text-muted-foreground font-medium" data-testid={`status-${match.match_id}`}>
