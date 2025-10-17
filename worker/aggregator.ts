@@ -35,6 +35,7 @@ const POLL_INTERVALS = {
   live: 5000,        // 5 seconds for live matches (high priority)
   prematch: 60000,   // 60 seconds for upcoming matches
   manual: 10000,     // 10 seconds for manual matches
+  sportsList: 1800000, // 30 minutes for sports list refresh (prevents expiration)
 };
 
 // Batching configuration
@@ -104,6 +105,7 @@ export class AblyAggregator {
     this.startLivePolling();
     this.startPrematchPolling();
     this.startManualPolling();
+    this.startSportsListRefresh();
 
     logger.success('✅ Ably Aggregator started');
     logger.info('📡 Publishing to Ably channels: sports:football, sports:basketball, etc.');
@@ -165,6 +167,32 @@ export class AblyAggregator {
     
     // Run immediately
     this.pollAndProcessManual().catch(logger.error);
+  }
+
+  /**
+   * Start periodic sports list refresh to prevent expiration
+   */
+  private startSportsListRefresh(): void {
+    const interval = setInterval(async () => {
+      await this.refreshSportsList();
+    }, POLL_INTERVALS.sportsList);
+
+    this.intervals.set('sportsList', interval);
+    
+    // Run immediately
+    this.refreshSportsList().catch(logger.error);
+  }
+
+  /**
+   * Refresh sports list to prevent cache expiration
+   */
+  private async refreshSportsList(): Promise<void> {
+    try {
+      const sports = await redisCache.refreshSportsListIfNeeded();
+      logger.info(`[AGGREGATOR] Sports list refreshed: ${sports.length} sports available`);
+    } catch (error) {
+      logger.error('Error refreshing sports list:', error);
+    }
   }
 
   /**
