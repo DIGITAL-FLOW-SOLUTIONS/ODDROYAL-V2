@@ -1,0 +1,26 @@
+I noticed another clitical issue that needs to be addressed in this project: 
+
+I have been noticing something off with how Amount are handles in the project, i noticed that amounts are displayed with either multiplied by 100 or divided by 100(Amount Conversion (÷/× 100)). So there was an inconsistence throught the app and user pages.
+So I told an agent to remove All amounts Conversion from the app so that amounts are treated as they are both frontend and backend. After this is when i learnt that:
+
+Amounts are stored in cents (integers) for precision.
+User balance: cents
+Bet stakes: cents
+Winnings: cents
+Transactions: cents
+For display purposes Amounts are; Divide by 100: When showing to users (e.g., (bet.totalStakeCents / 100).toFixed(2))
+Multiply by 100: When accepting input (KES → cents)
+This prevents floating-point precision issues.
+Now I had already told an agent to stop displaying amount in the frontend Divide by 100 or Multiply by 100 and also the backend to stop the Conversion, which it did, but didnt do everywhere throught the project, so there this big mismatch in the topbar where balance is displayed, betslip when displaying min and max amunt user account pages and many that i have not mentioned yet.
+
+Also on successful Mpesa deposit, im not sure is the amount are stored in cents or not, like when user makes a 25 mpesa deposit how is it stored.
+
+If we are using cents then can you check every single existance in this project and cross check again to make sure you dont miss any, that all use this logic because one missmatch can lead to great looses of this betting site.
+
+
+Clarification:
+
+The amount M-Pesa STK Push sends tis not in cents, it is in KES that is if user wants to deposit 25 or 2500 or 54300 that is what is sent to the stk push so that he can deposit the balance he wants - its not advisable when user specifie he want to deposit a certain amount you convert it because that will lead to depositing amounts users didnt specify. So its when user deposits 25 KES and it's stored as 25 = user should gets 25 KES, or stored as 25 cents = user to still gets 25 KES. So M-PESA DEPOSITS has no bug we can not convert what user want to deposit if its 50 he should see 50 in the STK PUSH he will get as it is now or should. After a successfully deposit is when you can confirm if it is stored in cents or not.
+
+Betting Limits on server/supabase-storage.ts should match with that in shared/schema.ts
+
