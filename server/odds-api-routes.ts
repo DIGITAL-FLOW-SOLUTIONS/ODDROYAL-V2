@@ -185,6 +185,37 @@ export function registerOddsApiRoutes(app: Express): void {
     }
   });
 
+  // Health check endpoint for sports list and cache status
+  app.get('/api/cache/health', async (req: Request, res: Response) => {
+    try {
+      const sports = await redisCache.getSportsList() || [];
+      const sportsTtl = await redisCache.ttl('sports:list');
+      const cacheReady = await redisCache.isCacheReady();
+      
+      const health = {
+        cache_ready: cacheReady,
+        sports_count: sports.length,
+        sports_list_ttl: sportsTtl,
+        sports_list_expires_in: sportsTtl > 0 ? `${Math.floor(sportsTtl / 60)} minutes` : 'expired or not set',
+        sports_available: sports.map((s: any) => s.key || s),
+        status: sports.length > 0 ? 'healthy' : 'degraded',
+        timestamp: new Date().toISOString(),
+      };
+      
+      res.json({
+        success: true,
+        ...health,
+      });
+    } catch (error) {
+      console.error('Error checking cache health:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to check cache health',
+        details: (error as Error).message,
+      });
+    }
+  });
+
   // Get menu (sports + leagues) based on mode
   app.get('/api/menu', async (req: Request, res: Response) => {
     try {

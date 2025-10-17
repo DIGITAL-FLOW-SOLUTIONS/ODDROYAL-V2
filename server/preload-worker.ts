@@ -178,7 +178,9 @@ export class PreloadWorker {
         league_count: group.leagues.length,
       }));
 
-      await redisCache.setSportsList(sportsForCache, 3600); // 1 hour TTL
+      // Use longer TTL to prevent expiration (aggregator refreshes every 30 mins)
+      await redisCache.setSportsList(sportsForCache, 7200); // 2 hours TTL (with 30min refresh)
+      logger.info(`✅ Sports list cached: ${sportsForCache.length} sports with 2h TTL (auto-refresh every 30min)`);
     } catch (error) {
       logger.error('Failed to fetch and group sports:', error);
       this.report.failures.push(`Sports grouping: ${(error as Error).message}`);
