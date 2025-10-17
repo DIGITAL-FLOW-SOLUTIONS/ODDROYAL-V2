@@ -118,7 +118,7 @@ export class AblyAggregator {
     this.intervals.clear();
 
     // Flush remaining batches
-    for (const [channel, _] of this.batchQueue) {
+    for (const [channel, _] of Array.from(this.batchQueue.entries())) {
       await this.flushBatch(channel);
     }
 
@@ -192,6 +192,9 @@ export class AblyAggregator {
         liveMatches.map(match => limit(() => this.processMatchUpdate(match)))
       );
       
+      // COMPATIBILITY: Also update old structure for getAllLiveMatchesEnriched()
+      await this.updateLegacyLiveStructure(liveMatches);
+      
     } catch (error) {
       logger.error('Error polling live matches:', error);
     }
@@ -220,6 +223,9 @@ export class AblyAggregator {
       await Promise.all(
         upcomingMatches.map(match => limit(() => this.processMatchUpdate(match)))
       );
+      
+      // COMPATIBILITY: Also update old structure for lookup functions
+      await this.updateLegacyPrematchStructure(upcomingMatches);
       
     } catch (error) {
       logger.error('Error polling prematch matches:', error);
@@ -568,6 +574,94 @@ export class AblyAggregator {
     }
     
     return unified;
+  }
+
+  /**
+   * Update legacy live structure for backwards compatibility
+   * Maintains live:leagues:{sport} and live:matches:{sport}:{league} keys
+   */
+  private async updateLegacyLiveStructure(matches: UnifiedMatch[]): Promise<void> {
+    try {
+      // Group matches by sport
+      const matchesBySport = new Map<string, UnifiedMatch[]>();
+      matches.forEach((match: UnifiedMatch) => {
+        const sportMatches = matchesBySport.get(match.sport_key) || [];
+        sportMatches.push(match);
+        matchesBySport.set(match.sport_key, sportMatches);
+      });
+
+      // Update each sport's league and match structures
+      for (const [sportKey, sportMatches] of Array.from(matchesBySport.entries())) {
+        // Group by league
+        const matchesByLeague = new Map<string, UnifiedMatch[]>();
+        sportMatches.forEach((match: UnifiedMatch) => {
+          const leagueMatches = matchesByLeague.get(match.league_id) || [];
+          leagueMatches.push(match);
+          matchesByLeague.set(match.league_id, leagueMatches);
+        });
+
+        // Build league list
+        const leagues = Array.from(matchesByLeague.entries()).map(([leagueId, leagueMatches]) => ({
+          league_id: leagueId,
+          league_name: leagueMatches[0].league_name || leagueId,
+          match_count: leagueMatches.length,
+        }));
+
+        // Write to legacy keys with longer TTLs to prevent expiration issues
+        await redisCache.setLiveLeagues(sportKey, leagues, 300); // 5 minutes
+
+        // Write matches for each league
+        for (const [leagueId, leagueMatches] of Array.from(matchesByLeague.entries())) {
+          await redisCache.setLiveMatches(sportKey, leagueId, leagueMatches, 300); // 5 minutes
+        }
+      }
+    } catch (error) {
+      logger.error('Error updating legacy live structure:', error);
+    }
+  }
+
+  /**
+   * Update legacy prematch structure for backwards compatibility
+   * Maintains prematch:leagues:{sport} and prematch:matches:{sport}:{league} keys
+   */
+  private async updateLegacyPrematchStructure(matches: UnifiedMatch[]): Promise<void> {
+    try {
+      // Group matches by sport
+      const matchesBySport = new Map<string, UnifiedMatch[]>();
+      matches.forEach((match: UnifiedMatch) => {
+        const sportMatches = matchesBySport.get(match.sport_key) || [];
+        sportMatches.push(match);
+        matchesBySport.set(match.sport_key, sportMatches);
+      });
+
+      // Update each sport's league and match structures
+      for (const [sportKey, sportMatches] of Array.from(matchesBySport.entries())) {
+        // Group by league
+        const matchesByLeague = new Map<string, UnifiedMatch[]>();
+        sportMatches.forEach((match: UnifiedMatch) => {
+          const leagueMatches = matchesByLeague.get(match.league_id) || [];
+          leagueMatches.push(match);
+          matchesByLeague.set(match.league_id, leagueMatches);
+        });
+
+        // Build league list
+        const leagues = Array.from(matchesByLeague.entries()).map(([leagueId, leagueMatches]) => ({
+          league_id: leagueId,
+          league_name: leagueMatches[0].league_name || leagueId,
+          match_count: leagueMatches.length,
+        }));
+
+        // Write to legacy keys with longer TTLs
+        await redisCache.setPrematchLeagues(sportKey, leagues, 600); // 10 minutes
+
+        // Write matches for each league
+        for (const [leagueId, leagueMatches] of Array.from(matchesByLeague.entries())) {
+          await redisCache.setPrematchMatches(sportKey, leagueId, leagueMatches, 600); // 10 minutes
+        }
+      }
+    } catch (error) {
+      logger.error('Error updating legacy prematch structure:', error);
+    }
   }
 
   /**
