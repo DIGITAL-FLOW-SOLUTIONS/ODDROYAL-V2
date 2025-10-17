@@ -18,7 +18,7 @@ This function is essential for production use and must be applied immediately.
 
 ### Step 2: Run Migration - Enhanced Settlement Atomicity
 
-**IMPORTANT:** Use the corrected migration file with alphabetical parameter ordering.
+**IMPORTANT:** Use the corrected migration file.
 
 Copy and paste the **ENTIRE contents** of the file:
 ```
@@ -27,7 +27,9 @@ APPLY_THIS_IN_SUPABASE.sql
 
 into the Supabase SQL Editor and click "Run".
 
-**Note:** Supabase RPC requires function parameters in alphabetical order.
+**Note:** 
+- Supabase RPC requires function parameters in alphabetical order
+- The problematic `date_trunc` index has been removed (line 276 issue fixed)
 
 This migration will:
 - ✅ Create the `settlement_audit_log` table for tracking all settlements
