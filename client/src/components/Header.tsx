@@ -12,6 +12,7 @@ import { Bell, User, Settings, ChevronDown, Sun, Moon, LogOut, Wallet, BarChart,
 import { motion } from "framer-motion";
 import { useTheme } from "@/components/ThemeProvider";
 import { useAuth } from "@/contexts/AuthContext";
+import { currencyUtils } from "@shared/schema";
 
 export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -53,7 +54,7 @@ export default function Header() {
           <div className="hidden sm:flex items-center gap-2 bg-card px-3 py-1 rounded-md border border-card-border">
             <span className="text-sm text-muted-foreground">Balance:</span>
             <span className="text-sm font-semibold text-chart-4" data-testid="text-balance">
-              {user.balance}
+              {currencyUtils.formatCurrency(parseInt(user.balance))}
             </span>
           </div>
         )}

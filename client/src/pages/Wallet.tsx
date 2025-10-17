@@ -115,7 +115,7 @@ function Wallet() {
             data-testid="text-wallet-balance"
           >
             {user
-              ? `KES ${parseFloat(user.balance).toFixed(2)}`
+              ? currencyUtils.formatCurrency(parseInt(user.balance))
               : ""}
           </p>
         </div>
@@ -136,7 +136,7 @@ function Wallet() {
               data-testid="text-current-balance"
             >
               {user
-                ? `KES ${parseFloat(user.balance).toFixed(2)}`
+                ? currencyUtils.formatCurrency(parseInt(user.balance))
                 : ""}
             </div>
           </CardContent>
@@ -154,7 +154,7 @@ function Wallet() {
               className="text-2xl font-bold text-green-600"
               data-testid="text-total-deposits"
             >
-              KES {totalDeposits.toFixed(2)}
+              {currencyUtils.formatCurrency(totalDeposits)}
             </div>
           </CardContent>
         </Card>
@@ -171,7 +171,7 @@ function Wallet() {
               className="text-2xl font-bold text-red-600"
               data-testid="text-total-withdrawals"
             >
-              KES {totalWithdrawals.toFixed(2)}
+              {currencyUtils.formatCurrency(totalWithdrawals)}
             </div>
           </CardContent>
         </Card>
@@ -231,7 +231,7 @@ function Wallet() {
                 <p className="text-sm text-muted-foreground">
                   Available balance:{" "}
                   {user
-                    ? `KES ${parseFloat(user.balance).toFixed(2)}`
+                    ? currencyUtils.formatCurrency(parseInt(user.balance))
                     : ""}
                 </p>
                 <Button
@@ -312,11 +312,11 @@ function Wallet() {
                               : transaction.amount < 0
                                 ? ""
                                 : "+"}
-                          KES {Math.abs(transaction.amount).toFixed(2)}
+                          {currencyUtils.formatCurrency(Math.abs(transaction.amount))}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           Balance:{" "}
-                          KES {transaction.balanceAfter.toFixed(2)}
+                          {currencyUtils.formatCurrency(transaction.balanceAfter)}
                         </p>
                       </div>
                     </div>

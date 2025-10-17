@@ -448,14 +448,7 @@ function MpesaDeposit() {
                         <p className="text-muted-foreground">
                           Account Balance:{" "}
                           <span className="font-semibold text-foreground">
-                            KES{" "}
-                            {(Number(user?.balance) || 0).toLocaleString(
-                              "en-KE",
-                              {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              },
-                            )}
+                            {currencyUtils.formatCurrency(parseInt(user?.balance || "0"))}
                           </span>
                         </p>
                       </div>
@@ -563,7 +556,7 @@ function MpesaDeposit() {
                                 className="text-sm font-semibold"
                                 data-testid={`text-transaction-amount-${transaction.id}`}
                               >
-                                KES {transaction.amount.toLocaleString()}
+                                {currencyUtils.formatCurrency(transaction.amount)}
                               </p>
                               <Badge
                                 variant={
