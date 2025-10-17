@@ -387,13 +387,13 @@ export function hasPermission(role: AdminRole, permission: string): boolean {
 
 // Betting limits constants (all amounts stored in cents)
 export const BETTING_LIMITS = {
-  MIN_STAKE_CENTS: 1500, // 1500 cents = KES 15.00 (for ordinary/express bets)
+  MIN_STAKE_CENTS: 150000, // 150000 cents = KES 1,500.00 (for ordinary/express bets)
   MAX_STAKE_CENTS: 50000000, // 50000000 cents = KES 500,000.00
-  MIN_SINGLE_STAKE_CENTS: 1500, // 1500 cents = KES 15.00 per single bet
+  MIN_SINGLE_STAKE_CENTS: 150000, // 150000 cents = KES 1,500.00 per single bet
   MAX_SINGLE_STAKE_CENTS: 50000000, // 50000000 cents = KES 500,000.00 per single bet
-  MIN_EXPRESS_STAKE_CENTS: 1500, // 1500 cents = KES 15.00 for express bets
+  MIN_EXPRESS_STAKE_CENTS: 150000, // 150000 cents = KES 1,500.00 for express bets
   MAX_EXPRESS_STAKE_CENTS: 50000000, // 50000000 cents = KES 500,000.00 for express bets
-  MIN_SYSTEM_STAKE_CENTS: 3500, // 3500 cents = KES 35.00 for system bets
+  MIN_SYSTEM_STAKE_CENTS: 350000, // 350000 cents = KES 3,500.00 for system bets
   MAX_SYSTEM_STAKE_CENTS: 50000000, // 50000000 cents = KES 500,000.00 for system bets
   MIN_EXPRESS_SELECTIONS: 2,
   MIN_SYSTEM_SELECTIONS: 3,
@@ -451,7 +451,7 @@ export const betPlacementSchema = z.object({
   if (data.totalStakeCents < minStake) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `Minimum stake for ${data.betType} bet is KES ${minStake.toFixed(2)}`,
+      message: `Minimum stake for ${data.betType} bet is KES ${(minStake / 100).toFixed(2)}`,
       path: ["totalStakeCents"],
     });
   }
@@ -459,7 +459,7 @@ export const betPlacementSchema = z.object({
   if (data.totalStakeCents > maxStake) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `Maximum stake for ${data.betType} bet is KES ${maxStake.toFixed(2)}`,
+      message: `Maximum stake for ${data.betType} bet is KES ${(maxStake / 100).toFixed(2)}`,
       path: ["totalStakeCents"],
     });
   }
