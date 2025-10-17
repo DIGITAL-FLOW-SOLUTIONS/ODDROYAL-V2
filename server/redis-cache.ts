@@ -628,9 +628,25 @@ class RedisCacheManager {
     } else {
       // Always extend TTL to full 2 hours on every refresh to prevent expiration
       const sportsListTtl = await this.ttl('sports:list');
-      if (sportsListTtl > 0 && sportsListTtl < 7200) { // Less than 2 hours - always extend
+      
+      // Handle all TTL states:
+      // -2 = key exists but has no TTL (should never happen, but handle it)
+      // -1 = key doesn't exist (already handled above as empty list)
+      // 0+ = key exists with TTL
+      if (sportsListTtl === -2) {
+        // Key exists but has no TTL - set one
+        logger.warn(`⚠️  Sports list exists without TTL - setting TTL to 7200s (2h)`);
+        await this.expire('sports:list', 7200);
+      } else if (sportsListTtl === -1) {
+        // Key doesn't exist - this shouldn't happen since we just retrieved sports
+        logger.error(`❌ Sports list disappeared after retrieval - this indicates a race condition`);
+      } else if (sportsListTtl >= 0 && sportsListTtl < 7200) {
+        // Key exists with TTL less than 2 hours - extend it
         logger.info(`🔄 Extending sports list TTL from ${sportsListTtl}s to 7200s (2h)`);
         await this.expire('sports:list', 7200);
+      } else if (sportsListTtl >= 7200) {
+        // TTL is already 2+ hours, no need to extend
+        logger.debug(`✅ Sports list TTL is healthy: ${sportsListTtl}s (${Math.floor(sportsListTtl / 60)}min)`);
       }
     }
     
