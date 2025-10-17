@@ -183,21 +183,8 @@ export class BetSettlementWorker {
       const retryItems = await settlementRetryQueue.getItemsReadyForRetry(5);
       if (retryItems.length > 0) {
         logger.info(`[RETRY_QUEUE] Processing ${retryItems.length} items from retry queue`, { runId });
-        for (const item of retryItems) {
-          try {
-            const bet = await storage.getBet(item.betId);
-            if (bet && bet.status === 'pending') {
-              // Will be processed with regular pending bets
-              logger.info(`[RETRY_QUEUE] Bet ${item.betId} still pending, will process normally`);
-            } else if (bet && bet.status !== 'pending') {
-              // Already settled, remove from retry queue
-              await settlementRetryQueue.removeFromRetryQueue(item.betId);
-              logger.info(`[RETRY_QUEUE] Bet ${item.betId} already settled, removed from queue`);
-            }
-          } catch (error) {
-            logger.error(`[RETRY_QUEUE] Error checking retry item ${item.betId}:`, error);
-          }
-        }
+        // Note: Retry items will be included in getPendingBets() if still pending
+        // If already settled, they'll be filtered out automatically
       }
 
       // Get all pending bets
