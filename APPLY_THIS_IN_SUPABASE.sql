@@ -272,8 +272,9 @@ WHERE created_at > NOW() - INTERVAL '7 days'
 GROUP BY date_trunc('hour', created_at), settlement_status, final_bet_status
 ORDER BY hour DESC;
 
--- Create index for the view
-CREATE INDEX IF NOT EXISTS idx_settlement_audit_hour ON settlement_audit_log(date_trunc('hour', created_at));
+-- Note: Index with date_trunc() removed due to IMMUTABLE requirement in Supabase
+-- The view will still work correctly, just slightly slower for very large datasets
+-- If needed, you can create this index manually after creating an IMMUTABLE wrapper function
 
 -- ========================================================================
 -- VERIFICATION QUERY
