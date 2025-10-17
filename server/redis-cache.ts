@@ -629,17 +629,20 @@ class RedisCacheManager {
       // Always extend TTL to full 2 hours on every refresh to prevent expiration
       const sportsListTtl = await this.ttl('sports:list');
       
-      // Handle all TTL states:
-      // -2 = key exists but has no TTL (should never happen, but handle it)
-      // -1 = key doesn't exist (already handled above as empty list)
-      // 0+ = key exists with TTL
+      // Handle all TTL states per Redis documentation:
+      // -2 = key does NOT exist
+      // -1 = key exists but has NO expiry (persistent)
+      // 0+ = key exists with TTL in seconds
       if (sportsListTtl === -2) {
-        // Key exists but has no TTL - set one
-        logger.warn(`⚠️  Sports list exists without TTL - setting TTL to 7200s (2h)`);
-        await this.expire('sports:list', 7200);
-      } else if (sportsListTtl === -1) {
         // Key doesn't exist - this shouldn't happen since we just retrieved sports
         logger.error(`❌ Sports list disappeared after retrieval - this indicates a race condition`);
+        // Re-cache the sports we just retrieved
+        await this.setSportsList(sports, 7200);
+        logger.info('✅ Re-cached sports list after unexpected disappearance');
+      } else if (sportsListTtl === -1) {
+        // Key exists but has no TTL - set one to prevent it from persisting forever
+        logger.warn(`⚠️  Sports list exists without TTL - setting TTL to 7200s (2h)`);
+        await this.expire('sports:list', 7200);
       } else if (sportsListTtl >= 0 && sportsListTtl < 7200) {
         // Key exists with TTL less than 2 hours - extend it
         logger.info(`🔄 Extending sports list TTL from ${sportsListTtl}s to 7200s (2h)`);
@@ -655,45 +658,78 @@ class RedisCacheManager {
 
   // Get all live matches with enriched data (for aggregator endpoint)
   async getAllLiveMatchesEnriched(): Promise<any[]> {
-    // Auto-refresh sports list if needed
-    const sports = await this.refreshSportsListIfNeeded();
-    console.log(`📊 getAllLiveMatchesEnriched - Found ${sports.length} sports:`, sports.map(s => s.key));
-    const allMatches: any[] = [];
+    try {
+      // Auto-refresh sports list if needed (with graceful fallback)
+      const sports = await this.refreshSportsListIfNeeded();
+      console.log(`📊 getAllLiveMatchesEnriched - Found ${sports.length} sports:`, sports.map(s => s.key));
+      const allMatches: any[] = [];
 
-    for (const sport of sports) {
-      const leagues = await this.getLiveLeagues(sport.key) || [];
-      console.log(`  📊 Sport ${sport.key}: ${leagues.length} live leagues`);
-      
-      for (const league of leagues) {
-        const matches = await this.getLiveMatches(sport.key, league.league_id) || [];
-        console.log(`    📊 League ${league.league_id}: ${matches.length} matches`);
+      for (const sport of sports) {
+        const leagues = await this.getLiveLeagues(sport.key) || [];
+        console.log(`  📊 Sport ${sport.key}: ${leagues.length} live leagues`);
         
-        // Enrich each match with logos and market status
-        for (const match of matches) {
-          const homeLogo = await this.getTeamLogo(sport.key, match.home_team);
-          const awayLogo = await this.getTeamLogo(sport.key, match.away_team);
+        for (const league of leagues) {
+          const matches = await this.getLiveMatches(sport.key, league.league_id) || [];
+          console.log(`    📊 League ${league.league_id}: ${matches.length} matches`);
           
-          // Get h2h market status and deltas
-          const h2hMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h');
-          let oddsDeltas: any = {};
-          let marketStatus = 'open';
+          // Enrich each match with logos and market status
+          for (const match of matches) {
+            const homeLogo = await this.getTeamLogo(sport.key, match.home_team);
+            const awayLogo = await this.getTeamLogo(sport.key, match.away_team);
+            
+            // Get h2h market status and deltas
+            const h2hMarket = match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h');
+            let oddsDeltas: any = {};
+            let marketStatus = 'open';
 
-          if (h2hMarket) {
-            const currentOdds: Record<string, number> = {};
-            h2hMarket.outcomes?.forEach((outcome: any) => {
-              currentOdds[outcome.name] = outcome.price || 0;
-            });
+            if (h2hMarket) {
+              const currentOdds: Record<string, number> = {};
+              h2hMarket.outcomes?.forEach((outcome: any) => {
+                currentOdds[outcome.name] = outcome.price || 0;
+              });
 
-            oddsDeltas = await this.calculateOddsDelta(match.match_id, 'h2h', currentOdds);
-            const status = await this.getMarketStatus(match.match_id, 'h2h');
-            marketStatus = status || 'open';
-          }
+              oddsDeltas = await this.calculateOddsDelta(match.match_id, 'h2h', currentOdds);
+              const status = await this.getMarketStatus(match.match_id, 'h2h');
+              marketStatus = status || 'open';
+            }
 
-          // Normalize upstream API status values to canonical set
-          // Odds API may use: "in_progress", "halftime", "live", "not_started", "pre-game", "final", "finished"
-          const normalizeStatus = (status: string | undefined): 'live' | 'upcoming' | 'completed' => {
-            if (!status) {
-              // Fallback: determine from commence_time
+            // Normalize upstream API status values to canonical set
+            // Odds API may use: "in_progress", "halftime", "live", "not_started", "pre-game", "final", "finished"
+            const normalizeStatus = (status: string | undefined): 'live' | 'upcoming' | 'completed' => {
+              if (!status) {
+                // Fallback: determine from commence_time
+                const commenceTime = new Date(match.commence_time).getTime();
+                const now = Date.now();
+                const elapsedMin = Math.floor((now - commenceTime) / 60000);
+                
+                if (elapsedMin >= 0 && elapsedMin <= 120) return 'live';
+                if (elapsedMin < 0) return 'upcoming';
+                return 'completed';
+              }
+              
+              const lowerStatus = status.toLowerCase();
+              
+              // Map to "live"
+              if (lowerStatus === 'live' || lowerStatus === 'in_progress' || 
+                  lowerStatus === 'in-progress' || lowerStatus === 'halftime' || 
+                  lowerStatus === 'half-time') {
+                return 'live';
+              }
+              
+              // Map to "upcoming"
+              if (lowerStatus === 'upcoming' || lowerStatus === 'not_started' || 
+                  lowerStatus === 'not-started' || lowerStatus === 'pre-game' ||
+                  lowerStatus === 'pregame' || lowerStatus === 'scheduled') {
+                return 'upcoming';
+              }
+              
+              // Map to "completed"
+              if (lowerStatus === 'completed' || lowerStatus === 'finished' || 
+                  lowerStatus === 'final' || lowerStatus === 'ended') {
+                return 'completed';
+              }
+              
+              // Default fallback based on commence_time
               const commenceTime = new Date(match.commence_time).getTime();
               const now = Date.now();
               const elapsedMin = Math.floor((now - commenceTime) / 60000);
@@ -701,62 +737,36 @@ class RedisCacheManager {
               if (elapsedMin >= 0 && elapsedMin <= 120) return 'live';
               if (elapsedMin < 0) return 'upcoming';
               return 'completed';
+            };
+            
+            const actualStatus = normalizeStatus(match.status);
+            
+            // Log status normalization for debugging (only for first few matches)
+            if (allMatches.length < 3 && match.status && match.status !== actualStatus) {
+              console.log(`🔄 Status normalized: "${match.status}" → "${actualStatus}" for ${match.home_team} vs ${match.away_team}`);
             }
-            
-            const lowerStatus = status.toLowerCase();
-            
-            // Map to "live"
-            if (lowerStatus === 'live' || lowerStatus === 'in_progress' || 
-                lowerStatus === 'in-progress' || lowerStatus === 'halftime' || 
-                lowerStatus === 'half-time') {
-              return 'live';
-            }
-            
-            // Map to "upcoming"
-            if (lowerStatus === 'upcoming' || lowerStatus === 'not_started' || 
-                lowerStatus === 'not-started' || lowerStatus === 'pre-game' ||
-                lowerStatus === 'pregame' || lowerStatus === 'scheduled') {
-              return 'upcoming';
-            }
-            
-            // Map to "completed"
-            if (lowerStatus === 'completed' || lowerStatus === 'finished' || 
-                lowerStatus === 'final' || lowerStatus === 'ended') {
-              return 'completed';
-            }
-            
-            // Default fallback based on commence_time
-            const commenceTime = new Date(match.commence_time).getTime();
-            const now = Date.now();
-            const elapsedMin = Math.floor((now - commenceTime) / 60000);
-            
-            if (elapsedMin >= 0 && elapsedMin <= 120) return 'live';
-            if (elapsedMin < 0) return 'upcoming';
-            return 'completed';
-          };
-          
-          const actualStatus = normalizeStatus(match.status);
-          
-          // Log status normalization for debugging (only for first few matches)
-          if (allMatches.length < 3 && match.status && match.status !== actualStatus) {
-            console.log(`🔄 Status normalized: "${match.status}" → "${actualStatus}" for ${match.home_team} vs ${match.away_team}`);
-          }
 
-          allMatches.push({
-            ...match,
-            status: actualStatus,
-            home_team_logo: homeLogo?.logo || null,
-            away_team_logo: awayLogo?.logo || null,
-            odds_deltas: oddsDeltas,
-            market_status: marketStatus,
-            league_name: league.league_name,
-            sport_icon: this.getSportIconForKey(sport.key),
-          });
+            allMatches.push({
+              ...match,
+              status: actualStatus,
+              home_team_logo: homeLogo?.logo || null,
+              away_team_logo: awayLogo?.logo || null,
+              odds_deltas: oddsDeltas,
+              market_status: marketStatus,
+              league_name: league.league_name,
+              sport_icon: this.getSportIconForKey(sport.key),
+            });
+          }
         }
       }
-    }
 
-    return allMatches;
+      return allMatches;
+    } catch (error) {
+      logger.error('❌ Error in getAllLiveMatchesEnriched:', error);
+      logger.warn('⚠️  Returning empty array due to error - sports list or match data may be unavailable');
+      // Return empty array for graceful degradation
+      return [];
+    }
   }
 
   private getSportIconForKey(sportKey: string): string {
