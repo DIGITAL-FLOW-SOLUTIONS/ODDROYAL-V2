@@ -168,7 +168,7 @@ class RedisCacheManager {
   }
 
   // Sports-specific cache operations
-  async setSportsList(sports: any[], ttlSeconds: number = 3600): Promise<void> {
+  async setSportsList(sports: any[], ttlSeconds: number = 7200): Promise<void> {
     await this.set("sports:list", sports, ttlSeconds);
   }
 
