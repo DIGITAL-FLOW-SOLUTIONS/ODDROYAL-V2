@@ -603,9 +603,44 @@ class RedisCacheManager {
     return result?.status || null;
   }
 
+  // Refresh sports list from cache or use fallback
+  async refreshSportsListIfNeeded(): Promise<any[]> {
+    let sports = await this.getSportsList() || [];
+    
+    // If sports list is empty or missing, use hardcoded fallback
+    if (!sports || sports.length === 0) {
+      logger.warn('⚠️  Sports list empty or missing - using fallback sports list');
+      
+      // Fallback to core sports that should always be available
+      sports = [
+        { key: 'football', title: 'Football', priority: 1 },
+        { key: 'basketball', title: 'Basketball', priority: 2 },
+        { key: 'americanfootball', title: 'American Football', priority: 3 },
+        { key: 'baseball', title: 'Baseball', priority: 4 },
+        { key: 'icehockey', title: 'Ice Hockey', priority: 5 },
+        { key: 'cricket', title: 'Cricket', priority: 6 },
+        { key: 'mma', title: 'MMA', priority: 7 },
+      ];
+      
+      // Cache the fallback list with a longer TTL to prevent repeated failures
+      await this.setSportsList(sports, 7200); // 2 hours
+      logger.info('✅ Fallback sports list cached');
+    } else {
+      // Check if TTL is low and extend it
+      const sportsListTtl = await this.ttl('sports:list');
+      if (sportsListTtl > 0 && sportsListTtl < 1800) { // Less than 30 minutes
+        logger.info(`🔄 Extending sports list TTL from ${sportsListTtl}s to 3600s`);
+        await this.expire('sports:list', 3600);
+      }
+    }
+    
+    return sports;
+  }
+
   // Get all live matches with enriched data (for aggregator endpoint)
   async getAllLiveMatchesEnriched(): Promise<any[]> {
-    const sports = await this.getSportsList() || [];
+    // Auto-refresh sports list if needed
+    const sports = await this.refreshSportsListIfNeeded();
     console.log(`📊 getAllLiveMatchesEnriched - Found ${sports.length} sports:`, sports.map(s => s.key));
     const allMatches: any[] = [];
 
