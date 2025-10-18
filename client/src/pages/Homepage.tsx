@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BannerSlider from "@/components/BannerSlider";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ChevronLeft } from "lucide-react";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
 import { LazyImage } from "@/components/LazyImage";
 import bundesligaLogo from "@assets/Bundesliga - Germany_1760801782151.webp";
@@ -19,6 +19,7 @@ import uclLogo from "@assets/UEFA Champions League_1760801782156.webp";
 export default function Homepage() {
   const { setPageLoading } = usePageLoading();
   const hasInitialData = useRef(false);
+  const leaguesScrollRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     if (!hasInitialData.current) {
@@ -26,6 +27,20 @@ export default function Homepage() {
       setPageLoading(false);
     }
   }, [setPageLoading]);
+
+  const scrollLeagues = (direction: 'left' | 'right') => {
+    if (leaguesScrollRef.current) {
+      const scrollAmount = 350;
+      const newScrollLeft = direction === 'left' 
+        ? leaguesScrollRef.current.scrollLeft - scrollAmount
+        : leaguesScrollRef.current.scrollLeft + scrollAmount;
+      
+      leaguesScrollRef.current.scrollTo({
+        left: newScrollLeft,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   const topLeagues = [
     { 
@@ -118,14 +133,34 @@ export default function Homepage() {
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold" data-testid="heading-top-leagues">Top leagues</h2>
-              <Button variant="ghost" size="sm" className="text-xs hover-elevate" data-testid="button-view-all-leagues">
-                All
-                <ChevronRight className="h-3 w-3 ml-1" />
-              </Button>
+              <div className="flex gap-1">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8" 
+                  onClick={() => scrollLeagues('left')}
+                  data-testid="button-scroll-leagues-left"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8" 
+                  onClick={() => scrollLeagues('right')}
+                  data-testid="button-scroll-leagues-right"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             
             <div className="relative overflow-hidden">
-              <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2" style={{ scrollbarWidth: 'none' }}>
+              <div 
+                ref={leaguesScrollRef}
+                className="flex gap-3 overflow-x-auto scrollbar-hide pb-2" 
+                style={{ scrollbarWidth: 'none' }}
+              >
                 {topLeagues.map((league, index) => (
                   <motion.div
                     key={league.id}
