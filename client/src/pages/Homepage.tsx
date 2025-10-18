@@ -140,7 +140,7 @@ export default function Homepage() {
                     data-testid={`card-league-${league.id}`}
                   >
                     <Card className="min-w-[140px] w-[140px] hover-elevate active-elevate-2 cursor-pointer overflow-visible">
-                      <CardContent className="p-3 flex flex-col items-center justify-center text-center gap-2 bg-[#e23636]">
+                      <CardContent className="p-3 flex flex-col items-center justify-center text-center gap-2 bg-[#48a83e]">
                         <div className="w-14 h-14 rounded-full bg-sidebar flex items-center justify-center text-3xl">
                           {league.icon}
                         </div>
