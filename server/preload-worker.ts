@@ -324,6 +324,11 @@ export class PreloadWorker {
   // Fallback method using /odds endpoint (for unsupported /scores leagues)
   private async fetchPrematchWithOdds(sportKey: string, ourSportKey: string): Promise<{leagues: any[], matches: any[]} | null> {
     try {
+      // Skip outright markets - they won't have regular match data
+      if (this.isOutrightMarket(sportKey)) {
+        return { leagues: [], matches: [] };
+      }
+      
       const apiConfig = getSportApiConfig(ourSportKey);
       
       const events = await oddsApiClient.getOdds(sportKey, {
@@ -344,8 +349,15 @@ export class PreloadWorker {
         leagues: nonEmptyLeagues,
         matches: normalizedMatches
       };
-    } catch (error) {
-      logger.error(`  ⚠️  Fallback /odds failed for ${sportKey}:`, (error as Error).message);
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      
+      // Suppress 422 errors for outright markets (expected)
+      if (errorMessage.includes('422')) {
+        return { leagues: [], matches: [] };
+      }
+      
+      logger.error(`  ⚠️  Fallback /odds failed for ${sportKey}:`, errorMessage);
       return null;
     }
   }
@@ -394,6 +406,11 @@ export class PreloadWorker {
   // Fallback method for live using /odds endpoint
   private async fetchLiveWithOdds(sportKey: string, ourSportKey: string): Promise<{leagues: any[], matches: any[]} | null> {
     try {
+      // Skip outright markets - they won't have regular match data
+      if (this.isOutrightMarket(sportKey)) {
+        return { leagues: [], matches: [] };
+      }
+      
       const apiConfig = getSportApiConfig(ourSportKey);
       
       const events = await oddsApiClient.getOdds(sportKey, {
@@ -415,8 +432,15 @@ export class PreloadWorker {
         leagues: nonEmptyLeagues,
         matches: normalizedMatches
       };
-    } catch (error) {
-      logger.error(`  ⚠️  Fallback /odds failed for live ${sportKey}:`, (error as Error).message);
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      
+      // Suppress 422 errors for outright markets (expected)
+      if (errorMessage.includes('422')) {
+        return { leagues: [], matches: [] };
+      }
+      
+      logger.error(`  ⚠️  Fallback /odds failed for live ${sportKey}:`, errorMessage);
       return null;
     }
   }
@@ -425,6 +449,11 @@ export class PreloadWorker {
   private async enrichMatchesWithOdds(matches: any[], sportKey: string, ourSportKey: string): Promise<void> {
     try {
       if (matches.length === 0) return;
+
+      // Skip outright markets (championship winners, etc.) - they don't have h2h odds
+      if (this.isOutrightMarket(sportKey)) {
+        return;
+      }
 
       // Get sport-specific API configuration
       const apiConfig = getSportApiConfig(ourSportKey);
@@ -455,10 +484,33 @@ export class PreloadWorker {
           match.bookmakers = bookmakers;
         }
       });
-    } catch (error) {
-      logger.error(`  ⚠️  Failed to enrich matches with odds for ${sportKey}:`, (error as Error).message);
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error);
+      
+      // Suppress 422 errors for outright markets (expected for championship winners)
+      if (errorMessage.includes('422')) {
+        // Silent skip - these are outright markets without h2h odds
+        return;
+      }
+      
+      // Only log unexpected errors
+      logger.error(`  ⚠️  Failed to enrich matches with odds for ${sportKey}:`, errorMessage);
       // Don't throw - matches can still be used without odds
     }
+  }
+  
+  // Helper to detect outright/championship winner markets
+  private isOutrightMarket(sportKey: string): boolean {
+    const outrightPatterns = [
+      '_winner',
+      '_championship',
+      'world_cup',
+      'super_bowl',
+      'world_series',
+      '_cup_winner'
+    ];
+    
+    return outrightPatterns.some(pattern => sportKey.toLowerCase().includes(pattern));
   }
 
   // Cache aggregated results for a sport
