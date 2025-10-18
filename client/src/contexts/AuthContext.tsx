@@ -98,9 +98,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     },
     onError: (error: Error) => {
+      const userFriendlyMessage = 
+        error.message === "Invalid credentials" 
+          ? "Incorrect username or password. Please try again." 
+          : error.message.includes("credentials")
+          ? "Incorrect username or password. Please try again."
+          : "Unable to sign in. Please check your connection and try again.";
+      
       toast({
-        title: "Login Failed",
-        description: error.message || "Invalid credentials",
+        title: "Sign In Failed",
+        description: userFriendlyMessage,
         variant: "destructive"
       });
     }
@@ -127,9 +134,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     },
     onError: (error: Error) => {
+      const userFriendlyMessage = 
+        error.message.includes("already exists") || error.message.includes("duplicate")
+          ? "This username or email is already taken. Please choose a different one."
+          : error.message.includes("password")
+          ? error.message
+          : "Unable to create account. Please try again.";
+      
       toast({
-        title: "Registration Failed",
-        description: error.message || "Failed to create account",
+        title: "Sign Up Failed",
+        description: userFriendlyMessage,
         variant: "destructive"
       });
     }

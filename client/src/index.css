@@ -461,7 +461,8 @@
   }
 
   @media (max-width: 768px) {
-    .sportsbook-layout {
+    .sportsbook-layout,
+    .sportsbook-layout.homepage-layout {
       grid-template-columns: 1fr;
       grid-template-rows: auto 1fr auto;
       grid-template-areas:
