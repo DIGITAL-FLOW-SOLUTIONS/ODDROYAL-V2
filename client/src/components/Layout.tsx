@@ -251,7 +251,7 @@ export default function Layout({ children }: LayoutProps) {
   }), [handleAddToBetSlip, betSlipSelections]);
 
   return (
-    <div ref={layoutContainerRef} className="bg-background">
+    <div ref={layoutContainerRef} className="bg-background w-full max-w-[100vw] overflow-x-hidden">
       {isPageLoading && <PageLoader />}
       <SidebarProvider style={style as React.CSSProperties}>
         {/* 3-column grid layout: sidebar | main-content | betslip */}
