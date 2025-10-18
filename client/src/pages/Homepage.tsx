@@ -15,6 +15,18 @@ import serieALogo from "@assets/Serie A - Italy_1760801782153.webp";
 import eplLogo from "@assets/EPL_1760801782154.webp";
 import laLigaLogo from "@assets/La Liga - Spain_1760801782155.webp";
 import uclLogo from "@assets/UEFA Champions League_1760801782156.webp";
+import stacksOGoldImg from "@assets/Stacks o' Gold game_1760811025217.webp";
+import tigerReignImg from "@assets/Tiger Reign game_1760811025218.webp";
+import pharaosRichesImg from "@assets/Pharaos Riches game_1760811025218.webp";
+import bookOfPharaoImg from "@assets/Book of Pharao Game_1760811025219.webp";
+import pharaosFireImg from "@assets/Pharaos Fire Game_1760811025220.webp";
+import wildApeImg from "@assets/Wild Ape game_1760811025220.webp";
+import luckyLeprechaunImg from "@assets/Lucky Leprechaun game_1760811025221.webp";
+import pekingLuckImg from "@assets/Peking Luck game_1760811025222.webp";
+import wildWaterImg from "@assets/Wild Woter game_1760811025222.webp";
+import jumanjiImg from "@assets/Jumanji Game_1760811025223.webp";
+import grandSpinnImg from "@assets/Grand spinn superpot game_1760811025223.webp";
+import fortuneRangersImg from "@assets/Fortune rangers game_1760811025224.webp";
 
 export default function Homepage() {
   const { setPageLoading } = usePageLoading();
@@ -98,24 +110,18 @@ export default function Homepage() {
   ];
 
   const hotGames = [
-    { id: "1", name: "Christmas Jackpot", thumbnail: "🎄" },
-    { id: "2", name: "Vikings", thumbnail: "⚔️" },
-    { id: "3", name: "Chinese Kitchen", thumbnail: "🥢" },
-    { id: "4", name: "Bermuda Triangle", thumbnail: "🌊" },
-    { id: "5", name: "Sherlock Mystery", thumbnail: "🔍" },
-    { id: "6", name: "Sun Cong Long", thumbnail: "🐉" },
-    { id: "7", name: "Lie Yan Zuan Shi", thumbnail: "💎" },
-    { id: "8", name: "Sai Sa", thumbnail: "🎨" },
-    { id: "9", name: "Silent Samurai", thumbnail: "⚔️" },
-    { id: "10", name: "Frog Story", thumbnail: "🐸" },
-    { id: "11", name: "La Quiniolita", thumbnail: "🎪" },
-    { id: "12", name: "Lucky Clover", thumbnail: "🍀" },
-    { id: "13", name: "Rocky", thumbnail: "🥊" },
-    { id: "14", name: "New Queen", thumbnail: "👑" },
-    { id: "15", name: "Ice Fantasy", thumbnail: "❄️" },
-    { id: "16", name: "Triple Monkey", thumbnail: "🐵" },
-    { id: "17", name: "Captain Treasure", thumbnail: "🏴‍☠️" },
-    { id: "18", name: "Wild Water", thumbnail: "🌊" },
+    { id: "1", name: "Stacks o' Gold", image: stacksOGoldImg },
+    { id: "2", name: "Tiger Reign", image: tigerReignImg },
+    { id: "3", name: "Pharaos Riches", image: pharaosRichesImg },
+    { id: "4", name: "Book of Pharao", image: bookOfPharaoImg },
+    { id: "5", name: "Pharaos Fire", image: pharaosFireImg },
+    { id: "6", name: "Wild Ape", image: wildApeImg },
+    { id: "7", name: "Lucky Leprechaun", image: luckyLeprechaunImg },
+    { id: "8", name: "Peking Luck", image: pekingLuckImg },
+    { id: "9", name: "Wild Water", image: wildWaterImg },
+    { id: "10", name: "Jumanji", image: jumanjiImg },
+    { id: "11", name: "Grand Spinn Superpot", image: grandSpinnImg },
+    { id: "12", name: "Fortune Rangers", image: fortuneRangersImg },
   ];
 
   return (
@@ -333,15 +339,17 @@ export default function Homepage() {
                   transition={{ delay: 0.02 * index }}
                   data-testid={`card-game-${game.id}`}
                 >
-                  <Card className="overflow-hidden hover-elevate active-elevate-2 cursor-pointer group bg-[#48a83e]">
+                  <Card className="overflow-hidden hover-elevate active-elevate-2 cursor-pointer group">
                     <CardContent className="p-0">
-                      <div className="relative aspect-[4/3] bg-[#48a83e] flex items-center justify-center">
-                        <span className="text-5xl transform group-hover:scale-110 transition-transform duration-300">
-                          {game.thumbnail}
-                        </span>
+                      <div className="relative aspect-[4/3] bg-gradient-to-br from-purple-600 to-blue-600 overflow-hidden">
+                        <LazyImage 
+                          src={game.image}
+                          alt={game.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                        />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
                       </div>
-                      <div className="p-2">
+                      <div className="p-2 bg-card">
                         <p className="text-xs font-medium text-center line-clamp-1">{game.name}</p>
                       </div>
                     </CardContent>
