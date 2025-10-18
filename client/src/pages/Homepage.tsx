@@ -135,9 +135,9 @@ export default function Homepage() {
                     data-testid={`card-league-${league.id}`}
                   >
                     <Link href={`/line/${league.sport}/${league.id}`}>
-                      <Card className="min-w-[1560px] w-[1560px] h-[160px] hover-elevate active-elevate-2 cursor-pointer overflow-hidden">
+                      <Card className="min-w-[150px] w-[150px] h-[160px] hover-elevate active-elevate-2 cursor-pointer overflow-hidden">
                         <CardContent className="p-3 flex flex-col items-center justify-center text-center gap-2 bg-[#48a83e] h-full">
-                          <div className="w-[120px] h-[120px] flex items-center justify-center">
+                          <div className="w-24 h-24 flex items-center justify-center">
                             <LazyImage 
                               src={league.logo}
                               alt={league.name}
