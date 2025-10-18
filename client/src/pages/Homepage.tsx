@@ -169,7 +169,7 @@ export default function Homepage() {
                     transition={{ delay: 0.05 * index }}
                     data-testid={`card-league-${league.id}`}
                   >
-                    <Link href={`/line/${league.sport}/${league.id}`}>
+                    <Link href={`/league/${league.sport}/${league.id}`}>
                       <Card className="min-w-[160px] w-[160px] h-[160px] hover-elevate active-elevate-2 cursor-pointer overflow-hidden">
                         <CardContent className="p-3 flex flex-col items-center justify-center text-center gap-2 bg-[#48a83e] h-full">
                           <div className="w-[120px] h-[120px] flex items-center justify-center">
