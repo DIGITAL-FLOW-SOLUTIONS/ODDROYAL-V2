@@ -1,333 +1,326 @@
-import { useState, useEffect, useRef, useMemo, memo } from "react";
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import MatchCard from "@/components/MatchCard";
 import BannerSlider from "@/components/BannerSlider";
-import { 
-  Trophy, 
-  TrendingUp, 
-  Calendar, 
-  Gift,
-  Star,
-  Clock,
-  ArrowRight,
-  Zap
-} from "lucide-react";
+import Footer from "@/components/Footer";
+import { ChevronRight } from "lucide-react";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
-import { useMatchStore } from "@/store/matchStore";
-import { usePrematchMatches } from "@/hooks/usePrematchMatches";
-import { useBetSlip } from "@/contexts/BetSlipContext";
+import { LazyImage } from "@/components/LazyImage";
 
 export default function Homepage() {
-  const { onAddToBetSlip } = useBetSlip();
   const { setPageLoading } = usePageLoading();
-  
-  // Subscribe to matches Map directly to detect changes
-  const matches = useMatchStore(state => state.matches);
-  const odds = useMatchStore(state => state.odds);
-  const isConnected = useMatchStore(state => state.isConnected);
   const hasInitialData = useRef(false);
   
-  // Get prematch matches
-  const { data: prematchData, isLoading: isPrematchLoading } = usePrematchMatches();
-  
-  // Filter live matches with React.useMemo to prevent unnecessary recalculations
-  // Only re-filter when matches Map reference changes (which happens on actual updates)
-  const liveMatches = useMemo(() => {
-    return Array.from(matches.values()).filter(m => m.status === 'live');
-  }, [matches]);
-  
-  // Calculate live match count from store
-  const liveMatchCount = liveMatches.length;
-
-  // Track if we've received initial data
   useEffect(() => {
-    if (liveMatches.length > 0) {
+    if (!hasInitialData.current) {
       hasInitialData.current = true;
       setPageLoading(false);
-    } else if (isConnected) {
-      // We're connected but no matches - stop loading and show empty state
-      hasInitialData.current = true;
-      setPageLoading(false);
-    } else if (!isConnected) {
-      // Show loading while disconnected and no data
-      setPageLoading(!hasInitialData.current);
     }
-  }, [liveMatches.length, isConnected, setPageLoading]);
-
-  // Featured matches from prematch data with actual odds
-  const featuredMatches: any[] = useMemo(() => {
-    if (!prematchData?.allMatches || prematchData.allMatches.length === 0) {
-      return [];
-    }
-    
-    // Filter out invalid matches and ensure they have all required properties
-    const validMatches = prematchData.allMatches.filter((match: any) => {
-      return match && 
-             match.id &&
-             match.homeTeam?.name &&
-             match.awayTeam?.name &&
-             match.kickoffTime &&
-             match.odds &&
-             typeof match.odds.home === 'number' &&
-             typeof match.odds.away === 'number' &&
-             (match.odds.draw === undefined || typeof match.odds.draw === 'number');
-    });
-    
-    // Sort by kickoff time (soonest first) and take first 6
-    return validMatches
-      .sort((a: any, b: any) => {
-        const dateA = new Date(a.kickoffTime).getTime();
-        const dateB = new Date(b.kickoffTime).getTime();
-        return dateA - dateB;
-      })
-      .slice(0, 6);
-  }, [prematchData]);
+  }, [setPageLoading]);
 
   const topLeagues = [
-    { id: "1", name: "Premier League", country: "England", matches: 89, logo: "⚽" },
-    { id: "2", name: "La Liga", country: "Spain", matches: 76, logo: "🇪🇸" },
-    { id: "3", name: "Bundesliga", country: "Germany", matches: 54, logo: "🇩🇪" },
-    { id: "4", name: "Serie A", country: "Italy", matches: 67, logo: "🇮🇹" },
-    { id: "5", name: "Ligue 1", country: "France", matches: 43, logo: "🇫🇷" },
+    { 
+      id: "uefa-champions", 
+      name: "UEFA Champions League", 
+      sport: "Football",
+      icon: "⚽"
+    },
+    { 
+      id: "la-liga", 
+      name: "Spain: La Liga", 
+      sport: "Football",
+      icon: "⚽"
+    },
+    { 
+      id: "uefa-conference", 
+      name: "UEFA Conference League", 
+      sport: "Football",
+      icon: "⚽"
+    },
+    { 
+      id: "copa-libertadores", 
+      name: "Copa Libertadores", 
+      sport: "Football",
+      icon: "⚽"
+    },
+    { 
+      id: "russia-premier", 
+      name: "Russia: Premier League", 
+      sport: "Football",
+      icon: "⚽"
+    },
+    { 
+      id: "england-premier", 
+      name: "England: Premier League", 
+      sport: "Football",
+      icon: "⚽"
+    },
+    { 
+      id: "poland-ekstraklasa", 
+      name: "Poland: Ekstraklasa", 
+      sport: "Football",
+      icon: "⚽"
+    },
+    { 
+      id: "egypt-premier", 
+      name: "Egypt: Premier League", 
+      sport: "Football",
+      icon: "⚽"
+    },
   ];
 
-  const promotions = [
-    {
-      id: "1",
-      title: "Welcome Bonus",
-      description: "Get 100% match bonus up to $200 on your first deposit",
-      type: "New Player",
-      color: "bg-destructive"
-    },
-    {
-      id: "2", 
-      title: "Accumulator Boost",
-      description: "Get up to 50% extra winnings on 5+ selection accumulators",
-      type: "Weekly",
-      color: "bg-chart-4"
-    },
-    {
-      id: "3",
-      title: "Live Betting Cashback",
-      description: "Get 10% cashback on live betting losses every weekend",
-      type: "Weekend",
-      color: "bg-accent"
-    }
+  const sportItems = [
+    { id: "skiing", name: "Skiing", icon: "⛷️" },
+    { id: "mini-football", name: "Mini football", icon: "⚽" },
+    { id: "american-football", name: "American football", icon: "🏈" },
+    { id: "billiards", name: "Billiards", icon: "🎱" },
+    { id: "snooker", name: "Snooker", icon: "🎯" },
+  ];
+
+  const casinoItems = [
+    { id: "thunderkick", name: "Thunderkick", icon: "⚡" },
+    { id: "netgame", name: "NetGame", icon: "🎮" },
+    { id: "kacaming", name: "KACaming", icon: "🎰" },
+    { id: "no-limit-city", name: "No Limit City", icon: "🎲" },
+    { id: "red-tiger", name: "Red Tiger", icon: "🐯" },
+  ];
+
+  const hotGames = [
+    { id: "1", name: "Christmas Jackpot", thumbnail: "🎄" },
+    { id: "2", name: "Vikings", thumbnail: "⚔️" },
+    { id: "3", name: "Chinese Kitchen", thumbnail: "🥢" },
+    { id: "4", name: "Bermuda Triangle", thumbnail: "🌊" },
+    { id: "5", name: "Sherlock Mystery", thumbnail: "🔍" },
+    { id: "6", name: "Sun Cong Long", thumbnail: "🐉" },
+    { id: "7", name: "Lie Yan Zuan Shi", thumbnail: "💎" },
+    { id: "8", name: "Sai Sa", thumbnail: "🎨" },
+    { id: "9", name: "Silent Samurai", thumbnail: "⚔️" },
+    { id: "10", name: "Frog Story", thumbnail: "🐸" },
+    { id: "11", name: "La Quiniolita", thumbnail: "🎪" },
+    { id: "12", name: "Lucky Clover", thumbnail: "🍀" },
+    { id: "13", name: "Rocky", thumbnail: "🥊" },
+    { id: "14", name: "New Queen", thumbnail: "👑" },
+    { id: "15", name: "Ice Fantasy", thumbnail: "❄️" },
+    { id: "16", name: "Triple Monkey", thumbnail: "🐵" },
+    { id: "17", name: "Captain Treasure", thumbnail: "🏴‍☠️" },
+    { id: "18", name: "Wild Water", thumbnail: "🌊" },
   ];
 
   return (
-    <div className="flex-1">
-      {/* Banner Slider Section */}
-      <BannerSlider />
+    <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1">
+        <BannerSlider />
 
-      <div className="p-4 space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Featured Matches */}
-        <div className="lg:col-span-2 space-y-4">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
+        <div className="p-4 md:p-6 space-y-6 max-w-screen-2xl mx-auto">
+          {/* Top Leagues Section */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
+            className="space-y-3"
           >
-            <Card>
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Star className="h-5 w-5 text-destructive" />
-                    Featured Matches
-                  </CardTitle>
-                  <Button variant="ghost" size="sm" data-testid="link-view-all-matches" className="hover-elevate">
-                    View All
-                    <ArrowRight className="ml-1 h-3 w-3" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {featuredMatches.length > 0 ? (
-                  <div className="space-y-4">
-                    {featuredMatches.map((match: any, index: number) => (
-                      <motion.div
-                        key={match.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                      >
-                        <MatchCard match={match} onAddToBetSlip={onAddToBetSlip} />
-                      </motion.div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p className="font-medium">No upcoming matches available</p>
-                    <p className="text-sm mt-1">Check back soon for scheduled matches</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Top Leagues */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2">
-                  <Trophy className="h-5 w-5 text-chart-4" />
-                  Top Football Leagues
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {topLeagues.map((league, index) => (
-                    <motion.div
-                      key={league.id}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.05 }}
-                      whileHover={{ scale: 1.02 }}
-                      className="bg-card border border-card-border rounded-md p-4 hover-elevate cursor-pointer"
-                      data-testid={`card-league-${league.id}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{league.logo}</span>
-                          <div>
-                            <h4 className="font-semibold text-sm">{league.name}</h4>
-                            <p className="text-xs text-muted-foreground">{league.country}</p>
-                          </div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold" data-testid="heading-top-leagues">Top leagues</h2>
+              <Button variant="ghost" size="sm" className="text-xs hover-elevate" data-testid="button-view-all-leagues">
+                All
+                <ChevronRight className="h-3 w-3 ml-1" />
+              </Button>
+            </div>
+            
+            <div className="relative overflow-hidden">
+              <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2" style={{ scrollbarWidth: 'none' }}>
+                {topLeagues.map((league, index) => (
+                  <motion.div
+                    key={league.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.05 * index }}
+                    data-testid={`card-league-${league.id}`}
+                  >
+                    <Card className="min-w-[140px] w-[140px] hover-elevate active-elevate-2 cursor-pointer overflow-visible">
+                      <CardContent className="p-3 flex flex-col items-center justify-center text-center gap-2">
+                        <div className="w-14 h-14 rounded-full bg-sidebar flex items-center justify-center text-3xl">
+                          {league.icon}
                         </div>
-                        <Badge variant="outline" className="text-xs">
-                          {league.matches}
-                        </Badge>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-medium leading-tight line-clamp-2">{league.name}</p>
+                          <p className="text-xs text-muted-foreground">{league.sport}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </motion.section>
 
-        {/* Sidebar Content */}
-        <div className="space-y-4">
-          {/* Live Stats */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Zap className="h-4 w-4 text-destructive" />
-                  Live Now
-                  <div className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-sm">Active Matches</span>
-                  <Badge variant="destructive" className="text-xs">
-                    {liveMatchCount}
-                  </Badge>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-border">
-                  <span className="text-sm">Total Bets Today</span>
-                  <span className="text-sm font-semibold">2,456</span>
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm">Biggest Win</span>
-                  <span className="text-sm font-semibold text-chart-4">$12,340</span>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Promotions */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
+          {/* Sport Section */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
+            className="space-y-3"
           >
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <Gift className="h-4 w-4 text-chart-4" />
-                  Promotions
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {promotions.map((promo, index) => (
-                    <motion.div
-                      key={promo.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="relative overflow-hidden rounded-md border border-border p-3 hover-elevate cursor-pointer"
-                      data-testid={`card-promotion-${promo.id}`}
-                    >
-                      <div className={`absolute top-0 right-0 px-2 py-1 text-xs text-white rounded-bl-md ${promo.color}`}>
-                        {promo.type}
-                      </div>
-                      <h5 className="font-semibold text-sm mb-1">{promo.title}</h5>
-                      <p className="text-xs text-muted-foreground">{promo.description}</p>
-                    </motion.div>
-                  ))}
-                </div>
-                <Button size="sm" className="w-full mt-3 hover-elevate" data-testid="button-view-all-promotions">
-                  View All Promotions
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold" data-testid="heading-sport">Sport</h2>
+              <span className="text-xs text-muted-foreground font-medium">Live Sport</span>
+            </div>
 
-          {/* Recent Winners */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
+            <Tabs defaultValue="all" className="w-full">
+              <TabsList className="w-full justify-start gap-2 bg-sidebar h-auto p-2 flex-wrap" data-testid="tabs-sport">
+                <TabsTrigger 
+                  value="all" 
+                  className="text-xs px-3 py-1.5 data-[state=active]:bg-background"
+                  data-testid="tab-sport-all"
+                >
+                  All Sports
+                </TabsTrigger>
+                {sportItems.map((sport) => (
+                  <TabsTrigger 
+                    key={sport.id} 
+                    value={sport.id}
+                    className="text-xs px-3 py-1.5 data-[state=active]:bg-background"
+                    data-testid={`tab-sport-${sport.id}`}
+                  >
+                    <span className="mr-1.5">{sport.icon}</span>
+                    {sport.name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              <TabsContent value="all" className="mt-4">
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Select a sport to view live matches and events
+                    </p>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {sportItems.map((sport) => (
+                <TabsContent key={sport.id} value={sport.id} className="mt-4">
+                  <Card>
+                    <CardContent className="p-6 text-center">
+                      <div className="text-4xl mb-2">{sport.icon}</div>
+                      <p className="text-sm text-muted-foreground">
+                        No live {sport.name.toLowerCase()} matches at the moment
+                      </p>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </motion.section>
+
+          {/* Casino Section */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
+            className="space-y-3"
           >
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <TrendingUp className="h-4 w-4 text-chart-4" />
-                  Recent Winners
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span>John D.</span>
-                    <span className="text-chart-4 font-semibold">$1,250</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Sarah M.</span>
-                    <span className="text-chart-4 font-semibold">$890</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Mike R.</span>
-                    <span className="text-chart-4 font-semibold">$2,100</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Emma L.</span>
-                    <span className="text-chart-4 font-semibold">$675</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold" data-testid="heading-casino">Casino</h2>
+              <span className="text-xs text-muted-foreground font-medium">LIVE Casino</span>
+            </div>
+
+            <Tabs defaultValue="all" className="w-full">
+              <TabsList className="w-full justify-start gap-2 bg-sidebar h-auto p-2 flex-wrap" data-testid="tabs-casino">
+                <TabsTrigger 
+                  value="all" 
+                  className="text-xs px-3 py-1.5 data-[state=active]:bg-background"
+                  data-testid="tab-casino-all"
+                >
+                  All Games
+                </TabsTrigger>
+                {casinoItems.map((casino) => (
+                  <TabsTrigger 
+                    key={casino.id} 
+                    value={casino.id}
+                    className="text-xs px-3 py-1.5 data-[state=active]:bg-background"
+                    data-testid={`tab-casino-${casino.id}`}
+                  >
+                    <span className="mr-1.5">{casino.icon}</span>
+                    {casino.name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+
+              <TabsContent value="all" className="mt-4">
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Select a provider to view available casino games
+                    </p>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {casinoItems.map((casino) => (
+                <TabsContent key={casino.id} value={casino.id} className="mt-4">
+                  <Card>
+                    <CardContent className="p-6 text-center">
+                      <div className="text-4xl mb-2">{casino.icon}</div>
+                      <p className="text-sm text-muted-foreground">
+                        {casino.name} games coming soon
+                      </p>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </motion.section>
+
+          {/* Royal Hots Section */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold" data-testid="heading-royal-hots">Royal Hots</h2>
+              <Button variant="ghost" size="sm" className="text-xs hover-elevate" data-testid="button-view-all-hots">
+                All
+                <ChevronRight className="h-3 w-3 ml-1" />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {hotGames.map((game, index) => (
+                <motion.div
+                  key={game.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.02 * index }}
+                  data-testid={`card-game-${game.id}`}
+                >
+                  <Card className="overflow-hidden hover-elevate active-elevate-2 cursor-pointer group">
+                    <CardContent className="p-0">
+                      <div className="relative aspect-[4/3] bg-gradient-to-br from-sidebar to-sidebar-accent flex items-center justify-center">
+                        <span className="text-5xl transform group-hover:scale-110 transition-transform duration-300">
+                          {game.thumbnail}
+                        </span>
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                      </div>
+                      <div className="p-2">
+                        <p className="text-xs font-medium text-center line-clamp-1">{game.name}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          </motion.section>
         </div>
       </div>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }
