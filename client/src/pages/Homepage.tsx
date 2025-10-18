@@ -4,7 +4,6 @@ import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BannerSlider from "@/components/BannerSlider";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
@@ -91,14 +90,6 @@ export default function Homepage() {
       sport: "football",
       logo: ligue1Logo
     },
-  ];
-
-  const casinoItems = [
-    { id: "thunderkick", name: "Thunderkick", icon: "⚡" },
-    { id: "netgame", name: "NetGame", icon: "🎮" },
-    { id: "kacaming", name: "KACaming", icon: "🎰" },
-    { id: "no-limit-city", name: "No Limit City", icon: "🎲" },
-    { id: "red-tiger", name: "Red Tiger", icon: "🐯" },
   ];
 
   const hotGames = [
@@ -188,65 +179,6 @@ export default function Homepage() {
                 ))}
               </div>
             </div>
-          </motion.section>
-
-          {/* Casino Section */}
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="space-y-2 sm:space-y-3 bg-[#295640] p-2 sm:p-3 md:p-4 rounded-md"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-base sm:text-lg font-semibold" data-testid="heading-casino">Casino</h2>
-              <Badge className="text-[10px] sm:text-xs px-2 sm:px-3 py-0.5 sm:py-1 bg-[#e23636] text-[#fcfcfc] hover:bg-[#e23636]">LIVE Casino</Badge>
-            </div>
-
-            <Tabs defaultValue="all" className="w-full">
-              <TabsList className="w-full justify-start gap-1 sm:gap-2 bg-sidebar h-auto p-1.5 sm:p-2 flex-wrap" data-testid="tabs-casino">
-                <TabsTrigger 
-                  value="all" 
-                  className="text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 data-[state=active]:bg-background"
-                  data-testid="tab-casino-all"
-                >
-                  All Games
-                </TabsTrigger>
-                {casinoItems.map((casino) => (
-                  <TabsTrigger 
-                    key={casino.id} 
-                    value={casino.id}
-                    className="text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 data-[state=active]:bg-background"
-                    data-testid={`tab-casino-${casino.id}`}
-                  >
-                    <span className="mr-1">{casino.icon}</span>
-                    <span className="hidden xs:inline sm:inline">{casino.name}</span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-
-              <TabsContent value="all" className="mt-3 sm:mt-4">
-                <Card>
-                  <CardContent className="p-4 sm:p-6 text-center">
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      Select a provider to view available casino games
-                    </p>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {casinoItems.map((casino) => (
-                <TabsContent key={casino.id} value={casino.id} className="mt-3 sm:mt-4">
-                  <Card>
-                    <CardContent className="p-4 sm:p-6 text-center">
-                      <div className="text-3xl sm:text-4xl mb-2">{casino.icon}</div>
-                      <p className="text-xs sm:text-sm text-muted-foreground">
-                        {casino.name} games coming soon
-                      </p>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              ))}
-            </Tabs>
           </motion.section>
 
           {/* Royal Hots Section */}
