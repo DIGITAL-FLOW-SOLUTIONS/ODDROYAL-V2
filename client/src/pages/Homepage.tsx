@@ -129,34 +129,34 @@ export default function Homepage() {
       <div className="flex-1">
         <BannerSlider />
 
-        <div className="p-4 md:p-6 space-y-6 max-w-screen-2xl mx-auto">
+        <div className="p-2 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6 max-w-screen-2xl mx-auto">
           {/* Top Leagues Section */}
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="space-y-3 bg-[#295640] pl-[10px] pr-[10px] pt-[10px] pb-[10px] ml-[0px] mr-[0px]"
+            className="space-y-2 sm:space-y-3 bg-[#295640] p-2 sm:p-3 md:p-4 rounded-md"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold" data-testid="heading-top-leagues">Top leagues</h2>
+              <h2 className="text-base sm:text-lg font-semibold" data-testid="heading-top-leagues">Top leagues</h2>
               <div className="flex gap-1">
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8" 
+                  className="h-7 w-7 sm:h-8 sm:w-8" 
                   onClick={() => scrollLeagues('left')}
                   data-testid="button-scroll-leagues-left"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8" 
+                  className="h-7 w-7 sm:h-8 sm:w-8" 
                   onClick={() => scrollLeagues('right')}
                   data-testid="button-scroll-leagues-right"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
             </div>
@@ -164,7 +164,7 @@ export default function Homepage() {
             <div className="relative overflow-hidden">
               <div 
                 ref={leaguesScrollRef}
-                className="flex gap-3 overflow-x-auto scrollbar-hide pb-2" 
+                className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-2" 
                 style={{ scrollbarWidth: 'none' }}
               >
                 {topLeagues.map((league, index) => (
@@ -176,9 +176,9 @@ export default function Homepage() {
                     data-testid={`card-league-${league.id}`}
                   >
                     <Link href={`/league/${league.sport}/${league.id}`}>
-                      <Card className="min-w-[160px] w-[160px] h-[160px] hover-elevate active-elevate-2 cursor-pointer overflow-hidden group">
-                        <CardContent className="p-3 flex flex-col items-center justify-center text-center gap-2 bg-[#48a83e] h-full">
-                          <div className="w-[120px] h-[120px] flex items-center justify-center relative overflow-hidden">
+                      <Card className="min-w-[120px] w-[120px] h-[120px] sm:min-w-[140px] sm:w-[140px] sm:h-[140px] md:min-w-[160px] md:w-[160px] md:h-[160px] hover-elevate active-elevate-2 cursor-pointer overflow-hidden group">
+                        <CardContent className="p-2 sm:p-3 flex flex-col items-center justify-center text-center gap-1 sm:gap-2 bg-[#48a83e] h-full">
+                          <div className="w-[80px] h-[80px] sm:w-[100px] sm:h-[100px] md:w-[120px] md:h-[120px] flex items-center justify-center relative overflow-hidden">
                             <LazyImage 
                               src={league.logo}
                               alt={league.name}
@@ -187,7 +187,7 @@ export default function Homepage() {
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
                           </div>
                           <div className="space-y-0.5">
-                            <p className="text-xs font-medium leading-tight line-clamp-2">{league.name}</p>
+                            <p className="text-[10px] sm:text-xs font-medium leading-tight line-clamp-2">{league.name}</p>
                           </div>
                         </CardContent>
                       </Card>
@@ -203,18 +203,18 @@ export default function Homepage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="space-y-3 bg-[#295640] pl-[10px] pr-[10px] pt-[10px] pb-[10px] mt-[12px] mb-[12px]"
+            className="space-y-2 sm:space-y-3 bg-[#295640] p-2 sm:p-3 md:p-4 rounded-md"
           >
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold" data-testid="heading-sport">Sport</h2>
-              <span className="text-xs font-medium pl-[10px] pr-[10px] bg-[#e23636] text-[#fcfcfc]">Live Sport</span>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base sm:text-lg font-semibold" data-testid="heading-sport">Sport</h2>
+              <Badge className="text-[10px] sm:text-xs px-2 sm:px-3 py-0.5 sm:py-1 bg-[#e23636] text-[#fcfcfc] hover:bg-[#e23636]">Live Sport</Badge>
             </div>
 
             <Tabs defaultValue="all" className="w-full">
-              <TabsList className="w-full justify-start gap-2 bg-sidebar h-auto p-2 flex-wrap" data-testid="tabs-sport">
+              <TabsList className="w-full justify-start gap-1 sm:gap-2 bg-sidebar h-auto p-1.5 sm:p-2 flex-wrap" data-testid="tabs-sport">
                 <TabsTrigger 
                   value="all" 
-                  className="text-xs px-3 py-1.5 data-[state=active]:bg-background"
+                  className="text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 data-[state=active]:bg-background"
                   data-testid="tab-sport-all"
                 >
                   All Sports
@@ -223,19 +223,19 @@ export default function Homepage() {
                   <TabsTrigger 
                     key={sport.id} 
                     value={sport.id}
-                    className="text-xs px-3 py-1.5 data-[state=active]:bg-background"
+                    className="text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 data-[state=active]:bg-background"
                     data-testid={`tab-sport-${sport.id}`}
                   >
-                    <span className="mr-1.5">{sport.icon}</span>
-                    {sport.name}
+                    <span className="mr-1">{sport.icon}</span>
+                    <span className="hidden xs:inline sm:inline">{sport.name}</span>
                   </TabsTrigger>
                 ))}
               </TabsList>
 
-              <TabsContent value="all" className="mt-4">
+              <TabsContent value="all" className="mt-3 sm:mt-4">
                 <Card>
-                  <CardContent className="p-6 text-center">
-                    <p className="text-sm text-muted-foreground">
+                  <CardContent className="p-4 sm:p-6 text-center">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Select a sport to view live matches and events
                     </p>
                   </CardContent>
@@ -243,11 +243,11 @@ export default function Homepage() {
               </TabsContent>
 
               {sportItems.map((sport) => (
-                <TabsContent key={sport.id} value={sport.id} className="mt-4">
+                <TabsContent key={sport.id} value={sport.id} className="mt-3 sm:mt-4">
                   <Card>
-                    <CardContent className="p-6 text-center">
-                      <div className="text-4xl mb-2">{sport.icon}</div>
-                      <p className="text-sm text-muted-foreground">
+                    <CardContent className="p-4 sm:p-6 text-center">
+                      <div className="text-3xl sm:text-4xl mb-2">{sport.icon}</div>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         No live {sport.name.toLowerCase()} matches at the moment
                       </p>
                     </CardContent>
@@ -262,18 +262,18 @@ export default function Homepage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="space-y-3 pl-[10px] pr-[10px] bg-[#295640] pt-[10px] pb-[10px]"
+            className="space-y-2 sm:space-y-3 bg-[#295640] p-2 sm:p-3 md:p-4 rounded-md"
           >
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold" data-testid="heading-casino">Casino</h2>
-              <span className="text-xs font-medium bg-[#e23636] text-[#fcfcfc] pl-[10px] pr-[10px] ml-[0px] mr-[0px]">LIVE Casino</span>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base sm:text-lg font-semibold" data-testid="heading-casino">Casino</h2>
+              <Badge className="text-[10px] sm:text-xs px-2 sm:px-3 py-0.5 sm:py-1 bg-[#e23636] text-[#fcfcfc] hover:bg-[#e23636]">LIVE Casino</Badge>
             </div>
 
             <Tabs defaultValue="all" className="w-full">
-              <TabsList className="w-full justify-start gap-2 bg-sidebar h-auto p-2 flex-wrap" data-testid="tabs-casino">
+              <TabsList className="w-full justify-start gap-1 sm:gap-2 bg-sidebar h-auto p-1.5 sm:p-2 flex-wrap" data-testid="tabs-casino">
                 <TabsTrigger 
                   value="all" 
-                  className="text-xs px-3 py-1.5 data-[state=active]:bg-background"
+                  className="text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 data-[state=active]:bg-background"
                   data-testid="tab-casino-all"
                 >
                   All Games
@@ -282,19 +282,19 @@ export default function Homepage() {
                   <TabsTrigger 
                     key={casino.id} 
                     value={casino.id}
-                    className="text-xs px-3 py-1.5 data-[state=active]:bg-background"
+                    className="text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 data-[state=active]:bg-background"
                     data-testid={`tab-casino-${casino.id}`}
                   >
-                    <span className="mr-1.5">{casino.icon}</span>
-                    {casino.name}
+                    <span className="mr-1">{casino.icon}</span>
+                    <span className="hidden xs:inline sm:inline">{casino.name}</span>
                   </TabsTrigger>
                 ))}
               </TabsList>
 
-              <TabsContent value="all" className="mt-4">
+              <TabsContent value="all" className="mt-3 sm:mt-4">
                 <Card>
-                  <CardContent className="p-6 text-center">
-                    <p className="text-sm text-muted-foreground">
+                  <CardContent className="p-4 sm:p-6 text-center">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       Select a provider to view available casino games
                     </p>
                   </CardContent>
@@ -302,11 +302,11 @@ export default function Homepage() {
               </TabsContent>
 
               {casinoItems.map((casino) => (
-                <TabsContent key={casino.id} value={casino.id} className="mt-4">
+                <TabsContent key={casino.id} value={casino.id} className="mt-3 sm:mt-4">
                   <Card>
-                    <CardContent className="p-6 text-center">
-                      <div className="text-4xl mb-2">{casino.icon}</div>
-                      <p className="text-sm text-muted-foreground">
+                    <CardContent className="p-4 sm:p-6 text-center">
+                      <div className="text-3xl sm:text-4xl mb-2">{casino.icon}</div>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
                         {casino.name} games coming soon
                       </p>
                     </CardContent>
@@ -321,17 +321,17 @@ export default function Homepage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="space-y-3 bg-[#295640] pl-[10px] pr-[10px] pt-[10px] pb-[10px]"
+            className="space-y-2 sm:space-y-3 bg-[#295640] p-2 sm:p-3 md:p-4 rounded-md"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold" data-testid="heading-royal-hots">Royal Hots</h2>
-              <Button variant="ghost" size="sm" className="text-xs hover-elevate" data-testid="button-view-all-hots">
+              <h2 className="text-base sm:text-lg font-semibold" data-testid="heading-royal-hots">Royal Hots</h2>
+              <Button variant="ghost" size="sm" className="text-[10px] sm:text-xs h-7 sm:h-8 px-2 sm:px-3 hover-elevate" data-testid="button-view-all-hots">
                 All
-                <ChevronRight className="h-3 w-3 ml-1" />
+                <ChevronRight className="h-3 w-3 ml-0.5 sm:ml-1" />
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
               {hotGames.map((game, index) => (
                 <motion.div
                   key={game.id}
@@ -350,8 +350,8 @@ export default function Homepage() {
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
                       </div>
-                      <div className="p-2 bg-card">
-                        <p className="text-xs font-medium text-center line-clamp-1">{game.name}</p>
+                      <div className="p-1.5 sm:p-2 bg-card">
+                        <p className="text-[10px] sm:text-xs font-medium text-center line-clamp-1">{game.name}</p>
                       </div>
                     </CardContent>
                   </Card>

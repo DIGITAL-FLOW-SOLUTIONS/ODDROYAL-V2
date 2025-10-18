@@ -91,7 +91,7 @@ export default function BannerSlider() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-none md:rounded-lg h-[250px] sm:h-[300px] md:h-[350px] lg:h-[400px] bg-card"
+      className="relative overflow-hidden rounded-none md:rounded-lg h-[180px] sm:h-[240px] md:h-[320px] lg:h-[400px] bg-card"
       data-testid="banner-slider"
     >
       <AnimatePresence mode="wait">
