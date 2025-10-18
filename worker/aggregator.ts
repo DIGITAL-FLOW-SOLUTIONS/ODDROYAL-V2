@@ -33,7 +33,7 @@ const ably = new Ably.Rest({ key: ABLY_API_KEY });
 
 // Polling intervals
 const POLL_INTERVALS = {
-  live: 5000,        // 5 seconds for live matches (high priority)
+  live: 33000,       // 33 seconds for live matches (API updates every 30s)
   prematch: 60000,   // 60 seconds for upcoming matches
   manual: 10000,     // 10 seconds for manual matches
   sportsList: 1800000, // 30 minutes for sports list refresh (prevents expiration)

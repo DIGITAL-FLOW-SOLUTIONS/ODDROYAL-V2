@@ -5,6 +5,7 @@ import {
   groupSportsByCategory,
   getSportKeysForCategory,
   normalizeOddsEvent,
+  normalizeScoresEvent,
   groupMatchesByLeague,
   normalizeMarkets,
   generateMatchId,
@@ -281,7 +282,48 @@ export class PreloadWorker {
   // Fetch prematch data for a single league (returns data without caching)
   private async fetchPrematchForLeague(sportKey: string, ourSportKey: string): Promise<{leagues: any[], matches: any[]} | null> {
     try {
-      // Get sport-specific API configuration
+      // Try /scores endpoint first (includes live scores, more efficient)
+      const events = await oddsApiClient.getScores(sportKey, 1); // 1 day ahead for upcoming
+
+      // Filter for upcoming matches only (completed=false, no scores)
+      const upcomingEvents = events.filter(e => !e.completed && (!e.scores || e.scores.length === 0));
+      
+      if (upcomingEvents.length > 0) {
+        const normalizedMatches = upcomingEvents.map(event => normalizeScoresEvent(event, ourSportKey));
+        
+        // Fetch h2h odds for these matches separately
+        await this.enrichMatchesWithOdds(normalizedMatches, sportKey, ourSportKey);
+        
+        const leagueGroups = groupMatchesByLeague(normalizedMatches);
+        const nonEmptyLeagues = leagueGroups.filter(lg => lg.match_count > 0);
+
+        return {
+          leagues: nonEmptyLeagues,
+          matches: normalizedMatches
+        };
+      }
+      
+      // FALLBACK: If /scores returns empty or this is an unsupported league, use /odds
+      logger.info(`  ℹ️  /scores returned empty for ${sportKey}, falling back to /odds`);
+      return await this.fetchPrematchWithOdds(sportKey, ourSportKey);
+      
+    } catch (error: any) {
+      const errorMessage = (error as Error).message;
+      
+      // If 422 (unsupported league like outrights), fallback to /odds
+      if (errorMessage.includes('422')) {
+        logger.info(`  ℹ️  ${sportKey} not supported by /scores (422), using /odds fallback`);
+        return await this.fetchPrematchWithOdds(sportKey, ourSportKey);
+      }
+      
+      logger.error(`  ⚠️  Prematch failed for ${sportKey}:`, errorMessage);
+      return null;
+    }
+  }
+
+  // Fallback method using /odds endpoint (for unsupported /scores leagues)
+  private async fetchPrematchWithOdds(sportKey: string, ourSportKey: string): Promise<{leagues: any[], matches: any[]} | null> {
+    try {
       const apiConfig = getSportApiConfig(ourSportKey);
       
       const events = await oddsApiClient.getOdds(sportKey, {
@@ -303,7 +345,7 @@ export class PreloadWorker {
         matches: normalizedMatches
       };
     } catch (error) {
-      logger.error(`  ⚠️  Prematch failed for ${sportKey}:`, (error as Error).message);
+      logger.error(`  ⚠️  Fallback /odds failed for ${sportKey}:`, (error as Error).message);
       return null;
     }
   }
@@ -311,7 +353,47 @@ export class PreloadWorker {
   // Fetch live data for a single league (returns data without caching)
   private async fetchLiveForLeague(sportKey: string, ourSportKey: string): Promise<{leagues: any[], matches: any[]} | null> {
     try {
-      // Get sport-specific API configuration
+      // Try /scores endpoint first (includes live scores)
+      const events = await oddsApiClient.getScores(sportKey, 0); // 0 days = live only
+
+      // Filter for live matches only (completed=false, has scores)
+      const liveEvents = events.filter(e => !e.completed && e.scores && e.scores.length > 0);
+      
+      if (liveEvents.length > 0) {
+        const normalizedMatches = liveEvents.map(event => normalizeScoresEvent(event, ourSportKey));
+        
+        // Fetch h2h odds for these matches separately
+        await this.enrichMatchesWithOdds(normalizedMatches, sportKey, ourSportKey);
+        
+        const leagueGroups = groupMatchesByLeague(normalizedMatches);
+        const nonEmptyLeagues = leagueGroups.filter(lg => lg.match_count > 0);
+
+        return {
+          leagues: nonEmptyLeagues,
+          matches: normalizedMatches
+        };
+      }
+      
+      // If no live matches from /scores, return empty (legitimate state, not error)
+      return { leagues: [], matches: [] };
+      
+    } catch (error: any) {
+      const errorMessage = (error as Error).message;
+      
+      // If 422 (unsupported league), fallback to /odds
+      if (errorMessage.includes('422')) {
+        logger.info(`  ℹ️  ${sportKey} not supported by /scores (422), using /odds fallback for live`);
+        return await this.fetchLiveWithOdds(sportKey, ourSportKey);
+      }
+      
+      logger.error(`  ⚠️  Live failed for ${sportKey}:`, errorMessage);
+      return null;
+    }
+  }
+
+  // Fallback method for live using /odds endpoint
+  private async fetchLiveWithOdds(sportKey: string, ourSportKey: string): Promise<{leagues: any[], matches: any[]} | null> {
+    try {
       const apiConfig = getSportApiConfig(ourSportKey);
       
       const events = await oddsApiClient.getOdds(sportKey, {
@@ -334,23 +416,63 @@ export class PreloadWorker {
         matches: normalizedMatches
       };
     } catch (error) {
-      logger.error(`  ⚠️  Live failed for ${sportKey}:`, (error as Error).message);
+      logger.error(`  ⚠️  Fallback /odds failed for live ${sportKey}:`, (error as Error).message);
       return null;
     }
   }
 
-  // Cache aggregated results for a sport (MERGE with existing instead of replacing)
+  // Enrich matches with h2h odds from /odds endpoint
+  private async enrichMatchesWithOdds(matches: any[], sportKey: string, ourSportKey: string): Promise<void> {
+    try {
+      if (matches.length === 0) return;
+
+      // Get sport-specific API configuration
+      const apiConfig = getSportApiConfig(ourSportKey);
+      
+      // Fetch odds for this sport (only h2h market to minimize credits)
+      const oddsEvents = await oddsApiClient.getOdds(sportKey, {
+        regions: apiConfig.regions,
+        markets: 'h2h', // Only fetch h2h odds
+        oddsFormat: 'decimal',
+        dateFormat: 'iso',
+        sportCategory: ourSportKey,
+      });
+
+      if (oddsEvents.length === 0) return;
+
+      // Create a map of odds by match (using home_team + away_team as key)
+      const oddsMap = new Map<string, any>();
+      oddsEvents.forEach(event => {
+        const key = `${event.home_team}:${event.away_team}:${event.commence_time}`;
+        oddsMap.set(key, event.bookmakers);
+      });
+
+      // Enrich matches with odds
+      matches.forEach(match => {
+        const key = `${match.home_team}:${match.away_team}:${match.commence_time}`;
+        const bookmakers = oddsMap.get(key);
+        if (bookmakers) {
+          match.bookmakers = bookmakers;
+        }
+      });
+    } catch (error) {
+      logger.error(`  ⚠️  Failed to enrich matches with odds for ${sportKey}:`, (error as Error).message);
+      // Don't throw - matches can still be used without odds
+    }
+  }
+
+  // Cache aggregated results for a sport
   private async cacheAggregatedResults(
     ourSportKey: string,
     prematchLeagues: any[],
     liveLeagues: any[]
   ): Promise<void> {
-    // Cache prematch leagues - MERGE with existing to prevent data loss
+    // Always cache prematch leagues (even if empty - empty is a legitimate state)
+    const prematchAllowEmpty = prematchLeagues.length === 0; // Allow empty if fetched successfully
+    
     if (prematchLeagues.length > 0) {
-      // Get existing leagues first
+      // Get existing leagues first for merging
       const existingPrematchLeagues = await redisCache.getPrematchLeagues(ourSportKey) || [];
-      
-      // Create a map of existing leagues by ID
       const leagueMap = new Map(existingPrematchLeagues.map(lg => [lg.league_id, lg]));
       
       // Add or update new leagues
@@ -363,17 +485,18 @@ export class PreloadWorker {
       // Merge: update existing leagues and add new ones
       leaguesForCache.forEach(lg => leagueMap.set(lg.league_id, lg));
       
-      // Save merged leagues
-      await redisCache.setPrematchLeagues(ourSportKey, Array.from(leagueMap.values()), 900);
+      // Save merged leagues with allowEmpty=false since we have data
+      await redisCache.setPrematchLeagues(ourSportKey, Array.from(leagueMap.values()), 900, false);
 
-      // Cache matches for each league (leagues already contain matches array)
+      // Cache matches for each league
       for (const league of prematchLeagues) {
         if (league.matches && league.matches.length > 0) {
           await redisCache.setPrematchMatches(
             ourSportKey,
             league.league_id,
             league.matches,
-            600
+            600,
+            false // We have data
           );
 
           // Prefetch markets
@@ -384,35 +507,31 @@ export class PreloadWorker {
       }
     }
 
-    // Cache live leagues - MERGE with existing to prevent data loss
+    // Always cache live leagues (empty is legitimate - means no live matches currently)
     if (liveLeagues.length > 0) {
-      // Get existing leagues first
       const existingLiveLeagues = await redisCache.getLiveLeagues(ourSportKey) || [];
-      
-      // Create a map of existing leagues by ID
       const leagueMap = new Map(existingLiveLeagues.map(lg => [lg.league_id, lg]));
       
-      // Add or update new leagues
       const leaguesForCache = liveLeagues.map(lg => ({
         league_id: lg.league_id,
         league_name: lg.league_name,
         match_count: lg.match_count,
       }));
       
-      // Merge: update existing leagues and add new ones
       leaguesForCache.forEach(lg => leagueMap.set(lg.league_id, lg));
       
-      // Save merged leagues
-      await redisCache.setLiveLeagues(ourSportKey, Array.from(leagueMap.values()), 90);
+      // Save with allowEmpty=true (default) since empty live matches is normal
+      await redisCache.setLiveLeagues(ourSportKey, Array.from(leagueMap.values()), 120, true);
 
-      // Cache matches for each league (leagues already contain matches array)
+      // Cache matches for each league
       for (const league of liveLeagues) {
         if (league.matches && league.matches.length > 0) {
           await redisCache.setLiveMatches(
             ourSportKey,
             league.league_id,
             league.matches,
-            60
+            120,
+            true // Allow empty for live (default anyway)
           );
 
           // Prefetch markets
@@ -421,6 +540,9 @@ export class PreloadWorker {
           }
         }
       }
+    } else {
+      // No live leagues - this is legitimate, cache empty
+      await redisCache.setLiveLeagues(ourSportKey, [], 120, true);
     }
 
     // Prefetch logos for football

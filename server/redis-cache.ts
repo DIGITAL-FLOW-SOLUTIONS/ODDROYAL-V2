@@ -180,10 +180,22 @@ class RedisCacheManager {
   async setPrematchLeagues(
     sportKey: string,
     leagues: any[],
-    ttlSeconds: number = 900,
+    ttlSeconds: number = 900, // 15 minutes (balanced for freshness and stability)
+    allowEmpty: boolean = false // Set to true when empty is legitimate (successful API call)
   ): Promise<void> {
+    // Only block empty updates if not explicitly allowed AND there's existing data
+    if (leagues.length === 0 && !allowEmpty) {
+      const existing = await this.getPrematchLeagues(sportKey);
+      if (existing && existing.length > 0) {
+        logger.warn(`[CACHE] Rejecting empty prematch leagues for ${sportKey} - keeping ${existing.length} existing (set allowEmpty=true if legitimate)`);
+        return; // Keep existing data
+      }
+    }
+    
     await this.setWithMetadata(`prematch:leagues:${sportKey}`, leagues, ttlSeconds, {
-      source: 'prematch'
+      source: 'prematch',
+      isEmpty: leagues.length === 0,
+      isLegitimateEmpty: allowEmpty
     });
   }
 
@@ -196,20 +208,29 @@ class RedisCacheManager {
     sportKey: string,
     leagueId: string,
     matches: any[],
-    ttlSeconds: number = 600,
+    ttlSeconds: number = 600, // 10 minutes
+    allowEmpty: boolean = false
   ): Promise<void> {
+    // Only block empty updates if not explicitly allowed AND there's existing data
+    if (matches.length === 0 && !allowEmpty) {
+      const existing = await this.getPrematchMatches(sportKey, leagueId);
+      if (existing && existing.length > 0) {
+        logger.warn(`[CACHE] Rejecting empty prematch matches for ${sportKey}:${leagueId} - keeping ${existing.length} existing`);
+        return; // Keep existing data
+      }
+    }
+    
     await this.setWithMetadata(
       `prematch:matches:${sportKey}:${leagueId}`,
       matches,
       ttlSeconds,
-      { source: 'prematch' }
+      { source: 'prematch', isEmpty: matches.length === 0, isLegitimateEmpty: allowEmpty }
     );
     
     // Also cache each match individually for fast lookup
     for (const match of matches) {
       if (match.match_id || match.id) {
         const matchId = match.match_id || match.id;
-        // Include sport_key in individual match cache
         await this.setWithMetadata(
           `match:${matchId}`,
           {
@@ -236,10 +257,22 @@ class RedisCacheManager {
   async setLiveLeagues(
     sportKey: string,
     leagues: any[],
-    ttlSeconds: number = 90,
+    ttlSeconds: number = 120, // 2 minutes (short TTL for live data)
+    allowEmpty: boolean = true // Default true for live - empty means no live matches currently
   ): Promise<void> {
+    // For live data, empty is usually legitimate (no live matches), so default allowEmpty=true
+    if (leagues.length === 0 && !allowEmpty) {
+      const existing = await this.getLiveLeagues(sportKey);
+      if (existing && existing.length > 0) {
+        logger.warn(`[CACHE] Rejecting empty live leagues for ${sportKey} - keeping ${existing.length} existing`);
+        return;
+      }
+    }
+    
     await this.setWithMetadata(`live:leagues:${sportKey}`, leagues, ttlSeconds, {
-      source: 'live'
+      source: 'live',
+      isEmpty: leagues.length === 0,
+      isLegitimateEmpty: allowEmpty
     });
   }
 
@@ -252,17 +285,28 @@ class RedisCacheManager {
     sportKey: string,
     leagueId: string,
     matches: any[],
-    ttlSeconds: number = 60,
+    ttlSeconds: number = 120, // 2 minutes (short TTL for live data)
+    allowEmpty: boolean = true // Default true for live - empty means no live matches currently
   ): Promise<void> {
+    // For live data, empty is usually legitimate (matches completed or not started)
+    if (matches.length === 0 && !allowEmpty) {
+      const existing = await this.getLiveMatches(sportKey, leagueId);
+      if (existing && existing.length > 0) {
+        logger.warn(`[CACHE] Rejecting empty live matches for ${sportKey}:${leagueId} - keeping ${existing.length} existing`);
+        return;
+      }
+    }
+    
     await this.setWithMetadata(`live:matches:${sportKey}:${leagueId}`, matches, ttlSeconds, {
-      source: 'live'
+      source: 'live',
+      isEmpty: matches.length === 0,
+      isLegitimateEmpty: allowEmpty
     });
     
     // Also cache each match individually for fast lookup
     for (const match of matches) {
       if (match.match_id || match.id) {
         const matchId = match.match_id || match.id;
-        // Include sport_key in individual match cache
         await this.setWithMetadata(
           `match:${matchId}`,
           {

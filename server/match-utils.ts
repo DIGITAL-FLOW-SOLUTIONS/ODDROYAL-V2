@@ -301,11 +301,14 @@ export function applyLeagueLimits(groupedSports: GroupedSport[]): GroupedSport[]
 // Generate deterministic match ID
 export function generateMatchId(
   sportKey: string,
-  homeTeam: string,
-  awayTeam: string,
+  homeTeam: string | null | undefined,
+  awayTeam: string | null | undefined,
   commenceTime: string
 ): string {
-  const key = `${sportKey}::${homeTeam.trim().toLowerCase()}::${awayTeam.trim().toLowerCase()}::${commenceTime}`;
+  // Handle null/undefined for outright markets (championship winners, etc.)
+  const home = homeTeam ? homeTeam.trim().toLowerCase() : 'unknown';
+  const away = awayTeam ? awayTeam.trim().toLowerCase() : 'unknown';
+  const key = `${sportKey}::${home}::${away}::${commenceTime}`;
   return crypto.createHash('md5').update(key).digest('hex');
 }
 
@@ -372,8 +375,8 @@ export function normalizeOddsEvent(event: any, sportKey: string, isLiveRequest: 
     sport_key: sportKey,
     league_id: leagueId,
     league_name: leagueName,
-    home_team: event.home_team,
-    away_team: event.away_team,
+    home_team: event.home_team || 'Unknown',
+    away_team: event.away_team || 'Unknown',
     commence_time: event.commence_time,
     bookmakers: event.bookmakers || [],
     markets,
@@ -382,6 +385,70 @@ export function normalizeOddsEvent(event: any, sportKey: string, isLiveRequest: 
       home: event.scores.find((s: any) => s.name === event.home_team)?.score || 0,
       away: event.scores.find((s: any) => s.name === event.away_team)?.score || 0,
     } : undefined,
+  };
+}
+
+// Normalize /scores endpoint event (includes upcoming, live, and completed matches)
+export function normalizeScoresEvent(event: any, sportKey: string): NormalizedMatch {
+  const leagueId = extractLeagueId(event);
+  const leagueName = extractLeagueName(event);
+  const matchId = generateMatchId(
+    sportKey,
+    event.home_team,
+    event.away_team,
+    event.commence_time
+  );
+
+  // Extract available markets
+  const markets = event.bookmakers?.[0]?.markets?.map((m: any) => m.key) || [];
+
+  // Determine status based on completed field and scores presence
+  // completed: true = finished match
+  // completed: false + has scores = live match
+  // completed: false + no scores = upcoming match
+  let status: 'upcoming' | 'live' | 'completed' = 'upcoming';
+  if (event.completed === true) {
+    status = 'completed';
+  } else if (event.scores && event.scores.length > 0) {
+    status = 'live';
+  }
+
+  return {
+    match_id: matchId,
+    sport_key: sportKey,
+    league_id: leagueId,
+    league_name: leagueName,
+    home_team: event.home_team || 'Unknown',
+    away_team: event.away_team || 'Unknown',
+    commence_time: event.commence_time,
+    bookmakers: event.bookmakers || [],
+    markets,
+    status,
+    scores: event.scores ? {
+      home: event.scores.find((s: any) => s.name === event.home_team)?.score || 0,
+      away: event.scores.find((s: any) => s.name === event.away_team)?.score || 0,
+    } : undefined,
+  };
+}
+
+// Normalize /events endpoint event (lightweight, no odds data)
+export interface EventInfo {
+  id: string;
+  sport_key: string;
+  sport_title: string;
+  commence_time: string;
+  home_team: string;
+  away_team: string;
+}
+
+export function normalizeEventInfo(event: any): EventInfo {
+  return {
+    id: event.id,
+    sport_key: event.sport_key,
+    sport_title: event.sport_title,
+    commence_time: event.commence_time,
+    home_team: event.home_team || 'Unknown',
+    away_team: event.away_team || 'Unknown',
   };
 }
 

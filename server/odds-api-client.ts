@@ -267,6 +267,22 @@ class TheOddsApiClient {
     });
   }
 
+  async getEvents(sportKey: string): Promise<any[]> {
+    const requestKey = `events:${sportKey}`;
+    
+    return this.deduplicateRequest(requestKey, async () => {
+      return limit(async () => {
+        metrics.incrementRequests();
+        
+        return this.executeWithRetry(async () => {
+          const response = await this.client.get(`/sports/${sportKey}/events`);
+          // Events endpoint is FREE - no credit cost
+          return response.data;
+        });
+      });
+    });
+  }
+
   async getScores(sportKey: string, daysFrom: number = 3): Promise<any[]> {
     const requestKey = `scores:${sportKey}:${daysFrom}`;
     
