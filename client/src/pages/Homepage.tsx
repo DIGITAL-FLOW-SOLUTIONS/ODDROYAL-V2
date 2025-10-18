@@ -255,7 +255,7 @@ export default function Homepage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="space-y-3 pl-[10px] pr-[10px] bg-[#295640]"
+            className="space-y-3 pl-[10px] pr-[10px] bg-[#295640] pt-[10px] pb-[10px]"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold" data-testid="heading-casino">Casino</h2>
