@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMode } from "@/contexts/ModeContext";
@@ -14,6 +14,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -36,6 +37,14 @@ export default function SportsSidebar() {
   const { mode } = useMode();
   const queryClient = useQueryClient();
   const [expandedSports, setExpandedSports] = useState<string[]>(['football']);
+  const { setOpenMobile } = useSidebar();
+  
+  // Close sidebar on mobile when route changes
+  useEffect(() => {
+    if (window.innerWidth <= 768) {
+      setOpenMobile(false);
+    }
+  }, [location, setOpenMobile]);
 
   // Menu data with optimistic loading - shows cached data instantly
   const { data: menuData } = useQuery({

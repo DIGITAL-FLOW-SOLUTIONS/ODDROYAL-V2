@@ -473,7 +473,12 @@
     }
     
     .sportsbook-sidebar {
-      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      z-index: 50;
+      grid-area: unset;
     }
     
     .sportsbook-header,
