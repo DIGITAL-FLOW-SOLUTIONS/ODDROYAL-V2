@@ -27,8 +27,11 @@ export default function Layout({ children }: LayoutProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAuthenticated, logout } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { isPageLoading } = usePageLoading();
+  
+  // Check if we're on the homepage
+  const isHomepage = location === '/';
   
   // Refs for scroll coordination
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -252,7 +255,7 @@ export default function Layout({ children }: LayoutProps) {
       {isPageLoading && <PageLoader />}
       <SidebarProvider style={style as React.CSSProperties}>
         {/* 3-column grid layout: sidebar | main-content | betslip */}
-        <div className="sportsbook-layout">
+        <div className={`sportsbook-layout ${isHomepage ? 'homepage-layout' : ''}`}>
           
           {/* Sidebar - spans full height */}
           <div className="sportsbook-sidebar">
@@ -284,28 +287,30 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </motion.div>
 
-          {/* Bet slip - right column only, desktop */}
-          <motion.div 
-            initial={{ x: 100, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-            className="sportsbook-betslip hidden lg:block bg-background border-l border-border scrollbar-hide"
-            style={{ 
-              maxHeight: `calc(100vh - ${headerHeight}px)`, 
-              overflowY: 'auto',
-              overflowX: 'hidden'
-            }}
-          >
-            <div className="p-4">
-              <BetSlip
-                selections={betSlipSelections}
-                onRemoveSelection={handleRemoveFromBetSlip}
-                onClearAll={handleClearBetSlip}
-                onPlaceBet={handlePlaceBet}
-                isPlacingBet={placeBetMutation.isPending}
-              />
-            </div>
-          </motion.div>
+          {/* Bet slip - right column only, desktop (hidden on homepage) */}
+          {!isHomepage && (
+            <motion.div 
+              initial={{ x: 100, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+              className="sportsbook-betslip hidden lg:block bg-background border-l border-border scrollbar-hide"
+              style={{ 
+                maxHeight: `calc(100vh - ${headerHeight}px)`, 
+                overflowY: 'auto',
+                overflowX: 'hidden'
+              }}
+            >
+              <div className="p-4">
+                <BetSlip
+                  selections={betSlipSelections}
+                  onRemoveSelection={handleRemoveFromBetSlip}
+                  onClearAll={handleClearBetSlip}
+                  onPlaceBet={handlePlaceBet}
+                  isPlacingBet={placeBetMutation.isPending}
+                />
+              </div>
+            </motion.div>
+          )}
           
           {/* Footer - spans middle and right columns */}
           <div className="sportsbook-footer">
