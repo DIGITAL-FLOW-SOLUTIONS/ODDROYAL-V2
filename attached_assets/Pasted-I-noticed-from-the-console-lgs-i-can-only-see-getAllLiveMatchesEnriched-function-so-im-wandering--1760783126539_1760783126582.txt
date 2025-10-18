@@ -1,0 +1,41 @@
+I noticed from the console lgs i can only see 'getAllLiveMatchesEnriched' function so im wandering  if thats where we get upcoming/prematch matches also or how do we get them. So I decided to visit THE ODDS API  documentation myself then educate you evrything i find there and how to fetch everything, then you will compare this with the codebase to see if were doing it right:
+
+
+1. GET sports (https://the-odds-api.com/liveapi/guides/v4/#get-sports): 
+
+- Returns a list of in-season sport objects. The sport key can be used as the sport parameter in other endpoints. This endpoint does not count against the usage quota
+- Example Request: GET https://api.the-odds-api.com/v4/sports/?apiKey=YOUR_API_KEY
+- Example Response: https://the-odds-api.com/liveapi/guides/v4/#example-response
+
+    2. GET scores (https://the-odds-api.com/liveapi/guides/v4/#get-scores).
+
+    - Returns a list of upcoming, live and recently completed games for a given sport. Live and recently completed games contain scores. Games from up to 3 days ago can be returned using the daysFrom parameter. Live scores update approximately every 30 seconds.
+    - I learnt that we use this to get upcoming matches and livematches. I learnt also that Live match scores/goals update approximately every 30 seconds, meaning we can display goals and scores of live matches and sports. Also I learnt we should be getting live matches after every about 32-35 sec since the API updates them after every 30 sec. So the sidemenu that display leagues  when  live page is clicked and upcoming leagues when prematch/line page is clicked should keep a good note of this to display live leagues and upcoming leagues correctly. The league pae that displays matches should be build to handle both live and upcoming matches correctly displayed. Upcoming matches with time and date of the match, live matches showing live and scores/goals. 
+- Meaning we wont need to make a separate get request to get results for the Bet settlement to use, because it will be already with us, we just need to learn how completed matches are, upcoming matches, and completed matches. In the response i saw they have a completed parameter being either true or false, In my understanding if its true that live match has completed, it is is false and has no the scores parameter at all then then its upcoming and if it is false and has the scores parameter even if scores are 0 in each team the it is live"You will confirm this because I just shared my small understanding".
+- The scores endpoint applies to selected sports and is gradually being expanded to more sports. See the current: https://the-odds-api.com/sports-odds-data/sports-apis.html
+- Example Request:  https://api.the-odds-api.com/v4/sports/basketball_nba/scores/?daysFrom=1&apiKey=YOUR_API_KEY
+- Example Response: https://the-odds-api.com/liveapi/guides/v4/#example-response-3
+
+3. GET events (https://the-odds-api.com/liveapi/guides/v4/#get-events):
+- Returns a list of in-play and pre-match events for a specified sport or league. The response includes event id, home and away teams, and the commence time for each event. Odds are not included in the response. This endpoint does not count against the usage quota.
+- Example Request:  https://api.the-odds-api.com/v4/sports/americanfootball_nfl/events?apiKey=YOUR_API_KEY
+- Example Response: https://the-odds-api.com/liveapi/guides/v4/#example-response-4
+
+4. GET participants (https://the-odds-api.com/liveapi/guides/v4/#get-participants):
+- Returns list of participants for a given sport. Depending on the sport, a participant can be either a team or an individual. For example for NBA, a list of teams is returned. For tennis, a list of players is returned.
+- The returned list should be treated as a whitelist and may include participants that are not currently active.
+- This is how we get the leagues of all the 7 sports we have, confirm if they have upcoming matches and list them on the sidemenu when we are in homepage or prematch page. When we are in live page then list the leagues that we know their matches are live.
+- Upcoming leagues dont change more often and have matches al the time, so the issue of leagues when the app starts it has 30 leagues of football and other sports have a subsequent number of leagues and when time goes by I see leagues reducing, sometimes football having 3,2, even 1 league displayed in the sidemenu and even other sports disappearing leaving only football with 1 or 2 leagues display, that issue should not happen again, if football has 30 or 30+ leagues with upcoming matches then those leagues since they have matches that are of further date to come, they should not disappear at all. Updating our redis with few or empty data than the previous update is wrong. 
+- Example Request: https://api.the-odds-api.com/v4/sports/americanfootball_nfl/participants?apiKey=YOUR_API_KEY
+- Example Response: https://the-odds-api.com/liveapi/guides/v4/#example-response-7
+
+5. GET odds(https://the-odds-api.com/liveapi/guides/v4/#get-odds):
+- Returns a list of upcoming and live games with recent odds for a given sport, region and market
+- For markets lets only get the h2h.
+- They claim it Returns a list of upcoming and live games but from the response i dont see any way to differentiate between the two, so we will use this not to determine between live and upcoming games but to get the h2h or rather the 1x2 markets. 
+- Example Request:  https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/?apiKey=YOUR_API_KEY&regions=us&markets=h2h,spreads&oddsFormat=american
+- Example Response: https://the-odds-api.com/liveapi/guides/v4/#example-request-2
+
+
+
+With all this information and I think you can made a good comparison with our codebase and see where we need to work on and also to manage our TTL well so that the issue of sports, leagues and matches disappearing and reappearing after a while to stop completely, making sure only update what has changed not the whole thing, and not updating empty data.
