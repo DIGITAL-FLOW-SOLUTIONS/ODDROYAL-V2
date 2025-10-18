@@ -298,7 +298,7 @@ export default function Homepage() {
                   transition={{ delay: 0.02 * index }}
                   data-testid={`card-game-${game.id}`}
                 >
-                  <Card className="overflow-hidden hover-elevate active-elevate-2 cursor-pointer group">
+                  <Card className="overflow-hidden hover-elevate active-elevate-2 cursor-pointer group bg-[#48a83e]">
                     <CardContent className="p-0">
                       <div className="relative aspect-[4/3] bg-gradient-to-br from-sidebar to-sidebar-accent flex items-center justify-center">
                         <span className="text-5xl transform group-hover:scale-110 transition-transform duration-300">
