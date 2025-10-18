@@ -176,14 +176,15 @@ export default function Homepage() {
                     data-testid={`card-league-${league.id}`}
                   >
                     <Link href={`/league/${league.sport}/${league.id}`}>
-                      <Card className="min-w-[160px] w-[160px] h-[160px] hover-elevate active-elevate-2 cursor-pointer overflow-hidden">
+                      <Card className="min-w-[160px] w-[160px] h-[160px] hover-elevate active-elevate-2 cursor-pointer overflow-hidden group">
                         <CardContent className="p-3 flex flex-col items-center justify-center text-center gap-2 bg-[#48a83e] h-full">
-                          <div className="w-[120px] h-[120px] flex items-center justify-center">
+                          <div className="w-[120px] h-[120px] flex items-center justify-center relative overflow-hidden">
                             <LazyImage 
                               src={league.logo}
                               alt={league.name}
-                              className="w-full h-full object-contain"
+                              className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
                             />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
                           </div>
                           <div className="space-y-0.5">
                             <p className="text-xs font-medium leading-tight line-clamp-2">{league.name}</p>
