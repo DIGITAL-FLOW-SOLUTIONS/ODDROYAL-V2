@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BannerSlider from "@/components/BannerSlider";
-import Footer from "@/components/Footer";
 import { ChevronRight } from "lucide-react";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
 import { LazyImage } from "@/components/LazyImage";
@@ -120,7 +119,7 @@ export default function Homepage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="space-y-3"
+            className="space-y-3 bg-[#295640] pl-[10px] pr-[10px] pt-[10px] pb-[10px] ml-[0px] mr-[0px]"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold" data-testid="heading-top-leagues">Top leagues</h2>
@@ -141,7 +140,7 @@ export default function Homepage() {
                     data-testid={`card-league-${league.id}`}
                   >
                     <Card className="min-w-[140px] w-[140px] hover-elevate active-elevate-2 cursor-pointer overflow-visible">
-                      <CardContent className="p-3 flex flex-col items-center justify-center text-center gap-2">
+                      <CardContent className="p-3 flex flex-col items-center justify-center text-center gap-2 bg-[#e23636]">
                         <div className="w-14 h-14 rounded-full bg-sidebar flex items-center justify-center text-3xl">
                           {league.icon}
                         </div>
@@ -162,11 +161,11 @@ export default function Homepage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="space-y-3"
+            className="space-y-3 bg-[#295640] pl-[10px] pr-[10px]"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold" data-testid="heading-sport">Sport</h2>
-              <span className="text-xs text-muted-foreground font-medium">Live Sport</span>
+              <span className="text-xs font-medium pl-[10px] pr-[10px] bg-[#e23636] text-[#fcfcfc]">Live Sport</span>
             </div>
 
             <Tabs defaultValue="all" className="w-full">
@@ -221,11 +220,11 @@ export default function Homepage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="space-y-3"
+            className="space-y-3 pl-[10px] pr-[10px] bg-[#295640]"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold" data-testid="heading-casino">Casino</h2>
-              <span className="text-xs text-muted-foreground font-medium">LIVE Casino</span>
+              <span className="text-xs font-medium bg-[#e23636] text-[#fcfcfc] pl-[10px] pr-[10px] ml-[0px] mr-[0px]">LIVE Casino</span>
             </div>
 
             <Tabs defaultValue="all" className="w-full">
@@ -280,7 +279,7 @@ export default function Homepage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="space-y-3"
+            className="space-y-3 bg-[#295640] pl-[10px] pr-[10px] pt-[10px] pb-[10px]"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold" data-testid="heading-royal-hots">Royal Hots</h2>
@@ -318,9 +317,6 @@ export default function Homepage() {
           </motion.section>
         </div>
       </div>
-
-      {/* Footer */}
-      <Footer />
     </div>
   );
 }
