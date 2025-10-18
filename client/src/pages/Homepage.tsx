@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
+import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +9,12 @@ import BannerSlider from "@/components/BannerSlider";
 import { ChevronRight } from "lucide-react";
 import { usePageLoading } from "@/contexts/PageLoadingContext";
 import { LazyImage } from "@/components/LazyImage";
+import bundesligaLogo from "@assets/Bundesliga - Germany_1760801782151.webp";
+import ligue1Logo from "@assets/Ligue 1 - France_1760801782152.webp";
+import serieALogo from "@assets/Serie A - Italy_1760801782153.webp";
+import eplLogo from "@assets/EPL_1760801782154.webp";
+import laLigaLogo from "@assets/La Liga - Spain_1760801782155.webp";
+import uclLogo from "@assets/UEFA Champions League_1760801782156.webp";
 
 export default function Homepage() {
   const { setPageLoading } = usePageLoading();
@@ -22,52 +29,40 @@ export default function Homepage() {
 
   const topLeagues = [
     { 
-      id: "uefa-champions", 
+      id: "soccer_uefa_champs_league_uefa_champions_league",
       name: "UEFA Champions League", 
-      sport: "Football",
-      icon: "⚽"
+      sport: "football",
+      logo: uclLogo
     },
     { 
-      id: "la-liga", 
-      name: "Spain: La Liga", 
-      sport: "Football",
-      icon: "⚽"
+      id: "soccer_spain_la_liga_la_liga_-_spain",
+      name: "La Liga - Spain", 
+      sport: "football",
+      logo: laLigaLogo
     },
     { 
-      id: "uefa-conference", 
-      name: "UEFA Conference League", 
-      sport: "Football",
-      icon: "⚽"
+      id: "soccer_epl_epl",
+      name: "Premier League", 
+      sport: "football",
+      logo: eplLogo
     },
     { 
-      id: "copa-libertadores", 
-      name: "Copa Libertadores", 
-      sport: "Football",
-      icon: "⚽"
+      id: "soccer_germany_bundesliga_bundesliga_-_germany",
+      name: "Bundesliga - Germany", 
+      sport: "football",
+      logo: bundesligaLogo
     },
     { 
-      id: "russia-premier", 
-      name: "Russia: Premier League", 
-      sport: "Football",
-      icon: "⚽"
+      id: "soccer_italy_serie_a_serie_a_-_italy",
+      name: "Serie A - Italy", 
+      sport: "football",
+      logo: serieALogo
     },
     { 
-      id: "england-premier", 
-      name: "England: Premier League", 
-      sport: "Football",
-      icon: "⚽"
-    },
-    { 
-      id: "poland-ekstraklasa", 
-      name: "Poland: Ekstraklasa", 
-      sport: "Football",
-      icon: "⚽"
-    },
-    { 
-      id: "egypt-premier", 
-      name: "Egypt: Premier League", 
-      sport: "Football",
-      icon: "⚽"
+      id: "soccer_france_ligue_one_ligue_1_-_france",
+      name: "Ligue 1 - France", 
+      sport: "football",
+      logo: ligue1Logo
     },
   ];
 
@@ -139,17 +134,22 @@ export default function Homepage() {
                     transition={{ delay: 0.05 * index }}
                     data-testid={`card-league-${league.id}`}
                   >
-                    <Card className="min-w-[140px] w-[140px] hover-elevate active-elevate-2 cursor-pointer overflow-visible">
-                      <CardContent className="p-3 flex flex-col items-center justify-center text-center gap-2 bg-[#48a83e]">
-                        <div className="w-14 h-14 rounded-full bg-sidebar flex items-center justify-center text-3xl">
-                          {league.icon}
-                        </div>
-                        <div className="space-y-0.5">
-                          <p className="text-xs font-medium leading-tight line-clamp-2">{league.name}</p>
-                          <p className="text-xs text-muted-foreground">{league.sport}</p>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    <Link href={`/line/${league.sport}/${league.id}`}>
+                      <Card className="min-w-[140px] w-[140px] h-[160px] hover-elevate active-elevate-2 cursor-pointer overflow-hidden">
+                        <CardContent className="p-3 flex flex-col items-center justify-center text-center gap-2 bg-[#48a83e] h-full">
+                          <div className="w-20 h-20 flex items-center justify-center">
+                            <LazyImage 
+                              src={league.logo}
+                              alt={league.name}
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-medium leading-tight line-clamp-2">{league.name}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
                   </motion.div>
                 ))}
               </div>
@@ -300,7 +300,7 @@ export default function Homepage() {
                 >
                   <Card className="overflow-hidden hover-elevate active-elevate-2 cursor-pointer group bg-[#48a83e]">
                     <CardContent className="p-0">
-                      <div className="relative aspect-[4/3] bg-gradient-to-br from-sidebar to-sidebar-accent flex items-center justify-center">
+                      <div className="relative aspect-[4/3] bg-[#48a83e] flex items-center justify-center">
                         <span className="text-5xl transform group-hover:scale-110 transition-transform duration-300">
                           {game.thumbnail}
                         </span>
