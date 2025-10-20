@@ -1,20 +1,17 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useMode } from "@/contexts/ModeContext";
-import { useQuery } from "@tanstack/react-query";
-import { Clock, AlertCircle } from "lucide-react";
+import { Clock } from "lucide-react";
 import { useBetSlip } from "@/contexts/BetSlipContext";
+import { useMatchStore } from "@/store/matchStore";
 
 // Import all the new components
 import HeroBanner from "@/components/HeroBanner";
 import PopularEvents from "@/components/PopularEvents";
-import TopLeagues from "@/components/TopLeagues";
 import SportsMatches from "@/components/SportsMatches";
-import OtherSports from "@/components/OtherSports";
 
 function LineContent() {
   const { onAddToBetSlip } = useBetSlip();
-  const [selectedLeague, setSelectedLeague] = useState("all");
   const { mode, setMode } = useMode();
 
   // Ensure mode is set to 'prematch' when Line page loads (run only once)
@@ -22,103 +19,95 @@ function LineContent() {
     setMode('prematch');
   }, [setMode]);
 
-  // Fetch menu data - same as sidebar, organized with football first
-  const { data: menuData, isLoading: menuLoading } = useQuery({
-    queryKey: ['/api/menu', mode],
-    queryFn: async () => {
-      const response = await fetch(`/api/menu?mode=${mode}`);
-      if (!response.ok) throw new Error('Failed to fetch menu');
-      const result = await response.json();
-      console.log('[LINE] Menu data received:', result.data);
-      return result.data;
-    },
-    staleTime: mode === 'live' ? 60 * 1000 : 5 * 60 * 1000,
-  });
-
-  const sports = menuData?.sports || [];
+  // Read from match store like Live page does
+  const lastUpdate = useMatchStore(state => state.lastUpdate);
+  const sports = useMatchStore(state => state.sports);
+  const leagues = useMatchStore(state => state.leagues);
   
-  // Fetch matches for all leagues
-  const leagueIds = useMemo(() => {
-    const ids: Array<{ sport: string; leagueId: string }> = [];
-    sports.forEach((sport: any) => {
-      sport.leagues?.forEach((league: any) => {
-        ids.push({ sport: sport.sport_key, leagueId: league.league_id });
+  // Get prematch matches from store - reads current state without subscribing
+  const prematchMatches = useMemo(() => {
+    const currentMatches = useMatchStore.getState().matches;
+    const currentOdds = useMatchStore.getState().odds;
+    
+    // Filter for upcoming matches and enrich with odds
+    return Array.from(currentMatches.values())
+      .filter(m => m.status === 'upcoming')
+      .map(match => ({
+        ...match,
+        odds: currentOdds.get(match.match_id)
+      }));
+  }, [lastUpdate]);
+
+  // Group prematch matches by sport and league (similar to Live page)
+  const sportGroups = useMemo(() => {
+    const groupsMap = new Map<string, any>();
+    
+    for (const match of prematchMatches) {
+      const sport = sports.find(s => s.sport_key === match.sport_key);
+      if (!sport) continue;
+      
+      // Get or create sport group
+      let sportGroup = groupsMap.get(match.sport_key);
+      if (!sportGroup) {
+        sportGroup = {
+          id: match.sport_key,
+          name: sport.sport_title,
+          sport_icon: sport.sport_icon,
+          leagues: new Map<string, any>()
+        };
+        groupsMap.set(match.sport_key, sportGroup);
+      }
+      
+      // Get or create league within sport
+      let league = sportGroup.leagues.get(match.league_id);
+      if (!league) {
+        league = {
+          id: match.league_id,
+          name: match.league_name,
+          matches: []
+        };
+        sportGroup.leagues.set(match.league_id, league);
+      }
+      
+      // Transform match to component format
+      const transformedMatch = {
+        id: match.match_id,
+        homeTeam: {
+          name: match.home_team,
+          logo: match.home_team_logo,
+        },
+        awayTeam: {
+          name: match.away_team,
+          logo: match.away_team_logo,
+        },
+        kickoffTime: match.commence_time,
+        venue: match.venue,
+        odds: match.odds ? {
+          home: match.odds.home,
+          draw: match.odds.draw,
+          away: match.odds.away,
+        } : { home: 0, draw: 0, away: 0 },
+        additionalMarkets: match.bookmakers?.[0]?.markets?.length || 0,
+      };
+      
+      league.matches.push(transformedMatch);
+    }
+    
+    // Convert maps to arrays
+    const groups: any[] = [];
+    groupsMap.forEach(sportGroup => {
+      const leaguesArray = Array.from(sportGroup.leagues.values());
+      groups.push({
+        id: sportGroup.id,
+        name: sportGroup.name,
+        sport_icon: sportGroup.sport_icon,
+        leagues: leaguesArray,
+        total_matches: leaguesArray.reduce((sum, l: any) => sum + l.matches.length, 0)
       });
     });
-    console.log('[LINE] League IDs to fetch:', ids.length);
-    return ids;
-  }, [sports]);
-
-  // Fetch all league matches in parallel
-  const leagueMatchesQueries = useQuery({
-    queryKey: ['/api/line/all', mode, leagueIds.map(l => l.leagueId).join(',')],
-    queryFn: async () => {
-      console.log('[LINE] Fetching matches for', leagueIds.length, 'leagues');
-      const results = await Promise.all(
-        leagueIds.map(async ({ sport, leagueId }) => {
-          try {
-            const response = await fetch(`/api/line/${sport}/${leagueId}?mode=${mode}`);
-            if (!response.ok) return { sport, leagueId, matches: [] };
-            const result = await response.json();
-            return { sport, leagueId, matches: result.data?.matches || [] };
-          } catch (error) {
-            return { sport, leagueId, matches: [] };
-          }
-        })
-      );
-      console.log('[LINE] Fetched results:', results.length, 'Total matches:', results.reduce((sum, r) => sum + r.matches.length, 0));
-      return results;
-    },
-    enabled: leagueIds.length > 0,
-    staleTime: mode === 'live' ? 30 * 1000 : 3 * 60 * 1000,
-  });
-
-  const isLoading = menuLoading || leagueMatchesQueries.isLoading;
-
-  // Build match lookup by league
-  const matchesByLeague = useMemo(() => {
-    const map = new Map<string, any[]>();
-    leagueMatchesQueries.data?.forEach(({ leagueId, matches }) => {
-      map.set(leagueId, matches);
-    });
-    console.log('[LINE] Matches by league map size:', map.size);
-    return map;
-  }, [leagueMatchesQueries.data]);
-
-  // Group sports with their leagues and matches - maintaining menu order
-  const sportGroups = useMemo(() => {
-    const groups = sports.map((sport: any) => ({
-      id: sport.sport_key,
-      name: sport.sport_title,
-      leagues: sport.leagues?.map((league: any) => ({
-        id: league.league_id,
-        name: league.league_name,
-        matches: (matchesByLeague.get(league.league_id) || []).map((match: any) => ({
-          id: match.match_id,
-          homeTeam: {
-            name: match.home_team,
-            logo: match.home_team_logo,
-          },
-          awayTeam: {
-            name: match.away_team,
-            logo: match.away_team_logo,
-          },
-          kickoffTime: match.commence_time,
-          venue: match.venue,
-          odds: match.bookmakers?.[0]?.markets?.find((m: any) => m.key === 'h2h')
-            ? {
-                home: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.home_team)?.price || 0,
-                draw: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === 'Draw')?.price || 0,
-                away: match.bookmakers[0].markets.find((m: any) => m.key === 'h2h')?.outcomes?.find((o: any) => o.name === match.away_team)?.price || 0,
-              }
-            : { home: 0, draw: 0, away: 0 },
-          additionalMarkets: match.bookmakers?.[0]?.markets?.length || 0,
-        }))
-      })) || []
-    }));
-    console.log('[LINE] Sport groups:', groups.length, 'Total matches:', groups.reduce((sum: number, g: any) => sum + g.leagues.reduce((s: number, l: any) => s + l.matches.length, 0), 0));
+    
     return groups;
-  }, [sports, matchesByLeague]);
+  }, [prematchMatches, sports]);
 
   // Collect all matches for Popular Events
   const allMatchesWithLeague = useMemo(() => {
@@ -197,7 +186,7 @@ function LineContent() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {/* Show content immediately - no skeleton loader */}
+      {/* Show content immediately - data always available from store */}
       {!hasMatches ? (
         /* No data state */
         <div className="container mx-auto pb-6">
