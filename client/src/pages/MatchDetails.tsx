@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import PageLoader from "@/components/PageLoader";
 import {
   ChevronDown,
   ChevronUp,
@@ -95,43 +95,6 @@ interface MatchDetails {
   sportKey?: string;
 }
 
-// Mobile-first Skeleton Loader
-function MatchDetailsSkeleton() {
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header Skeleton */}
-      <div className="bg-gradient-to-br from-primary/20 to-primary/10 p-4">
-        <Skeleton className="h-4 w-32 mx-auto mb-4" />
-        <div className="flex items-center justify-center gap-4 mb-4">
-          <div className="text-center flex-1 max-w-[120px]">
-            <Skeleton className="h-12 w-12 rounded-full mx-auto mb-2" />
-            <Skeleton className="h-4 w-20 mx-auto" />
-          </div>
-          <Skeleton className="h-10 w-24" />
-          <div className="text-center flex-1 max-w-[120px]">
-            <Skeleton className="h-12 w-12 rounded-full mx-auto mb-2" />
-            <Skeleton className="h-4 w-20 mx-auto" />
-          </div>
-        </div>
-        <Skeleton className="h-3 w-40 mx-auto" />
-      </div>
-
-      {/* Markets Skeleton */}
-      <div className="p-4 space-y-4">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="p-4">
-            <Skeleton className="h-5 w-32 mb-4" />
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {[1, 2, 3].map((j) => (
-                <Skeleton key={j} className="h-16" />
-              ))}
-            </div>
-          </Card>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // Sport-specific market configuration
 const SPORT_MARKET_LABELS: Record<string, Record<string, string>> = {
@@ -190,7 +153,7 @@ function transformBookmakersToMarkets(bookmakers: any[], sportKey: string = 'def
 }
 
 export default function MatchDetails() {
-  const { onAddToBetSlip } = useBetSlip();
+  const { onAddToBetSlip, betSlipSelections } = useBetSlip();
   const [, params] = useRoute("/match/:id");
   const matchId = params?.id;
   const [expandedMarkets, setExpandedMarkets] = useState<Record<string, boolean>>({});
@@ -266,12 +229,11 @@ export default function MatchDetails() {
   // Use stored commence_time to prevent countdown from changing
   const countdown = useCountdown(commenceTime || new Date().toISOString());
 
-  // Determine loading state - show skeleton while fetching or waiting for Ably data
-  // Don't show error immediately - give time for Ably subscription to populate store
+  // Show page loader only while fetching from API (no skeleton)
   const isLoading = (!matchSource && apiMatchLoading) || marketsLoading;
 
   if (isLoading) {
-    return <MatchDetailsSkeleton />;
+    return <PageLoader />;
   }
 
   // Only show "not found" if API explicitly returned 404 or data is truly unavailable
@@ -288,15 +250,21 @@ export default function MatchDetails() {
     );
   }
 
-  // Continue showing skeleton if no data yet (waiting for Ably)
+  // Continue showing page loader if no data yet (waiting for Ably)
   if (!matchSource) {
-    return <MatchDetailsSkeleton />;
+    return <PageLoader />;
   }
 
   // Validate that essential match data exists
   if (!matchSource.home_team || !matchSource.away_team || !matchSource.match_id) {
-    return <MatchDetailsSkeleton />;
+    return <PageLoader />;
   }
+
+  // Determine actual match status - use backend status as source of truth
+  // Only show LIVE if backend says it's live, not based on countdown
+  const actualStatus = matchSource.status === 'live' ? 'LIVE' 
+                      : matchSource.status === 'completed' ? 'FINISHED' 
+                      : 'SCHEDULED';
 
   const match: MatchDetails = {
     id: matchSource.match_id,
@@ -310,7 +278,7 @@ export default function MatchDetails() {
     },
     league: matchSource.league_name || 'Unknown League',
     kickoffTime: matchSource.commence_time || new Date().toISOString(),
-    status: matchSource.status === 'live' ? 'LIVE' : matchSource.status === 'completed' ? 'FINISHED' : 'SCHEDULED',
+    status: actualStatus,
     homeScore: matchSource.scores?.home,
     awayScore: matchSource.scores?.away,
     sportKey: matchSource.sport_key,
@@ -385,6 +353,12 @@ export default function MatchDetails() {
     };
 
     onAddToBetSlip(selection);
+  };
+
+  // Helper function to check if an outcome is selected in the betslip
+  const isOutcomeSelected = (market: Market, outcome: any): boolean => {
+    const selectionId = `${match.id}-${market.key}-${outcome.name}`;
+    return betSlipSelections?.some(selection => selection.id === selectionId) || false;
   };
 
   const getTeamNameSize = (name: string): string => {
@@ -473,7 +447,7 @@ export default function MatchDetails() {
 
         {/* Countdown Timer - Always visible */}
         <div className="flex items-center justify-center gap-1 sm:gap-1.5 text-foreground/90 mb-2 min-h-[52px]" data-testid="match-countdown-container">
-          {countdown.isLive || match.status === "LIVE" ? (
+          {match.status === "LIVE" ? (
             <div className="flex items-center gap-2" data-testid="match-live-indicator">
               <div className="w-2.5 h-2.5 rounded-full bg-destructive live-blink" />
               <span className="text-xl sm:text-2xl font-bold text-destructive tracking-wider">
@@ -644,26 +618,29 @@ export default function MatchDetails() {
                         className="overflow-hidden"
                       >
                         <div className="p-4 pt-0 grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {market.outcomes.map((outcome: any, idx: number) => (
-                            <button
-                              key={idx}
-                              onClick={() => handleOddsClick(market, outcome)}
-                              className="
-                                odds-button
-                                flex flex-col items-center justify-center gap-1
-                                h-auto py-3 px-2 rounded-md
-                                min-w-0 w-full
-                              "
-                              data-testid={`button-odds-${market.key}-${idx}`}
-                            >
-                              <span className="text-xs opacity-90 truncate w-full text-center">
-                                {outcome.point !== undefined ? `${outcome.name} ${outcome.point > 0 ? '+' : ''}${outcome.point}` : outcome.name}
-                              </span>
-                              <span className="text-base sm:text-lg font-bold">
-                                {outcome.price.toFixed(2)}
-                              </span>
-                            </button>
-                          ))}
+                          {market.outcomes.map((outcome: any, idx: number) => {
+                            const isSelected = isOutcomeSelected(market, outcome);
+                            return (
+                              <button
+                                key={idx}
+                                onClick={() => handleOddsClick(market, outcome)}
+                                className={`
+                                  ${isSelected ? 'odds-button-selected' : 'odds-button'}
+                                  flex flex-col items-center justify-center gap-1
+                                  h-auto py-3 px-2 rounded-md
+                                  min-w-0 w-full
+                                `}
+                                data-testid={`button-odds-${market.key}-${idx}`}
+                              >
+                                <span className="text-xs opacity-90 truncate w-full text-center">
+                                  {outcome.point !== undefined ? `${outcome.name} ${outcome.point > 0 ? '+' : ''}${outcome.point}` : outcome.name}
+                                </span>
+                                <span className="text-base sm:text-lg font-bold">
+                                  {outcome.price.toFixed(2)}
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </motion.div>
                     )}
