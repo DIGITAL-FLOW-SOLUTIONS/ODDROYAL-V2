@@ -1031,6 +1031,37 @@ export function registerOddsApiRoutes(app: Express): void {
         leagues.push(...sportLeagues);
       });
       
+      // Pre-generate markets for all matches for instant display
+      const { marketGenerator } = await import('./market-generator');
+      const allMarkets: any[] = [];
+      
+      for (const match of matches) {
+        try {
+          const markets = marketGenerator.generateMarkets(
+            match.match_id,
+            match.sport_key,
+            match.home_team,
+            match.away_team
+          );
+          
+          // Add each market with proper structure
+          markets.forEach((market: any) => {
+            allMarkets.push({
+              market_id: `${match.match_id}_${market.key}`,
+              match_id: match.match_id,
+              key: market.key,
+              name: market.name,
+              description: market.description,
+              outcomes: market.outcomes
+            });
+          });
+        } catch (error) {
+          console.error(`Failed to generate markets for match ${match.match_id}:`, error);
+        }
+      }
+      
+      console.log(`[Hydrate] Generated ${allMarkets.length} markets for ${matches.length} matches`);
+      
       res.json({
         success: true,
         data: {
@@ -1040,7 +1071,8 @@ export function registerOddsApiRoutes(app: Express): void {
             sport_icon: getSportIcon(s.key)
           })),
           leagues,
-          matches
+          matches,
+          markets: allMarkets
         },
         timestamp: Date.now(),
         source: 'redis_canonical'

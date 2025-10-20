@@ -52,6 +52,7 @@ export interface Market {
   match_id: string;
   key: string;
   name: string;
+  description?: string;
   outcomes: any[];
 }
 
@@ -85,6 +86,7 @@ interface MatchStore {
     matches: Match[];
     sports: Sport[];
     leagues: League[];
+    markets?: Market[];
   }) => void;
   
   // Actions for diff-based updates (WebSocket patches)
@@ -107,6 +109,7 @@ interface MatchStore {
   getMatchesByLeague: (sportKey: string, leagueId: string) => Match[];
   getMatch: (matchId: string) => Match | undefined;
   getOdds: (matchId: string) => Odds | undefined;
+  getMarkets: (matchId: string) => Market[];
   
   // Clear all data
   clearAll: () => void;
@@ -126,6 +129,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   setInitialData: (data) => {
     const matchesMap = new Map<string, Match>();
     const oddsMap = new Map<string, Odds>();
+    const marketsMap = new Map<string, Market>();
     const leaguesMap = new Map<string, League[]>();
     
     // Build matches map
@@ -153,6 +157,13 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       }
     });
     
+    // Build markets map from pre-generated markets
+    if (data.markets) {
+      data.markets.forEach(market => {
+        marketsMap.set(market.market_id, market);
+      });
+    }
+    
     // Build leagues map
     data.leagues.forEach(league => {
       const sportLeagues = leaguesMap.get(league.sport_key) || [];
@@ -163,6 +174,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     set({
       matches: matchesMap,
       odds: oddsMap,
+      markets: marketsMap,
       sports: data.sports,
       leagues: leaguesMap,
       lastUpdate: Date.now(),
@@ -171,6 +183,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     console.log('📊 Store initialized:', {
       matches: matchesMap.size,
       odds: oddsMap.size,
+      markets: marketsMap.size,
       sports: data.sports.length,
       leagues: leaguesMap.size,
     });
@@ -378,6 +391,11 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   
   getOdds: (matchId) => {
     return get().odds.get(matchId);
+  },
+  
+  getMarkets: (matchId) => {
+    const { markets } = get();
+    return Array.from(markets.values()).filter(m => m.match_id === matchId);
   },
   
   // Clear all
