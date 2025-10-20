@@ -580,7 +580,7 @@ export default function MatchDetails() {
       )}
 
       {/* Markets Section */}
-      <div className="p-4 space-y-3">
+      <div className="p-4">
         {markets.length === 0 ? (
           <Card className="p-6">
             <div className="text-center">
@@ -592,14 +592,15 @@ export default function MatchDetails() {
           </Card>
         ) : (
           <AnimatePresence>
-            {markets.map((market, index) => (
-              <motion.div
-                key={market.key}
-                id={`market-${market.key}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
-              >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {markets.map((market, index) => (
+                <motion.div
+                  key={market.key}
+                  id={`market-${market.key}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                >
                 <Card className="overflow-hidden">
                   <button
                     onClick={() => toggleMarket(market.key)}
@@ -663,6 +664,7 @@ export default function MatchDetails() {
                 </Card>
               </motion.div>
             ))}
+            </div>
           </AnimatePresence>
         )}
       </div>
