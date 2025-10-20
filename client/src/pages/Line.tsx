@@ -11,7 +11,6 @@ import PopularEvents from "@/components/PopularEvents";
 import TopLeagues from "@/components/TopLeagues";
 import SportsMatches from "@/components/SportsMatches";
 import OtherSports from "@/components/OtherSports";
-import { LineMatchSkeleton } from "@/components/SkeletonLoaders";
 
 function LineContent() {
   const { onAddToBetSlip } = useBetSlip();
@@ -198,10 +197,8 @@ function LineContent() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {/* Loading State with Skeleton */}
-      {isLoading ? (
-        <LineMatchSkeleton />
-      ) : !hasMatches ? (
+      {/* Show content immediately - no skeleton loader */}
+      {!hasMatches ? (
         /* No data state */
         <div className="container mx-auto pb-6">
           <HeroBanner />
