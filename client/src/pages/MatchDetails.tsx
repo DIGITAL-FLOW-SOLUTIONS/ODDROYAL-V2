@@ -10,12 +10,53 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  Calendar,
   MapPin,
 } from "lucide-react";
 import { useBetSlip } from "@/contexts/BetSlipContext";
 import { useMatchStore } from "@/store/matchStore";
 import { LazyImage } from "@/components/LazyImage";
+
+interface CountdownTime {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+}
+
+function useCountdown(targetDate: string): CountdownTime {
+  const [countdown, setCountdown] = useState<CountdownTime>({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+  });
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date().getTime();
+      const target = new Date(targetDate).getTime();
+      const difference = target - now;
+
+      if (difference > 0) {
+        setCountdown({
+          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+          minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
+          seconds: Math.floor((difference % (1000 * 60)) / 1000),
+        });
+      } else {
+        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [targetDate]);
+
+  return countdown;
+}
 
 interface Market {
   key: string;
@@ -272,7 +313,15 @@ export default function MatchDetails() {
     onAddToBetSlip(selection);
   };
 
+  const getTeamNameSize = (name: string): string => {
+    const length = name.length;
+    if (length <= 10) return "text-sm";
+    if (length <= 15) return "text-xs";
+    return "text-[10px]";
+  };
+
   const kickoff = formatKickoffTime(match.kickoffTime);
+  const countdown = useCountdown(match.kickoffTime);
 
   return (
     <div className="min-h-screen bg-background">
@@ -284,81 +333,119 @@ export default function MatchDetails() {
         </div>
 
         {/* Team Display */}
-        <div className="flex items-center justify-center gap-4 mb-4">
+        <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3">
           {/* Home Team */}
-          <div className="text-center flex-1 max-w-[120px]">
-            <div className="w-12 h-12 bg-background/20 rounded-full flex items-center justify-center mx-auto mb-2">
+          <div className="text-center flex-1 max-w-[100px] sm:max-w-[120px]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-background/20 rounded-full flex items-center justify-center mx-auto mb-1.5 sm:mb-2">
               {match.homeTeam.logo ? (
                 <LazyImage 
                   src={match.homeTeam.logo} 
                   alt={match.homeTeam.name}
-                  className="w-8 h-8"
+                  className="w-6 h-6 sm:w-8 sm:h-8"
                   width={32}
                   height={32}
                 />
               ) : (
-                <span className="text-lg font-bold text-foreground">
+                <span className="text-base sm:text-lg font-bold text-foreground">
                   {match.homeTeam.name.charAt(0)}
                 </span>
               )}
             </div>
-            <p className="text-sm font-bold text-foreground truncate">
+            <p className={`${getTeamNameSize(match.homeTeam.name)} font-bold text-foreground leading-tight px-1`}>
               {match.homeTeam.name}
             </p>
           </div>
 
           {/* Score/Time */}
-          <div className="text-center min-w-[80px]">
-            <div className="text-2xl md:text-3xl font-bold text-foreground mb-1">
+          <div className="text-center min-w-[60px] sm:min-w-[80px]">
+            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-0.5 sm:mb-1">
               {match.status === "LIVE" &&
               match.homeScore !== undefined &&
               match.awayScore !== undefined
                 ? `${match.homeScore} - ${match.awayScore}`
                 : kickoff.time}
             </div>
+            <div className="text-[10px] sm:text-xs text-muted-foreground">
+              {kickoff.date}
+            </div>
             {match.status === "LIVE" && match.minute && (
-              <Badge variant="destructive" className="text-xs">
+              <Badge variant="destructive" className="text-xs mt-1">
                 {match.minute}' LIVE
               </Badge>
             )}
           </div>
 
           {/* Away Team */}
-          <div className="text-center flex-1 max-w-[120px]">
-            <div className="w-12 h-12 bg-background/20 rounded-full flex items-center justify-center mx-auto mb-2">
+          <div className="text-center flex-1 max-w-[100px] sm:max-w-[120px]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-background/20 rounded-full flex items-center justify-center mx-auto mb-1.5 sm:mb-2">
               {match.awayTeam.logo ? (
                 <LazyImage 
                   src={match.awayTeam.logo} 
                   alt={match.awayTeam.name}
-                  className="w-8 h-8"
+                  className="w-6 h-6 sm:w-8 sm:h-8"
                   width={32}
                   height={32}
                 />
               ) : (
-                <span className="text-lg font-bold text-foreground">
+                <span className="text-base sm:text-lg font-bold text-foreground">
                   {match.awayTeam.name.charAt(0)}
                 </span>
               )}
             </div>
-            <p className="text-sm font-bold text-foreground truncate">
+            <p className={`${getTeamNameSize(match.awayTeam.name)} font-bold text-foreground leading-tight px-1`}>
               {match.awayTeam.name}
             </p>
           </div>
         </div>
 
-        {/* Match Info */}
-        <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            <span>{kickoff.date}</span>
+        {/* Countdown Timer */}
+        {match.status !== "LIVE" && match.status !== "FINISHED" && (
+          <div className="flex items-center justify-center gap-1 sm:gap-1.5 text-foreground/90 mb-2">
+            <div className="text-center min-w-[45px] sm:min-w-[52px]">
+              <div className="text-lg sm:text-xl font-bold leading-none">
+                {String(countdown.days).padStart(2, '0')}
+              </div>
+              <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
+                days
+              </div>
+            </div>
+            <span className="text-base sm:text-lg font-bold pb-3">:</span>
+            <div className="text-center min-w-[45px] sm:min-w-[52px]">
+              <div className="text-lg sm:text-xl font-bold leading-none">
+                {String(countdown.hours).padStart(2, '0')}
+              </div>
+              <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
+                hours
+              </div>
+            </div>
+            <span className="text-base sm:text-lg font-bold pb-3">:</span>
+            <div className="text-center min-w-[45px] sm:min-w-[52px]">
+              <div className="text-lg sm:text-xl font-bold leading-none">
+                {String(countdown.minutes).padStart(2, '0')}
+              </div>
+              <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
+                minutes
+              </div>
+            </div>
+            <span className="text-base sm:text-lg font-bold pb-3">:</span>
+            <div className="text-center min-w-[45px] sm:min-w-[52px]">
+              <div className="text-lg sm:text-xl font-bold leading-none">
+                {String(countdown.seconds).padStart(2, '0')}
+              </div>
+              <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
+                seconds
+              </div>
+            </div>
           </div>
-          {match.venue && (
-            <>
-              <span>•</span>
-              <span>{match.venue}</span>
-            </>
-          )}
-        </div>
+        )}
+
+        {/* Venue Info */}
+        {match.venue && (
+          <div className="flex items-center justify-center text-xs text-muted-foreground">
+            <MapPin className="w-3 h-3 mr-1" />
+            <span>{match.venue}</span>
+          </div>
+        )}
       </div>
 
       {/* Markets Section */}
