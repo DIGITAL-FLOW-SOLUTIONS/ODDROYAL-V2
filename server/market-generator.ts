@@ -68,6 +68,18 @@ class MarketGenerator {
   private generateFootballMarkets(homeTeam: string, awayTeam: string): Market[] {
     const markets: Market[] = [];
     
+    // 1X2 Match Winner (MUST BE FIRST - Primary market)
+    const [home1x2, draw1x2, away1x2] = this.generateBalancedOdds(3);
+    markets.push({
+      key: 'h2h',
+      name: 'Match Winner (1X2)',
+      outcomes: [
+        { name: homeTeam, price: home1x2 },
+        { name: 'Draw', price: draw1x2 },
+        { name: awayTeam, price: away1x2 }
+      ]
+    });
+    
     // Over/Under Goals
     const totals = [0.5, 1.5, 2.5, 3.5, 4.5];
     totals.forEach(total => {
@@ -446,6 +458,17 @@ class MarketGenerator {
   private generateBasketballMarkets(homeTeam: string, awayTeam: string): Market[] {
     const markets: Market[] = [];
     
+    // Match Winner (MUST BE FIRST - Primary market)
+    const [homeWinner, awayWinner] = this.generateBalancedOdds(2);
+    markets.push({
+      key: 'h2h',
+      name: 'Match Winner',
+      outcomes: [
+        { name: homeTeam, price: homeWinner },
+        { name: awayTeam, price: awayWinner }
+      ]
+    });
+    
     // Total Points
     const totals = [180.5, 190.5, 200.5, 210.5, 220.5];
     totals.forEach(total => {
@@ -508,6 +531,17 @@ class MarketGenerator {
    */
   private generateAmericanFootballMarkets(homeTeam: string, awayTeam: string): Market[] {
     const markets: Market[] = [];
+    
+    // Moneyline (MUST BE FIRST - Primary market)
+    const [homeML, awayML] = this.generateBalancedOdds(2);
+    markets.push({
+      key: 'h2h',
+      name: 'Moneyline',
+      outcomes: [
+        { name: homeTeam, price: homeML },
+        { name: awayTeam, price: awayML }
+      ]
+    });
     
     // Total Points
     const totals = [40.5, 45.5, 50.5, 55.5];
@@ -572,6 +606,17 @@ class MarketGenerator {
   private generateBaseballMarkets(homeTeam: string, awayTeam: string): Market[] {
     const markets: Market[] = [];
     
+    // Moneyline (MUST BE FIRST - Primary market)
+    const [homeML, awayML] = this.generateBalancedOdds(2);
+    markets.push({
+      key: 'h2h',
+      name: 'Moneyline',
+      outcomes: [
+        { name: homeTeam, price: homeML },
+        { name: awayTeam, price: awayML }
+      ]
+    });
+    
     // Total Runs
     const totals = [7.5, 8.5, 9.5, 10.5];
     totals.forEach(total => {
@@ -622,6 +667,18 @@ class MarketGenerator {
    */
   private generateIceHockeyMarkets(homeTeam: string, awayTeam: string): Market[] {
     const markets: Market[] = [];
+    
+    // Match Winner (MUST BE FIRST - Primary market)
+    const [homeWinner, drawWinner, awayWinner] = this.generateBalancedOdds(3);
+    markets.push({
+      key: 'h2h',
+      name: 'Match Winner (Regulation Time)',
+      outcomes: [
+        { name: homeTeam, price: homeWinner },
+        { name: 'Draw', price: drawWinner },
+        { name: awayTeam, price: awayWinner }
+      ]
+    });
     
     // Total Goals
     const totals = [4.5, 5.5, 6.5];
@@ -699,6 +756,17 @@ class MarketGenerator {
   private generateCricketMarkets(homeTeam: string, awayTeam: string): Market[] {
     const markets: Market[] = [];
     
+    // Match Winner (MUST BE FIRST - Primary market)
+    const [homeWinner, awayWinner] = this.generateBalancedOdds(2);
+    markets.push({
+      key: 'h2h',
+      name: 'Match Winner',
+      outcomes: [
+        { name: homeTeam, price: homeWinner },
+        { name: awayTeam, price: awayWinner }
+      ]
+    });
+    
     // Total Runs
     const totals = [250.5, 275.5, 300.5, 325.5];
     totals.forEach(total => {
@@ -743,6 +811,17 @@ class MarketGenerator {
    */
   private generateMMAMarkets(homeTeam: string, awayTeam: string): Market[] {
     const markets: Market[] = [];
+    
+    // Fight Winner (MUST BE FIRST - Primary market)
+    const [fighter1Winner, fighter2Winner] = this.generateBalancedOdds(2);
+    markets.push({
+      key: 'h2h',
+      name: 'Fight Winner',
+      outcomes: [
+        { name: homeTeam, price: fighter1Winner },
+        { name: awayTeam, price: fighter2Winner }
+      ]
+    });
     
     // Method of Victory
     const methods = ['KO/TKO', 'Submission', 'Decision', 'Draw'];
