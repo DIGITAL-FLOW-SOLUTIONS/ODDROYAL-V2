@@ -223,14 +223,16 @@ export default function MatchDetails() {
   // This prevents "Rendered more hooks than during the previous render" error
   const countdown = useCountdown(matchSource?.commence_time || new Date().toISOString());
 
-  // Determine loading state
-  const isLoading = (!storeMatch && apiMatchLoading) || marketsLoading;
+  // Determine loading state - show skeleton while fetching or waiting for Ably data
+  // Don't show error immediately - give time for Ably subscription to populate store
+  const isLoading = (!matchSource && apiMatchLoading) || marketsLoading;
 
   if (isLoading) {
     return <MatchDetailsSkeleton />;
   }
 
-  if (!matchSource) {
+  // Only show "not found" if API explicitly returned 404 or data is truly unavailable
+  if (!matchSource && apiMatchData?.error) {
     return (
       <div className="flex items-center justify-center min-h-screen p-4">
         <div className="text-center">
@@ -241,6 +243,11 @@ export default function MatchDetails() {
         </div>
       </div>
     );
+  }
+
+  // Continue showing skeleton if no data yet (waiting for Ably)
+  if (!matchSource) {
+    return <MatchDetailsSkeleton />;
   }
 
   const match: MatchDetails = {

@@ -568,21 +568,32 @@ export function registerOddsApiRoutes(app: Express): void {
             });
           }
           
-          // Import market generator
-          const { marketGenerator } = await import('./market-generator');
-          
-          // Generate markets based on sport type (with match ID for deterministic odds)
-          const generatedMarkets = marketGenerator.generateMarkets(
-            matchDetails.sport_key,
-            matchDetails.home_team,
-            matchDetails.away_team,
-            matchId
-          );
+          // Validate required fields before generating markets
+          let generatedMarkets: any[] = [];
+          if (matchDetails.sport_key && matchDetails.home_team && matchDetails.away_team) {
+            // Import market generator
+            const { marketGenerator } = await import('./market-generator');
+            
+            // Generate markets based on sport type (with match ID for deterministic odds)
+            generatedMarkets = marketGenerator.generateMarkets(
+              matchDetails.sport_key,
+              matchDetails.home_team,
+              matchDetails.away_team,
+              matchId
+            );
+          } else {
+            console.error('Match has incomplete data for market generation:', {
+              matchId,
+              sport_key: matchDetails.sport_key,
+              home_team: matchDetails.home_team,
+              away_team: matchDetails.away_team
+            });
+          }
           
           // Format markets response
           marketData = {
             match_id: matchId,
-            sport_key: matchDetails.sport_key,
+            sport_key: matchDetails.sport_key || 'unknown',
             markets: generatedMarkets,
             generated_at: new Date().toISOString(),
           };
@@ -643,12 +654,15 @@ export function registerOddsApiRoutes(app: Express): void {
       const { marketGenerator } = await import('./market-generator');
       
       // Generate markets based on sport type (with match ID for deterministic odds)
-      const generatedMarkets = marketGenerator.generateMarkets(
-        matchData.sport_key,
-        matchData.home_team,
-        matchData.away_team,
-        matchId
-      );
+      // Validate required fields before generating markets
+      const generatedMarkets = (matchData.sport_key && matchData.home_team && matchData.away_team)
+        ? marketGenerator.generateMarkets(
+            matchData.sport_key,
+            matchData.home_team,
+            matchData.away_team,
+            matchId
+          )
+        : [];
       
       // Try to get 1x2 odds from the match data (bookmakers h2h market)
       let h2hMarket = null;

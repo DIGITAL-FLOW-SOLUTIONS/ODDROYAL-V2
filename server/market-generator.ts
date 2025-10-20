@@ -19,7 +19,7 @@ interface Market {
 }
 
 class MarketGenerator {
-  private rng: () => number;
+  private rng: () => number = Math.random;
   
   /**
    * Seeded pseudo-random number generator for deterministic odds
@@ -792,6 +792,17 @@ class MarketGenerator {
    * Uses deterministic seeding for consistent odds
    */
   generateMarkets(sportKey: string, homeTeam: string, awayTeam: string, matchId?: string): Market[] {
+    // Validate inputs
+    if (!sportKey || !homeTeam || !awayTeam) {
+      console.error('MarketGenerator.generateMarkets: Missing required parameters', {
+        sportKey,
+        homeTeam,
+        awayTeam,
+        matchId
+      });
+      return [];
+    }
+
     // Initialize RNG with seed based on match details
     const seed = matchId || `${sportKey}-${homeTeam}-${awayTeam}`;
     this.rng = this.seedRandom(seed);
