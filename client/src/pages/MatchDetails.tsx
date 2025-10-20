@@ -271,6 +271,11 @@ export default function MatchDetails() {
     return <MatchDetailsSkeleton />;
   }
 
+  // Validate that essential match data exists
+  if (!matchSource.home_team || !matchSource.away_team || !matchSource.match_id) {
+    return <MatchDetailsSkeleton />;
+  }
+
   const match: MatchDetails = {
     id: matchSource.match_id,
     homeTeam: {
@@ -281,8 +286,8 @@ export default function MatchDetails() {
       name: matchSource.away_team,
       logo: matchSource.away_team_logo,
     },
-    league: matchSource.league_name,
-    kickoffTime: matchSource.commence_time,
+    league: matchSource.league_name || 'Unknown League',
+    kickoffTime: matchSource.commence_time || new Date().toISOString(),
     status: matchSource.status === 'live' ? 'LIVE' : matchSource.status === 'completed' ? 'FINISHED' : 'SCHEDULED',
     homeScore: matchSource.scores?.home,
     awayScore: matchSource.scores?.away,
@@ -378,12 +383,12 @@ export default function MatchDetails() {
                 />
               ) : (
                 <span className="text-base sm:text-lg font-bold text-foreground">
-                  {match.homeTeam.name.charAt(0)}
+                  {match.homeTeam.name?.charAt(0) || '?'}
                 </span>
               )}
             </div>
-            <p className={`${getTeamNameSize(match.homeTeam.name)} font-bold text-foreground leading-tight px-1`}>
-              {match.homeTeam.name}
+            <p className={`${getTeamNameSize(match.homeTeam.name || '')} font-bold text-foreground leading-tight px-1`}>
+              {match.homeTeam.name || 'Unknown'}
             </p>
           </div>
 
@@ -419,12 +424,12 @@ export default function MatchDetails() {
                 />
               ) : (
                 <span className="text-base sm:text-lg font-bold text-foreground">
-                  {match.awayTeam.name.charAt(0)}
+                  {match.awayTeam.name?.charAt(0) || '?'}
                 </span>
               )}
             </div>
-            <p className={`${getTeamNameSize(match.awayTeam.name)} font-bold text-foreground leading-tight px-1`}>
-              {match.awayTeam.name}
+            <p className={`${getTeamNameSize(match.awayTeam.name || '')} font-bold text-foreground leading-tight px-1`}>
+              {match.awayTeam.name || 'Unknown'}
             </p>
           </div>
         </div>
