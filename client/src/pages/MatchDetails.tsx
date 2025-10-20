@@ -17,6 +17,7 @@ import {
 import { useBetSlip } from "@/contexts/BetSlipContext";
 import { useMatchStore } from "@/store/matchStore";
 import { LazyImage } from "@/components/LazyImage";
+import { isLiveByTime, isMatchFinished } from "@/lib/matchStatusUtils";
 
 interface CountdownTime {
   days: number;
@@ -260,10 +261,15 @@ export default function MatchDetails() {
     return <PageLoader />;
   }
 
-  // Determine actual match status - use backend status as source of truth
-  // Only show LIVE if backend says it's live, not based on countdown
-  const actualStatus = matchSource.status === 'live' ? 'LIVE' 
-                      : matchSource.status === 'completed' ? 'FINISHED' 
+  // Determine actual match status - use centralized time-based check with cached commence_time
+  // This prevents flickering when backend status changes prematurely
+  // Use cached commence_time to handle edge case where API temporarily omits the field
+  const matchWithCachedTime = { 
+    ...matchSource, 
+    commence_time: commenceTime || matchSource.commence_time 
+  };
+  const actualStatus = isLiveByTime(matchWithCachedTime) ? 'LIVE' 
+                      : isMatchFinished(matchWithCachedTime) ? 'FINISHED' 
                       : 'SCHEDULED';
 
   const match: MatchDetails = {

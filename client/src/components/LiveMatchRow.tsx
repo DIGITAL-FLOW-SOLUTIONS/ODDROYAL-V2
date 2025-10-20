@@ -13,6 +13,7 @@ import { useLocation } from 'wouter';
 import { type CachedMatch } from '@/lib/liveMatchesCache';
 import { renderProfiler } from '@/lib/renderProfiler';
 import { LazyImage } from '@/components/LazyImage';
+import { isLiveByTime } from '@/lib/matchStatusUtils';
 
 interface LiveMatchRowProps {
   match: CachedMatch;
@@ -31,6 +32,10 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
   
   const [isFavorite, setIsFavorite] = useState(false);
   const [, setLocation] = useLocation();
+  
+  // Calculate if match is actually live using centralized utility
+  // This prevents showing "LIVE" for matches that haven't started yet or are finished
+  const isActuallyLive = isLiveByTime(match);
   
   // Get display status label
   const getStatusLabel = () => {
@@ -105,21 +110,30 @@ export const LiveMatchRow = memo(function LiveMatchRow({ match, onOddsClick, sel
         onClick={handleRowClick}
         data-testid={`live-match-row-${match.match_id}`}
       >
-        {/* LIVE Indicator with Blinking Effect */}
+        {/* LIVE Indicator with Blinking Effect - Only show when actually live */}
         <div className="flex-shrink-0 w-16 flex flex-col items-center justify-center gap-0.5">
-          <Badge
-            className={`bg-live-surface-1 text-red-100 text-xs font-bold border-0 flex items-center gap-1 ${
-              match.status === 'live' ? 'animate-pulse' : ''
-            }`}
-            data-testid={`live-indicator-${match.match_id}`}
-          >
-            <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
-            LIVE
-          </Badge>
-          {statusLabel && match.live_status !== 'in_play' && (
-            <span className="text-[10px] text-muted-foreground font-medium" data-testid={`status-${match.match_id}`}>
-              {statusLabel}
-            </span>
+          {isActuallyLive ? (
+            <>
+              <Badge
+                className="bg-live-surface-1 text-red-100 text-xs font-bold border-0 flex items-center gap-1 animate-pulse"
+                data-testid={`live-indicator-${match.match_id}`}
+              >
+                <span className="w-1.5 h-1.5 bg-red-500 rounded-full" />
+                LIVE
+              </Badge>
+              {statusLabel && match.live_status !== 'in_play' && (
+                <span className="text-[10px] text-muted-foreground font-medium" data-testid={`status-${match.match_id}`}>
+                  {statusLabel}
+                </span>
+              )}
+            </>
+          ) : (
+            <Badge
+              className="bg-surface-4 text-muted-foreground text-xs font-bold border-0"
+              data-testid={`countdown-indicator-${match.match_id}`}
+            >
+              SOON
+            </Badge>
           )}
         </div>
 

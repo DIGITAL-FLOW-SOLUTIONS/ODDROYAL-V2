@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { Clock, Star, Plus } from "lucide-react";
+import { isLiveByTime } from "@/lib/matchStatusUtils";
 
 interface Team {
   id: string;
@@ -40,6 +41,10 @@ const MatchCard = memo(function MatchCard({ match, onAddToBetSlip }: MatchCardPr
   const [isFavorite, setIsFavorite] = useState(match?.isFavorite || false);
   const [, setLocation] = useLocation();
   const renderCountRef = useRef(0);
+
+  // Calculate if match is actually live using centralized utility
+  // This prevents showing "LIVE" for matches that haven't started yet or are finished
+  const isActuallyLive = isLiveByTime({ commence_time: match.kickoffTime, status: match.status });
 
   // Track renders for debugging
   useEffect(() => {
@@ -119,13 +124,13 @@ const MatchCard = memo(function MatchCard({ match, onAddToBetSlip }: MatchCardPr
             <div className="flex items-center gap-2">
               <Badge 
                 className={`text-xs border-0 ${
-                  match.status === "live" 
+                  isActuallyLive 
                     ? "bg-live-surface-1 text-red-100" 
                     : "bg-surface-6 text-foreground"
                 }`}
                 data-testid={`status-${match.id}`}
               >
-                {match.status === "live" ? `${match.minute}'` : formatTime(match.kickoffTime)}
+                {isActuallyLive ? `${match.minute}'` : formatTime(match.kickoffTime)}
               </Badge>
               <span className="text-xs text-muted-foreground">{match.league}</span>
             </div>
@@ -151,7 +156,7 @@ const MatchCard = memo(function MatchCard({ match, onAddToBetSlip }: MatchCardPr
                 <span className="font-medium" data-testid={`text-home-team-${match.id}`}>
                   {match.homeTeam.name}
                 </span>
-                {match.status === "live" && match.homeTeam.score !== undefined && (
+                {isActuallyLive && match.homeTeam.score !== undefined && (
                   <Badge className="text-xs bg-surface-6 text-foreground border-0">
                     {match.homeTeam.score}
                   </Badge>
@@ -163,7 +168,7 @@ const MatchCard = memo(function MatchCard({ match, onAddToBetSlip }: MatchCardPr
                 <span className="font-medium" data-testid={`text-away-team-${match.id}`}>
                   {match.awayTeam.name}
                 </span>
-                {match.status === "live" && match.awayTeam.score !== undefined && (
+                {isActuallyLive && match.awayTeam.score !== undefined && (
                   <Badge className="text-xs bg-surface-6 text-foreground border-0">
                     {match.awayTeam.score}
                   </Badge>

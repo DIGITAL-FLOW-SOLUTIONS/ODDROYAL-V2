@@ -10,6 +10,7 @@ import { useMatchStore } from "@/store/matchStore";
 import { renderProfiler } from "@/lib/renderProfiler";
 import { FPSCounter } from "@/components/FPSCounter";
 import { useBetSlip } from "@/contexts/BetSlipContext";
+import { isLiveByTime } from "@/lib/matchStatusUtils";
 
 export default function Live() {
   const { onAddToBetSlip, betSlipSelections } = useBetSlip();
@@ -29,9 +30,10 @@ export default function Live() {
   const leagues = useMatchStore(state => state.leagues);
   
   // Filter live matches - reads current state without subscribing to it
+  // Use centralized time-based check to determine if match is actually live
   const liveMatches = useMemo(() => {
     const currentMatches = useMatchStore.getState().matches;
-    return Array.from(currentMatches.values()).filter(m => m.status === 'live');
+    return Array.from(currentMatches.values()).filter(m => isLiveByTime(m));
   }, [lastUpdate]);
   
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
