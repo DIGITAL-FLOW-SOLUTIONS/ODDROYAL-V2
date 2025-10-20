@@ -12,56 +12,10 @@ import {
   Clock,
   Calendar,
   MapPin,
-  Shield,
 } from "lucide-react";
 import { useBetSlip } from "@/contexts/BetSlipContext";
 import { useMatchStore } from "@/store/matchStore";
 import { LazyImage } from "@/components/LazyImage";
-
-// Countdown Timer Hook
-function useCountdown(targetDate: string) {
-  const [timeLeft, setTimeLeft] = useState({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-    isExpired: false,
-  });
-
-  useEffect(() => {
-    const calculateTimeLeft = () => {
-      const target = new Date(targetDate).getTime();
-      const now = new Date().getTime();
-      const difference = target - now;
-
-      if (difference <= 0) {
-        setTimeLeft({
-          days: 0,
-          hours: 0,
-          minutes: 0,
-          seconds: 0,
-          isExpired: true,
-        });
-        return;
-      }
-
-      setTimeLeft({
-        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-        minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
-        seconds: Math.floor((difference % (1000 * 60)) / 1000),
-        isExpired: false,
-      });
-    };
-
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000);
-
-    return () => clearInterval(timer);
-  }, [targetDate]);
-
-  return timeLeft;
-}
 
 interface Market {
   key: string;
@@ -221,19 +175,15 @@ export default function MatchDetails() {
     refetchInterval: 30000,
   });
 
-  // Use store match if available, otherwise use API fallback
-  const matchSource = storeMatch || apiMatchData?.data;
-  
-  // IMPORTANT: Call useCountdown hook BEFORE any conditional returns
-  // to satisfy React's Rules of Hooks
-  const countdown = useCountdown(matchSource?.commence_time || new Date().toISOString());
-
   // Determine loading state
   const isLoading = (!storeMatch && apiMatchLoading) || marketsLoading;
 
   if (isLoading) {
     return <MatchDetailsSkeleton />;
   }
+
+  // Use store match if available, otherwise use API fallback
+  const matchSource = storeMatch || apiMatchData?.data;
 
   if (!matchSource) {
     return (
@@ -327,103 +277,77 @@ export default function MatchDetails() {
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile-First Match Header */}
-      <div className="bg-gradient-to-br from-primary/20 to-primary/10 p-4 md:p-6">
+      <div className="bg-gradient-to-br from-primary/20 to-primary/10 p-4">
         <div className="flex items-center justify-center gap-2 mb-4">
           <MapPin className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-foreground">{match.league}</span>
         </div>
 
         {/* Team Display */}
-        <div className="flex items-center justify-center gap-6 md:gap-8 mb-4">
+        <div className="flex items-center justify-center gap-4 mb-4">
           {/* Home Team */}
-          <div className="text-center flex-1 max-w-[140px]">
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-background/30 rounded-full flex items-center justify-center mx-auto mb-2 border-2 border-background/20">
+          <div className="text-center flex-1 max-w-[120px]">
+            <div className="w-12 h-12 bg-background/20 rounded-full flex items-center justify-center mx-auto mb-2">
               {match.homeTeam.logo ? (
                 <LazyImage 
                   src={match.homeTeam.logo} 
                   alt={match.homeTeam.name}
-                  className="w-10 h-10 md:w-12 md:h-12 object-contain"
-                  width={48}
-                  height={48}
+                  className="w-8 h-8"
+                  width={32}
+                  height={32}
                 />
               ) : (
-                <Shield className="w-10 h-10 md:w-12 md:h-12 text-foreground/70" />
+                <span className="text-lg font-bold text-foreground">
+                  {match.homeTeam.name.charAt(0)}
+                </span>
               )}
             </div>
-            <p className="text-sm md:text-base font-bold text-foreground truncate">
+            <p className="text-sm font-bold text-foreground truncate">
               {match.homeTeam.name}
             </p>
           </div>
 
-          {/* Score/Time/Countdown */}
-          <div className="text-center min-w-[100px]">
-            <div className="text-3xl md:text-4xl font-bold text-foreground mb-1">
+          {/* Score/Time */}
+          <div className="text-center min-w-[80px]">
+            <div className="text-2xl md:text-3xl font-bold text-foreground mb-1">
               {match.status === "LIVE" &&
               match.homeScore !== undefined &&
               match.awayScore !== undefined
                 ? `${match.homeScore} - ${match.awayScore}`
                 : kickoff.time}
             </div>
-            <div className="text-xs text-foreground/70 mb-2">
-              {new Date(match.kickoffTime).toLocaleDateString("en-US", {
-                day: "2-digit",
-                month: "2-digit",
-              })}
-            </div>
-            {match.status === "LIVE" && match.minute ? (
+            {match.status === "LIVE" && match.minute && (
               <Badge variant="destructive" className="text-xs">
                 {match.minute}' LIVE
               </Badge>
-            ) : match.status === "SCHEDULED" && !countdown.isExpired ? (
-              <div className="bg-background/30 rounded-lg p-2 inline-block">
-                <div className="flex items-center justify-center gap-1 text-foreground font-bold">
-                  <div className="text-center">
-                    <div className="text-lg md:text-xl">{String(countdown.days).padStart(2, '0')}</div>
-                    <div className="text-[8px] md:text-[10px] text-foreground/60">days</div>
-                  </div>
-                  <span className="text-lg md:text-xl">:</span>
-                  <div className="text-center">
-                    <div className="text-lg md:text-xl">{String(countdown.hours).padStart(2, '0')}</div>
-                    <div className="text-[8px] md:text-[10px] text-foreground/60">hours</div>
-                  </div>
-                  <span className="text-lg md:text-xl">:</span>
-                  <div className="text-center">
-                    <div className="text-lg md:text-xl">{String(countdown.minutes).padStart(2, '0')}</div>
-                    <div className="text-[8px] md:text-[10px] text-foreground/60">minutes</div>
-                  </div>
-                  <span className="text-lg md:text-xl">:</span>
-                  <div className="text-center">
-                    <div className="text-lg md:text-xl">{String(countdown.seconds).padStart(2, '0')}</div>
-                    <div className="text-[8px] md:text-[10px] text-foreground/60">seconds</div>
-                  </div>
-                </div>
-              </div>
-            ) : null}
+            )}
           </div>
 
           {/* Away Team */}
-          <div className="text-center flex-1 max-w-[140px]">
-            <div className="w-16 h-16 md:w-20 md:h-20 bg-background/30 rounded-full flex items-center justify-center mx-auto mb-2 border-2 border-background/20">
+          <div className="text-center flex-1 max-w-[120px]">
+            <div className="w-12 h-12 bg-background/20 rounded-full flex items-center justify-center mx-auto mb-2">
               {match.awayTeam.logo ? (
                 <LazyImage 
                   src={match.awayTeam.logo} 
                   alt={match.awayTeam.name}
-                  className="w-10 h-10 md:w-12 md:h-12 object-contain"
-                  width={48}
-                  height={48}
+                  className="w-8 h-8"
+                  width={32}
+                  height={32}
                 />
               ) : (
-                <Shield className="w-10 h-10 md:w-12 md:h-12 text-foreground/70" />
+                <span className="text-lg font-bold text-foreground">
+                  {match.awayTeam.name.charAt(0)}
+                </span>
               )}
             </div>
-            <p className="text-sm md:text-base font-bold text-foreground truncate">
+            <p className="text-sm font-bold text-foreground truncate">
               {match.awayTeam.name}
             </p>
           </div>
         </div>
 
         {/* Match Info */}
-        <div className="flex items-center justify-center gap-3 text-xs text-foreground/70">
+        <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <Calendar className="w-3 h-3" />
             <span>{kickoff.date}</span>
