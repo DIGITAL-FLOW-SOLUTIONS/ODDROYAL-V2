@@ -77,6 +77,7 @@ interface SportsMatchesProps {
     odds: number,
   ) => void;
   onAddToFavorites?: (matchId: string) => void;
+  defaultExpandedSports?: boolean;
 }
 
 function SportsMatches({
@@ -84,13 +85,14 @@ function SportsMatches({
   isLoading = false,
   onOddsClick,
   onAddToFavorites,
+  defaultExpandedSports = false,
 }: SportsMatchesProps) {
   const [, setLocation] = useLocation();
   const [expandedSports, setExpandedSports] = useState<Record<string, boolean>>(
     sports.reduce(
       (acc, sport, index) => ({
         ...acc,
-        [sport.id]: index === 0, // First sport expanded by default
+        [sport.id]: defaultExpandedSports ? true : (index === 0), // All sports expanded if defaultExpandedSports is true
       }),
       {},
     ),

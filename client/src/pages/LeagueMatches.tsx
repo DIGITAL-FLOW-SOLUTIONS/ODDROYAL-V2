@@ -222,6 +222,7 @@ function LeagueMatches() {
               isLoading={false}
               onOddsClick={handleOddsClick}
               onAddToFavorites={handleAddToFavorites}
+              defaultExpandedSports={true}
             />
           </motion.div>
         )}
