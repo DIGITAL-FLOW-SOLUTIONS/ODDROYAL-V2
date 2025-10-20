@@ -886,7 +886,10 @@ class MarketGenerator {
     const seed = matchId || `${sportKey}-${homeTeam}-${awayTeam}`;
     this.rng = this.seedRandom(seed);
     
-    switch (sportKey.toLowerCase()) {
+    // Extract sport type from composite keys like "soccer_epl_epl" -> "soccer"
+    const sportType = sportKey.toLowerCase().split('_')[0];
+    
+    switch (sportType) {
       case 'football':
       case 'soccer':
         return this.generateFootballMarkets(homeTeam, awayTeam);
@@ -910,6 +913,7 @@ class MarketGenerator {
         return this.generateMMAMarkets(homeTeam, awayTeam);
       
       default:
+        console.warn(`Unknown sport type: ${sportType} (from ${sportKey})`);
         return [];
     }
   }

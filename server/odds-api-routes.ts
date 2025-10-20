@@ -1035,6 +1035,9 @@ export function registerOddsApiRoutes(app: Express): void {
       const { marketGenerator } = await import('./market-generator');
       const allMarkets: any[] = [];
       
+      let successCount = 0;
+      let failCount = 0;
+      
       for (const match of matches) {
         try {
           const markets = marketGenerator.generateMarkets(
@@ -1044,23 +1047,38 @@ export function registerOddsApiRoutes(app: Express): void {
             match.match_id
           );
           
-          // Add each market with proper structure
-          markets.forEach((market: any) => {
-            allMarkets.push({
-              market_id: `${match.match_id}_${market.key}`,
-              match_id: match.match_id,
-              key: market.key,
-              name: market.name,
-              description: market.description,
-              outcomes: market.outcomes
+          if (markets.length > 0) {
+            successCount++;
+            // Add each market with proper structure
+            markets.forEach((market: any) => {
+              allMarkets.push({
+                market_id: `${match.match_id}_${market.key}`,
+                match_id: match.match_id,
+                key: market.key,
+                name: market.name,
+                description: market.description,
+                outcomes: market.outcomes
+              });
             });
-          });
+          } else {
+            failCount++;
+            if (failCount === 1) {
+              // Log first failure for debugging
+              console.log('[Hydrate DEBUG] First failed match:', {
+                match_id: match.match_id,
+                sport_key: match.sport_key,
+                home_team: match.home_team,
+                away_team: match.away_team
+              });
+            }
+          }
         } catch (error) {
+          failCount++;
           console.error(`Failed to generate markets for match ${match.match_id}:`, error);
         }
       }
       
-      console.log(`[Hydrate] Generated ${allMarkets.length} markets for ${matches.length} matches`);
+      console.log(`[Hydrate] Generated ${allMarkets.length} markets for ${matches.length} matches (${successCount} successful, ${failCount} failed)`);
       
       res.json({
         success: true,
