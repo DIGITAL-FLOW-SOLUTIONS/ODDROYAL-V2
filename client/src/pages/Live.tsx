@@ -24,17 +24,25 @@ export default function Live() {
     setMode('live');
   }, [setMode]);
   
-  // Subscribe only to lastUpdate - triggers re-render only when data actually changes
-  const lastUpdate = useMatchStore(state => state.lastUpdate);
+  // Subscribe to liveMatchesVersion - only triggers when matches cross live boundary
+  const liveMatchesVersion = useMatchStore(state => state.liveMatchesVersion);
+  const liveMatchIds = useMatchStore(state => state.liveMatchIds);
   const sports = useMatchStore(state => state.sports);
   const leagues = useMatchStore(state => state.leagues);
   
-  // Filter live matches - reads current state without subscribing to it
-  // Use centralized time-based check to determine if match is actually live
+  // Build live matches from the stable liveMatchIds set
+  // This prevents re-renders on every odds update
   const liveMatches = useMemo(() => {
     const currentMatches = useMatchStore.getState().matches;
-    return Array.from(currentMatches.values()).filter(m => isLiveByTime(m));
-  }, [lastUpdate]);
+    const matches: any[] = [];
+    liveMatchIds.forEach(matchId => {
+      const match = currentMatches.get(matchId);
+      if (match) {
+        matches.push(match);
+      }
+    });
+    return matches;
+  }, [liveMatchesVersion, liveMatchIds]);
   
   const [expandedLeagues, setExpandedLeagues] = useState<Record<string, boolean>>({});
   const [expandedSports, setExpandedSports] = useState<Record<string, boolean>>({});

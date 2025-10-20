@@ -6,6 +6,7 @@
  */
 
 import { create } from 'zustand';
+import { isLiveByTime } from '@/lib/matchStatusUtils';
 
 export interface Match {
   match_id: string;
@@ -77,6 +78,10 @@ interface MatchStore {
   sports: Sport[];
   leagues: Map<string, League[]>; // Organized by sport_key
   
+  // Live match tracking - optimized for Live page
+  liveMatchIds: Set<string>;
+  liveMatchesVersion: number;
+  
   // Connection state
   isConnected: boolean;
   lastUpdate: number;
@@ -113,6 +118,9 @@ interface MatchStore {
   
   // Clear all data
   clearAll: () => void;
+  
+  // Start background live status checker
+  startLiveStatusChecker: () => void;
 }
 
 export const useMatchStore = create<MatchStore>((set, get) => ({
@@ -122,6 +130,8 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
   markets: new Map(),
   sports: [],
   leagues: new Map(),
+  liveMatchIds: new Set(),
+  liveMatchesVersion: 0,
   isConnected: false,
   lastUpdate: Date.now(),
   
@@ -131,10 +141,16 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     const oddsMap = new Map<string, Odds>();
     const marketsMap = new Map<string, Market>();
     const leaguesMap = new Map<string, League[]>();
+    const liveIds = new Set<string>();
     
     // Build matches map
     data.matches.forEach(match => {
       matchesMap.set(match.match_id, match);
+      
+      // Track live matches using time-based check
+      if (isLiveByTime(match)) {
+        liveIds.add(match.match_id);
+      }
       
       // Extract odds if available
       if (match.bookmakers?.[0]?.markets) {
@@ -177,6 +193,8 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       markets: marketsMap,
       sports: data.sports,
       leagues: leaguesMap,
+      liveMatchIds: liveIds,
+      liveMatchesVersion: 1,
       lastUpdate: Date.now(),
     });
     
@@ -186,6 +204,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       markets: marketsMap.size,
       sports: data.sports.length,
       leagues: leaguesMap.size,
+      liveMatches: liveIds.size,
     });
   },
   
@@ -223,14 +242,53 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       if (hasChanged) {
         const merged = { ...existing, ...matchUpdate };
         state.matches.set(matchUpdate.match_id, merged);
-        // Only update store reference when actual changes detected
-        set({ matches: new Map(state.matches), lastUpdate: Date.now() });
+        
+        // Check if match crossed live boundary
+        const wasLive = state.liveMatchIds.has(matchUpdate.match_id);
+        const isNowLive = isLiveByTime(merged);
+        
+        let liveBoundaryCrossed = false;
+        if (wasLive !== isNowLive) {
+          liveBoundaryCrossed = true;
+          if (isNowLive) {
+            state.liveMatchIds.add(matchUpdate.match_id);
+          } else {
+            state.liveMatchIds.delete(matchUpdate.match_id);
+          }
+        }
+        
+        // Update store with version bump if live boundary crossed
+        if (liveBoundaryCrossed) {
+          set({ 
+            matches: new Map(state.matches),
+            liveMatchIds: new Set(state.liveMatchIds),
+            liveMatchesVersion: state.liveMatchesVersion + 1,
+            lastUpdate: Date.now() 
+          });
+        } else {
+          // Regular update without live version change
+          set({ matches: new Map(state.matches), lastUpdate: Date.now() });
+        }
       }
       // No render if no changes
     } else {
       // New match
-      state.matches.set(matchUpdate.match_id, matchUpdate as Match);
-      set({ matches: new Map(state.matches), lastUpdate: Date.now() });
+      const newMatch = matchUpdate as Match;
+      state.matches.set(matchUpdate.match_id, newMatch);
+      
+      // Check if new match is live
+      const isNowLive = isLiveByTime(newMatch);
+      if (isNowLive) {
+        state.liveMatchIds.add(matchUpdate.match_id);
+        set({ 
+          matches: new Map(state.matches),
+          liveMatchIds: new Set(state.liveMatchIds),
+          liveMatchesVersion: state.liveMatchesVersion + 1,
+          lastUpdate: Date.now() 
+        });
+      } else {
+        set({ matches: new Map(state.matches), lastUpdate: Date.now() });
+      }
     }
   },
   
@@ -291,6 +349,7 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     let modifiedCount = 0;
     let newCount = 0;
     let actualChanges = false;
+    let liveBoundaryChanges = false;
     
     matchList.forEach(match => {
       const existing = state.matches.get(match.match_id);
@@ -313,11 +372,31 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
           state.matches.set(match.match_id, match);
           modifiedCount++;
           actualChanges = true;
+          
+          // Check if match crossed live boundary
+          const wasLive = state.liveMatchIds.has(match.match_id);
+          const isNowLive = isLiveByTime(match);
+          
+          if (wasLive !== isNowLive) {
+            liveBoundaryChanges = true;
+            if (isNowLive) {
+              state.liveMatchIds.add(match.match_id);
+            } else {
+              state.liveMatchIds.delete(match.match_id);
+            }
+          }
         }
       } else {
         state.matches.set(match.match_id, match);
         newCount++;
         actualChanges = true;
+        
+        // Check if new match is live
+        const isNowLive = isLiveByTime(match);
+        if (isNowLive) {
+          liveBoundaryChanges = true;
+          state.liveMatchIds.add(match.match_id);
+        }
       }
     });
     
@@ -325,8 +404,18 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
     
     // Only update store if there were actual changes - create new Map reference to trigger subscribers
     if (actualChanges) {
-      set({ matches: new Map(state.matches), lastUpdate: Date.now() });
-      console.log('[UPDATE] Batch store updated, triggering re-render');
+      if (liveBoundaryChanges) {
+        set({ 
+          matches: new Map(state.matches),
+          liveMatchIds: new Set(state.liveMatchIds),
+          liveMatchesVersion: state.liveMatchesVersion + 1,
+          lastUpdate: Date.now() 
+        });
+        console.log('[UPDATE] Batch store updated with live boundary changes, version:', state.liveMatchesVersion + 1);
+      } else {
+        set({ matches: new Map(state.matches), lastUpdate: Date.now() });
+        console.log('[UPDATE] Batch store updated, no live boundary changes');
+      }
     } else {
       console.log('[UPDATE] No changes detected, skipping re-render');
     }
@@ -406,7 +495,42 @@ export const useMatchStore = create<MatchStore>((set, get) => ({
       markets: new Map(),
       sports: [],
       leagues: new Map(),
+      liveMatchIds: new Set(),
+      liveMatchesVersion: 0,
       lastUpdate: Date.now(),
     });
+  },
+  
+  // Start background live status checker - runs every 20 seconds
+  // Re-evaluates isLiveByTime for all matches to catch timing boundaries
+  startLiveStatusChecker: () => {
+    setInterval(() => {
+      const state = get();
+      let liveBoundaryChanges = false;
+      
+      // Check all matches for live status changes
+      state.matches.forEach((match) => {
+        const wasLive = state.liveMatchIds.has(match.match_id);
+        const isNowLive = isLiveByTime(match);
+        
+        if (wasLive !== isNowLive) {
+          liveBoundaryChanges = true;
+          if (isNowLive) {
+            state.liveMatchIds.add(match.match_id);
+          } else {
+            state.liveMatchIds.delete(match.match_id);
+          }
+        }
+      });
+      
+      // Only update store if live boundary crossed
+      if (liveBoundaryChanges) {
+        set({ 
+          liveMatchIds: new Set(state.liveMatchIds),
+          liveMatchesVersion: state.liveMatchesVersion + 1,
+        });
+        console.log('🕐 Live status checker: boundary crossed, version:', state.liveMatchesVersion + 1);
+      }
+    }, 20000); // Every 20 seconds
   },
 }));

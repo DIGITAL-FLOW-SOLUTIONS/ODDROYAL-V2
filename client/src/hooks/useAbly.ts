@@ -217,6 +217,10 @@ export function useAbly() {
             useMatchStore.getState().setInitialData(hydrateResult.data);
             hasInitializedRef.current = true;
             console.log('[Ably] Initial data loaded:', hydrateResult.data.matches.length, 'matches');
+            
+            // Start background live status checker
+            useMatchStore.getState().startLiveStatusChecker();
+            console.log('[Ably] Started live status background checker');
           }
         } catch (error) {
           console.error('[Ably] Failed to hydrate initial data:', error);
