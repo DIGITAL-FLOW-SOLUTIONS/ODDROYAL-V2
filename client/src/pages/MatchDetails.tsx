@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRoute } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -168,11 +168,16 @@ export default function MatchDetails() {
   // Get match from Zustand store (populated by Ably subscriptions from homepage)
   const storeMatch = useMatchStore((state) => state.getMatch(matchId || ""));
   
-  // Get markets from Zustand store (pre-generated on hydrate for instant display)
-  const storeMarkets = useMatchStore((state) => state.getMarkets(matchId || ""));
+  // Get markets Map from Zustand store (pre-generated on hydrate for instant display)
+  const marketsMap = useMatchStore((state) => state.markets);
   
   // Subscribe to store updates for real-time changes
   const lastUpdate = useMatchStore((state) => state.lastUpdate);
+  
+  // Filter markets for this match using useMemo to prevent infinite re-renders
+  const storeMarkets = useMemo(() => {
+    return Array.from(marketsMap.values()).filter(m => m.match_id === matchId);
+  }, [marketsMap, matchId]);
 
   // Fetch from API as fallback (runs when store is empty or as backup for deep links)
   const { data: apiMatchData, isLoading: apiMatchLoading } = useQuery({
