@@ -1038,10 +1038,10 @@ export function registerOddsApiRoutes(app: Express): void {
       for (const match of matches) {
         try {
           const markets = marketGenerator.generateMarkets(
-            match.match_id,
             match.sport_key,
             match.home_team,
-            match.away_team
+            match.away_team,
+            match.match_id
           );
           
           // Add each market with proper structure
