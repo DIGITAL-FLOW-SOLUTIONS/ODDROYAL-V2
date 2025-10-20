@@ -580,7 +580,7 @@ export default function MatchDetails() {
       )}
 
       {/* Markets Section */}
-      <div className="p-4">
+      <div className="p-4 space-y-3">
         {markets.length === 0 ? (
           <Card className="p-6">
             <div className="text-center">
@@ -592,15 +592,14 @@ export default function MatchDetails() {
           </Card>
         ) : (
           <AnimatePresence>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {markets.map((market, index) => (
-                <motion.div
-                  key={market.key}
-                  id={`market-${market.key}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: index * 0.05 }}
-                >
+            {markets.map((market, index) => (
+              <motion.div
+                key={market.key}
+                id={`market-${market.key}`}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
+              >
                 <Card className="overflow-hidden">
                   <button
                     onClick={() => toggleMarket(market.key)}
@@ -633,7 +632,7 @@ export default function MatchDetails() {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="p-4 pt-0 flex flex-col gap-2">
+                        <div className="p-4 pt-0 grid grid-cols-2 md:grid-cols-3 gap-2">
                           {market.outcomes.map((outcome: any, idx: number) => {
                             const isSelected = isOutcomeSelected(market, outcome);
                             return (
@@ -642,16 +641,16 @@ export default function MatchDetails() {
                                 onClick={() => handleOddsClick(market, outcome)}
                                 className={`
                                   ${isSelected ? 'odds-button-selected' : 'odds-button'}
-                                  flex flex-row items-center justify-between gap-2
-                                  h-8 py-2 px-3 rounded-md
+                                  flex flex-col items-center justify-center gap-1
+                                  h-auto py-3 px-2 rounded-md
                                   min-w-0 w-full
                                 `}
                                 data-testid={`button-odds-${market.key}-${idx}`}
                               >
-                                <span className="text-xs opacity-90 truncate flex-1 text-left">
+                                <span className="text-xs opacity-90 truncate w-full text-center">
                                   {outcome.point !== undefined ? `${outcome.name} ${outcome.point > 0 ? '+' : ''}${outcome.point}` : outcome.name}
                                 </span>
-                                <span className="text-sm font-bold shrink-0">
+                                <span className="text-base sm:text-lg font-bold">
                                   {outcome.price.toFixed(2)}
                                 </span>
                               </button>
@@ -664,7 +663,6 @@ export default function MatchDetails() {
                 </Card>
               </motion.div>
             ))}
-            </div>
           </AnimatePresence>
         )}
       </div>
