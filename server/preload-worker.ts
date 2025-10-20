@@ -71,65 +71,28 @@ export class PreloadWorker {
       // Fetch all available sports from The Odds API and group them
       await this.fetchAndGroupSports();
 
-      // PRIORITY PHASE: Preload only TOP Football leagues (major competitions)
+      // PRIORITY PHASE: Preload ALL Football leagues AND other major sports
       const footballGroup = this.groupedSports.find(g => g.ourKey === 'football');
-      const topFootballLeagues = [
-        'soccer_epl',
-        'soccer_spain_la_liga',
-        'soccer_germany_bundesliga',
-        'soccer_italy_serie_a',
-        'soccer_france_ligue_one',
-        'soccer_uefa_champs_league',
-        'soccer_uefa_europa_league'
-      ];
       
       if (footballGroup) {
-        logger.info('⚽ Preloading TOP Football leagues first (priority)...');
-        const priorityLeagues = footballGroup.leagues.filter(l => 
-          topFootballLeagues.includes(l.key)
-        );
-        // Aggregate all priority football leagues together
-        await this.preloadSportGroup(footballGroup.ourKey, priorityLeagues);
-        logger.success(`✅ ${priorityLeagues.length} priority Football leagues preloaded`);
+        logger.info(`⚽ Preloading ALL ${footballGroup.leagues.length} Football leagues (priority)...`);
+        // Load ALL football leagues in priority phase - no background loading
+        await this.preloadSportGroup(footballGroup.ourKey, footballGroup.leagues);
+        logger.success(`✅ All ${footballGroup.leagues.length} Football leagues preloaded`);
       }
 
-      // Set cache ready flag after priority sports are loaded
+      // Load all other sports immediately (not in background)
+      const otherSports = this.groupedSports.filter(g => g.ourKey !== 'football');
+      logger.info(`📥 Loading ${otherSports.length} additional sport categories...`);
+      for (const sportGroup of otherSports) {
+        logger.info(`  Loading ${sportGroup.title}: ${sportGroup.leagues.length} leagues...`);
+        await this.preloadSportGroup(sportGroup.ourKey, sportGroup.leagues);
+        logger.success(`  ✅ ${sportGroup.title} loaded`);
+      }
+
+      // Set cache ready flag after ALL sports are loaded
       await redisCache.setCacheReady(true);
       logger.success('✅ Cache ready - app can start serving requests');
-
-      // BACKGROUND PHASE: Load remaining sports (non-blocking)
-      const backgroundTasks = [];
-      
-      // Add remaining football leagues
-      if (footballGroup) {
-        const remainingFootballLeagues = footballGroup.leagues.filter(l => 
-          !topFootballLeagues.includes(l.key)
-        );
-        if (remainingFootballLeagues.length > 0) {
-          logger.info(`📥 Loading ${remainingFootballLeagues.length} additional Football leagues in background...`);
-          backgroundTasks.push(
-            this.preloadSportGroup(footballGroup.ourKey, remainingFootballLeagues, true)
-          );
-        }
-      }
-      
-      // Add other sports
-      const otherSports = this.groupedSports.filter(g => g.ourKey !== 'football');
-      for (const sportGroup of otherSports) {
-        backgroundTasks.push(
-          this.preloadSportGroup(sportGroup.ourKey, sportGroup.leagues, true)
-        );
-      }
-      
-      if (backgroundTasks.length > 0) {
-        logger.info(`📥 Loading ${otherSports.length} additional sport categories in background...`);
-        // Load without waiting (don't await)
-        Promise.all(backgroundTasks).then(() => {
-          logger.success('✅ Background sports preload completed');
-        }).catch(err => {
-          logger.error('⚠️  Background preload error:', err);
-        });
-      }
 
       // Finalize report (for priority phase only)
       this.report.endTime = new Date().toISOString();
@@ -288,6 +251,8 @@ export class PreloadWorker {
       // Filter for upcoming matches only (completed=false, no scores)
       const upcomingEvents = events.filter(e => !e.completed && (!e.scores || e.scores.length === 0));
       
+      logger.info(`  📊 ${sportKey}: /scores returned ${events.length} total, ${upcomingEvents.length} upcoming events`);
+      
       if (upcomingEvents.length > 0) {
         const normalizedMatches = upcomingEvents.map(event => normalizeScoresEvent(event, ourSportKey));
         
@@ -296,6 +261,8 @@ export class PreloadWorker {
         
         const leagueGroups = groupMatchesByLeague(normalizedMatches);
         const nonEmptyLeagues = leagueGroups.filter(lg => lg.match_count > 0);
+        
+        logger.info(`  📊 ${sportKey}: Processed into ${nonEmptyLeagues.length} leagues with ${normalizedMatches.length} matches`);
 
         return {
           leagues: nonEmptyLeagues,
@@ -339,11 +306,14 @@ export class PreloadWorker {
         sportCategory: ourSportKey,
       });
 
+      logger.info(`  📊 ${sportKey}: API returned ${events.length} prematch events`);
       if (events.length === 0) return { leagues: [], matches: [] };
 
       const normalizedMatches = events.map(event => normalizeOddsEvent(event, ourSportKey));
       const leagueGroups = groupMatchesByLeague(normalizedMatches);
       const nonEmptyLeagues = leagueGroups.filter(lg => lg.match_count > 0);
+      
+      logger.info(`  📊 ${sportKey}: Processed into ${nonEmptyLeagues.length} leagues with ${normalizedMatches.length} matches`);
 
       return {
         leagues: nonEmptyLeagues,
@@ -422,11 +392,14 @@ export class PreloadWorker {
         sportCategory: ourSportKey,
       });
 
+      logger.info(`  📊 ${sportKey}: API returned ${events.length} live events`);
       if (events.length === 0) return { leagues: [], matches: [] };
 
       const normalizedMatches = events.map(event => normalizeOddsEvent(event, ourSportKey, true));
       const leagueGroups = groupMatchesByLeague(normalizedMatches);
       const nonEmptyLeagues = leagueGroups.filter(lg => lg.match_count > 0);
+      
+      logger.info(`  📊 ${sportKey}: Processed into ${nonEmptyLeagues.length} leagues with ${normalizedMatches.length} matches`);
 
       return {
         leagues: nonEmptyLeagues,
@@ -537,8 +510,8 @@ export class PreloadWorker {
       // Merge: update existing leagues and add new ones
       leaguesForCache.forEach(lg => leagueMap.set(lg.league_id, lg));
       
-      // Save merged leagues with allowEmpty=false since we have data
-      await redisCache.setPrematchLeagues(ourSportKey, Array.from(leagueMap.values()), 900, false);
+      // Save merged leagues with longer TTL to prevent expiration
+      await redisCache.setPrematchLeagues(ourSportKey, Array.from(leagueMap.values()), 3600, false); // 1 hour TTL
 
       // Cache matches for each league
       for (const league of prematchLeagues) {
@@ -547,7 +520,7 @@ export class PreloadWorker {
             ourSportKey,
             league.league_id,
             league.matches,
-            600,
+            3600, // 1 hour TTL - consistent with leagues
             false // We have data
           );
 
@@ -572,8 +545,8 @@ export class PreloadWorker {
       
       leaguesForCache.forEach(lg => leagueMap.set(lg.league_id, lg));
       
-      // Save with allowEmpty=true (default) since empty live matches is normal
-      await redisCache.setLiveLeagues(ourSportKey, Array.from(leagueMap.values()), 120, true);
+      // Save with longer TTL for live leagues too - aggregator refreshes frequently anyway
+      await redisCache.setLiveLeagues(ourSportKey, Array.from(leagueMap.values()), 300, true); // 5 min TTL
 
       // Cache matches for each league
       for (const league of liveLeagues) {
@@ -582,7 +555,7 @@ export class PreloadWorker {
             ourSportKey,
             league.league_id,
             league.matches,
-            120,
+            300, // 5 min TTL - consistent with leagues
             true // Allow empty for live (default anyway)
           );
 
@@ -631,7 +604,7 @@ export class PreloadWorker {
         match_count: lg.match_count,
       }));
 
-      await redisCache.setPrematchLeagues(ourSportKey, leaguesForCache, 900); // 15 min TTL
+      await redisCache.setPrematchLeagues(ourSportKey, leaguesForCache, 3600); // 1 hour TTL
 
       // Cache matches for each league
       for (const league of nonEmptyLeagues) {
@@ -639,7 +612,7 @@ export class PreloadWorker {
           ourSportKey,
           league.league_id,
           league.matches,
-          600 // 10 min TTL
+          3600 // 1 hour TTL
         );
 
         // Prefetch markets for each match
@@ -708,7 +681,7 @@ export class PreloadWorker {
         match_count: lg.match_count,
       }));
 
-      await redisCache.setLiveLeagues(ourSportKey, leaguesForCache, 90); // 90s TTL
+      await redisCache.setLiveLeagues(ourSportKey, leaguesForCache, 300); // 5 min TTL
 
       // Cache matches for each league
       for (const league of nonEmptyLeagues) {
@@ -716,7 +689,7 @@ export class PreloadWorker {
           ourSportKey,
           league.league_id,
           league.matches,
-          60 // 60s TTL
+          300 // 5 min TTL
         );
 
         // Prefetch markets for each match

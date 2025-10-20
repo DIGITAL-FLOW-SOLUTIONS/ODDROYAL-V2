@@ -106,8 +106,8 @@ export function getSportKeysForCategory(groupedSports: GroupedSport[], categoryK
 
 // League limits for API efficiency (Professional betting site strategy)
 export const LEAGUE_LIMITS = {
-  football: 30,  // Max 30 football leagues (7 top priority + 23 others)
-  default: 10,   // Max 10 leagues for other sports
+  football: 100,  // Max 100 football leagues for rich data display
+  default: 50,   // Max 50 leagues for other sports - increased for better coverage
 };
 
 // Sport-specific API configuration for quota optimization
