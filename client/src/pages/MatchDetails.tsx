@@ -221,15 +221,19 @@ export default function MatchDetails() {
     refetchInterval: 30000,
   });
 
+  // Use store match if available, otherwise use API fallback
+  const matchSource = storeMatch || apiMatchData?.data;
+  
+  // IMPORTANT: Call useCountdown hook BEFORE any conditional returns
+  // to satisfy React's Rules of Hooks
+  const countdown = useCountdown(matchSource?.commence_time || new Date().toISOString());
+
   // Determine loading state
   const isLoading = (!storeMatch && apiMatchLoading) || marketsLoading;
 
   if (isLoading) {
     return <MatchDetailsSkeleton />;
   }
-
-  // Use store match if available, otherwise use API fallback
-  const matchSource = storeMatch || apiMatchData?.data;
 
   if (!matchSource) {
     return (
@@ -319,7 +323,6 @@ export default function MatchDetails() {
   };
 
   const kickoff = formatKickoffTime(match.kickoffTime);
-  const countdown = useCountdown(match.kickoffTime);
 
   return (
     <div className="min-h-screen bg-background">
