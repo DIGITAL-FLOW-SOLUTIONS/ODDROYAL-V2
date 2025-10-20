@@ -21,6 +21,7 @@ interface CountdownTime {
   hours: number;
   minutes: number;
   seconds: number;
+  isLive: boolean;
 }
 
 function useCountdown(targetDate: string): CountdownTime {
@@ -29,6 +30,7 @@ function useCountdown(targetDate: string): CountdownTime {
     hours: 0,
     minutes: 0,
     seconds: 0,
+    isLive: false,
   });
 
   useEffect(() => {
@@ -43,9 +45,17 @@ function useCountdown(targetDate: string): CountdownTime {
           hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
           minutes: Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60)),
           seconds: Math.floor((difference % (1000 * 60)) / 1000),
+          isLive: false,
         });
       } else {
-        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        // Time has passed - match is live
+        setCountdown({ 
+          days: 0, 
+          hours: 0, 
+          minutes: 0, 
+          seconds: 0, 
+          isLive: true 
+        });
       }
     };
 
@@ -182,6 +192,9 @@ export default function MatchDetails() {
   const [, params] = useRoute("/match/:id");
   const matchId = params?.id;
   const [expandedMarkets, setExpandedMarkets] = useState<Record<string, boolean>>({});
+  
+  // Store commence_time to prevent it from changing during re-renders
+  const [commenceTime, setCommenceTime] = useState<string | null>(null);
 
   // Get match from Zustand store (populated by Ably subscriptions from homepage)
   const storeMatch = useMatchStore((state) => state.getMatch(matchId || ""));
@@ -218,10 +231,18 @@ export default function MatchDetails() {
 
   // Use store match if available, otherwise use API fallback
   const matchSource = storeMatch || apiMatchData?.data;
+  
+  // Store commence_time once we have it - prevents countdown from resetting
+  useEffect(() => {
+    if (matchSource?.commence_time && !commenceTime) {
+      setCommenceTime(matchSource.commence_time);
+    }
+  }, [matchSource?.commence_time, commenceTime]);
 
   // IMPORTANT: Call useCountdown unconditionally before any conditional returns
   // This prevents "Rendered more hooks than during the previous render" error
-  const countdown = useCountdown(matchSource?.commence_time || new Date().toISOString());
+  // Use stored commence_time to prevent countdown from changing
+  const countdown = useCountdown(commenceTime || new Date().toISOString());
 
   // Determine loading state - show skeleton while fetching or waiting for Ably data
   // Don't show error immediately - give time for Ably subscription to populate store
@@ -408,46 +429,60 @@ export default function MatchDetails() {
           </div>
         </div>
 
-        {/* Countdown Timer */}
-        {match.status !== "LIVE" && match.status !== "FINISHED" && (
-          <div className="flex items-center justify-center gap-1 sm:gap-1.5 text-foreground/90 mb-2">
-            <div className="text-center min-w-[45px] sm:min-w-[52px]">
-              <div className="text-lg sm:text-xl font-bold leading-none">
-                {String(countdown.days).padStart(2, '0')}
-              </div>
-              <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
-                days
-              </div>
+        {/* Countdown Timer - Always visible */}
+        <div className="flex items-center justify-center gap-1 sm:gap-1.5 text-foreground/90 mb-2 min-h-[52px]" data-testid="match-countdown-container">
+          {countdown.isLive || match.status === "LIVE" ? (
+            <div className="flex items-center gap-2" data-testid="match-live-indicator">
+              <div className="w-2.5 h-2.5 rounded-full bg-destructive live-blink" />
+              <span className="text-xl sm:text-2xl font-bold text-destructive tracking-wider">
+                LIVE
+              </span>
+              <div className="w-2.5 h-2.5 rounded-full bg-destructive live-blink" />
             </div>
-            <span className="text-base sm:text-lg font-bold pb-3">:</span>
-            <div className="text-center min-w-[45px] sm:min-w-[52px]">
-              <div className="text-lg sm:text-xl font-bold leading-none">
-                {String(countdown.hours).padStart(2, '0')}
-              </div>
-              <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
-                hours
-              </div>
+          ) : match.status === "FINISHED" ? (
+            <div className="text-lg sm:text-xl font-bold text-muted-foreground" data-testid="match-finished-indicator">
+              FINISHED
             </div>
-            <span className="text-base sm:text-lg font-bold pb-3">:</span>
-            <div className="text-center min-w-[45px] sm:min-w-[52px]">
-              <div className="text-lg sm:text-xl font-bold leading-none">
-                {String(countdown.minutes).padStart(2, '0')}
+          ) : (
+            <>
+              <div className="text-center min-w-[45px] sm:min-w-[52px]" data-testid="countdown-days">
+                <div className="text-lg sm:text-xl font-bold leading-none">
+                  {String(countdown.days).padStart(2, '0')}
+                </div>
+                <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
+                  days
+                </div>
               </div>
-              <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
-                minutes
+              <span className="text-base sm:text-lg font-bold pb-3">:</span>
+              <div className="text-center min-w-[45px] sm:min-w-[52px]" data-testid="countdown-hours">
+                <div className="text-lg sm:text-xl font-bold leading-none">
+                  {String(countdown.hours).padStart(2, '0')}
+                </div>
+                <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
+                  hours
+                </div>
               </div>
-            </div>
-            <span className="text-base sm:text-lg font-bold pb-3">:</span>
-            <div className="text-center min-w-[45px] sm:min-w-[52px]">
-              <div className="text-lg sm:text-xl font-bold leading-none">
-                {String(countdown.seconds).padStart(2, '0')}
+              <span className="text-base sm:text-lg font-bold pb-3">:</span>
+              <div className="text-center min-w-[45px] sm:min-w-[52px]" data-testid="countdown-minutes">
+                <div className="text-lg sm:text-xl font-bold leading-none">
+                  {String(countdown.minutes).padStart(2, '0')}
+                </div>
+                <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
+                  minutes
+                </div>
               </div>
-              <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
-                seconds
+              <span className="text-base sm:text-lg font-bold pb-3">:</span>
+              <div className="text-center min-w-[45px] sm:min-w-[52px]" data-testid="countdown-seconds">
+                <div className="text-lg sm:text-xl font-bold leading-none">
+                  {String(countdown.seconds).padStart(2, '0')}
+                </div>
+                <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">
+                  seconds
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
 
         {/* Venue Info */}
         {match.venue && (

@@ -538,4 +538,18 @@
         #22522f 30px
       );
   }
+
+  /* Live indicator blinking animation */
+  @keyframes live-blink {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+
+  .live-blink {
+    animation: live-blink 1.5s ease-in-out infinite;
+  }
 }
