@@ -1512,7 +1512,7 @@ export class SupabaseStorage implements IStorage {
         away_team_id: matchData.awayTeamId,
         away_team_name: matchData.awayTeamName,
         kickoff_time: matchData.kickoffTime,
-        status: matchData.status || 'scheduled',
+        status: matchData.status || 'SCHEDULED',
         home_score: matchData.homeScore,
         away_score: matchData.awayScore,
         is_manual: matchData.isManual || false,
@@ -1721,7 +1721,7 @@ export class SupabaseStorage implements IStorage {
         .from('matches')
         .select('*, markets(*, market_outcomes(*))')
         .eq('is_manual', true)
-        .eq('status', 'scheduled')
+        .eq('status', 'SCHEDULED')
         .gte('kickoff_time', now)
         .order('kickoff_time', { ascending: true })
         .limit(limit);
@@ -1765,7 +1765,7 @@ export class SupabaseStorage implements IStorage {
         .from('matches')
         .select('*, markets(*, market_outcomes(*))')
         .eq('is_manual', true)
-        .eq('status', 'live')
+        .eq('status', 'LIVE')
         .order('kickoff_time', { ascending: false })
         .limit(limit);
 
@@ -1808,7 +1808,7 @@ export class SupabaseStorage implements IStorage {
         .from('matches')
         .select('*')
         .eq('is_manual', true)
-        .eq('status', 'finished')
+        .eq('status', 'FINISHED')
         .order('finished_at', { ascending: false })
         .limit(limit);
 
@@ -2353,7 +2353,7 @@ export class SupabaseStorage implements IStorage {
         .from('matches')
         .select('*')
         .eq('is_manual', true)
-        .eq('status', 'scheduled')
+        .eq('status', 'SCHEDULED')
         .lte('kickoff_time', now) // Only matches whose kickoff time has passed
         .order('kickoff_time', { ascending: true })
         .limit(50); // Limit to prevent overwhelming the system
@@ -2591,7 +2591,7 @@ export class SupabaseStorage implements IStorage {
   }
 
   async updateMatchToLive(matchId: string): Promise<void> {
-    await this.updateMatch(matchId, { status: 'live' });
+    await this.updateMatch(matchId, { status: 'LIVE' });
   }
 
   async updateMatchScore(matchId: string, homeScore: number, awayScore: number): Promise<void> {
@@ -2647,7 +2647,7 @@ export class SupabaseStorage implements IStorage {
 
   async finishMatch(matchId: string, homeScore: number, awayScore: number): Promise<void> {
     await this.updateMatch(matchId, { 
-      status: 'finished',
+      status: 'FINISHED',
       homeScore,
       awayScore
     });
