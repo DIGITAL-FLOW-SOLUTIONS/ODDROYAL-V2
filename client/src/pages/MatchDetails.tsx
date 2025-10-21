@@ -19,6 +19,7 @@ import { useBetSlip } from "@/contexts/BetSlipContext";
 import { useMatchStore } from "@/store/matchStore";
 import { LazyImage } from "@/components/LazyImage";
 import { isLiveByTime, isMatchFinished } from "@/lib/matchStatusUtils";
+import { useToast } from "@/hooks/use-toast";
 
 interface CountdownTime {
   days: number;
@@ -158,6 +159,7 @@ function transformBookmakersToMarkets(bookmakers: any[], sportKey: string = 'def
 
 export default function MatchDetails() {
   const { onAddToBetSlip, betSlipSelections } = useBetSlip();
+  const { toast } = useToast();
   const [, params] = useRoute("/match/:id");
   const matchId = params?.id;
   const [expandedMarkets, setExpandedMarkets] = useState<Record<string, boolean>>({});
@@ -358,6 +360,11 @@ export default function MatchDetails() {
     
     // Prevent adding selections from locked markets
     if (isMarketLocked(market)) {
+      toast({
+        title: "Market Unavailable",
+        description: `This market is currently ${market.status === 'suspended' ? 'suspended' : 'closed'}. Please try again later.`,
+        variant: "destructive",
+      });
       return;
     }
 
