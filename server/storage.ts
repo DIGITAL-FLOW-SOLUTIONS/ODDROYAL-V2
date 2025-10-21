@@ -110,6 +110,8 @@ export interface IStorage {
   getActiveBetsByMatch(matchId: string): Promise<Bet[]>;
   getUpcomingManualMatches(limit?: number): Promise<any[]>;
   getLiveManualMatches(limit?: number): Promise<any[]>;
+  getFinishedManualMatches(limit?: number): Promise<any[]>;
+  getUserSettledBets(userId: string, status?: string): Promise<any[]>;
 
   // Market management operations
   createMarket(market: any): Promise<any>;
@@ -1512,6 +1514,40 @@ export class MemStorage implements IStorage {
       match,
       isNew: true
     };
+  }
+
+  async getUpcomingManualMatches(limit: number = 50): Promise<any[]> {
+    // MemStorage stub - return empty array
+    return [];
+  }
+
+  async getLiveManualMatches(limit: number = 50): Promise<any[]> {
+    // MemStorage stub - return empty array
+    return [];
+  }
+
+  async getFinishedManualMatches(limit: number = 50): Promise<any[]> {
+    // MemStorage stub - return empty array
+    return [];
+  }
+
+  async getUserSettledBets(userId: string, status?: string): Promise<any[]> {
+    // Return settled bets for the user
+    let bets = Array.from(this.bets.values()).filter(
+      (bet) => bet.userId === userId && bet.status !== 'pending'
+    );
+
+    // Filter by status if provided
+    if (status && status !== 'all') {
+      bets = bets.filter((bet) => bet.status === status);
+    }
+
+    // Sort by settled date (most recent first)
+    return bets.sort((a, b) => {
+      const aDate = a.settledAt ? new Date(a.settledAt).getTime() : 0;
+      const bDate = b.settledAt ? new Date(b.settledAt).getTime() : 0;
+      return bDate - aDate;
+    });
   }
 
   // ===================== MARKET MANAGEMENT OPERATIONS =====================

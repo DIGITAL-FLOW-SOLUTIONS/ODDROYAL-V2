@@ -1802,6 +1802,106 @@ export class SupabaseStorage implements IStorage {
     }
   }
 
+  async getFinishedManualMatches(limit: number = 100): Promise<any[]> {
+    try {
+      const { data, error } = await this.client
+        .from('matches')
+        .select('*')
+        .eq('is_manual', true)
+        .eq('status', 'finished')
+        .order('finished_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('Error fetching finished manual matches:', error);
+        return [];
+      }
+
+      return data?.map((match: any) => ({
+        id: match.id,
+        externalId: match.external_id,
+        externalSource: match.external_source || 'manual',
+        sport: match.sport,
+        sportId: match.sport_id,
+        sportName: match.sport_name,
+        leagueId: match.league_id,
+        leagueName: match.league_name,
+        homeTeamId: match.home_team_id,
+        homeTeamName: match.home_team_name,
+        awayTeamId: match.away_team_id,
+        awayTeamName: match.away_team_name,
+        kickoffTime: match.kickoff_time,
+        status: match.status,
+        homeScore: match.home_score || 0,
+        awayScore: match.away_score || 0,
+        finishedAt: match.finished_at,
+        isManual: match.is_manual,
+        createdAt: match.created_at,
+        updatedAt: match.updated_at
+      })) || [];
+    } catch (error: any) {
+      console.error('Error getting finished manual matches:', error);
+      return [];
+    }
+  }
+
+  async getUserSettledBets(userId: string, status?: string): Promise<any[]> {
+    try {
+      let query = this.client
+        .from('bets')
+        .select(`
+          *,
+          bet_selections (
+            *
+          )
+        `)
+        .eq('user_id', userId)
+        .neq('status', 'pending')
+        .order('settled_at', { ascending: false });
+
+      // Filter by specific status if provided
+      if (status && status !== 'all') {
+        query = query.eq('status', status);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching user settled bets:', error);
+        return [];
+      }
+
+      return data?.map((bet: any) => ({
+        id: bet.id,
+        userId: bet.user_id,
+        type: bet.type,
+        status: bet.status,
+        totalStake: bet.total_stake,
+        potentialWinnings: bet.potential_winnings,
+        actualWinnings: bet.actual_winnings,
+        totalOdds: bet.total_odds,
+        placedAt: bet.placed_at,
+        settledAt: bet.settled_at,
+        selections: bet.bet_selections?.map((sel: any) => ({
+          id: sel.id,
+          betId: sel.bet_id,
+          matchId: sel.match_id,
+          homeTeam: sel.home_team,
+          awayTeam: sel.away_team,
+          league: sel.league,
+          market: sel.market,
+          selection: sel.selection,
+          odds: sel.odds,
+          status: sel.status,
+          result: sel.result
+        })) || []
+      })) || [];
+    } catch (error: any) {
+      console.error('Error getting user settled bets:', error);
+      return [];
+    }
+  }
+
   async getMatchMarkets(matchId: string): Promise<any[]> {
     try {
       const { data, error } = await this.client

@@ -410,6 +410,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/results - Get all finished manual match results
+  app.get("/api/results", async (req: Request, res: Response) => {
+    try {
+      const finishedMatches = await storage.getFinishedManualMatches(100);
+
+      const results = finishedMatches.map((match: any) => ({
+        id: match.id,
+        homeTeam: match.homeTeamName,
+        awayTeam: match.awayTeamName,
+        league: match.leagueName,
+        sport: match.sport || 'football',
+        homeScore: match.homeScore || 0,
+        awayScore: match.awayScore || 0,
+        status: match.status,
+        startTime: match.kickoffTime,
+        finishedAt: match.finishedAt,
+        round: null
+      }));
+
+      res.json({
+        success: true,
+        data: results
+      });
+    } catch (error) {
+      console.error('Get results error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch match results'
+      });
+    }
+  });
+
+  // GET /api/settlements - Get user's settled bets with optional status filter
+  app.get("/api/settlements", authenticateUser, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const status = (req.query.status as string) || 'all';
+
+      const settledBets = await storage.getUserSettledBets(userId, status);
+
+      res.json({
+        success: true,
+        data: settledBets
+      });
+    } catch (error) {
+      console.error('Get settlements error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to fetch bet settlements'
+      });
+    }
+  });
+
   // Admin Authentication Routes
   
   // Admin Login
