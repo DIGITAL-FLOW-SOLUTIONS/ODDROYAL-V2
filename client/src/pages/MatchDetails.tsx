@@ -360,9 +360,13 @@ export default function MatchDetails() {
     
     // Prevent adding selections from locked markets
     if (isMarketLocked(market)) {
+      const description = match.status === 'LIVE' 
+        ? 'Betting is not available during live matches. Please wait for the match to finish.'
+        : `This market is currently ${market.status === 'suspended' ? 'suspended' : 'closed'}. Please try again later.`;
+      
       toast({
         title: "Market Unavailable",
-        description: `This market is currently ${market.status === 'suspended' ? 'suspended' : 'closed'}. Please try again later.`,
+        description,
         variant: "destructive",
       });
       return;
@@ -386,8 +390,9 @@ export default function MatchDetails() {
   };
   
   // Helper function to check if a market is locked
+  // Markets are locked when: 1) match is live, OR 2) market status is suspended/closed
   const isMarketLocked = (market: Market): boolean => {
-    return market.status === 'suspended' || market.status === 'closed';
+    return match.status === 'LIVE' || market.status === 'suspended' || market.status === 'closed';
   };
 
   // Helper function to check if an outcome is selected in the betslip
@@ -634,7 +639,7 @@ export default function MatchDetails() {
                       {isMarketLocked(market) && (
                         <Badge variant="destructive" className="text-xs flex items-center gap-1">
                           <Lock className="w-3 h-3" />
-                          {market.status === 'suspended' ? 'Suspended' : 'Closed'}
+                          {match.status === 'LIVE' ? 'Live Match' : (market.status === 'suspended' ? 'Suspended' : 'Closed')}
                         </Badge>
                       )}
                       {market.description && !isMarketLocked(market) && (
@@ -665,10 +670,10 @@ export default function MatchDetails() {
                               <div className="text-center p-4">
                                 <Lock className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
                                 <p className="text-sm font-medium text-muted-foreground">
-                                  {market.status === 'suspended' ? 'Market Suspended' : 'Market Closed'}
+                                  {match.status === 'LIVE' ? 'Live Match' : (market.status === 'suspended' ? 'Market Suspended' : 'Market Closed')}
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  Betting is currently unavailable
+                                  {match.status === 'LIVE' ? 'Betting not available during live matches' : 'Betting is currently unavailable'}
                                 </p>
                               </div>
                             </div>
