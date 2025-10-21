@@ -1804,12 +1804,12 @@ export class SupabaseStorage implements IStorage {
 
   async getFinishedManualMatches(limit: number = 100): Promise<any[]> {
     try {
-      const { data, error } = await this.client
+      const { data, error} = await this.client
         .from('matches')
         .select('*')
         .eq('is_manual', true)
         .eq('status', 'finished')
-        .order('finished_at', { ascending: false })
+        .order('updated_at', { ascending: false })
         .limit(limit);
 
       if (error) {
@@ -1834,7 +1834,7 @@ export class SupabaseStorage implements IStorage {
         status: match.status,
         homeScore: match.home_score || 0,
         awayScore: match.away_score || 0,
-        finishedAt: match.finished_at,
+        finishedAt: match.updated_at,
         isManual: match.is_manual,
         createdAt: match.created_at,
         updatedAt: match.updated_at
