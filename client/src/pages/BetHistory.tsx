@@ -4,15 +4,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { 
-  History, 
-  Trophy, 
-  Clock, 
-  TrendingUp, 
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  History,
+  Trophy,
+  Clock,
+  TrendingUp,
   TrendingDown,
   CalendarIcon,
   Filter,
@@ -21,7 +31,7 @@ import {
   RefreshCw,
   ArrowUpDown,
   AlertCircle,
-  ChevronDown
+  ChevronDown,
 } from "lucide-react";
 import { currencyUtils, type Bet, type BetSelection } from "@shared/schema";
 import { useState } from "react";
@@ -33,38 +43,47 @@ interface BetWithSelections extends Bet {
   selections: BetSelection[];
 }
 
-type SortField = 'placedAt' | 'totalStake' | 'status' | 'type';
-type SortDirection = 'asc' | 'desc';
+type SortField = "placedAt" | "totalStake" | "status" | "type";
+type SortDirection = "asc" | "desc";
 
 function BetHistory() {
   const [, setLocation] = useLocation();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [sortField, setSortField] = useState<SortField>('placedAt');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [sortField, setSortField] = useState<SortField>("placedAt");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
     to: new Date(),
   });
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
-  
-  const { data: response, isLoading, error, refetch } = useQuery<{ success: boolean; data: BetWithSelections[] }>({
-    queryKey: ['/api/bets'],
-    enabled: !!localStorage.getItem('authToken')
+
+  const {
+    data: response,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery<{ success: boolean; data: BetWithSelections[] }>({
+    queryKey: ["/api/bets"],
+    enabled: !!localStorage.getItem("authToken"),
   });
 
   const betsData = response?.data || [];
 
   // Show error state if API call failed
-  if (error && localStorage.getItem('authToken')) {
+  if (error && localStorage.getItem("authToken")) {
     return (
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="p-6 text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-4">Failed to load bet history</h2>
-            <p className="text-muted-foreground mb-4">There was an error loading your betting data.</p>
+            <h2 className="text-2xl font-bold mb-4">
+              Failed to load bet history
+            </h2>
+            <p className="text-muted-foreground mb-4">
+              There was an error loading your betting data.
+            </p>
             <Button onClick={() => refetch()} data-testid="button-retry">
               Try Again
             </Button>
@@ -74,13 +93,18 @@ function BetHistory() {
     );
   }
 
-  if (!localStorage.getItem('authToken')) {
+  if (!localStorage.getItem("authToken")) {
     return (
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="p-6 text-center">
-            <h2 className="text-2xl font-bold mb-4">Please log in to view your bet history</h2>
-            <Button onClick={() => setLocation('/login')} data-testid="button-login">
+            <h2 className="text-2xl font-bold mb-4">
+              Please log in to view your bet history
+            </h2>
+            <Button
+              onClick={() => setLocation("/login")}
+              data-testid="button-login"
+            >
               Go to Login
             </Button>
           </CardContent>
@@ -91,86 +115,93 @@ function BetHistory() {
 
   // Filter and sort bets
   const filteredAndSortedBets = betsData
-    .filter(bet => {
-    // Search filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = 
-        bet.selections.some(sel => 
-          sel.homeTeam.toLowerCase().includes(searchLower) ||
-          sel.awayTeam.toLowerCase().includes(searchLower) ||
-          sel.league.toLowerCase().includes(searchLower)
-        ) ||
-        bet.id.toLowerCase().includes(searchLower);
-      
-      if (!matchesSearch) return false;
-    }
+    .filter((bet) => {
+      // Search filter
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch =
+          bet.selections.some(
+            (sel) =>
+              sel.homeTeam.toLowerCase().includes(searchLower) ||
+              sel.awayTeam.toLowerCase().includes(searchLower) ||
+              sel.league.toLowerCase().includes(searchLower),
+          ) || bet.id.toLowerCase().includes(searchLower);
 
-    // Status filter
-    if (statusFilter !== 'all' && bet.status !== statusFilter) {
-      return false;
-    }
+        if (!matchesSearch) return false;
+      }
 
-    // Type filter
-    if (typeFilter !== 'all' && bet.type !== typeFilter) {
-      return false;
-    }
-
-    // Date range filter
-    if (dateRange?.from && dateRange?.to) {
-      const betDate = new Date(bet.placedAt);
-      if (betDate < dateRange.from || betDate > dateRange.to) {
+      // Status filter
+      if (statusFilter !== "all" && bet.status !== statusFilter) {
         return false;
       }
-    }
 
-    return true;
-  })
-  .sort((a, b) => {
-    let comparison = 0;
-    
-    switch (sortField) {
-      case 'placedAt':
-        comparison = new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime();
-        break;
-      case 'totalStake':
-        comparison = a.totalStake - b.totalStake;
-        break;
-      case 'status':
-        comparison = a.status.localeCompare(b.status);
-        break;
-      case 'type':
-        comparison = a.type.localeCompare(b.type);
-        break;
-      default:
-        comparison = 0;
-    }
-    
-    return sortDirection === 'desc' ? -comparison : comparison;
-  });
+      // Type filter
+      if (typeFilter !== "all" && bet.type !== typeFilter) {
+        return false;
+      }
+
+      // Date range filter
+      if (dateRange?.from && dateRange?.to) {
+        const betDate = new Date(bet.placedAt);
+        if (betDate < dateRange.from || betDate > dateRange.to) {
+          return false;
+        }
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case "placedAt":
+          comparison =
+            new Date(a.placedAt).getTime() - new Date(b.placedAt).getTime();
+          break;
+        case "totalStake":
+          comparison = a.totalStake - b.totalStake;
+          break;
+        case "status":
+          comparison = a.status.localeCompare(b.status);
+          break;
+        case "type":
+          comparison = a.type.localeCompare(b.type);
+          break;
+        default:
+          comparison = 0;
+      }
+
+      return sortDirection === "desc" ? -comparison : comparison;
+    });
 
   // Calculate statistics using proper currency handling
   const stats = {
     total: betsData.length,
-    pending: betsData.filter(bet => bet.status === 'pending').length,
-    won: betsData.filter(bet => bet.status === 'won').length,
-    lost: betsData.filter(bet => bet.status === 'lost').length,
+    pending: betsData.filter((bet) => bet.status === "pending").length,
+    won: betsData.filter((bet) => bet.status === "won").length,
+    lost: betsData.filter((bet) => bet.status === "lost").length,
     totalStaked: betsData.reduce((sum, bet) => sum + bet.totalStake, 0), // Already in cents
     totalWinnings: betsData
-      .filter(bet => bet.status === 'won')
-      .reduce((sum, bet) => sum + (bet.actualWinnings || bet.potentialWinnings), 0), // Already in cents
+      .filter((bet) => bet.status === "won")
+      .reduce(
+        (sum, bet) => sum + (bet.actualWinnings || bet.potentialWinnings),
+        0,
+      ), // Already in cents
     netProfit: betsData
-      .filter(bet => bet.status !== 'pending')
+      .filter((bet) => bet.status !== "pending")
       .reduce((sum, bet) => {
         const stake = bet.totalStake;
-        const winnings = bet.status === 'won' ? (bet.actualWinnings || bet.potentialWinnings) : 0;
+        const winnings =
+          bet.status === "won"
+            ? bet.actualWinnings || bet.potentialWinnings
+            : 0;
         return sum + (winnings - stake);
-      }, 0)
+      }, 0),
   };
 
   // Fix win rate calculation - guard against division by zero
   const settledBets = stats.won + stats.lost;
-  const winRate = settledBets > 0 ? ((stats.won / settledBets) * 100) : 0;
+  const winRate = settledBets > 0 ? stats.won / settledBets : 0;
 
   return (
     <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6">
@@ -180,16 +211,32 @@ function BetHistory() {
             <History className="h-6 w-6 md:h-8 md:w-8 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-xl md:text-3xl font-bold" data-testid="text-bet-history-title">Bet History</h1>
-            <p className="text-sm md:text-base text-muted-foreground">Track all your betting activity</p>
+            <h1
+              className="text-xl md:text-3xl font-bold"
+              data-testid="text-bet-history-title"
+            >
+              Bet History
+            </h1>
+            <p className="text-sm md:text-base text-muted-foreground">
+              Track all your betting activity
+            </p>
           </div>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh" className="flex-1 sm:flex-none">
+          <Button
+            variant="outline"
+            onClick={() => refetch()}
+            data-testid="button-refresh"
+            className="flex-1 sm:flex-none"
+          >
             <RefreshCw className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Refresh</span>
           </Button>
-          <Button variant="outline" data-testid="button-export" className="flex-1 sm:flex-none">
+          <Button
+            variant="outline"
+            data-testid="button-export"
+            className="flex-1 sm:flex-none"
+          >
             <Download className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Export</span>
           </Button>
@@ -204,7 +251,9 @@ function BetHistory() {
             <History className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="text-total-bets">{stats.total}</div>
+            <div className="text-2xl font-bold" data-testid="text-total-bets">
+              {stats.total}
+            </div>
             <p className="text-xs text-muted-foreground">
               {stats.pending} pending, {stats.won + stats.lost} settled
             </p>
@@ -217,7 +266,10 @@ function BetHistory() {
             <Trophy className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600" data-testid="text-win-rate">
+            <div
+              className="text-2xl font-bold text-green-600"
+              data-testid="text-win-rate"
+            >
               {winRate.toFixed(1)}%
             </div>
             <p className="text-xs text-muted-foreground">
@@ -236,7 +288,12 @@ function BetHistory() {
               {currencyUtils.formatCurrency(stats.totalStaked)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Avg: {currencyUtils.formatCurrency(stats.total > 0 ? Math.round(stats.totalStaked / stats.total) : 0)}
+              Avg:{" "}
+              {currencyUtils.formatCurrency(
+                stats.total > 0
+                  ? Math.round(stats.totalStaked / stats.total)
+                  : 0,
+              )}
             </p>
           </CardContent>
         </Card>
@@ -244,15 +301,20 @@ function BetHistory() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-            <TrendingUp className={`h-4 w-4 ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+            <TrendingUp
+              className={`h-4 w-4 ${stats.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}
+            />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} data-testid="text-net-profit">
-              {stats.netProfit >= 0 ? '+' : ''}
+            <div
+              className={`text-2xl font-bold ${stats.netProfit >= 0 ? "text-green-600" : "text-red-600"}`}
+              data-testid="text-net-profit"
+            >
+              {stats.netProfit >= 0 ? "+" : ""}
               {currencyUtils.formatCurrency(Math.abs(stats.netProfit))}
             </div>
             <p className="text-xs text-muted-foreground">
-              {stats.netProfit >= 0 ? 'Profit' : 'Loss'} to date
+              {stats.netProfit >= 0 ? "Profit" : "Loss"} to date
             </p>
           </CardContent>
         </Card>
@@ -260,7 +322,7 @@ function BetHistory() {
 
       {/* Filters */}
       <Card>
-        <CardHeader 
+        <CardHeader
           className="cursor-pointer hover-elevate transition-colors duration-200"
           onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
           data-testid="filters-header"
@@ -270,9 +332,9 @@ function BetHistory() {
               <Filter className="h-5 w-5" />
               <span>Filters</span>
             </div>
-            <ChevronDown 
+            <ChevronDown
               className={`h-5 w-5 transition-transform duration-200 ${
-                isFiltersExpanded ? 'rotate-180' : ''
+                isFiltersExpanded ? "rotate-180" : ""
               }`}
             />
           </CardTitle>
@@ -327,19 +389,33 @@ function BetHistory() {
 
               <div>
                 <label className="text-sm font-medium">Sort By</label>
-                <Select value={`${sortField}-${sortDirection}`} onValueChange={(value) => {
-                  const [field, direction] = value.split('-') as [SortField, SortDirection];
-                  setSortField(field);
-                  setSortDirection(direction);
-                }}>
+                <Select
+                  value={`${sortField}-${sortDirection}`}
+                  onValueChange={(value) => {
+                    const [field, direction] = value.split("-") as [
+                      SortField,
+                      SortDirection,
+                    ];
+                    setSortField(field);
+                    setSortDirection(direction);
+                  }}
+                >
                   <SelectTrigger data-testid="select-sort" className="mt-1">
                     <SelectValue placeholder="Sort by..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="placedAt-desc">Date (Newest first)</SelectItem>
-                    <SelectItem value="placedAt-asc">Date (Oldest first)</SelectItem>
-                    <SelectItem value="totalStake-desc">Stake (Highest first)</SelectItem>
-                    <SelectItem value="totalStake-asc">Stake (Lowest first)</SelectItem>
+                    <SelectItem value="placedAt-desc">
+                      Date (Newest first)
+                    </SelectItem>
+                    <SelectItem value="placedAt-asc">
+                      Date (Oldest first)
+                    </SelectItem>
+                    <SelectItem value="totalStake-desc">
+                      Stake (Highest first)
+                    </SelectItem>
+                    <SelectItem value="totalStake-asc">
+                      Stake (Lowest first)
+                    </SelectItem>
                     <SelectItem value="status-asc">Status (A-Z)</SelectItem>
                     <SelectItem value="status-desc">Status (Z-A)</SelectItem>
                     <SelectItem value="type-asc">Type (A-Z)</SelectItem>
@@ -394,7 +470,9 @@ function BetHistory() {
       {/* Bet List */}
       <Card>
         <CardHeader>
-          <CardTitle>Bet History ({filteredAndSortedBets.length} results)</CardTitle>
+          <CardTitle>
+            Bet History ({filteredAndSortedBets.length} results)
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -406,11 +484,13 @@ function BetHistory() {
             <div className="text-center py-8">
               <History className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">
-                {betsData.length === 0 ? "No bets placed yet" : "No bets match your filters"}
+                {betsData.length === 0
+                  ? "No bets placed yet"
+                  : "No bets match your filters"}
               </p>
               {betsData.length === 0 && (
-                <Button 
-                  onClick={() => setLocation('/line')} 
+                <Button
+                  onClick={() => setLocation("/line")}
                   className="mt-4"
                   data-testid="button-place-first-bet"
                 >
@@ -421,24 +501,27 @@ function BetHistory() {
           ) : (
             <div className="space-y-3 md:space-y-4">
               {filteredAndSortedBets.map((bet) => (
-                <div 
-                  key={bet.id} 
-                  className="border rounded-lg p-3 md:p-4 hover-elevate transition-all duration-200" 
+                <div
+                  key={bet.id}
+                  className="border rounded-lg p-3 md:p-4 hover-elevate transition-all duration-200"
                   data-testid={`bet-card-${bet.id}`}
                 >
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={
-                        bet.status === 'won' ? 'default' : 
-                        bet.status === 'lost' ? 'destructive' : 
-                        bet.status === 'pending' ? 'secondary' :
-                        'outline'
-                      }>
+                      <Badge
+                        variant={
+                          bet.status === "won"
+                            ? "default"
+                            : bet.status === "lost"
+                              ? "destructive"
+                              : bet.status === "pending"
+                                ? "secondary"
+                                : "outline"
+                        }
+                      >
                         {bet.status.toUpperCase()}
                       </Badge>
-                      <Badge variant="outline">
-                        {bet.type.toUpperCase()}
-                      </Badge>
+                      <Badge variant="outline">{bet.type.toUpperCase()}</Badge>
                       <span className="text-xs md:text-sm text-muted-foreground">
                         #{bet.id.slice(-8)}
                       </span>
@@ -446,18 +529,17 @@ function BetHistory() {
                     <div className="flex justify-between sm:block sm:text-right">
                       <div>
                         <p className="text-sm md:text-base font-medium">
-                          Stake: KES {bet.totalStake.toFixed(2)}
+                          Stake: {currencyUtils.formatCurrency(bet.totalStake)}
                         </p>
                         <p className="text-xs md:text-sm text-muted-foreground">
-                          {bet.status === 'won' && bet.actualWinnings ? 
-                            `Won: KES ${bet.actualWinnings.toFixed(2)}` :
-                            `Potential: KES ${bet.potentialWinnings.toFixed(2)}`
-                          }
+                          {bet.status === "won" && bet.actualWinnings
+                            ? `Won: KES ${currencyUtils.formatCurrency(bet.actualWinnings)}`
+                            : `Potential: KES ${currencyUtils.formatCurrency(bet.potentialWinnings)}`}
                         </p>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2 md:space-y-3">
                     {bet.selections.map((selection, index) => (
                       <div key={index} className="text-xs md:text-sm">
@@ -472,11 +554,13 @@ function BetHistory() {
                               @{selection.odds}
                             </div>
                             {selection.status && (
-                              <Badge 
+                              <Badge
                                 variant={
-                                  selection.status === 'won' ? 'default' : 
-                                  selection.status === 'lost' ? 'destructive' : 
-                                  'secondary'
+                                  selection.status === "won"
+                                    ? "default"
+                                    : selection.status === "lost"
+                                      ? "destructive"
+                                      : "secondary"
                                 }
                                 className="text-xs"
                               >
@@ -486,27 +570,34 @@ function BetHistory() {
                           </div>
                         </div>
                         <div className="text-muted-foreground text-xs">
-                          {selection.league} • {selection.market}: {selection.selection}
+                          {selection.league} • {selection.market}:{" "}
+                          {selection.selection}
                         </div>
                       </div>
                     ))}
                   </div>
-                  
+
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mt-3 pt-3 border-t">
                     <div className="text-xs md:text-sm text-muted-foreground space-y-0.5">
-                      <div>Placed: {new Date(bet.placedAt).toLocaleString()}</div>
+                      <div>
+                        Placed: {new Date(bet.placedAt).toLocaleString()}
+                      </div>
                       {bet.settledAt && (
-                        <div>Settled: {new Date(bet.settledAt).toLocaleString()}</div>
+                        <div>
+                          Settled: {new Date(bet.settledAt).toLocaleString()}
+                        </div>
                       )}
                     </div>
                     <div className="flex justify-between sm:block sm:text-right">
                       <span className="text-sm md:text-base font-medium">
                         Total Odds: {bet.totalOdds}
                       </span>
-                      {bet.status === 'pending' && (
+                      {bet.status === "pending" && (
                         <div className="flex items-center">
                           <Clock className="h-3 w-3 mr-1 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">Awaiting result</span>
+                          <span className="text-xs text-muted-foreground">
+                            Awaiting result
+                          </span>
                         </div>
                       )}
                     </div>

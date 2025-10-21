@@ -4,20 +4,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Shield, 
-  Clock, 
-  DollarSign, 
-  AlertTriangle, 
+import {
+  Shield,
+  Clock,
+  DollarSign,
+  AlertTriangle,
   CheckCircle,
   Settings,
   Save,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
 } from "lucide-react";
 import { currencyUtils } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -39,17 +45,22 @@ interface UserLimits {
 
 function ResponsibleGamblingSettings() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'limits' | 'exclusion'>('limits');
-  
+  const [activeTab, setActiveTab] = useState<"limits" | "exclusion">("limits");
+
   // Form states
   const [limits, setLimits] = useState<Partial<UserLimits>>({});
-  const [exclusionDuration, setExclusionDuration] = useState<string>('24h');
-  const [exclusionReason, setExclusionReason] = useState<string>('');
+  const [exclusionDuration, setExclusionDuration] = useState<string>("24h");
+  const [exclusionReason, setExclusionReason] = useState<string>("");
 
   // Fetch current limits
-  const { data: limitsResponse, isLoading, error, refetch } = useQuery<{ success: boolean; data: UserLimits }>({
-    queryKey: ['/api/user/limits'],
-    enabled: !!localStorage.getItem('authToken')
+  const {
+    data: limitsResponse,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery<{ success: boolean; data: UserLimits }>({
+    queryKey: ["/api/user/limits"],
+    enabled: !!localStorage.getItem("authToken"),
   });
 
   const currentLimits = limitsResponse?.data;
@@ -72,13 +83,13 @@ function ResponsibleGamblingSettings() {
 
   // Update limits mutation
   const updateLimitsMutation = useMutation({
-    mutationFn: (limitsData: Partial<UserLimits>) => 
-      apiRequest('/api/user/limits', {
-        method: 'PUT',
+    mutationFn: (limitsData: Partial<UserLimits>) =>
+      apiRequest("/api/user/limits", {
+        method: "PUT",
         body: JSON.stringify(limitsData),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/user/limits'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] });
       toast({
         title: "Limits Updated",
         description: "Your betting limits have been updated successfully.",
@@ -95,18 +106,18 @@ function ResponsibleGamblingSettings() {
 
   // Self-exclusion mutation
   const selfExclusionMutation = useMutation({
-    mutationFn: (data: { duration: string; reason: string }) => 
-      apiRequest('/api/user/self-exclusion', {
-        method: 'POST',
+    mutationFn: (data: { duration: string; reason: string }) =>
+      apiRequest("/api/user/self-exclusion", {
+        method: "POST",
         body: JSON.stringify(data),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/user/limits'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] });
       toast({
         title: "Self-Exclusion Activated",
         description: "Your account has been self-excluded as requested.",
       });
-      setExclusionReason('');
+      setExclusionReason("");
     },
     onError: (error: any) => {
       toast({
@@ -119,12 +130,12 @@ function ResponsibleGamblingSettings() {
 
   // Remove self-exclusion mutation
   const removeSelfExclusionMutation = useMutation({
-    mutationFn: () => 
-      apiRequest('/api/user/self-exclusion', {
-        method: 'DELETE',
+    mutationFn: () =>
+      apiRequest("/api/user/self-exclusion", {
+        method: "DELETE",
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/user/limits'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/limits"] });
       toast({
         title: "Self-Exclusion Removed",
         description: "Your self-exclusion has been removed successfully.",
@@ -152,10 +163,10 @@ function ResponsibleGamblingSettings() {
       });
       return;
     }
-    
+
     selfExclusionMutation.mutate({
       duration: exclusionDuration,
-      reason: exclusionReason.trim()
+      reason: exclusionReason.trim(),
     });
   };
 
@@ -166,23 +177,29 @@ function ResponsibleGamblingSettings() {
   const updateLimit = (field: keyof UserLimits, value: string) => {
     const numericValue = Math.round(parseFloat(value) * 100); // Convert to cents
     if (!isNaN(numericValue) && numericValue >= 0) {
-      setLimits(prev => ({
+      setLimits((prev) => ({
         ...prev,
-        [field]: numericValue
+        [field]: numericValue,
       }));
     }
   };
 
-  if (!localStorage.getItem('authToken')) {
+  if (!localStorage.getItem("authToken")) {
     return (
       <div className="container mx-auto p-6 text-center">
         <div className="max-w-md mx-auto">
           <Shield className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-4">Responsible Gambling Settings</h2>
+          <h2 className="text-2xl font-bold mb-4">
+            Responsible Gambling Settings
+          </h2>
           <p className="text-muted-foreground mb-6">
-            Sign in to manage your betting limits and responsible gambling settings.
+            Sign in to manage your betting limits and responsible gambling
+            settings.
           </p>
-          <Button onClick={() => window.location.href = '/login'} data-testid="button-login">
+          <Button
+            onClick={() => (window.location.href = "/login")}
+            data-testid="button-login"
+          >
             Sign In
           </Button>
         </div>
@@ -197,7 +214,9 @@ function ResponsibleGamblingSettings() {
           <CardContent className="p-6 text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold mb-4">Failed to load settings</h2>
-            <p className="text-muted-foreground mb-4">There was an error loading your responsible gambling settings.</p>
+            <p className="text-muted-foreground mb-4">
+              There was an error loading your responsible gambling settings.
+            </p>
             <Button onClick={() => refetch()} data-testid="button-retry">
               Try Again
             </Button>
@@ -216,11 +235,22 @@ function ResponsibleGamblingSettings() {
             <Shield className="h-8 w-8 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold" data-testid="text-settings-title">Responsible Gambling Settings</h1>
-            <p className="text-muted-foreground">Manage your betting limits and account controls</p>
+            <h1
+              className="text-3xl font-bold"
+              data-testid="text-settings-title"
+            >
+              Responsible Gambling Settings
+            </h1>
+            <p className="text-muted-foreground">
+              Manage your betting limits and account controls
+            </p>
           </div>
         </div>
-        <Button variant="outline" onClick={() => refetch()} data-testid="button-refresh">
+        <Button
+          variant="outline"
+          onClick={() => refetch()}
+          data-testid="button-refresh"
+        >
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh
         </Button>
@@ -236,23 +266,29 @@ function ResponsibleGamblingSettings() {
                 <strong>Account Self-Excluded</strong>
                 {currentLimits.selfExclusionUntil ? (
                   <p className="text-sm mt-1">
-                    Self-exclusion active until: {new Date(currentLimits.selfExclusionUntil).toLocaleDateString()}
+                    Self-exclusion active until:{" "}
+                    {new Date(
+                      currentLimits.selfExclusionUntil,
+                    ).toLocaleDateString()}
                   </p>
                 ) : (
-                  <p className="text-sm mt-1">Permanent self-exclusion active</p>
+                  <p className="text-sm mt-1">
+                    Permanent self-exclusion active
+                  </p>
                 )}
               </div>
-              {currentLimits.selfExclusionUntil && new Date(currentLimits.selfExclusionUntil) <= new Date() && (
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handleRemoveSelfExclusion}
-                  disabled={removeSelfExclusionMutation.isPending}
-                  data-testid="button-remove-exclusion"
-                >
-                  Remove Self-Exclusion
-                </Button>
-              )}
+              {currentLimits.selfExclusionUntil &&
+                new Date(currentLimits.selfExclusionUntil) <= new Date() && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveSelfExclusion}
+                    disabled={removeSelfExclusionMutation.isPending}
+                    data-testid="button-remove-exclusion"
+                  >
+                    Remove Self-Exclusion
+                  </Button>
+                )}
             </div>
           </AlertDescription>
         </Alert>
@@ -261,16 +297,16 @@ function ResponsibleGamblingSettings() {
       {/* Tab Navigation */}
       <div className="flex space-x-2">
         <Button
-          variant={activeTab === 'limits' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('limits')}
+          variant={activeTab === "limits" ? "default" : "outline"}
+          onClick={() => setActiveTab("limits")}
           data-testid="tab-limits"
         >
           <DollarSign className="h-4 w-4 mr-2" />
           Betting Limits
         </Button>
         <Button
-          variant={activeTab === 'exclusion' ? 'default' : 'outline'}
-          onClick={() => setActiveTab('exclusion')}
+          variant={activeTab === "exclusion" ? "default" : "outline"}
+          onClick={() => setActiveTab("exclusion")}
           data-testid="tab-exclusion"
         >
           <Clock className="h-4 w-4 mr-2" />
@@ -294,7 +330,7 @@ function ResponsibleGamblingSettings() {
       ) : (
         <>
           {/* Betting Limits Tab */}
-          {activeTab === 'limits' && (
+          {activeTab === "limits" && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Deposit Limits */}
@@ -313,34 +349,59 @@ function ResponsibleGamblingSettings() {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={limits.dailyDepositLimitCents ? (limits.dailyDepositLimitCents / 100).toString() : ''}
-                        onChange={(e) => updateLimit('dailyDepositLimitCents', e.target.value)}
+                        value={
+                          limits.dailyDepositLimitCents
+                            ? (limits.dailyDepositLimitCents / 100).toString()
+                            : ""
+                        }
+                        onChange={(e) =>
+                          updateLimit("dailyDepositLimitCents", e.target.value)
+                        }
                         placeholder="Enter daily deposit limit"
                         data-testid="input-daily-deposit-limit"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="weeklyDeposit">Weekly Deposit Limit</Label>
+                      <Label htmlFor="weeklyDeposit">
+                        Weekly Deposit Limit
+                      </Label>
                       <Input
                         id="weeklyDeposit"
                         type="number"
                         step="0.01"
                         min="0"
-                        value={limits.weeklyDepositLimitCents ? (limits.weeklyDepositLimitCents / 100).toString() : ''}
-                        onChange={(e) => updateLimit('weeklyDepositLimitCents', e.target.value)}
+                        value={
+                          limits.weeklyDepositLimitCents
+                            ? (limits.weeklyDepositLimitCents / 100).toString()
+                            : ""
+                        }
+                        onChange={(e) =>
+                          updateLimit("weeklyDepositLimitCents", e.target.value)
+                        }
                         placeholder="Enter weekly deposit limit"
                         data-testid="input-weekly-deposit-limit"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="monthlyDeposit">Monthly Deposit Limit</Label>
+                      <Label htmlFor="monthlyDeposit">
+                        Monthly Deposit Limit
+                      </Label>
                       <Input
                         id="monthlyDeposit"
                         type="number"
                         step="0.01"
                         min="0"
-                        value={limits.monthlyDepositLimitCents ? (limits.monthlyDepositLimitCents / 100).toString() : ''}
-                        onChange={(e) => updateLimit('monthlyDepositLimitCents', e.target.value)}
+                        value={
+                          limits.monthlyDepositLimitCents
+                            ? (limits.monthlyDepositLimitCents / 100).toString()
+                            : ""
+                        }
+                        onChange={(e) =>
+                          updateLimit(
+                            "monthlyDepositLimitCents",
+                            e.target.value,
+                          )
+                        }
                         placeholder="Enter monthly deposit limit"
                         data-testid="input-monthly-deposit-limit"
                       />
@@ -364,8 +425,14 @@ function ResponsibleGamblingSettings() {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={limits.maxStakeCents ? (limits.maxStakeCents / 100).toString() : ''}
-                        onChange={(e) => updateLimit('maxStakeCents', e.target.value)}
+                        value={
+                          limits.maxStakeCents
+                            ? (limits.maxStakeCents / 100).toString()
+                            : ""
+                        }
+                        onChange={(e) =>
+                          updateLimit("maxStakeCents", e.target.value)
+                        }
                         placeholder="Enter maximum stake per bet"
                         data-testid="input-max-stake"
                       />
@@ -377,8 +444,14 @@ function ResponsibleGamblingSettings() {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={limits.dailyStakeLimitCents ? (limits.dailyStakeLimitCents / 100).toString() : ''}
-                        onChange={(e) => updateLimit('dailyStakeLimitCents', e.target.value)}
+                        value={
+                          limits.dailyStakeLimitCents
+                            ? (limits.dailyStakeLimitCents / 100).toString()
+                            : ""
+                        }
+                        onChange={(e) =>
+                          updateLimit("dailyStakeLimitCents", e.target.value)
+                        }
                         placeholder="Enter daily stake limit"
                         data-testid="input-daily-stake-limit"
                       />
@@ -390,8 +463,14 @@ function ResponsibleGamblingSettings() {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={limits.weeklyStakeLimitCents ? (limits.weeklyStakeLimitCents / 100).toString() : ''}
-                        onChange={(e) => updateLimit('weeklyStakeLimitCents', e.target.value)}
+                        value={
+                          limits.weeklyStakeLimitCents
+                            ? (limits.weeklyStakeLimitCents / 100).toString()
+                            : ""
+                        }
+                        onChange={(e) =>
+                          updateLimit("weeklyStakeLimitCents", e.target.value)
+                        }
                         placeholder="Enter weekly stake limit"
                         data-testid="input-weekly-stake-limit"
                       />
@@ -415,8 +494,14 @@ function ResponsibleGamblingSettings() {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={limits.dailyLossLimitCents ? (limits.dailyLossLimitCents / 100).toString() : ''}
-                        onChange={(e) => updateLimit('dailyLossLimitCents', e.target.value)}
+                        value={
+                          limits.dailyLossLimitCents
+                            ? (limits.dailyLossLimitCents / 100).toString()
+                            : ""
+                        }
+                        onChange={(e) =>
+                          updateLimit("dailyLossLimitCents", e.target.value)
+                        }
                         placeholder="Enter daily loss limit"
                         data-testid="input-daily-loss-limit"
                       />
@@ -428,8 +513,14 @@ function ResponsibleGamblingSettings() {
                         type="number"
                         step="0.01"
                         min="0"
-                        value={limits.monthlyStakeLimitCents ? (limits.monthlyStakeLimitCents / 100).toString() : ''}
-                        onChange={(e) => updateLimit('monthlyStakeLimitCents', e.target.value)}
+                        value={
+                          limits.monthlyStakeLimitCents
+                            ? (limits.monthlyStakeLimitCents / 100).toString()
+                            : ""
+                        }
+                        onChange={(e) =>
+                          updateLimit("monthlyStakeLimitCents", e.target.value)
+                        }
                         placeholder="Enter monthly stake limit"
                         data-testid="input-monthly-stake-limit"
                       />
@@ -447,21 +538,39 @@ function ResponsibleGamblingSettings() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Account Status</span>
-                      <Badge variant={currentLimits?.isSelfExcluded ? "destructive" : "default"}>
-                        {currentLimits?.isSelfExcluded ? "Self-Excluded" : "Active"}
+                      <span className="text-sm text-muted-foreground">
+                        Account Status
+                      </span>
+                      <Badge
+                        variant={
+                          currentLimits?.isSelfExcluded
+                            ? "destructive"
+                            : "default"
+                        }
+                      >
+                        {currentLimits?.isSelfExcluded
+                          ? "Self-Excluded"
+                          : "Active"}
                       </Badge>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Daily Deposit Limit</span>
+                      <span className="text-sm text-muted-foreground">
+                        Daily Deposit Limit
+                      </span>
                       <span className="font-medium">
-                        {currencyUtils.formatCurrency(currentLimits?.dailyDepositLimitCents || 0)}
+                        {currencyUtils.formatCurrency(
+                          currentLimits?.dailyDepositLimitCents || 0,
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Max Stake</span>
+                      <span className="text-sm text-muted-foreground">
+                        Max Stake
+                      </span>
                       <span className="font-medium">
-                        {currencyUtils.formatCurrency(currentLimits?.maxStakeCents || 0)}
+                        {currencyUtils.formatCurrency(
+                          currentLimits?.maxStakeCents || 0,
+                        )}
                       </span>
                     </div>
                   </CardContent>
@@ -487,7 +596,7 @@ function ResponsibleGamblingSettings() {
           )}
 
           {/* Self-Exclusion Tab */}
-          {activeTab === 'exclusion' && (
+          {activeTab === "exclusion" && (
             <div className="space-y-6">
               {currentLimits?.isSelfExcluded ? (
                 <Card>
@@ -502,38 +611,45 @@ function ResponsibleGamblingSettings() {
                       <Alert className="border-red-200 bg-red-50 dark:bg-red-950/20">
                         <AlertTriangle className="h-4 w-4 text-red-600" />
                         <AlertDescription className="text-red-800 dark:text-red-200">
-                          Your account is currently self-excluded from betting activities.
+                          Your account is currently self-excluded from betting
+                          activities.
                           {currentLimits.selfExclusionUntil ? (
                             <>
                               <br />
-                              <strong>Exclusion expires:</strong> {new Date(currentLimits.selfExclusionUntil).toLocaleDateString()}
+                              <strong>Exclusion expires:</strong>{" "}
+                              {new Date(
+                                currentLimits.selfExclusionUntil,
+                              ).toLocaleDateString()}
                             </>
                           ) : (
                             <>
                               <br />
-                              <strong>Permanent exclusion active</strong> - contact support for assistance.
+                              <strong>Permanent exclusion active</strong> -
+                              contact support for assistance.
                             </>
                           )}
                         </AlertDescription>
                       </Alert>
-                      
-                      {currentLimits.selfExclusionUntil && new Date(currentLimits.selfExclusionUntil) <= new Date() && (
-                        <div className="pt-4">
-                          <Button
-                            onClick={handleRemoveSelfExclusion}
-                            disabled={removeSelfExclusionMutation.isPending}
-                            variant="outline"
-                            data-testid="button-remove-exclusion-main"
-                          >
-                            {removeSelfExclusionMutation.isPending ? (
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                            )}
-                            Remove Self-Exclusion
-                          </Button>
-                        </div>
-                      )}
+
+                      {currentLimits.selfExclusionUntil &&
+                        new Date(currentLimits.selfExclusionUntil) <=
+                          new Date() && (
+                          <div className="pt-4">
+                            <Button
+                              onClick={handleRemoveSelfExclusion}
+                              disabled={removeSelfExclusionMutation.isPending}
+                              variant="outline"
+                              data-testid="button-remove-exclusion-main"
+                            >
+                              {removeSelfExclusionMutation.isPending ? (
+                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                              )}
+                              Remove Self-Exclusion
+                            </Button>
+                          </div>
+                        )}
                     </div>
                   </CardContent>
                 </Card>
@@ -549,15 +665,25 @@ function ResponsibleGamblingSettings() {
                     <Alert>
                       <AlertTriangle className="h-4 w-4" />
                       <AlertDescription>
-                        Self-exclusion will prevent you from placing bets and accessing gambling features for the selected period. 
-                        This action cannot be reversed until the exclusion period expires.
+                        Self-exclusion will prevent you from placing bets and
+                        accessing gambling features for the selected period.
+                        This action cannot be reversed until the exclusion
+                        period expires.
                       </AlertDescription>
                     </Alert>
-                    
+
                     <div>
-                      <Label htmlFor="exclusionDuration">Exclusion Duration</Label>
-                      <Select value={exclusionDuration} onValueChange={setExclusionDuration}>
-                        <SelectTrigger id="exclusionDuration" data-testid="select-exclusion-duration">
+                      <Label htmlFor="exclusionDuration">
+                        Exclusion Duration
+                      </Label>
+                      <Select
+                        value={exclusionDuration}
+                        onValueChange={setExclusionDuration}
+                      >
+                        <SelectTrigger
+                          id="exclusionDuration"
+                          data-testid="select-exclusion-duration"
+                        >
                           <SelectValue placeholder="Select duration" />
                         </SelectTrigger>
                         <SelectContent>
@@ -572,7 +698,9 @@ function ResponsibleGamblingSettings() {
                     </div>
 
                     <div>
-                      <Label htmlFor="exclusionReason">Reason for Self-Exclusion</Label>
+                      <Label htmlFor="exclusionReason">
+                        Reason for Self-Exclusion
+                      </Label>
                       <Textarea
                         id="exclusionReason"
                         value={exclusionReason}
@@ -586,7 +714,10 @@ function ResponsibleGamblingSettings() {
                     <div className="flex justify-end">
                       <Button
                         onClick={handleSelfExclusion}
-                        disabled={selfExclusionMutation.isPending || !exclusionReason.trim()}
+                        disabled={
+                          selfExclusionMutation.isPending ||
+                          !exclusionReason.trim()
+                        }
                         variant="destructive"
                         data-testid="button-activate-exclusion"
                         className="min-w-32"

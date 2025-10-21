@@ -5,9 +5,22 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Calculator, DollarSign, Trash2, AlertTriangle, Info, Check } from "lucide-react";
+import {
+  X,
+  Calculator,
+  DollarSign,
+  Trash2,
+  AlertTriangle,
+  Info,
+  Check,
+} from "lucide-react";
 import { BetSelection } from "@shared/types";
-import { betPlacementSchema, BETTING_LIMITS, stakeValidation, currencyUtils } from "@shared/schema";
+import {
+  betPlacementSchema,
+  BETTING_LIMITS,
+  stakeValidation,
+  currencyUtils,
+} from "@shared/schema";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -62,8 +75,9 @@ export default function BetSlip({
         return selections.reduce((acc, sel) => acc * sel.odds, 1);
       case "system":
         // For system, calculate average of all selection odds
-        return selections.length > 0 
-          ? selections.reduce((acc, sel) => acc + sel.odds, 0) / selections.length 
+        return selections.length > 0
+          ? selections.reduce((acc, sel) => acc + sel.odds, 0) /
+              selections.length
           : 1;
       default:
         return 1;
@@ -105,43 +119,43 @@ export default function BetSlip({
 
   const updateStake = (selectionId: string, value: string) => {
     const numValue = parseFloat(value) || 0;
-    
+
     // Validate stake in real-time (values are in KES)
     let error = "";
     if (value && numValue > 0) {
       if (!stakeValidation.isValidSingleStake(numValue)) {
-        error = stakeValidation.formatStakeError(numValue, 'single');
+        error = stakeValidation.formatStakeError(numValue, "single");
       }
     }
-    
+
     setStakes((prev) => ({ ...prev, [selectionId]: numValue }));
     setStakeErrors((prev) => ({ ...prev, [selectionId]: error }));
   };
-  
+
   const updateExpressStake = (value: string) => {
     const numValue = parseFloat(value) || 0;
-    
+
     let error = "";
     if (value && numValue > 0) {
       if (!stakeValidation.isValidExpressStake(numValue)) {
-        error = stakeValidation.formatStakeError(numValue, 'express');
+        error = stakeValidation.formatStakeError(numValue, "express");
       }
     }
-    
+
     setExpressStake(numValue);
     setExpressStakeError(error);
   };
-  
+
   const updateSystemStake = (value: string) => {
     const numValue = parseFloat(value) || 0;
-    
+
     let error = "";
     if (value && numValue > 0) {
       if (!stakeValidation.isValidSystemStake(numValue)) {
-        error = stakeValidation.formatStakeError(numValue, 'system');
+        error = stakeValidation.formatStakeError(numValue, "system");
       }
     }
-    
+
     setSystemStake(numValue);
     setSystemStakeError(error);
   };
@@ -169,23 +183,26 @@ export default function BetSlip({
     if (!isAuthenticated) {
       toast({
         title: "Login Required",
-        description: "You must be logged in to place bets. Redirecting to login page...",
-        variant: "destructive"
+        description:
+          "You must be logged in to place bets. Redirecting to login page...",
+        variant: "destructive",
       });
-      
+
       // Clear any stale auth state and redirect to login page after a brief delay
       setTimeout(() => {
         logout();
-        setLocation('/login');
+        setLocation("/login");
       }, 1500);
       return;
     }
-    
+
     try {
       switch (type) {
         case "single":
           // Check for stake validation errors
-          const hasStakeErrors = Object.values(stakeErrors).some(error => error !== "");
+          const hasStakeErrors = Object.values(stakeErrors).some(
+            (error) => error !== "",
+          );
           if (hasStakeErrors) {
             toast({
               title: "Invalid Stakes",
@@ -194,15 +211,17 @@ export default function BetSlip({
             });
             return;
           }
-          
+
           // Validate that we have at least one selection with valid stake
           const validSingleBets = selections.filter(
-            (sel) => stakes[sel.id] && stakes[sel.id] > 0 && !stakeErrors[sel.id],
+            (sel) =>
+              stakes[sel.id] && stakes[sel.id] > 0 && !stakeErrors[sel.id],
           );
           if (validSingleBets.length === 0) {
             toast({
               title: "No Valid Stakes Set",
-              description: "Please set valid stakes for at least one selection.",
+              description:
+                "Please set valid stakes for at least one selection.",
               variant: "destructive",
             });
             return;
@@ -230,7 +249,7 @@ export default function BetSlip({
 
             // Validate before sending
             const validatedBetData = validateBetData(betData);
-            
+
             // Wait for each bet to complete before placing the next one
             await onPlaceBet(validatedBetData);
             console.log("Placed single bet:", validatedBetData);
@@ -249,7 +268,7 @@ export default function BetSlip({
             });
             return;
           }
-          
+
           if (expressStake === 0) {
             toast({
               title: "No Stake Set",
@@ -299,7 +318,7 @@ export default function BetSlip({
             });
             return;
           }
-          
+
           if (systemStake === 0) {
             toast({
               title: "No Stake Set",
@@ -392,11 +411,15 @@ export default function BetSlip({
                   <span className="text-sm font-medium">Total Odds</span>
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-bold text-chart-4" data-testid="text-total-odds-express">
+                  <div
+                    className="text-lg font-bold text-chart-4"
+                    data-testid="text-total-odds-express"
+                  >
                     {calculateTotalOdds("express").toFixed(4)}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {selections.length} selection{selections.length !== 1 ? 's' : ''}
+                    {selections.length} selection
+                    {selections.length !== 1 ? "s" : ""}
                   </div>
                 </div>
               </div>
@@ -415,308 +438,356 @@ export default function BetSlip({
                 </TabsTrigger>
               </TabsList>
 
-            {/* Single Bets */}
-            <TabsContent value="ordinary" className="space-y-3">
-              <AnimatePresence>
-                {selections.map((selection, index) => (
-                  <motion.div
-                    key={selection.id}
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.2, delay: index * 0.05 }}
-                    className="bg-card border border-card-border rounded-md p-3"
-                    data-testid={`selection-${selection.id}`}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">
-                          {selection.homeTeam} vs {selection.awayTeam}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {selection.league} •{" "}
-                          {selection.selection || selection.type}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {selection.odds.toFixed(2)}
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onRemoveSelection(selection.id)}
-                          data-testid={`button-remove-${selection.id}`}
-                          className="h-5 w-5 hover-elevate"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          placeholder="Stake"
-                          step="0.01"
-                          min={BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS}
-                          max={BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS}
-                          value={stakes[selection.id] || ""}
-                          onChange={(e) =>
-                            updateStake(selection.id, e.target.value)
-                          }
-                          data-testid={`input-stake-${selection.id}`}
-                          className={`h-8 ${stakeErrors[selection.id] ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : stakes[selection.id] && stakes[selection.id] > 0 ? 'border-green-500' : ''}`}
-                        />
-                        {stakeErrors[selection.id] && (
-                          <div className="absolute top-full left-0 z-10 mt-1 text-xs text-red-600 bg-white dark:bg-gray-800 border border-red-200 rounded px-2 py-1 shadow-lg">
-                            {stakeErrors[selection.id]}
-                          </div>
-                        )}
-                        {stakes[selection.id] && stakes[selection.id] > 0 && !stakeErrors[selection.id] && (
-                          <Check className="absolute right-1 top-1/2 transform -translate-y-1/2 h-3 w-3 text-green-500" />
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Info className="h-3 w-3" />
-                        Min: {currencyUtils.formatCurrency(BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS)} | Max: {currencyUtils.formatCurrency(BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS)}
-                      </div>
-                      {stakes[selection.id] > 0 && (
-                        <div className="text-xs space-y-1">
-                          <div className="flex justify-between">
-                            <span>Potential Return:</span>
-                            <span
-                              className="font-medium text-chart-4"
-                              data-testid={`text-return-${selection.id}`}
-                            >
-                              {currencyUtils.formatCurrency(Math.round(stakes[selection.id] * selection.odds * 100))}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Profit:</span>
-                            <span className="font-medium text-chart-4">
-                              {currencyUtils.formatCurrency(Math.round((stakes[selection.id] * selection.odds - stakes[selection.id]) * 100))}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-
-              <Button
-                onClick={() => handlePlaceBet("single")}
-                disabled={
-                  Object.values(stakes).every((stake) => stake === 0) ||
-                  isPlacingBet
-                }
-                data-testid="button-place-single-bet"
-                className="w-full hover-elevate"
-              >
-                <DollarSign className="h-4 w-4 mr-2" />
-                {isPlacingBet ? "Placing Bet..." : "Place Single Bets"}
-              </Button>
-            </TabsContent>
-
-            {/* Express Bet */}
-            <TabsContent value="express" className="space-y-3">
-              <div className="bg-card border border-card-border rounded-md p-3">
-                <div className="space-y-2 mb-3">
+              {/* Single Bets */}
+              <TabsContent value="ordinary" className="space-y-3">
+                <AnimatePresence>
                   {selections.map((selection, index) => (
-                    <div
+                    <motion.div
                       key={selection.id}
-                      className="flex items-center justify-between"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2, delay: index * 0.05 }}
+                      className="bg-card border border-card-border rounded-md p-3"
+                      data-testid={`selection-${selection.id}`}
                     >
-                      <div className="flex-1">
-                        <p className="text-sm">
-                          {selection.homeTeam} vs {selection.awayTeam}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {selection.selection || selection.type}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        {selection.odds.toFixed(2)}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="border-t border-border pt-2 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Total Odds:</span>
-                    <span
-                      className="font-medium"
-                      data-testid="text-express-odds"
-                    >
-                      {calculateExpressReturn().totalOdds.toFixed(2)}
-                    </span>
-                  </div>
-
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      placeholder="Express stake"
-                      step="0.01"
-                      min={BETTING_LIMITS.MIN_STAKE_CENTS}
-                      max={BETTING_LIMITS.MAX_STAKE_CENTS}
-                      value={expressStake || ""}
-                      onChange={(e) => updateExpressStake(e.target.value)}
-                      data-testid="input-express-stake"
-                      className={`h-8 ${expressStakeError ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : expressStake > 0 ? 'border-green-500' : ''}`}
-                    />
-                    {expressStakeError && (
-                      <div className="absolute top-full left-0 z-10 mt-1 text-xs text-red-600 bg-white dark:bg-gray-800 border border-red-200 rounded px-2 py-1 shadow-lg">
-                        {expressStakeError}
-                      </div>
-                    )}
-                    {expressStake > 0 && !expressStakeError && (
-                      <Check className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                    <Info className="h-3 w-3" />
-                    Min: {currencyUtils.formatCurrency(BETTING_LIMITS.MIN_STAKE_CENTS)} | Max: {currencyUtils.formatCurrency(BETTING_LIMITS.MAX_STAKE_CENTS)}
-                  </div>
-
-                  {expressStake > 0 && (
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span>Potential Return:</span>
-                        <span
-                          className="font-medium text-chart-4"
-                          data-testid="text-express-return"
-                        >
-                          {currencyUtils.formatCurrency(Math.round(calculateExpressReturn().potentialReturn * 100))}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Profit:</span>
-                        <span className="font-medium text-chart-4">
-                          {currencyUtils.formatCurrency(Math.round(calculateExpressReturn().profit * 100))}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <Button
-                onClick={() => handlePlaceBet("express")}
-                disabled={
-                  expressStake === 0 || selections.length < 2 || isPlacingBet
-                }
-                data-testid="button-place-express-bet"
-                className="w-full hover-elevate"
-              >
-                <DollarSign className="h-4 w-4 mr-2" />
-                {isPlacingBet ? "Placing Bet..." : "Place Express Bet"}
-              </Button>
-            </TabsContent>
-
-            {/* System Bet */}
-            <TabsContent value="system" className="space-y-3">
-              <div className="bg-card border border-card-border rounded-md p-3">
-                <p className="text-sm mb-2">
-                  System bet (minimum 3 selections required)
-                </p>
-
-                {selections.length >= 3 && (
-                  <>
-                    <div className="space-y-2 mb-3">
-                      {selections.map((selection) => (
-                        <div
-                          key={selection.id}
-                          className="flex items-center justify-between"
-                        >
-                          <div className="flex-1">
-                            <p className="text-sm">
-                              {selection.homeTeam} vs {selection.awayTeam}
-                            </p>
-                          </div>
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">
+                            {selection.homeTeam} vs {selection.awayTeam}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {selection.league} •{" "}
+                            {selection.selection || selection.type}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs">
                             {selection.odds.toFixed(2)}
                           </Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onRemoveSelection(selection.id)}
+                            data-testid={`button-remove-${selection.id}`}
+                            className="h-5 w-5 hover-elevate"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
                         </div>
-                      ))}
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            placeholder="Stake"
+                            step="0.01"
+                            min={BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS / 100}
+                            max={BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS / 100}
+                            value={stakes[selection.id] || ""}
+                            onChange={(e) =>
+                              updateStake(selection.id, e.target.value)
+                            }
+                            data-testid={`input-stake-${selection.id}`}
+                            className={`h-8 ${stakeErrors[selection.id] ? "border-red-500 bg-red-50 dark:bg-red-950/20" : stakes[selection.id] && stakes[selection.id] > 0 ? "border-green-500" : ""}`}
+                          />
+                          {stakeErrors[selection.id] && (
+                            <div className="absolute top-full left-0 z-10 mt-1 text-xs text-red-600 bg-white dark:bg-gray-800 border border-red-200 rounded px-2 py-1 shadow-lg">
+                              {stakeErrors[selection.id]}
+                            </div>
+                          )}
+                          {stakes[selection.id] &&
+                            stakes[selection.id] > 0 &&
+                            !stakeErrors[selection.id] && (
+                              <Check className="absolute right-1 top-1/2 transform -translate-y-1/2 h-3 w-3 text-green-500" />
+                            )}
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Info className="h-3 w-3" />
+                          Min:{" "}
+                          {currencyUtils.formatCurrency(
+                            BETTING_LIMITS.MIN_SINGLE_STAKE_CENTS,
+                          )}{" "}
+                          | Max:{" "}
+                          {currencyUtils.formatCurrency(
+                            BETTING_LIMITS.MAX_SINGLE_STAKE_CENTS,
+                          )}
+                        </div>
+                        {stakes[selection.id] > 0 && (
+                          <div className="text-xs space-y-1">
+                            <div className="flex justify-between">
+                              <span>Potential Return:</span>
+                              <span
+                                className="font-medium text-chart-4"
+                                data-testid={`text-return-${selection.id}`}
+                              >
+                                {currencyUtils.formatCurrency(
+                                  Math.round(
+                                    stakes[selection.id] * selection.odds * 100,
+                                  ),
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Profit:</span>
+                              <span className="font-medium text-chart-4">
+                                {currencyUtils.formatCurrency(
+                                  Math.round(
+                                    (stakes[selection.id] * selection.odds -
+                                      stakes[selection.id]) *
+                                      100,
+                                  ),
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+
+                <Button
+                  onClick={() => handlePlaceBet("single")}
+                  disabled={
+                    Object.values(stakes).every((stake) => stake === 0) ||
+                    isPlacingBet
+                  }
+                  data-testid="button-place-single-bet"
+                  className="w-full hover-elevate"
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  {isPlacingBet ? "Placing Bet..." : "Place Single Bets"}
+                </Button>
+              </TabsContent>
+
+              {/* Express Bet */}
+              <TabsContent value="express" className="space-y-3">
+                <div className="bg-card border border-card-border rounded-md p-3">
+                  <div className="space-y-2 mb-3">
+                    {selections.map((selection, index) => (
+                      <div
+                        key={selection.id}
+                        className="flex items-center justify-between"
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm">
+                            {selection.homeTeam} vs {selection.awayTeam}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {selection.selection || selection.type}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {selection.odds.toFixed(2)}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-border pt-2 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Total Odds:</span>
+                      <span
+                        className="font-medium"
+                        data-testid="text-express-odds"
+                      >
+                        {calculateExpressReturn().totalOdds.toFixed(2)}
+                      </span>
                     </div>
 
-                    <div className="border-t border-border pt-2 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Combinations:</span>
-                        <span
-                          className="font-medium"
-                          data-testid="text-system-combinations"
-                        >
-                          {calculateSystemReturn().combinations}
-                        </span>
-                      </div>
-
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          placeholder="System stake"
-                          step="0.01"
-                          min={BETTING_LIMITS.MIN_STAKE_CENTS}
-                          max={BETTING_LIMITS.MAX_STAKE_CENTS}
-                          value={systemStake || ""}
-                          onChange={(e) => updateSystemStake(e.target.value)}
-                          data-testid="input-system-stake"
-                          className={`h-8 ${systemStakeError ? 'border-red-500 bg-red-50 dark:bg-red-950/20' : systemStake > 0 ? 'border-green-500' : ''}`}
-                        />
-                        {systemStakeError && (
-                          <div className="absolute top-full left-0 z-10 mt-1 text-xs text-red-600 bg-white dark:bg-gray-800 border border-red-200 rounded px-2 py-1 shadow-lg">
-                            {systemStakeError}
-                          </div>
-                        )}
-                        {systemStake > 0 && !systemStakeError && (
-                          <Check className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                        <Info className="h-3 w-3" />
-                        Min: {currencyUtils.formatCurrency(BETTING_LIMITS.MIN_STAKE_CENTS)} | Max: {currencyUtils.formatCurrency(BETTING_LIMITS.MAX_STAKE_CENTS)}
-                      </div>
-
-                      {systemStake > 0 && (
-                        <div className="space-y-1 text-xs">
-                          <div className="flex justify-between">
-                            <span>Potential Return:</span>
-                            <span
-                              className="font-medium text-chart-4"
-                              data-testid="text-system-return"
-                            >
-                              {currencyUtils.formatCurrency(Math.round(calculateSystemReturn().potentialReturn * 100))}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Profit:</span>
-                            <span className="font-medium text-chart-4">
-                              {currencyUtils.formatCurrency(Math.round(calculateSystemReturn().profit * 100))}
-                            </span>
-                          </div>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        placeholder="Express stake"
+                        step="0.01"
+                        min={BETTING_LIMITS.MIN_STAKE_CENTS}
+                        max={BETTING_LIMITS.MAX_STAKE_CENTS}
+                        value={expressStake || ""}
+                        onChange={(e) => updateExpressStake(e.target.value)}
+                        data-testid="input-express-stake"
+                        className={`h-8 ${expressStakeError ? "border-red-500 bg-red-50 dark:bg-red-950/20" : expressStake > 0 ? "border-green-500" : ""}`}
+                      />
+                      {expressStakeError && (
+                        <div className="absolute top-full left-0 z-10 mt-1 text-xs text-red-600 bg-white dark:bg-gray-800 border border-red-200 rounded px-2 py-1 shadow-lg">
+                          {expressStakeError}
                         </div>
                       )}
+                      {expressStake > 0 && !expressStakeError && (
+                        <Check className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
+                      )}
                     </div>
-                  </>
-                )}
-              </div>
+                    <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                      <Info className="h-3 w-3" />
+                      Min:{" "}
+                      {currencyUtils.formatCurrency(
+                        BETTING_LIMITS.MIN_STAKE_CENTS,
+                      )}{" "}
+                      | Max:{" "}
+                      {currencyUtils.formatCurrency(
+                        BETTING_LIMITS.MAX_STAKE_CENTS,
+                      )}
+                    </div>
 
-              <Button
-                onClick={() => handlePlaceBet("system")}
-                disabled={
-                  systemStake === 0 || selections.length < 3 || isPlacingBet
-                }
-                data-testid="button-place-system-bet"
-                className="w-full hover-elevate"
-              >
-                <DollarSign className="h-4 w-4 mr-2" />
-                {isPlacingBet ? "Placing Bet..." : "Place System Bet"}
-              </Button>
-            </TabsContent>
-          </Tabs>
+                    {expressStake > 0 && (
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span>Potential Return:</span>
+                          <span
+                            className="font-medium text-chart-4"
+                            data-testid="text-express-return"
+                          >
+                            {currencyUtils.formatCurrency(
+                              Math.round(
+                                calculateExpressReturn().potentialReturn * 100,
+                              ),
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Profit:</span>
+                          <span className="font-medium text-chart-4">
+                            {currencyUtils.formatCurrency(
+                              Math.round(calculateExpressReturn().profit * 100),
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => handlePlaceBet("express")}
+                  disabled={
+                    expressStake === 0 || selections.length < 2 || isPlacingBet
+                  }
+                  data-testid="button-place-express-bet"
+                  className="w-full hover-elevate"
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  {isPlacingBet ? "Placing Bet..." : "Place Express Bet"}
+                </Button>
+              </TabsContent>
+
+              {/* System Bet */}
+              <TabsContent value="system" className="space-y-3">
+                <div className="bg-card border border-card-border rounded-md p-3">
+                  <p className="text-sm mb-2">
+                    System bet (minimum 3 selections required)
+                  </p>
+
+                  {selections.length >= 3 && (
+                    <>
+                      <div className="space-y-2 mb-3">
+                        {selections.map((selection) => (
+                          <div
+                            key={selection.id}
+                            className="flex items-center justify-between"
+                          >
+                            <div className="flex-1">
+                              <p className="text-sm">
+                                {selection.homeTeam} vs {selection.awayTeam}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="text-xs">
+                              {selection.odds.toFixed(2)}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="border-t border-border pt-2 space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Combinations:</span>
+                          <span
+                            className="font-medium"
+                            data-testid="text-system-combinations"
+                          >
+                            {calculateSystemReturn().combinations}
+                          </span>
+                        </div>
+
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            placeholder="System stake"
+                            step="0.01"
+                            min={BETTING_LIMITS.MIN_STAKE_CENTS}
+                            max={BETTING_LIMITS.MAX_STAKE_CENTS}
+                            value={systemStake || ""}
+                            onChange={(e) => updateSystemStake(e.target.value)}
+                            data-testid="input-system-stake"
+                            className={`h-8 ${systemStakeError ? "border-red-500 bg-red-50 dark:bg-red-950/20" : systemStake > 0 ? "border-green-500" : ""}`}
+                          />
+                          {systemStakeError && (
+                            <div className="absolute top-full left-0 z-10 mt-1 text-xs text-red-600 bg-white dark:bg-gray-800 border border-red-200 rounded px-2 py-1 shadow-lg">
+                              {systemStakeError}
+                            </div>
+                          )}
+                          {systemStake > 0 && !systemStakeError && (
+                            <Check className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                          <Info className="h-3 w-3" />
+                          Min:{" "}
+                          {currencyUtils.formatCurrency(
+                            BETTING_LIMITS.MIN_STAKE_CENTS,
+                          )}{" "}
+                          | Max:{" "}
+                          {currencyUtils.formatCurrency(
+                            BETTING_LIMITS.MAX_STAKE_CENTS,
+                          )}
+                        </div>
+
+                        {systemStake > 0 && (
+                          <div className="space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span>Potential Return:</span>
+                              <span
+                                className="font-medium text-chart-4"
+                                data-testid="text-system-return"
+                              >
+                                {currencyUtils.formatCurrency(
+                                  Math.round(
+                                    calculateSystemReturn().potentialReturn *
+                                      100,
+                                  ),
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Profit:</span>
+                              <span className="font-medium text-chart-4">
+                                {currencyUtils.formatCurrency(
+                                  Math.round(
+                                    calculateSystemReturn().profit * 100,
+                                  ),
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <Button
+                  onClick={() => handlePlaceBet("system")}
+                  disabled={
+                    systemStake === 0 || selections.length < 3 || isPlacingBet
+                  }
+                  data-testid="button-place-system-bet"
+                  className="w-full hover-elevate"
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  {isPlacingBet ? "Placing Bet..." : "Place System Bet"}
+                </Button>
+              </TabsContent>
+            </Tabs>
           </div>
         )}
       </CardContent>
