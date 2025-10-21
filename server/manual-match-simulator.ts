@@ -85,6 +85,41 @@ export class ManualMatchSimulator {
       }
     }
   }
+  
+  /**
+   * Aggressively remove a finished match from all Redis caches
+   */
+  private async removeFinishedMatchFromCache(matchId: string, sport: string, leagueId: string): Promise<void> {
+    try {
+      console.log(`🧹 Removing finished match ${matchId} from all caches`);
+      
+      // Delete all possible Redis keys for this match
+      await redisCache.del(`fixture:${matchId}`);
+      await redisCache.del(`manual:match:${matchId}`);
+      await redisCache.del(`match:${matchId}`);
+      await redisCache.del(`unified:match:${matchId}`);
+      
+      // Remove from live matches collection
+      const liveMatchesKey = `live:matches:${sport}:${leagueId}`;
+      const liveMatches = await redisCache.get<any[]>(liveMatchesKey) || [];
+      const filteredMatches = liveMatches.filter(m => 
+        (m.match_id || m.id) !== matchId
+      );
+      
+      if (filteredMatches.length > 0) {
+        await redisCache.set(liveMatchesKey, filteredMatches, 120);
+      } else {
+        await redisCache.del(liveMatchesKey);
+      }
+      
+      // Invalidate unified lists to force refresh
+      await redisCache.del('unified:matches:live');
+      await redisCache.del('unified:matches:upcoming');
+      
+    } catch (error) {
+      console.error(`Error removing match ${matchId} from cache:`, error);
+    }
+  }
 
   /**
    * Get simulator status
@@ -231,6 +266,14 @@ export class ManualMatchSimulator {
       const liveMatches = await storage.getLiveManualMatches();
       
       for (const match of liveMatches) {
+        // DEFENSIVE: Skip if match is already finished (prevents re-simulation)
+        if (match.status === 'finished') {
+          console.log(`⏭️  Skipping finished match: ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`);
+          // Remove from cache immediately
+          await this.removeFinishedMatchFromCache(match.id, match.sport, match.league_id || match.leagueId);
+          continue;
+        }
+        
         const kickoffTime = new Date(match.kickoff_time || match.kickoffTime);
         const elapsedMs = now.getTime() - kickoffTime.getTime();
         const elapsedMinutes = Math.floor(elapsedMs / 60000);
@@ -329,6 +372,14 @@ export class ManualMatchSimulator {
       const liveMatches = await storage.getLiveManualMatches();
       
       for (const match of liveMatches) {
+        // DEFENSIVE: Skip if match is already finished
+        if (match.status === 'finished') {
+          console.log(`⏭️  Skipping already-finished match: ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`);
+          // Remove from cache immediately
+          await this.removeFinishedMatchFromCache(match.id, match.sport, match.league_id || match.leagueId);
+          continue;
+        }
+        
         const kickoffTime = new Date(match.kickoff_time || match.kickoffTime);
         const elapsedMs = now.getTime() - kickoffTime.getTime();
         const MATCH_DURATION_MS = 93 * 60 * 1000;
@@ -355,6 +406,9 @@ export class ManualMatchSimulator {
           
           // Update cache (this will now remove from live cache collections)
           await unifiedMatchService.updateManualMatchCache(match.id);
+          
+          // AGGRESSIVE: Remove from all caches immediately
+          await this.removeFinishedMatchFromCache(match.id, match.sport, match.league_id || match.leagueId);
           
           this.matchesProcessed++;
         }
