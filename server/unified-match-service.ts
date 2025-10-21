@@ -416,12 +416,6 @@ export class UnifiedMatchService {
       if (match && match.is_manual) {
         const unified = await this.transformManualMatch(match);
         
-        // If match is finished, remove it from live caches before updating
-        if (unified.status === 'completed') {
-          await this.removeMatchFromLiveCache(matchId, unified.sport_key, unified.league_id);
-          console.log(`🧹 Removed finished match ${matchId} from live cache`);
-        }
-        
         // Write to canonical fixture key for aggregator to detect
         await redisCache.set(`fixture:${matchId}`, unified, 3600);
         await redisCache.set(`manual:match:${matchId}`, unified, 60);
@@ -439,37 +433,10 @@ export class UnifiedMatchService {
         await redisCache.del('unified:matches:upcoming');
         
         // Log for aggregator visibility
-        console.log(`📝 Manual match updated in Redis (fixture:${matchId}) - Status: ${unified.status}`);
+        console.log(`📝 Manual match updated in Redis (fixture:${matchId}) - Aggregator will detect change`);
       }
     } catch (error) {
       console.error(`Error updating manual match cache for ${matchId}:`, error);
-    }
-  }
-  
-  /**
-   * Remove a match from live cache collections
-   */
-  private async removeMatchFromLiveCache(matchId: string, sportKey: string, leagueId: string): Promise<void> {
-    try {
-      // Remove from live matches array for this sport/league
-      const liveMatches = await redisCache.getLiveMatches(sportKey, leagueId) || [];
-      const filteredMatches = liveMatches.filter(m => 
-        (m.match_id || m.id) !== matchId
-      );
-      
-      // Update the live matches cache (or remove if empty)
-      if (filteredMatches.length > 0) {
-        await redisCache.setLiveMatches(sportKey, leagueId, filteredMatches, 120, true);
-      } else {
-        await redisCache.del(`live:matches:${sportKey}:${leagueId}`);
-      }
-      
-      // Delete individual match cache
-      await redisCache.del(`match:${matchId}`);
-      await redisCache.del(`unified:match:${matchId}`);
-      
-    } catch (error) {
-      console.error(`Error removing match ${matchId} from live cache:`, error);
     }
   }
 }

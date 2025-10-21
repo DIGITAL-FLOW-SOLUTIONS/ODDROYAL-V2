@@ -459,31 +459,7 @@ export class AblyAggregator {
         const sportKey = match.sport_key;
         const leagueId = match.league_id;
         
-        if (match.status === 'completed') {
-          // Remove from both live and prematch caches when match is finished
-          const liveKey = `live:${sportKey}:${leagueId}`;
-          let liveMatches = await redisCache.get<UnifiedMatch[]>(liveKey) || [];
-          const filteredLive = liveMatches.filter(m => m.match_id !== match.match_id);
-          
-          if (filteredLive.length > 0) {
-            await redisCache.set(liveKey, filteredLive, 300);
-          } else {
-            await redisCache.del(liveKey);
-          }
-          
-          const prematchKey = `prematch:${sportKey}:${leagueId}`;
-          let prematchMatches = await redisCache.get<UnifiedMatch[]>(prematchKey) || [];
-          const filteredPrematch = prematchMatches.filter(m => m.match_id !== match.match_id);
-          
-          if (filteredPrematch.length > 0) {
-            await redisCache.set(prematchKey, filteredPrematch, 900);
-          } else {
-            await redisCache.del(prematchKey);
-          }
-          
-          logger.info(`[AGGREGATOR] Removed completed match ${match.match_id} from live/prematch caches`);
-          
-        } else if (match.status === 'live') {
+        if (match.status === 'live') {
           // Add to live league array
           const liveKey = `live:${sportKey}:${leagueId}`;
           let liveMatches = await redisCache.get<UnifiedMatch[]>(liveKey) || [];
@@ -497,14 +473,6 @@ export class AblyAggregator {
           }
           
           await redisCache.set(liveKey, liveMatches, 300); // 5 min TTL for live
-          
-          // Also remove from prematch if it was there
-          const prematchKey = `prematch:${sportKey}:${leagueId}`;
-          let prematchMatches = await redisCache.get<UnifiedMatch[]>(prematchKey) || [];
-          const filteredPrematch = prematchMatches.filter(m => m.match_id !== match.match_id);
-          if (filteredPrematch.length !== prematchMatches.length) {
-            await redisCache.set(prematchKey, filteredPrematch, 900);
-          }
           
         } else if (match.status === 'upcoming') {
           // Add to prematch league array

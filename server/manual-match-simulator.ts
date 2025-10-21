@@ -30,61 +30,8 @@ export class ManualMatchSimulator {
   private matchesProcessed = 0;
   private eventsExecuted = 0;
   private lastRun: Date | null = null;
-  private pendingTimers: Map<string, NodeJS.Timeout[]> = new Map();
 
   constructor(private intervalSeconds = 10) {}
-  
-  /**
-   * Helper method to verify match is still live
-   * Prevents race conditions where timers execute after match finishes
-   */
-  private async isMatchStillLive(matchId: string): Promise<boolean> {
-    try {
-      const match = await storage.getMatch(matchId);
-      return match !== null && match.status === 'live';
-    } catch (error) {
-      console.error(`Error checking match status for ${matchId}:`, error);
-      return false;
-    }
-  }
-  
-  /**
-   * Clear all pending timers for a match (called when match finishes)
-   */
-  private clearMatchTimers(matchId: string): void {
-    const timers = this.pendingTimers.get(matchId);
-    if (timers) {
-      timers.forEach(timer => clearTimeout(timer));
-      this.pendingTimers.delete(matchId);
-    }
-  }
-  
-  /**
-   * Track a timer for a match
-   */
-  private trackTimer(matchId: string, timer: NodeJS.Timeout): void {
-    if (!this.pendingTimers.has(matchId)) {
-      this.pendingTimers.set(matchId, []);
-    }
-    this.pendingTimers.get(matchId)!.push(timer);
-  }
-  
-  /**
-   * Remove a specific timer from tracking (called after normal execution)
-   */
-  private removeTimer(matchId: string, timer: NodeJS.Timeout): void {
-    const timers = this.pendingTimers.get(matchId);
-    if (timers) {
-      const index = timers.indexOf(timer);
-      if (index > -1) {
-        timers.splice(index, 1);
-      }
-      // Clean up empty arrays
-      if (timers.length === 0) {
-        this.pendingTimers.delete(matchId);
-      }
-    }
-  }
 
   /**
    * Get simulator status
@@ -193,25 +140,18 @@ export class ManualMatchSimulator {
         await storage.suspendAllMarkets(match.id);
         
         // Reopen markets after 2 seconds (with safety checks)
-        const reopenTimer = setTimeout(async () => {
+        setTimeout(async () => {
           try {
-            // Double-check match is still live before reopening markets
-            if (await this.isMatchStillLive(match.id)) {
+            // Check if match is still live before reopening markets
+            const currentMatch = await storage.getMatch(match.id);
+            if (currentMatch && currentMatch.status === 'live') {
               await storage.reopenAllMarkets(match.id);
               await unifiedMatchService.updateManualMatchCache(match.id);
-            } else {
-              console.log(`⏭️  Skipping market reopen for ${match.id} - match no longer live`);
             }
           } catch (error) {
             console.error(`Error in market reopen timer for match ${match.id}:`, error);
-          } finally {
-            // Remove timer from tracking after execution
-            this.removeTimer(match.id, reopenTimer);
           }
         }, 2000);
-        
-        // Track timer so we can cancel it if match finishes
-        this.trackTimer(match.id, reopenTimer);
         
         // Update cache
         await unifiedMatchService.updateManualMatchCache(match.id);
@@ -295,25 +235,18 @@ export class ManualMatchSimulator {
         await storage.suspendAllMarkets(match.id);
         
         // Reopen with potentially adjusted odds after 3 seconds (with safety checks)
-        const goalTimer = setTimeout(async () => {
+        setTimeout(async () => {
           try {
-            // Double-check match is still live before reopening markets
-            if (await this.isMatchStillLive(match.id)) {
+            // Check if match is still live before reopening markets
+            const currentMatch = await storage.getMatch(match.id);
+            if (currentMatch && currentMatch.status === 'live') {
               await storage.reopenAllMarkets(match.id);
               await unifiedMatchService.updateManualMatchCache(match.id);
-            } else {
-              console.log(`⏭️  Skipping goal market reopen for ${match.id} - match no longer live`);
             }
           } catch (error) {
             console.error(`Error in goal market reopen timer for match ${match.id}:`, error);
-          } finally {
-            // Remove timer from tracking after execution
-            this.removeTimer(match.id, goalTimer);
           }
         }, 3000);
-        
-        // Track timer so we can cancel it if match finishes
-        this.trackTimer(match.id, goalTimer);
       }
       
     } catch (error) {
@@ -322,7 +255,7 @@ export class ManualMatchSimulator {
   }
 
   /**
-   * Complete matches that have finished (93 minutes elapsed)
+   * Complete matches that have finished (90+ minutes elapsed)
    */
   private async completeFinishedMatches(now: Date): Promise<void> {
     try {
@@ -331,10 +264,10 @@ export class ManualMatchSimulator {
       for (const match of liveMatches) {
         const kickoffTime = new Date(match.kickoff_time || match.kickoffTime);
         const elapsedMs = now.getTime() - kickoffTime.getTime();
-        const MATCH_DURATION_MS = 93 * 60 * 1000;
+        const elapsedMinutes = Math.floor(elapsedMs / 60000);
         
-        // Check if match should be completed (exactly 93 minutes)
-        if (elapsedMs >= MATCH_DURATION_MS) {
+        // Check if match should be completed (90+ minutes, with 2 min buffer)
+        if (elapsedMinutes >= 92) {
           console.log(`🏁 Completing match: ${match.home_team_name || match.homeTeamName} vs ${match.away_team_name || match.awayTeamName}`);
           
           // Get final scores from events
@@ -344,16 +277,13 @@ export class ManualMatchSimulator {
           const homeScore = goals.filter((e: MatchEvent) => e.team === 'home').length;
           const awayScore = goals.filter((e: MatchEvent) => e.team === 'away').length;
           
-          // Clear any pending timers for this match to prevent race conditions
-          this.clearMatchTimers(match.id);
-          
           // Mark match as finished
           await storage.finishMatch(match.id, homeScore, awayScore);
           
           // Close all markets
           await storage.suspendAllMarkets(match.id);
           
-          // Update cache (this will now remove from live cache collections)
+          // Update cache
           await unifiedMatchService.updateManualMatchCache(match.id);
           
           this.matchesProcessed++;
