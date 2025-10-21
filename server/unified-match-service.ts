@@ -340,15 +340,15 @@ export class UnifiedMatchService {
     
     // Determine match status
     let status: 'live' | 'upcoming' | 'completed' = 'upcoming';
-    if (dbMatch.status === 'LIVE') {
+    if (dbMatch.status === 'live') {
       status = 'live';
-    } else if (dbMatch.status === 'FINISHED') {
+    } else if (dbMatch.status === 'finished') {
       status = 'completed';
     }
     
     // Determine market status
     let market_status: 'open' | 'suspended' | 'closed' = 'open';
-    if (dbMatch.status === 'FINISHED') {
+    if (dbMatch.status === 'finished') {
       market_status = 'closed';
     } else if (h2hMarket?.status === 'suspended') {
       market_status = 'suspended';
