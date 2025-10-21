@@ -317,24 +317,28 @@ function Results() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {(filteredData as BetWithSelections[]).map((bet) => (
-                    <div 
-                      key={bet.id} 
-                      className="border rounded-lg p-4 hover-elevate transition-all duration-200" 
-                      data-testid={`settlement-card-${bet.id}`}
-                    >
-                      <div className="flex justify-between items-start mb-3 gap-4">
-                        <div className="flex items-center space-x-2">
-                          <Badge variant={bet.status === 'won' ? 'default' : 'destructive'}>
-                            {bet.status.toUpperCase()}
-                          </Badge>
-                          <Badge variant="outline">
-                            {bet.type.toUpperCase()}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">
-                            #{bet.id.slice(-4)}
-                          </span>
-                        </div>
+                  {(filteredData as BetWithSelections[]).map((bet) => {
+                    // Type guard to ensure we have valid bet data
+                    if (!bet.type || !bet.selections) return null;
+                    
+                    return (
+                      <div 
+                        key={bet.id} 
+                        className="border rounded-lg p-4 hover-elevate transition-all duration-200" 
+                        data-testid={`settlement-card-${bet.id}`}
+                      >
+                        <div className="flex justify-between items-start mb-3 gap-4">
+                          <div className="flex items-center space-x-2">
+                            <Badge variant={bet.status === 'won' ? 'default' : 'destructive'}>
+                              {bet.status.toUpperCase()}
+                            </Badge>
+                            <Badge variant="outline">
+                              {bet.type.toUpperCase()}
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              #{bet.id.slice(-4)}
+                            </span>
+                          </div>
                         <div className="text-right">
                           <p className="font-medium">
                             Stake: {currencyUtils.formatCurrency(bet.totalStake)}
@@ -395,7 +399,8 @@ function Results() {
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
