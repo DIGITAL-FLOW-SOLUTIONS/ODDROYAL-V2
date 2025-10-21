@@ -36,20 +36,21 @@ function LineContent() {
 
   // Read from match store for real-time data
   const lastUpdate = useMatchStore(state => state.lastUpdate);
+  const liveMatchIds = useMatchStore(state => state.liveMatchIds);
   
   // Get prematch matches from store - reads current state without subscribing
   const prematchMatches = useMemo(() => {
     const currentMatches = useMatchStore.getState().matches;
     const currentOdds = useMatchStore.getState().odds;
     
-    // Filter for upcoming matches and enrich with odds
+    // Filter for upcoming matches (exclude live matches) and enrich with odds
     return Array.from(currentMatches.values())
-      .filter(m => m.status === 'upcoming')
+      .filter(m => !liveMatchIds.has(m.match_id))
       .map(match => ({
         ...match,
         odds: currentOdds.get(match.match_id)
       }));
-  }, [lastUpdate]);
+  }, [lastUpdate, liveMatchIds]);
 
   // Create match lookup map for fast access
   const matchesByLeague = useMemo(() => {
