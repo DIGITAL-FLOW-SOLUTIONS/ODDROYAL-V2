@@ -111,6 +111,7 @@ export interface IStorage {
   getUpcomingManualMatches(limit?: number): Promise<any[]>;
   getLiveManualMatches(limit?: number): Promise<any[]>;
   getFinishedManualMatches(limit?: number): Promise<any[]>;
+  countManualMatchesInLeague(leagueId: string, statuses?: string[]): Promise<number>;
   getUserSettledBets(userId: string, status?: string): Promise<any[]>;
 
   // Market management operations
@@ -1529,6 +1530,11 @@ export class MemStorage implements IStorage {
   async getFinishedManualMatches(limit: number = 50): Promise<any[]> {
     // MemStorage stub - return empty array
     return [];
+  }
+
+  async countManualMatchesInLeague(leagueId: string, statuses: string[] = ['scheduled', 'live']): Promise<number> {
+    // MemStorage stub - return 0
+    return 0;
   }
 
   async getUserSettledBets(userId: string, status?: string): Promise<any[]> {

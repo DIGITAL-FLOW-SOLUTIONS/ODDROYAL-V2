@@ -1845,6 +1845,33 @@ export class SupabaseStorage implements IStorage {
     }
   }
 
+  async countManualMatchesInLeague(leagueId: string, statuses: string[] = ['scheduled', 'live']): Promise<number> {
+    try {
+      let query = this.client
+        .from('matches')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_manual', true)
+        .eq('league_id', leagueId);
+      
+      // Filter by statuses if provided
+      if (statuses.length > 0) {
+        query = query.in('status', statuses);
+      }
+
+      const { count, error } = await query;
+
+      if (error) {
+        console.error(`Error counting manual matches in league ${leagueId}:`, error);
+        return 0;
+      }
+
+      return count || 0;
+    } catch (error: any) {
+      console.error(`Error counting manual matches in league ${leagueId}:`, error);
+      return 0;
+    }
+  }
+
   async getUserSettledBets(userId: string, status?: string): Promise<any[]> {
     try {
       let query = this.client

@@ -322,6 +322,17 @@ export function registerOddsApiRoutes(app: Express): void {
               });
             }
             
+            // DEFENSIVE FILTERING: Remove manual leagues with zero matches
+            // This prevents ghost manual leagues from showing in sidebar after all matches finish
+            allLeagues = allLeagues.filter(league => {
+              // Keep all non-manual leagues regardless of match count
+              if (!league.league_id?.startsWith('manual_') && league.league_id !== 'league_big_league') {
+                return true;
+              }
+              // For manual leagues, only keep if they have matches
+              return league.match_count > 0;
+            });
+            
             menuData.push({
               sport_key: sport.key,
               sport_title: sport.title,
