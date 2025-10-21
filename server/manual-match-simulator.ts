@@ -410,6 +410,21 @@ export class ManualMatchSimulator {
           // AGGRESSIVE: Remove from all caches immediately
           await this.removeFinishedMatchFromCache(match.id, match.sport, match.league_id || match.leagueId);
           
+          // PROACTIVE CLEANUP: Check if this was the last match in the league
+          // If so, remove the league from master catalog to prevent ghost leagues
+          const leagueId = match.league_id || match.leagueId;
+          const sportKey = match.sport || 'football';
+          
+          // Count remaining scheduled/live matches in this league
+          const remainingMatches = await storage.countManualMatchesInLeague(leagueId, ['scheduled', 'live']);
+          
+          if (remainingMatches === 0) {
+            console.log(`🧹 Last match in league ${leagueId} finished - removing league from master catalog`);
+            await redisCache.removeLeagueFromMasterCatalog(sportKey, leagueId);
+          } else {
+            console.log(`📊 League ${leagueId} still has ${remainingMatches} active match(es)`);
+          }
+          
           this.matchesProcessed++;
         }
       }

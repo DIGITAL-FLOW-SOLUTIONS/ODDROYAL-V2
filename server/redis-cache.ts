@@ -370,6 +370,22 @@ class RedisCacheManager {
     logger.info(`[MASTER CATALOG] Added new league ${league.league_id} to ${sportKey} catalog (now ${updated.length} total)`);
   }
 
+  async removeLeagueFromMasterCatalog(
+    sportKey: string,
+    leagueId: string
+  ): Promise<void> {
+    const existing = (await this.getMasterLeagueCatalog(sportKey)) || [];
+    
+    // Filter out the league
+    const updated = existing.filter(l => l.league_id !== leagueId);
+    
+    // Only update if something was removed
+    if (updated.length < existing.length) {
+      await this.setMasterLeagueCatalog(sportKey, updated);
+      logger.info(`[MASTER CATALOG] Removed league ${leagueId} from ${sportKey} catalog (now ${updated.length} total)`);
+    }
+  }
+
   // Match markets with metadata
   async setMatchMarkets(
     matchId: string,
