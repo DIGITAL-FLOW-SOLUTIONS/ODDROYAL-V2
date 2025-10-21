@@ -211,42 +211,37 @@ export class UnifiedMatchService {
   
   /**
    * Get matches by league (both API and manual)
+   * Manual matches are now included in Redis sport/league arrays via aggregator
    */
   async getMatchesByLeague(leagueId: string, sportKey?: string, status?: string): Promise<UnifiedMatch[]> {
     try {
-      // Get API matches from Redis (need to search through sports to find the league)
-      let apiMatches: any[] = [];
+      // Get all matches from Redis (includes both API and manual matches)
+      // Manual matches are added to sport/league arrays by the aggregator's manual polling
+      let allMatches: any[] = [];
       
       if (sportKey) {
         // If we have sport key, get matches directly
         const prematchMatches = await redisCache.getPrematchMatches(sportKey, leagueId) || [];
         const liveMatches = await redisCache.getLiveMatches(sportKey, leagueId) || [];
-        apiMatches = [...prematchMatches, ...liveMatches];
+        allMatches = [...prematchMatches, ...liveMatches];
       } else {
         // Search through all sports to find the league
         const sports = await redisCache.getSportsList() || [];
         for (const sport of sports) {
           const prematchMatches = await redisCache.getPrematchMatches(sport.key, leagueId) || [];
           const liveMatches = await redisCache.getLiveMatches(sport.key, leagueId) || [];
-          apiMatches.push(...prematchMatches, ...liveMatches);
+          allMatches.push(...prematchMatches, ...liveMatches);
         }
       }
       
-      // Get manual matches from Supabase
-      const manualMatches = await storage.getAllMatches({
-        league: leagueId,
-        status,
-        source: 'manual'
-      });
+      // Filter by status if requested
+      let unified = allMatches;
+      if (status) {
+        unified = allMatches.filter(m => m.status === status);
+      }
       
-      // Transform manual matches
-      const transformedManual = await Promise.all(
-        manualMatches.matches.map(match => this.transformManualMatch(match))
-      );
-      
-      // Merge and sort
-      const unified = [...apiMatches, ...transformedManual]
-        .sort((a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime());
+      // Sort by commence_time
+      unified = unified.sort((a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime());
       
       return unified;
     } catch (error) {

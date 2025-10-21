@@ -623,11 +623,36 @@ export class AblyAggregator {
 
   /**
    * Transform manual match from DB to UnifiedMatch format
+   * Includes bookmakers array for frontend odds display
    */
   private async transformManualMatch(dbMatch: any): Promise<UnifiedMatch> {
-    // Reuse the unified service transformation
+    // Get markets for the match to extract odds
     const markets = await storage.getMatchMarkets(dbMatch.id);
     
+    // Build bookmakers array with markets and outcomes for consistency with API matches
+    const bookmakers: any[] = [];
+    
+    if (markets && markets.length > 0) {
+      // Group all markets under a single bookmaker for consistency
+      const marketsList = markets.map((market: any) => {
+        return {
+          key: market.key || market.type,
+          outcomes: (market.outcomes || []).map((outcome: any) => ({
+            name: outcome.label,
+            key: outcome.key,
+            price: parseFloat(outcome.odds) || 1.01
+          }))
+        };
+      });
+      
+      bookmakers.push({
+        key: 'manual',
+        title: 'Manual',
+        markets: marketsList
+      });
+    }
+    
+    // Extract 1X2 odds if available
     const h2hMarket = markets.find(m => m.type === '1x2' || m.key === 'h2h');
     let odds: any = undefined;
     
@@ -667,6 +692,7 @@ export class AblyAggregator {
       commence_time: dbMatch.kickoff_time || dbMatch.kickoffTime,
       status,
       market_status,
+      bookmakers, // Include bookmakers for odds display
       source: 'manual',
       is_manual: true,
     };
