@@ -192,9 +192,14 @@ export default function SportsSidebar() {
                         className={`${location.includes(`/league/football/${league.league_id}`) ? "text-primary" : ""} border-0 hover-elevate active-elevate-2 py-1`}
                         onMouseEnter={() => handleLeagueHover('football', league.league_id)}
                       >
-                        <Link href={`/league/football/${league.league_id}`}>
+                        <Link href={`/league/football/${league.league_id}`} className="flex items-center gap-1 w-full">
                           <Crown className="h-4 w-4" />
                           <span className="flex-1 text-sm">{league.league_name}</span>
+                          {mode === 'live' && league.match_count > 0 && (
+                            <Badge variant="destructive" className="h-4 px-1.5 text-[9px] font-semibold">
+                              {league.match_count}
+                            </Badge>
+                          )}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
@@ -260,8 +265,13 @@ export default function SportsSidebar() {
                                     className={`${location.includes(`/league/${sport.sport_key}/${league.league_id}`) ? "text-primary" : ""} border-0 hover-elevate active-elevate-2 py-0.5`}
                                     onMouseEnter={() => handleLeagueHover(sport.sport_key, league.league_id)}
                                   >
-                                    <Link href={`/league/${sport.sport_key}/${league.league_id}`}>
+                                    <Link href={`/league/${sport.sport_key}/${league.league_id}`} className="flex items-center gap-1 w-full">
                                       <span className="flex-1 text-xs">{league.league_name}</span>
+                                      {mode === 'live' && league.match_count > 0 && (
+                                        <Badge variant="destructive" className="h-4 px-1 text-[9px] font-semibold">
+                                          {league.match_count}
+                                        </Badge>
+                                      )}
                                     </Link>
                                   </SidebarMenuSubButton>
                                 </SidebarMenuSubItem>

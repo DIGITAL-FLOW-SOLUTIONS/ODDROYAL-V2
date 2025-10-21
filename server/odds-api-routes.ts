@@ -263,19 +263,37 @@ export function registerOddsApiRoutes(app: Express): void {
           : await storage.getUpcomingManualMatches();
 
         // Build menu from API sports/leagues
+        // STABLE LEAGUE DISPLAY STRATEGY:
+        // - Always use prematch leagues as the stable base (prevents flickering)
+        // - Merge with live match counts to show live indicators
+        // - This ensures league list stays consistent while live badges appear/disappear
         for (const sport of sports) {
-          const leagues = mode === 'live'
-            ? await redisCache.getLiveLeagues(sport.key)
-            : await redisCache.getPrematchLeagues(sport.key);
-
-          // Only include sports with leagues that have matches
-          if (leagues && leagues.length > 0) {
-            // Filter leagues with matches
-            let filteredLeagues = leagues.filter(l => l.match_count > 0);
+          // Always get prematch leagues as the stable base
+          const prematchLeagues = await redisCache.getPrematchLeagues(sport.key);
+          
+          if (prematchLeagues && prematchLeagues.length > 0) {
+            let allLeagues = [...prematchLeagues];
+            
+            // If in live mode, merge with live match counts
+            if (mode === 'live') {
+              const liveLeagues = await redisCache.getLiveLeagues(sport.key) || [];
+              
+              // Create a map of live match counts
+              const liveCountsMap = new Map<string, number>();
+              liveLeagues.forEach(liveLeague => {
+                liveCountsMap.set(liveLeague.league_id, liveLeague.match_count);
+              });
+              
+              // Update match counts with live data
+              allLeagues = allLeagues.map(league => ({
+                ...league,
+                match_count: liveCountsMap.get(league.league_id) || 0
+              }));
+            }
             
             // Sort football leagues by priority to ensure EPL and top leagues appear first
             if (sport.key === 'football') {
-              filteredLeagues.sort((a, b) => {
+              allLeagues.sort((a, b) => {
                 const priorityA = FOOTBALL_LEAGUE_PRIORITY[a.league_id] || 999;
                 const priorityB = FOOTBALL_LEAGUE_PRIORITY[b.league_id] || 999;
                 return priorityA - priorityB;
@@ -286,8 +304,8 @@ export function registerOddsApiRoutes(app: Express): void {
               sport_key: sport.key,
               sport_title: sport.title,
               sport_icon: getSportIcon(sport.key),
-              leagues: filteredLeagues,
-              total_matches: leagues.reduce((sum, l) => sum + l.match_count, 0),
+              leagues: allLeagues,
+              total_matches: allLeagues.reduce((sum, l) => sum + l.match_count, 0),
             });
           }
         }
