@@ -325,12 +325,20 @@ export function registerOddsApiRoutes(app: Express): void {
             // DEFENSIVE FILTERING: Remove manual leagues with zero matches
             // This prevents ghost manual leagues from showing in sidebar after all matches finish
             allLeagues = allLeagues.filter(league => {
+              // Identify manual leagues by checking if they start with 'league_' prefix
+              const isManualLeague = league.league_id?.startsWith('league_');
+              
               // Keep all non-manual leagues regardless of match count
-              if (!league.league_id?.startsWith('manual_') && league.league_id !== 'league_big_league') {
+              if (!isManualLeague) {
                 return true;
               }
+              
               // For manual leagues, only keep if they have matches
-              return league.match_count > 0;
+              const hasMatches = league.match_count > 0;
+              if (!hasMatches) {
+                console.log(`🧹 Filtering out manual league with 0 matches: ${league.league_id}`);
+              }
+              return hasMatches;
             });
             
             menuData.push({
