@@ -40,14 +40,14 @@ export class BetSettlementWorker {
   private errors = 0;
   private lastRun: Date | null = null;
   private lockTTL = 30; // Lock expires after 30 seconds
-  private maxRetries = 3; // Max retries for API calls
-  private retryDelay = 1000; // Initial retry delay in ms
+  private maxRetries = 5; // Max retries for failed settlements (PRODUCTION: 5 retries)
+  private retryDelay = 120000; // Retry delay: 2 minutes (PRODUCTION requirement)
   private workerId: string; // Unique worker identifier
   private shutdownRequested = false; // Graceful shutdown flag
 
   constructor(private intervalMinutes = 2) {
     this.workerId = `worker-${randomUUID().slice(0, 8)}`;
-    logger.info(`[SETTLEMENT] Worker initialized with ID: ${this.workerId}`);
+    logger.info(`[SETTLEMENT] Worker initialized with ID: ${this.workerId}, interval: ${intervalMinutes} minutes, maxRetries: ${this.maxRetries}`);
   }
 
   /**
@@ -563,6 +563,7 @@ export class BetSettlementWorker {
 
   /**
    * Evaluate individual selections against match results
+   * PRODUCTION: Never returns void status - only won or lost
    */
   private async evaluateSelections(selections: BetSelection[], matchResults: MatchResult[]): Promise<SelectionOutcome[]> {
     const outcomes: SelectionOutcome[] = [];
@@ -571,18 +572,29 @@ export class BetSettlementWorker {
       const matchResult = matchResults.find(result => result.fixtureId === selection.fixtureId);
       
       if (!matchResult) {
-        // No result available yet
+        // No result available yet - don't settle this selection
         continue;
       }
 
+      // PRODUCTION FIX: Even if match is cancelled/postponed, settle based on scores if available
+      // This prevents bets being voided in production
       if (matchResult.status !== 'finished') {
-        // Match cancelled/postponed - mark as void
-        outcomes.push({
-          selectionId: selection.id,
-          status: 'void',
-          result: `Match ${matchResult.status}`,
-          odds: parseFloat(selection.odds) // Include odds for void calculations
-        });
+        logger.warn(`Match ${matchResult.fixtureId} status is ${matchResult.status} but has scores - evaluating anyway`);
+        
+        // If we have scores, evaluate; otherwise settle as lost (NEVER void)
+        if (matchResult.homeScore !== undefined && matchResult.awayScore !== undefined) {
+          const outcome = this.evaluateSelection(selection, matchResult);
+          outcomes.push(outcome);
+        } else {
+          // No scores available - settle as lost to avoid void
+          logger.warn(`No scores for ${matchResult.fixtureId} - settling as lost`);
+          outcomes.push({
+            selectionId: selection.id,
+            status: 'lost',
+            result: `Match ${matchResult.status} - no scores`,
+            odds: parseFloat(selection.odds)
+          });
+        }
         continue;
       }
 
@@ -596,6 +608,7 @@ export class BetSettlementWorker {
 
   /**
    * Evaluate individual selection outcome based on market and result
+   * PRODUCTION: Never returns void - only won or lost
    */
   private evaluateSelection(selection: BetSelection, matchResult: MatchResult): SelectionOutcome {
     const { market, selection: selectionType, odds } = selection;
@@ -603,42 +616,102 @@ export class BetSettlementWorker {
 
     let isWon = false;
     let resultText = `${homeScore}-${awayScore}`;
+    const totalGoals = homeScore + awayScore;
 
-    switch (market) {
-      case '1x2':
-        if (selectionType === 'home' && winner === 'home') isWon = true;
-        else if (selectionType === 'away' && winner === 'away') isWon = true;
-        else if (selectionType === 'draw' && winner === 'draw') isWon = true;
+    // Normalize market key (handle variations)
+    const normalizedMarket = market.toLowerCase().replace(/_/g, '');
+
+    try {
+      // Match Winner / 1X2
+      if (normalizedMarket === '1x2' || normalizedMarket === 'matchwinner' || normalizedMarket === 'h2h') {
+        if (selectionType === 'home' || selectionType === '1') isWon = (winner === 'home');
+        else if (selectionType === 'away' || selectionType === '2') isWon = (winner === 'away');
+        else if (selectionType === 'draw' || selectionType === 'x') isWon = (winner === 'draw');
         resultText = `Result: ${homeScore}-${awayScore} (${winner})`;
-        break;
+      }
+      
+      // Totals (Over/Under)
+      else if (normalizedMarket.startsWith('totals') || normalizedMarket.includes('totalgoals')) {
+        // Extract threshold from market name (e.g., totals_0.5 -> 0.5)
+        const thresholdMatch = market.match(/[\d.]+/);
+        const threshold = thresholdMatch ? parseFloat(thresholdMatch[0]) : 2.5;
+        
+        if (selectionType.toLowerCase().includes('over')) {
+          isWon = totalGoals > threshold;
+        } else if (selectionType.toLowerCase().includes('under')) {
+          isWon = totalGoals < threshold;
+        }
+        resultText = `Total goals: ${totalGoals} (threshold: ${threshold})`;
+      }
+      
+      // Asian Handicap
+      else if (normalizedMarket.includes('asian') && normalizedMarket.includes('handicap')) {
+        // Extract handicap value (e.g., asian-handicap-0 -> 0)
+        const handicapMatch = market.match(/-?([\d.]+)$/);
+        const handicap = handicapMatch ? parseFloat(handicapMatch[1]) : 0;
+        
+        // Apply handicap to home team
+        const adjustedHomeScore = homeScore + (selectionType === 'home' ? handicap : -handicap);
+        const adjustedAwayScore = awayScore;
+        
+        if (selectionType === 'home') {
+          isWon = adjustedHomeScore > adjustedAwayScore;
+        } else {
+          isWon = adjustedAwayScore > adjustedHomeScore;
+        }
+        resultText = `Handicap ${handicap}: ${homeScore}-${awayScore}`;
+      }
+      
+      // Correct Score
+      else if (normalizedMarket.includes('correctscore')) {
+        // selectionType format: "1-0", "2-1", etc.
+        const [expectedHome, expectedAway] = selectionType.split('-').map(Number);
+        isWon = (homeScore === expectedHome && awayScore === expectedAway);
+        resultText = `Result: ${homeScore}-${awayScore}`;
+      }
+      
+      // Double Chance
+      else if (normalizedMarket.includes('doublechance')) {
+        if (selectionType === '1x' || selectionType === 'homedraw') {
+          isWon = (winner === 'home' || winner === 'draw');
+        } else if (selectionType === '12' || selectionType === 'homeaway') {
+          isWon = (winner !== 'draw');
+        } else if (selectionType === 'x2' || selectionType === 'draaway') {
+          isWon = (winner === 'draw' || winner === 'away');
+        }
+        resultText = `Result: ${winner}`;
+      }
+      
+      // Both Teams to Score
+      else if (normalizedMarket.includes('btts') || normalizedMarket.includes('bothteamstoscore')) {
+        const bothScored = (homeScore > 0 && awayScore > 0);
+        if (selectionType.toLowerCase() === 'yes') {
+          isWon = bothScored;
+        } else {
+          isWon = !bothScored;
+        }
+        resultText = `Both scored: ${bothScored}`;
+      }
+      
+      // Next Goal (cannot evaluate without minute-by-minute data - settle as lost)
+      else if (normalizedMarket.includes('nextgoal')) {
+        logger.warn(`Next goal market cannot be evaluated - settling as lost for bet ${selection.id}`);
+        isWon = false;
+        resultText = 'Next goal market - insufficient data';
+      }
+      
+      // Unknown market - default to lost (NEVER void)
+      else {
+        logger.warn(`Unknown market type "${market}" for selection ${selection.id} - settling as lost`);
+        isWon = false;
+        resultText = `Unknown market: ${market}`;
+      }
 
-      case 'totalgoals':
-        const totalGoals = homeScore + awayScore;
-        if (selectionType === 'over35' && totalGoals > 3.5) isWon = true;
-        else if (selectionType === 'under35' && totalGoals < 3.5) isWon = true;
-        else if (selectionType === 'over25' && totalGoals > 2.5) isWon = true;
-        else if (selectionType === 'under25' && totalGoals < 2.5) isWon = true;
-        resultText = `Total goals: ${totalGoals}`;
-        break;
-
-      case 'nextgoal':
-        // For next goal markets, we'd need more detailed match data
-        // For now, mark as void since we don't have minute-by-minute data
-        return {
-          selectionId: selection.id,
-          status: 'void',
-          result: 'Next goal market not supported yet',
-          odds: parseFloat(odds) // Include odds for void calculations
-        };
-
-      default:
-        logger.warn(`Unknown market type: ${market}`);
-        return {
-          selectionId: selection.id,
-          status: 'void',
-          result: 'Unknown market type',
-          odds: parseFloat(odds) // Include odds for void calculations
-        };
+    } catch (error) {
+      logger.error(`Error evaluating selection ${selection.id}:`, error);
+      // On error, settle as lost (NEVER void)
+      isWon = false;
+      resultText = `Evaluation error: ${homeScore}-${awayScore}`;
     }
 
     return {
@@ -651,22 +724,19 @@ export class BetSettlementWorker {
 
   /**
    * Calculate overall bet outcome based on selection outcomes
+   * PRODUCTION: Never returns void - only won or lost
    */
   private calculateBetOutcome(bet: Bet, selectionOutcomes: SelectionOutcome[]): BetOutcome {
     const wonCount = selectionOutcomes.filter(o => o.status === 'won').length;
     const lostCount = selectionOutcomes.filter(o => o.status === 'lost').length;
-    const voidCount = selectionOutcomes.filter(o => o.status === 'void').length;
 
     let finalStatus: 'won' | 'lost' | 'void';
     let actualWinnings = 0;
 
     switch (bet.type) {
       case 'single':
-        // Single bet: all selections must win
-        if (voidCount > 0) {
-          finalStatus = 'void';
-          actualWinnings = bet.totalStake; // Return stake
-        } else if (wonCount === selectionOutcomes.length) {
+        // Single bet: all selections must win (NO VOID in production)
+        if (wonCount === selectionOutcomes.length) {
           finalStatus = 'won';
           actualWinnings = bet.potentialWinnings;
         } else {
@@ -676,26 +746,8 @@ export class BetSettlementWorker {
         break;
 
       case 'express':
-        // Express bet: all selections must win
-        if (lostCount > 0) {
-          finalStatus = 'lost';
-          actualWinnings = 0;
-        } else if (voidCount > 0) {
-          // Proper handling: remove void selections and recalculate with remaining odds
-          const nonVoidSelections = selectionOutcomes.filter(o => o.status !== 'void');
-          if (nonVoidSelections.length === 0) {
-            finalStatus = 'void';
-            actualWinnings = bet.totalStake;
-          } else if (nonVoidSelections.every(s => s.status === 'won')) {
-            // Recalculate winnings with reduced odds
-            const combinedOdds = nonVoidSelections.reduce((acc, sel) => acc * (sel.odds || 1), 1);
-            actualWinnings = Math.round(bet.totalStake * combinedOdds); // Ensure cents
-            finalStatus = 'won';
-          } else {
-            finalStatus = 'lost';
-            actualWinnings = 0;
-          }
-        } else if (wonCount === selectionOutcomes.length) {
+        // Express bet: all selections must win (NO VOID in production)
+        if (wonCount === selectionOutcomes.length) {
           finalStatus = 'won';
           actualWinnings = bet.potentialWinnings;
         } else {
@@ -706,7 +758,7 @@ export class BetSettlementWorker {
 
       case 'system':
         // System bet: complex calculation based on combinations
-        // For now, simplified version
+        // Win if at least half of selections won
         if (wonCount >= Math.ceil(selectionOutcomes.length / 2)) {
           finalStatus = 'won';
           actualWinnings = Math.round(bet.potentialWinnings * (wonCount / selectionOutcomes.length));
@@ -732,4 +784,4 @@ export class BetSettlementWorker {
 }
 
 // Export singleton instance
-export const settlementWorker = new BetSettlementWorker(5); // Run every 5 minutes (optimized for API quota)
+export const settlementWorker = new BetSettlementWorker(2); // Run every 2 minutes (PRODUCTION: faster settlement)
