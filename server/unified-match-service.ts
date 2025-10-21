@@ -44,21 +44,21 @@ export class UnifiedMatchService {
    */
   async getAllLiveMatches(): Promise<UnifiedMatch[]> {
     try {
-      // Try to get from cache first
+      // Check cache first with very short TTL to balance performance and freshness
       const cached = await redisCache.get<UnifiedMatch[]>('unified:matches:live');
       if (cached && cached.length > 0) {
         return cached;
       }
       
-      // Get all matches from Redis (includes both API and manual matches)
-      // Manual matches are added to sport/league arrays by the aggregator's manual polling
+      // Fetch fresh data including manual matches from DB
+      // Manual matches are fetched directly from DB in getAllLiveMatchesEnriched
       const allMatches = await redisCache.getAllLiveMatchesEnriched();
       
       // Sort by commence_time
       const unified = allMatches
         .sort((a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime());
       
-      // Cache unified list to Redis for faster subsequent requests
+      // Cache with 5s TTL for burst protection while ensuring fresh manual matches
       await this.cacheUnifiedMatches('live', unified);
       
       return unified;
@@ -399,7 +399,7 @@ export class UnifiedMatchService {
   private async cacheUnifiedMatches(type: 'live' | 'upcoming', matches: UnifiedMatch[]): Promise<void> {
     try {
       const cacheKey = `unified:matches:${type}`;
-      const ttl = type === 'live' ? 30 : 300; // 30s for live, 5min for upcoming
+      const ttl = type === 'live' ? 5 : 300; // 5s for live (fresh manual matches), 5min for upcoming
       await redisCache.set(cacheKey, matches, ttl);
     } catch (error) {
       console.error('Error caching unified matches:', error);
