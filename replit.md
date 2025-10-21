@@ -25,7 +25,7 @@ Preferred communication style: Simple, everyday language.
 - **Admin System**: Comprehensive admin panel at `/prime-admin` with authentication, RBAC, and management tools.
 - **Caching**: Multi-layer caching system (In-memory LRU → Redis → API fallback) with monitoring for performance optimization and data availability.
 - **Market Generation**: Dynamic market generation system for 50+ football markets, and sport-specific markets for Basketball, American Football, Baseball, Ice Hockey, Cricket, and MMA. This replaces API market persistence by generating markets dynamically using deterministic seeded PRNG.
-- **Master League Catalog**: Persistent Redis-based catalog of all discovered leagues per sport (24h TTL) that eliminates sidebar flickering by maintaining a stable league list independent of current match availability. The catalog is automatically populated by the aggregator worker and serves as the base for menu endpoints, with real-time match counts overlaid from live/prematch sources.
+- **Master League Catalog**: Persistent Redis-based catalog of all discovered leagues per sport (24h TTL) that eliminates flickering across sidebar, Line page, and Live page by maintaining a stable league list independent of current match availability. The catalog is automatically populated by the aggregator worker and serves as the base for menu endpoints, with real-time match counts and match data overlaid from live/prematch sources. All pages use `placeholderData` strategy during refetch to prevent "No available matches" flashing.
 
 ## Database Design
 - **ORM**: Drizzle with PostgreSQL dialect.
