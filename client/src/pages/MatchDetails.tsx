@@ -13,11 +13,13 @@ import {
   ChevronRight,
   Clock,
   MapPin,
+  Lock,
 } from "lucide-react";
 import { useBetSlip } from "@/contexts/BetSlipContext";
 import { useMatchStore } from "@/store/matchStore";
 import { LazyImage } from "@/components/LazyImage";
 import { isLiveByTime, isMatchFinished } from "@/lib/matchStatusUtils";
+import { useToast } from "@/hooks/use-toast";
 
 interface CountdownTime {
   days: number;
@@ -75,10 +77,12 @@ interface Market {
   key: string;
   name: string;
   description?: string;
+  status?: 'open' | 'suspended' | 'closed';
   outcomes: {
     name: string;
     price: number;
     point?: number;
+    status?: 'active' | 'suspended';
   }[];
 }
 
@@ -155,6 +159,7 @@ function transformBookmakersToMarkets(bookmakers: any[], sportKey: string = 'def
 
 export default function MatchDetails() {
   const { onAddToBetSlip, betSlipSelections } = useBetSlip();
+  const { toast } = useToast();
   const [, params] = useRoute("/match/:id");
   const matchId = params?.id;
   const [expandedMarkets, setExpandedMarkets] = useState<Record<string, boolean>>({});
@@ -352,6 +357,20 @@ export default function MatchDetails() {
 
   const handleOddsClick = (market: Market, outcome: any) => {
     if (!onAddToBetSlip) return;
+    
+    // Prevent adding selections from locked markets
+    if (isMarketLocked(market)) {
+      const description = match.status === 'LIVE' 
+        ? 'Betting is not available during live matches. Please wait for the match to finish.'
+        : `This market is currently ${market.status === 'suspended' ? 'suspended' : 'closed'}. Please try again later.`;
+      
+      toast({
+        title: "Market Unavailable",
+        description,
+        variant: "destructive",
+      });
+      return;
+    }
 
     const selection = {
       id: `${match.id}-${market.key}-${outcome.name}`,
@@ -368,6 +387,12 @@ export default function MatchDetails() {
     };
 
     onAddToBetSlip(selection);
+  };
+  
+  // Helper function to check if a market is locked
+  // Markets are locked when: 1) match is live, OR 2) market status is suspended/closed
+  const isMarketLocked = (market: Market): boolean => {
+    return match.status === 'LIVE' || market.status === 'suspended' || market.status === 'closed';
   };
 
   // Helper function to check if an outcome is selected in the betslip
@@ -611,7 +636,13 @@ export default function MatchDetails() {
                       <h3 className="font-semibold text-sm md:text-base">
                         {market.name}
                       </h3>
-                      {market.description && (
+                      {isMarketLocked(market) && (
+                        <Badge variant="destructive" className="text-xs flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          {match.status === 'LIVE' ? 'Live Match' : (market.status === 'suspended' ? 'Suspended' : 'Closed')}
+                        </Badge>
+                      )}
+                      {market.description && !isMarketLocked(market) && (
                         <Badge variant="secondary" className="text-xs">
                           {market.description}
                         </Badge>
@@ -633,25 +664,42 @@ export default function MatchDetails() {
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="p-4 pt-0 flex flex-col gap-2">
+                        <div className="p-4 pt-0 flex flex-col gap-2 relative">
+                          {isMarketLocked(market) && (
+                            <div className="absolute inset-0 bg-background/60 backdrop-blur-sm z-10 flex items-center justify-center rounded-md">
+                              <div className="text-center p-4">
+                                <Lock className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                                <p className="text-sm font-medium text-muted-foreground">
+                                  {match.status === 'LIVE' ? 'Live Match' : (market.status === 'suspended' ? 'Market Suspended' : 'Market Closed')}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {match.status === 'LIVE' ? 'Betting not available during live matches' : 'Betting is currently unavailable'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
                           {market.outcomes.map((outcome: any, idx: number) => {
                             const isSelected = isOutcomeSelected(market, outcome);
+                            const locked = isMarketLocked(market);
                             return (
                               <button
                                 key={idx}
                                 onClick={() => handleOddsClick(market, outcome)}
+                                disabled={locked}
                                 className={`
-                                  ${isSelected ? 'odds-button-selected' : 'odds-button'}
+                                  ${isSelected && !locked ? 'odds-button-selected' : 'odds-button'}
                                   flex flex-row items-center justify-between gap-2
                                   h-8 py-2 px-3 rounded-md
                                   min-w-0 w-full
+                                  ${locked ? 'opacity-50 cursor-not-allowed' : ''}
                                 `}
                                 data-testid={`button-odds-${market.key}-${idx}`}
                               >
                                 <span className="text-xs opacity-90 truncate flex-1 text-left">
                                   {outcome.point !== undefined ? `${outcome.name} ${outcome.point > 0 ? '+' : ''}${outcome.point}` : outcome.name}
                                 </span>
-                                <span className="text-sm font-bold shrink-0">
+                                <span className="text-sm font-bold shrink-0 flex items-center gap-1">
+                                  {locked && <Lock className="w-3 h-3" />}
                                   {outcome.price.toFixed(2)}
                                 </span>
                               </button>
