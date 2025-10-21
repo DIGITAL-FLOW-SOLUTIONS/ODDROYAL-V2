@@ -748,7 +748,50 @@ class RedisCacheManager {
       const sports = await this.refreshSportsListIfNeeded();
       console.log(`📊 getAllLiveMatchesEnriched - Found ${sports.length} sports:`, sports.map(s => s.key));
       const allMatches: any[] = [];
+      const processedMatchIds = new Set<string>();
 
+      // CRITICAL: Always fetch live manual matches directly from DB first
+      // This ensures manual matches never disappear from live page until truly finished
+      try {
+        const { storage } = await import('./storage');
+        const liveManualMatches = await storage.getLiveManualMatches(100);
+        
+        console.log(`📊 [MANUAL] Found ${liveManualMatches.length} live manual matches in DB`);
+        
+        for (const dbMatch of liveManualMatches) {
+          // Transform manual match to unified format
+          const homeLogo = await this.getTeamLogo(dbMatch.sport || 'football', dbMatch.homeTeamName || dbMatch.home_team_name);
+          const awayLogo = await this.getTeamLogo(dbMatch.sport || 'football', dbMatch.awayTeamName || dbMatch.away_team_name);
+          
+          const unifiedMatch = {
+            match_id: dbMatch.id,
+            sport_key: dbMatch.sport || 'football',
+            sport_icon: this.getSportIconForKey(dbMatch.sport || 'football'),
+            league_id: dbMatch.leagueId || dbMatch.league_id || 'manual_league',
+            league_name: dbMatch.leagueName || dbMatch.league_name || 'Manual Matches',
+            home_team: dbMatch.homeTeamName || dbMatch.home_team_name,
+            away_team: dbMatch.awayTeamName || dbMatch.away_team_name,
+            home_team_logo: homeLogo?.logo || null,
+            away_team_logo: awayLogo?.logo || null,
+            commence_time: dbMatch.kickoffTime || dbMatch.kickoff_time,
+            status: 'live' as const,
+            scores: {
+              home: dbMatch.homeScore || dbMatch.home_score || 0,
+              away: dbMatch.awayScore || dbMatch.away_score || 0,
+            },
+            market_status: 'open',
+            is_manual: true,
+            source: 'manual' as const,
+          };
+          
+          allMatches.push(unifiedMatch);
+          processedMatchIds.add(dbMatch.id);
+        }
+      } catch (manualError) {
+        logger.error('❌ Error fetching live manual matches:', manualError);
+      }
+
+      // Then fetch API matches from Redis cache
       for (const sport of sports) {
         const leagues = await this.getLiveLeagues(sport.key) || [];
         console.log(`  📊 Sport ${sport.key}: ${leagues.length} live leagues`);
@@ -759,6 +802,11 @@ class RedisCacheManager {
           
           // Enrich each match with logos and market status
           for (const match of matches) {
+            // Skip if already processed (manual match)
+            if (processedMatchIds.has(match.match_id)) {
+              continue;
+            }
+            
             const homeLogo = await this.getTeamLogo(sport.key, match.home_team);
             const awayLogo = await this.getTeamLogo(sport.key, match.away_team);
             
