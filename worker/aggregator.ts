@@ -438,6 +438,7 @@ export class AblyAggregator {
 
   /**
    * Update league fixture index in Redis
+   * Also adds manual matches to sport/league arrays so they appear alongside API matches
    */
   private async updateLeagueIndex(match: UnifiedMatch): Promise<void> {
     try {
@@ -450,6 +451,44 @@ export class AblyAggregator {
       if (!fixtureIds.includes(match.match_id)) {
         fixtureIds.push(match.match_id);
         await redisCache.set(leagueKey, fixtureIds, 3600);
+      }
+      
+      // For manual matches, also add to live/prematch league arrays
+      // This ensures they appear when getAllLiveMatchesEnriched() fetches matches
+      if (match.source === 'manual') {
+        const sportKey = match.sport_key;
+        const leagueId = match.league_id;
+        
+        if (match.status === 'live') {
+          // Add to live league array
+          const liveKey = `live:${sportKey}:${leagueId}`;
+          let liveMatches = await redisCache.get<UnifiedMatch[]>(liveKey) || [];
+          
+          // Replace or add the match
+          const existingIndex = liveMatches.findIndex(m => m.match_id === match.match_id);
+          if (existingIndex >= 0) {
+            liveMatches[existingIndex] = match;
+          } else {
+            liveMatches.push(match);
+          }
+          
+          await redisCache.set(liveKey, liveMatches, 300); // 5 min TTL for live
+          
+        } else if (match.status === 'upcoming') {
+          // Add to prematch league array
+          const prematchKey = `prematch:${sportKey}:${leagueId}`;
+          let prematchMatches = await redisCache.get<UnifiedMatch[]>(prematchKey) || [];
+          
+          // Replace or add the match
+          const existingIndex = prematchMatches.findIndex(m => m.match_id === match.match_id);
+          if (existingIndex >= 0) {
+            prematchMatches[existingIndex] = match;
+          } else {
+            prematchMatches.push(match);
+          }
+          
+          await redisCache.set(prematchKey, prematchMatches, 900); // 15 min TTL for prematch
+        }
       }
       
     } catch (error) {

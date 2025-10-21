@@ -40,6 +40,7 @@ export class UnifiedMatchService {
   
   /**
    * Get all live matches (both API and manual)
+   * Manual matches are now included in getAllLiveMatchesEnriched via aggregator
    */
   async getAllLiveMatches(): Promise<UnifiedMatch[]> {
     try {
@@ -49,19 +50,12 @@ export class UnifiedMatchService {
         return cached;
       }
       
-      // Get API matches from Redis
-      const apiMatches = await redisCache.getAllLiveMatchesEnriched();
+      // Get all matches from Redis (includes both API and manual matches)
+      // Manual matches are added to sport/league arrays by the aggregator's manual polling
+      const allMatches = await redisCache.getAllLiveMatchesEnriched();
       
-      // Get manual matches from Supabase
-      const manualMatches = await storage.getLiveManualMatches();
-      
-      // Transform manual matches to unified format
-      const transformedManual = await Promise.all(
-        manualMatches.map(match => this.transformManualMatch(match))
-      );
-      
-      // Merge and sort by commence_time
-      const unified = [...apiMatches, ...transformedManual]
+      // Sort by commence_time
+      const unified = allMatches
         .sort((a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime());
       
       // Cache unified list to Redis for faster subsequent requests
@@ -76,6 +70,7 @@ export class UnifiedMatchService {
   
   /**
    * Get all upcoming matches (both API and manual)
+   * Manual matches are now included in sport/league arrays via aggregator
    */
   async getAllUpcomingMatches(limit: number = 100): Promise<UnifiedMatch[]> {
     try {
@@ -85,34 +80,27 @@ export class UnifiedMatchService {
         return cached.slice(0, limit);
       }
       
-      // Get API matches from Redis (get from all sports and leagues, but respect limit)
-      const apiMatches: UnifiedMatch[] = [];
+      // Get all matches from Redis (includes both API and manual matches)
+      // Manual matches are added to sport/league arrays by the aggregator's manual polling
+      const allMatches: UnifiedMatch[] = [];
       const sports = await redisCache.getSportsList() || [];
       
       for (const sport of sports) {
-        if (apiMatches.length >= limit * 2) break; // Get 2x limit to allow for mixing with manual
+        if (allMatches.length >= limit * 2) break; // Get 2x limit for sorting
         
         const leagues = await redisCache.getPrematchLeagues(sport.key) || [];
         for (const league of leagues) {
-          if (apiMatches.length >= limit * 2) break;
+          if (allMatches.length >= limit * 2) break;
           
           const matches = await redisCache.getPrematchMatches(sport.key, league.league_id) || [];
           // Explicitly set status to 'upcoming' for all prematch matches
           const upcomingMatches = matches.map(m => ({ ...m, status: 'upcoming' as const }));
-          apiMatches.push(...upcomingMatches);
+          allMatches.push(...upcomingMatches);
         }
       }
       
-      // Get manual matches from Supabase
-      const manualMatches = await storage.getUpcomingManualMatches(limit);
-      
-      // Transform manual matches to unified format
-      const transformedManual = await Promise.all(
-        manualMatches.map(match => this.transformManualMatch(match))
-      );
-      
-      // Merge and sort by commence_time
-      const unified = [...apiMatches, ...transformedManual]
+      // Sort by commence_time and limit
+      const unified = allMatches
         .sort((a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime())
         .slice(0, limit);
       
