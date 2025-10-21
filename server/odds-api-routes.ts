@@ -263,19 +263,26 @@ export function registerOddsApiRoutes(app: Express): void {
           : await storage.getUpcomingManualMatches();
 
         // Build menu from API sports/leagues
-        // STABLE LEAGUE DISPLAY STRATEGY:
-        // - Always use prematch leagues as the stable base (prevents flickering)
-        // - Merge with live match counts to show live indicators
-        // - This ensures league list stays consistent while live badges appear/disappear
+        // MASTER CATALOG STRATEGY (eliminates flickering):
+        // - Use master league catalog as the persistent base (contains all known leagues)
+        // - Fall back to prematch leagues if catalog not yet populated
+        // - Overlay current match counts from prematch/live sources
+        // - This ensures league list stays completely stable while match counts update
         for (const sport of sports) {
-          // Always get prematch leagues as the stable base
-          const prematchLeagues = await redisCache.getPrematchLeagues(sport.key);
+          // Try master catalog first (persistent, long TTL)
+          let baseLeagues = await redisCache.getMasterLeagueCatalog(sport.key);
           
-          if (prematchLeagues && prematchLeagues.length > 0) {
-            let allLeagues = [...prematchLeagues];
+          // Fall back to prematch if catalog not yet populated
+          if (!baseLeagues || baseLeagues.length === 0) {
+            baseLeagues = await redisCache.getPrematchLeagues(sport.key);
+          }
+          
+          if (baseLeagues && baseLeagues.length > 0) {
+            let allLeagues = [...baseLeagues];
             
-            // If in live mode, merge with live match counts
+            // Overlay match counts based on mode
             if (mode === 'live') {
+              // In live mode, show live match counts
               const liveLeagues = await redisCache.getLiveLeagues(sport.key) || [];
               
               // Create a map of live match counts
@@ -284,10 +291,25 @@ export function registerOddsApiRoutes(app: Express): void {
                 liveCountsMap.set(liveLeague.league_id, liveLeague.match_count);
               });
               
-              // Update match counts with live data
+              // Update match counts with live data (0 if no live matches)
               allLeagues = allLeagues.map(league => ({
                 ...league,
                 match_count: liveCountsMap.get(league.league_id) || 0
+              }));
+            } else {
+              // In prematch mode, show prematch match counts
+              const prematchLeagues = await redisCache.getPrematchLeagues(sport.key) || [];
+              
+              // Create a map of prematch match counts
+              const prematchCountsMap = new Map<string, number>();
+              prematchLeagues.forEach(prematchLeague => {
+                prematchCountsMap.set(prematchLeague.league_id, prematchLeague.match_count);
+              });
+              
+              // Update match counts with prematch data (0 if no upcoming matches)
+              allLeagues = allLeagues.map(league => ({
+                ...league,
+                match_count: prematchCountsMap.get(league.league_id) || 0
               }));
             }
             

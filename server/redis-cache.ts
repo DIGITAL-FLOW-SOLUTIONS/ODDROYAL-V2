@@ -329,6 +329,47 @@ class RedisCacheManager {
     return result.data;
   }
 
+  // Master League Catalog - persistent list of all known leagues per sport
+  // This prevents sidebar flickering by maintaining a stable league list
+  async getMasterLeagueCatalog(sportKey: string): Promise<any[] | null> {
+    const result = await this.getWithMetadata<any[]>(`master:leagues:${sportKey}`);
+    return result.data;
+  }
+
+  async setMasterLeagueCatalog(
+    sportKey: string,
+    leagues: any[],
+    ttlSeconds: number = 86400 // 24 hours - very long TTL for stability
+  ): Promise<void> {
+    await this.setWithMetadata(`master:leagues:${sportKey}`, leagues, ttlSeconds, {
+      source: 'master_catalog',
+      lastUpdated: new Date().toISOString()
+    });
+  }
+
+  async addLeagueToMasterCatalog(
+    sportKey: string,
+    league: { league_id: string; league_name: string }
+  ): Promise<void> {
+    const existing = (await this.getMasterLeagueCatalog(sportKey)) || [];
+    
+    // Check if league already exists
+    const exists = existing.some(l => l.league_id === league.league_id);
+    if (exists) {
+      return; // Already in catalog
+    }
+    
+    // Add new league to catalog
+    const updated = [...existing, {
+      league_id: league.league_id,
+      league_name: league.league_name,
+      first_seen: new Date().toISOString()
+    }];
+    
+    await this.setMasterLeagueCatalog(sportKey, updated);
+    logger.info(`[MASTER CATALOG] Added new league ${league.league_id} to ${sportKey} catalog (now ${updated.length} total)`);
+  }
+
   // Match markets with metadata
   async setMatchMarkets(
     matchId: string,
@@ -434,7 +475,7 @@ class RedisCacheManager {
     key: string, 
     value: any, 
     ttlSeconds?: number,
-    metadata?: { source?: string; version?: number }
+    metadata?: { source?: string; version?: number; isEmpty?: boolean; isLegitimateEmpty?: boolean; lastUpdated?: string }
   ): Promise<void> {
     const dataWithMeta = {
       data: value,

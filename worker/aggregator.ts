@@ -678,6 +678,9 @@ export class AblyAggregator {
           match_count: leagueMatches.length,
         }));
 
+        // Update master catalog with discovered live leagues
+        await this.updateMasterLeagueCatalog(sportKey, liveLeagues);
+
         // MERGE STRATEGY: Get existing prematch leagues and merge with live leagues
         const existingPrematchLeagues = await redisCache.getPrematchLeagues(sportKey) || [];
         
@@ -717,6 +720,27 @@ export class AblyAggregator {
   }
 
   /**
+   * Update master league catalog with newly discovered leagues
+   * This maintains a persistent list of all known leagues to prevent sidebar flickering
+   */
+  private async updateMasterLeagueCatalog(
+    sportKey: string,
+    leagues: Array<{ league_id: string; league_name: string }>
+  ): Promise<void> {
+    try {
+      // Add each league to the master catalog (it will skip duplicates)
+      for (const league of leagues) {
+        await redisCache.addLeagueToMasterCatalog(sportKey, {
+          league_id: league.league_id,
+          league_name: league.league_name
+        });
+      }
+    } catch (error) {
+      logger.error(`Error updating master league catalog for ${sportKey}:`, error);
+    }
+  }
+
+  /**
    * Update legacy prematch structure for backwards compatibility
    * Maintains prematch:leagues:{sport} and prematch:matches:{sport}:{league} keys
    */
@@ -746,6 +770,9 @@ export class AblyAggregator {
           league_name: leagueMatches[0].league_name || leagueId,
           match_count: leagueMatches.length,
         }));
+
+        // Update master catalog with discovered leagues
+        await this.updateMasterLeagueCatalog(sportKey, leagues);
 
         // Write to legacy keys with longer TTLs
         await redisCache.setPrematchLeagues(sportKey, leagues, 600); // 10 minutes
