@@ -649,6 +649,7 @@ export class AblyAggregator {
   /**
    * Update legacy live structure for backwards compatibility
    * Maintains live:leagues:{sport} and live:matches:{sport}:{league} keys
+   * IMPORTANT: Merges with existing prematch leagues to preserve all leagues in cache
    */
   private async updateLegacyLiveStructure(matches: UnifiedMatch[]): Promise<void> {
     try {
@@ -670,17 +671,42 @@ export class AblyAggregator {
           matchesByLeague.set(match.league_id, leagueMatches);
         });
 
-        // Build league list
-        const leagues = Array.from(matchesByLeague.entries()).map(([leagueId, leagueMatches]) => ({
+        // Build live league list (only leagues with live matches right now)
+        const liveLeagues = Array.from(matchesByLeague.entries()).map(([leagueId, leagueMatches]) => ({
           league_id: leagueId,
           league_name: leagueMatches[0].league_name || leagueId,
           match_count: leagueMatches.length,
         }));
 
-        // Write to legacy keys with longer TTLs to prevent expiration issues
-        await redisCache.setLiveLeagues(sportKey, leagues, 300); // 5 minutes
+        // MERGE STRATEGY: Get existing prematch leagues and merge with live leagues
+        const existingPrematchLeagues = await redisCache.getPrematchLeagues(sportKey) || [];
+        
+        // Create a map of league_id -> league data for efficient merging
+        const mergedLeaguesMap = new Map<string, any>();
+        
+        // First, add all prematch leagues (with match_count: 0 for non-live)
+        existingPrematchLeagues.forEach(league => {
+          mergedLeaguesMap.set(league.league_id, {
+            league_id: league.league_id,
+            league_name: league.league_name,
+            match_count: 0, // Default to 0 for non-live leagues
+          });
+        });
+        
+        // Then, update/add leagues with live matches (overwrite match_count)
+        liveLeagues.forEach(league => {
+          mergedLeaguesMap.set(league.league_id, league);
+        });
+        
+        // Convert back to array
+        const mergedLeagues = Array.from(mergedLeaguesMap.values());
+        
+        logger.info(`[AGGREGATOR] Live merge for ${sportKey}: ${liveLeagues.length} live leagues + ${existingPrematchLeagues.length} prematch = ${mergedLeagues.length} total`);
 
-        // Write matches for each league
+        // Write merged leagues to cache (preserves all prematch leagues)
+        await redisCache.setLiveLeagues(sportKey, mergedLeagues, 300); // 5 minutes
+
+        // Write matches for each live league
         for (const [leagueId, leagueMatches] of Array.from(matchesByLeague.entries())) {
           await redisCache.setLiveMatches(sportKey, leagueId, leagueMatches, 300); // 5 minutes
         }

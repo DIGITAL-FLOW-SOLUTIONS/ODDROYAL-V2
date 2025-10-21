@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,19 @@ export default function Homepage() {
   const hasInitialData = useRef(false);
   const leaguesScrollRef = useRef<HTMLDivElement>(null);
   
+  // Fetch dynamic league data from API
+  const { data: menuData } = useQuery({
+    queryKey: ['/api/menu', 'prematch'],
+    queryFn: async () => {
+      const response = await fetch('/api/menu?mode=prematch');
+      if (!response.ok) throw new Error('Failed to fetch menu');
+      const result = await response.json();
+      return result.data;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchInterval: 30000, // 30 seconds
+  });
+  
   useEffect(() => {
     if (!hasInitialData.current) {
       hasInitialData.current = true;
@@ -53,44 +67,25 @@ export default function Homepage() {
     }
   };
 
-  const topLeagues = [
-    { 
-      id: "soccer_uefa_champs_league_uefa_champions_league",
-      name: "UEFA Champions League", 
-      sport: "football",
-      logo: uclLogo
-    },
-    { 
-      id: "soccer_spain_la_liga_la_liga_-_spain",
-      name: "La Liga - Spain", 
-      sport: "football",
-      logo: laLigaLogo
-    },
-    { 
-      id: "soccer_epl_epl",
-      name: "Premier League", 
-      sport: "football",
-      logo: eplLogo
-    },
-    { 
-      id: "soccer_germany_bundesliga_bundesliga_-_germany",
-      name: "Bundesliga - Germany", 
-      sport: "football",
-      logo: bundesligaLogo
-    },
-    { 
-      id: "soccer_italy_serie_a_serie_a_-_italy",
-      name: "Serie A - Italy", 
-      sport: "football",
-      logo: serieALogo
-    },
-    { 
-      id: "soccer_france_ligue_one_ligue_1_-_france",
-      name: "Ligue 1 - France", 
-      sport: "football",
-      logo: ligue1Logo
-    },
-  ];
+  // Logo mapping helper - matches league_id by substring
+  const getLeagueLogo = (leagueId: string): string | null => {
+    if (leagueId.includes('uefa_champs_league')) return uclLogo;
+    if (leagueId.includes('spain_la_liga')) return laLigaLogo;
+    if (leagueId.includes('epl')) return eplLogo;
+    if (leagueId.includes('germany_bundesliga')) return bundesligaLogo;
+    if (leagueId.includes('italy_serie_a')) return serieALogo;
+    if (leagueId.includes('france_ligue_one')) return ligue1Logo;
+    return null;
+  };
+
+  // Get football leagues from API data, limit to first 8 for top leagues
+  const footballSport = menuData?.sports?.find((s: any) => s.sport_key === 'football');
+  const topLeagues = (footballSport?.leagues || []).slice(0, 8).map((league: any) => ({
+    id: league.league_id,
+    name: league.league_name,
+    sport: 'football',
+    logo: getLeagueLogo(league.league_id),
+  }));
 
   const hotGames = [
     { id: "1", name: "Stacks o' Gold", image: stacksOGoldImg },
@@ -150,33 +145,47 @@ export default function Homepage() {
                 className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-2" 
                 style={{ scrollbarWidth: 'none' }}
               >
-                {topLeagues.map((league, index) => (
-                  <motion.div
-                    key={league.id}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.05 * index }}
-                    data-testid={`card-league-${league.id}`}
-                  >
-                    <Link href={`/league/${league.sport}/${league.id}`}>
-                      <Card className="min-w-[120px] w-[120px] h-[120px] sm:min-w-[140px] sm:w-[140px] sm:h-[140px] md:min-w-[160px] md:w-[160px] md:h-[160px] hover-elevate active-elevate-2 cursor-pointer overflow-hidden group">
-                        <CardContent className="p-2 sm:p-3 flex flex-col items-center justify-center text-center gap-1 sm:gap-2 bg-[#48a83e] h-full">
-                          <div className="w-[80px] h-[80px] sm:w-[100px] sm:h-[100px] md:w-[120px] md:h-[120px] flex items-center justify-center relative overflow-hidden">
-                            <LazyImage 
-                              src={league.logo}
-                              alt={league.name}
-                              className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-                          </div>
-                          <div className="space-y-0.5">
-                            <p className="text-[10px] sm:text-xs font-medium leading-tight line-clamp-2">{league.name}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  </motion.div>
-                ))}
+                {topLeagues.length === 0 ? (
+                  <div className="w-full text-center py-8 text-muted-foreground text-sm">
+                    Loading leagues...
+                  </div>
+                ) : (
+                  topLeagues.map((league: any, index: number) => (
+                    <motion.div
+                      key={league.id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.05 * index }}
+                      data-testid={`card-league-${league.id}`}
+                    >
+                      <Link href={`/league/${league.sport}/${league.id}`}>
+                        <Card className="min-w-[120px] w-[120px] h-[120px] sm:min-w-[140px] sm:w-[140px] sm:h-[140px] md:min-w-[160px] md:w-[160px] md:h-[160px] hover-elevate active-elevate-2 cursor-pointer overflow-hidden group">
+                          <CardContent className="p-2 sm:p-3 flex flex-col items-center justify-center text-center gap-1 sm:gap-2 bg-[#48a83e] h-full">
+                            <div className="w-[80px] h-[80px] sm:w-[100px] sm:h-[100px] md:w-[120px] md:h-[120px] flex items-center justify-center relative overflow-hidden">
+                              {league.logo ? (
+                                <>
+                                  <LazyImage 
+                                    src={league.logo}
+                                    alt={league.name}
+                                    className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
+                                  />
+                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                                </>
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-white/80">
+                                  {league.name.charAt(0)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="space-y-0.5">
+                              <p className="text-[10px] sm:text-xs font-medium leading-tight line-clamp-2">{league.name}</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    </motion.div>
+                  ))
+                )}
               </div>
             </div>
           </motion.section>
