@@ -4,6 +4,7 @@ import { useMode } from "@/contexts/ModeContext";
 import { Clock } from "lucide-react";
 import { useBetSlip } from "@/contexts/BetSlipContext";
 import { useMatchStore } from "@/store/matchStore";
+import { useQuery } from "@tanstack/react-query";
 
 // Import all the new components
 import HeroBanner from "@/components/HeroBanner";
@@ -19,10 +20,22 @@ function LineContent() {
     setMode('prematch');
   }, [setMode]);
 
-  // Read from match store like Live page does
+  // Fetch stable master catalog - prevents flickering
+  const { data: menuData } = useQuery({
+    queryKey: ['/api/menu', 'prematch'],
+    queryFn: async () => {
+      const response = await fetch('/api/menu?mode=prematch');
+      if (!response.ok) throw new Error('Failed to fetch menu');
+      const result = await response.json();
+      return result.data;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchInterval: 30000, // 30 seconds
+    placeholderData: (previousData: any) => previousData, // Show old data while refetching - prevents flicker
+  });
+
+  // Read from match store for real-time data
   const lastUpdate = useMatchStore(state => state.lastUpdate);
-  const sports = useMatchStore(state => state.sports);
-  const leagues = useMatchStore(state => state.leagues);
   
   // Get prematch matches from store - reads current state without subscribing
   const prematchMatches = useMemo(() => {
@@ -38,36 +51,12 @@ function LineContent() {
       }));
   }, [lastUpdate]);
 
-  // Group prematch matches by sport and league (similar to Live page)
-  const sportGroups = useMemo(() => {
-    const groupsMap = new Map<string, any>();
+  // Create match lookup map for fast access
+  const matchesByLeague = useMemo(() => {
+    const map = new Map<string, any[]>();
     
     for (const match of prematchMatches) {
-      const sport = sports.find(s => s.sport_key === match.sport_key);
-      if (!sport) continue;
-      
-      // Get or create sport group
-      let sportGroup = groupsMap.get(match.sport_key);
-      if (!sportGroup) {
-        sportGroup = {
-          id: match.sport_key,
-          name: sport.sport_title,
-          sport_icon: sport.sport_icon,
-          leagues: new Map<string, any>()
-        };
-        groupsMap.set(match.sport_key, sportGroup);
-      }
-      
-      // Get or create league within sport
-      let league = sportGroup.leagues.get(match.league_id);
-      if (!league) {
-        league = {
-          id: match.league_id,
-          name: match.league_name,
-          matches: []
-        };
-        sportGroup.leagues.set(match.league_id, league);
-      }
+      const leagueMatches = map.get(match.league_id) || [];
       
       // Transform match to component format
       const transformedMatch = {
@@ -90,24 +79,31 @@ function LineContent() {
         additionalMarkets: match.bookmakers?.[0]?.markets?.length || 0,
       };
       
-      league.matches.push(transformedMatch);
+      leagueMatches.push(transformedMatch);
+      map.set(match.league_id, leagueMatches);
     }
     
-    // Convert maps to arrays
-    const groups: any[] = [];
-    groupsMap.forEach(sportGroup => {
-      const leaguesArray = Array.from(sportGroup.leagues.values());
-      groups.push({
-        id: sportGroup.id,
-        name: sportGroup.name,
-        sport_icon: sportGroup.sport_icon,
-        leagues: leaguesArray,
-        total_matches: leaguesArray.reduce((sum, l: any) => sum + l.matches.length, 0)
-      });
-    });
+    return map;
+  }, [prematchMatches]);
+
+  // Build stable sport groups from catalog, overlay real-time match data
+  const sportGroups = useMemo(() => {
+    if (!menuData?.sports) return [];
     
-    return groups;
-  }, [prematchMatches, sports]);
+    return menuData.sports.map((sport: any) => ({
+      id: sport.sport_key,
+      name: sport.sport_title,
+      sport_icon: sport.sport_icon,
+      leagues: sport.leagues.map((league: any) => ({
+        id: league.league_id,
+        name: league.league_name,
+        matches: matchesByLeague.get(league.league_id) || [], // Overlay real-time matches
+      })),
+      total_matches: sport.leagues.reduce((sum: number, league: any) => {
+        return sum + (matchesByLeague.get(league.league_id)?.length || 0);
+      }, 0),
+    }));
+  }, [menuData, matchesByLeague]);
 
   // Collect all matches for Popular Events
   const allMatchesWithLeague = useMemo(() => {
@@ -177,12 +173,14 @@ function LineContent() {
     onAddToBetSlip(selection);
   };
 
-  // Separate football from other sports - maintaining order
-  const footballSport = sportGroups.find((s: any) => s.id === 'football');
-  const otherSports = sportGroups.filter((s: any) => s.id !== 'football');
+  // Separate football from other sports - maintaining catalog order
+  // Filter for sports with at least one match for better UX
+  const sportsWithMatches = sportGroups.filter((s: any) => s.total_matches > 0);
+  const footballSport = sportsWithMatches.find((s: any) => s.id === 'football');
+  const otherSports = sportsWithMatches.filter((s: any) => s.id !== 'football');
 
   // Check if we have any actual matches
-  const hasMatches = allMatchesWithLeague.length > 0;
+  const hasMatches = sportsWithMatches.length > 0;
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -216,7 +214,7 @@ function LineContent() {
             </motion.div>
 
             {/* Football Section - Always First */}
-            {footballSport && footballSport.leagues.length > 0 && (
+            {footballSport && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -229,21 +227,19 @@ function LineContent() {
               </motion.div>
             )}
 
-            {/* Other Sports - In Menu Order */}
+            {/* Other Sports - In Catalog Order */}
             {otherSports.map((sport: any, index: number) => (
-              sport.leagues.length > 0 && (
-                <motion.div
-                  key={sport.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
-                >
-                  <SportsMatches
-                    sports={[sport]}
-                    onOddsClick={handleOddsClick}
-                  />
-                </motion.div>
-              )
+              <motion.div
+                key={sport.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
+              >
+                <SportsMatches
+                  sports={[sport]}
+                  onOddsClick={handleOddsClick}
+                />
+              </motion.div>
             ))}
         </div>
       )}

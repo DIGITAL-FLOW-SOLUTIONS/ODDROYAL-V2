@@ -11,6 +11,7 @@ import { renderProfiler } from "@/lib/renderProfiler";
 import { FPSCounter } from "@/components/FPSCounter";
 import { useBetSlip } from "@/contexts/BetSlipContext";
 import { isLiveByTime } from "@/lib/matchStatusUtils";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Live() {
   const { onAddToBetSlip, betSlipSelections } = useBetSlip();
@@ -24,11 +25,23 @@ export default function Live() {
     setMode('live');
   }, [setMode]);
   
+  // Fetch stable master catalog - prevents flickering
+  const { data: menuData } = useQuery({
+    queryKey: ['/api/menu', 'live'],
+    queryFn: async () => {
+      const response = await fetch('/api/menu?mode=live');
+      if (!response.ok) throw new Error('Failed to fetch menu');
+      const result = await response.json();
+      return result.data;
+    },
+    staleTime: 60 * 1000, // 1 minute for live
+    refetchInterval: 15000, // 15 seconds
+    placeholderData: (previousData: any) => previousData, // Show old data while refetching - prevents flicker
+  });
+  
   // Subscribe to liveMatchesVersion - only triggers when matches cross live boundary
   const liveMatchesVersion = useMatchStore(state => state.liveMatchesVersion);
   const liveMatchIds = useMatchStore(state => state.liveMatchIds);
-  const sports = useMatchStore(state => state.sports);
-  const leagues = useMatchStore(state => state.leagues);
   
   // Build live matches from the stable liveMatchIds set
   // This prevents re-renders on every odds update
@@ -58,55 +71,49 @@ export default function Live() {
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
 
-  // Group live matches by sport and league (similar to old REST response structure)
-  const sportGroups = useMemo(() => {
-    const groupsMap = new Map<string, any>();
+  // Create match lookup map by league for fast access
+  const liveMatchesByLeague = useMemo(() => {
+    const map = new Map<string, any[]>();
     
     for (const match of liveMatches) {
-      const sport = sports.find(s => s.sport_key === match.sport_key);
-      if (!sport) continue;
-      
-      // Get or create sport group
-      let sportGroup = groupsMap.get(match.sport_key);
-      if (!sportGroup) {
-        sportGroup = {
-          sport_key: match.sport_key,
-          sport_title: sport.sport_title,
-          sport_icon: sport.sport_icon,
-          leagues: new Map<string, any>()
-        };
-        groupsMap.set(match.sport_key, sportGroup);
-      }
-      
-      // Get or create league within sport
-      let league = sportGroup.leagues.get(match.league_id);
-      if (!league) {
-        league = {
-          league_id: match.league_id,
-          league_name: match.league_name,
-          matches: []
-        };
-        sportGroup.leagues.set(match.league_id, league);
-      }
-      
-      league.matches.push(match);
+      const leagueMatches = map.get(match.league_id) || [];
+      leagueMatches.push(match);
+      map.set(match.league_id, leagueMatches);
     }
     
-    // Convert maps to arrays and calculate totals
+    return map;
+  }, [liveMatches]);
+
+  // Build stable sport groups from catalog, overlay real-time live match data
+  // Only show leagues that have live matches
+  const sportGroups = useMemo(() => {
+    if (!menuData?.sports) return [];
+    
     const groups: any[] = [];
-    groupsMap.forEach(sportGroup => {
-      const leagues = Array.from(sportGroup.leagues.values());
-      groups.push({
-        sport_key: sportGroup.sport_key,
-        sport_title: sportGroup.sport_title,
-        sport_icon: sportGroup.sport_icon,
-        leagues,
-        total_matches: leagues.reduce((sum, l: any) => sum + l.matches.length, 0)
-      });
-    });
+    
+    for (const sport of menuData.sports) {
+      // Filter leagues to only those with live matches
+      const leaguesWithLiveMatches = sport.leagues
+        .map((league: any) => ({
+          league_id: league.league_id,
+          league_name: league.league_name,
+          matches: liveMatchesByLeague.get(league.league_id) || [],
+        }))
+        .filter((league: any) => league.matches.length > 0); // Only show leagues with live matches
+      
+      if (leaguesWithLiveMatches.length > 0) {
+        groups.push({
+          sport_key: sport.sport_key,
+          sport_title: sport.sport_title,
+          sport_icon: sport.sport_icon,
+          leagues: leaguesWithLiveMatches,
+          total_matches: leaguesWithLiveMatches.reduce((sum: number, l: any) => sum + l.matches.length, 0),
+        });
+      }
+    }
     
     return groups;
-  }, [liveMatches, sports]);
+  }, [menuData, liveMatchesByLeague]);
   
   // Filter sport groups based on selected sport
   const filteredSportGroups = selectedSport 
