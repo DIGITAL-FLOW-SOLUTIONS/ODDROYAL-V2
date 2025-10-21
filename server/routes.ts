@@ -1400,26 +1400,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Results and Settlement endpoints
   
-  // Get finished match results 
-  app.get("/api/results", async (req, res) => {
-    try {
-      // Since we don't have getFinishedFixtures function, we'll return empty for now
-      // In a real implementation, this would fetch from SportMonks API
-      res.json({ 
-        success: true, 
-        data: [],
-        count: 0 
-      });
-      
-    } catch (error) {
-      console.error('Error fetching match results:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Failed to fetch match results' 
-      });
-    }
-  });
-  
   // Get settled bet results for a user
   app.get("/api/settlements", authenticateUser, async (req: any, res) => {
     try {
