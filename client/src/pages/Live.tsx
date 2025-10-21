@@ -51,7 +51,8 @@ export default function Live() {
     const matches: any[] = [];
     liveMatchIds.forEach(matchId => {
       const match = currentMatches.get(matchId);
-      if (match) {
+      // Safety filter: Only include matches with 'live' status to prevent finished matches from showing
+      if (match && match.status === 'live') {
         matches.push(match);
       }
     });
