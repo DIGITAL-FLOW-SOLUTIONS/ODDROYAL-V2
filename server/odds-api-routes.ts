@@ -392,6 +392,35 @@ export function registerOddsApiRoutes(app: Express): void {
         cacheMonitor.recordHit('memory');
       }
 
+      // POST-PROCESSING: Apply defensive filtering to remove ghost manual leagues
+      // This runs on EVERY request (even cached ones) to ensure ghost leagues never appear
+      menuData = menuData.map((sport: any) => ({
+        ...sport,
+        leagues: sport.leagues.filter((league: any) => {
+          // Identify manual leagues by checking if they start with 'league_' prefix
+          const isManualLeague = league.league_id?.startsWith('league_');
+          
+          // Keep all non-manual leagues regardless of match count
+          if (!isManualLeague) {
+            return true;
+          }
+          
+          // For manual leagues, only keep if they have matches
+          const hasMatches = (league.match_count || 0) > 0;
+          if (!hasMatches) {
+            console.log(`🧹 POST-FILTER: Removing ghost manual league: ${league.league_id}`);
+          }
+          return hasMatches;
+        }),
+        total_matches: sport.leagues
+          .filter((league: any) => {
+            const isManualLeague = league.league_id?.startsWith('league_');
+            if (!isManualLeague) return true;
+            return (league.match_count || 0) > 0;
+          })
+          .reduce((sum: number, l: any) => sum + (l.match_count || 0), 0)
+      }));
+
       res.json({
         success: true,
         data: {
