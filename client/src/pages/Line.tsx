@@ -37,6 +37,7 @@ function LineContent() {
   // Read from match store for real-time data
   const lastUpdate = useMatchStore(state => state.lastUpdate);
   const liveMatchIds = useMatchStore(state => state.liveMatchIds);
+  const isConnected = useMatchStore(state => state.isConnected);
   
   // Get prematch matches from store - reads current state without subscribing
   const prematchMatches = useMemo(() => {
@@ -182,11 +183,23 @@ function LineContent() {
 
   // Check if we have any actual matches
   const hasMatches = sportsWithMatches.length > 0;
+  
+  // Show loading state while initial data is being loaded
+  const isLoading = !isConnected || (isConnected && !hasMatches && prematchMatches.length === 0);
 
   return (
     <div className="flex-1 overflow-y-auto">
-      {/* Show content immediately - data always available from store */}
-      {!hasMatches ? (
+      {isLoading ? (
+        /* Loading state */
+        <div className="container mx-auto pb-6">
+          <HeroBanner />
+          <div className="text-center py-12">
+            <Clock className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50 animate-pulse" />
+            <p className="text-lg font-medium text-foreground mb-2">Loading matches...</p>
+            <p className="text-muted-foreground">Please wait while we fetch the latest odds</p>
+          </div>
+        </div>
+      ) : !hasMatches ? (
         /* No data state */
         <div className="container mx-auto pb-6">
           <HeroBanner />

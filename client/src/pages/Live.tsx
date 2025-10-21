@@ -42,6 +42,7 @@ export default function Live() {
   // Subscribe to liveMatchesVersion - only triggers when matches cross live boundary
   const liveMatchesVersion = useMatchStore(state => state.liveMatchesVersion);
   const liveMatchIds = useMatchStore(state => state.liveMatchIds);
+  const isConnected = useMatchStore(state => state.isConnected);
   
   // Build live matches from the stable liveMatchIds set
   // This prevents re-renders on every odds update
@@ -276,7 +277,15 @@ export default function Live() {
 
       {/* Live Matches Content */}
       <div className="p-4 space-y-4">
-        {filteredSportGroups.length === 0 ? (
+        {!isConnected ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <Circle className="h-8 w-8 text-muted-foreground mx-auto mb-2 animate-pulse" />
+              <p className="text-muted-foreground">Loading live matches...</p>
+              <p className="text-sm text-muted-foreground/70">Please wait while we fetch the latest data</p>
+            </div>
+          </div>
+        ) : filteredSportGroups.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <div className="text-center">
               <Circle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
